@@ -22,8 +22,7 @@ esp_err_t GpioExpander::Write() {
   i2c_master_write_byte(handle, port_b_, true);
   i2c_master_stop(handle);
 
-  // TODO: timeout
-  esp_err_t ret = i2c_master_cmd_begin(0, handle, 0);
+  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, PCA8575_TIMEOUT);
 
   i2c_cmd_link_delete(handle);
   return ret;
@@ -43,8 +42,7 @@ esp_err_t GpioExpander::Read() {
   i2c_master_read_byte(handle, &input_b_, I2C_MASTER_LAST_NACK);
   i2c_master_stop(handle);
 
-  // TODO: timeout
-  esp_err_t ret = i2c_master_cmd_begin(0, handle, 0);
+  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, PCA8575_TIMEOUT);
 
   i2c_cmd_link_delete(handle);
   return ret;

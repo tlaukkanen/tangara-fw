@@ -28,7 +28,7 @@
 static const char* TAG = "MAIN";
 
 esp_err_t init_i2c(void) {
-  int i2c_port = 0;
+  i2c_port_t port = I2C_NUM_0;
   i2c_config_t config = {
     .mode = I2C_MODE_MASTER,
     .sda_io_num = I2C_SDA_IO,
@@ -42,8 +42,8 @@ esp_err_t init_i2c(void) {
     .clk_flags = 0,
   };
 
-  ESP_ERROR_CHECK(i2c_param_config(i2c_port, &config));
-  ESP_ERROR_CHECK(i2c_driver_install(i2c_port, config.mode, 0, 0, 0));
+  ESP_ERROR_CHECK(i2c_param_config(port, &config));
+  ESP_ERROR_CHECK(i2c_driver_install(port, config.mode, 0, 0, 0));
 
   // TODO: INT line
   // TODO: add devices to the bus (DAC and GPIO expander)

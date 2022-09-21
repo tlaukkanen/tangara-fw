@@ -8,6 +8,7 @@
 #include "driver/i2c.h"
 
 #define PCA8575_ADDRESS (0x20)
+#define PCA8575_TIMEOUT (5)
 
 namespace gay_ipod {
 
