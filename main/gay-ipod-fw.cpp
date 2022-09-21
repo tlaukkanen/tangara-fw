@@ -1,10 +1,12 @@
 #include <stdio.h>
 
+#include "gpio-expander.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#include "gpio-expander.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 
@@ -83,4 +85,9 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Initialising peripherals");
   init_i2c();
   init_spi();
+
+  gay_ipod::GpioExpander expander;
+  expander.Write();
+
+  while (1) {}
 }
