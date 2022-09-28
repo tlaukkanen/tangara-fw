@@ -33,10 +33,10 @@ class GpioExpander {
     GpioExpander& operator=(const GpioExpander&) = delete;
 
   private:
-    // All power switches low, both CS pins high, active-low PWR_OK high.
-    uint8_t port_a_ = 0b00001011;
-    // DAC mute output low, everything eelse is input and so held high.
-    uint8_t port_b_ = 0b10111111;
+    // All power switches high, PWR_OK low (input), both CS pins high.
+    uint8_t port_a_ = uint8_t{0b00001000};
+    // DAC mute output low, everything else is input and so low.
+    uint8_t port_b_ = uint8_t{0b11111111};
 
     uint8_t input_a_ = 0;
     uint8_t input_b_ = 0;

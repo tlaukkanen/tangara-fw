@@ -12,7 +12,7 @@
 
 #define I2C_SDA_IO (GPIO_NUM_0)
 #define I2C_SCL_IO (GPIO_NUM_4)
-#define I2C_CLOCK_HZ (400000)
+#define I2C_CLOCK_HZ (100000)
 
 #define SPI_SDI_IO (GPIO_NUM_19)
 #define SPI_SDO_IO (GPIO_NUM_23)
@@ -38,7 +38,7 @@ esp_err_t init_i2c(void) {
     .master = {
       .clk_speed = I2C_CLOCK_HZ,
     },
-    // TODO: check flags
+    // No requirements for the clock.
     .clk_flags = 0,
   };
 
@@ -46,7 +46,6 @@ esp_err_t init_i2c(void) {
   ESP_ERROR_CHECK(i2c_driver_install(port, config.mode, 0, 0, 0));
 
   // TODO: INT line
-  // TODO: add devices to the bus (DAC and GPIO expander)
 
   return ESP_OK;
 }
@@ -84,10 +83,11 @@ extern "C" void app_main(void)
 {
   ESP_LOGI(TAG, "Initialising peripherals");
   init_i2c();
-  init_spi();
+  //init_spi();
 
+  ESP_LOGI(TAG, "Setting default GPIO state");
   gay_ipod::GpioExpander expander;
-  expander.Write();
+  ESP_ERROR_CHECK(expander.Write());
 
-  while (1) {}
+  ESP_LOGI(TAG, "Idling.");
 }
