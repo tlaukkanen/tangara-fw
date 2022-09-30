@@ -97,11 +97,11 @@ extern "C" void app_main(void)
   ESP_ERROR_CHECK(expander.Write());
 
   ESP_LOGI(TAG, "Init ADC");
-  ESP_ERROR_CHECK(init_adc());
+  ESP_ERROR_CHECK(gay_ipod::init_adc());
 
 
   while (1) {
-    uint32_t battery = read_battery_voltage();
+    uint32_t battery = gay_ipod::read_battery_voltage();
     expander.Read();
 
     ESP_LOGI(TAG, "millivolts: %d, wall power? %d", battery, expander.charge_power_ok());

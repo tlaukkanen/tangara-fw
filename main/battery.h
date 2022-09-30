@@ -1,9 +1,13 @@
 #ifndef BATTERY_H
 #define BATTERY_H
 
+#include <stdint.h>
+
+#include "esp_err.h"
+
 namespace gay_ipod {
 
-esp_error_t init_adc(void);
+esp_err_t init_adc(void);
 
 /**
  * Returns the current battery level in millivolts.

@@ -1,4 +1,4 @@
-#include "battery.c"
+#include "battery.h"
 
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
@@ -8,7 +8,7 @@ namespace gay_ipod {
 
 static esp_adc_cal_characteristics_t calibration;
 
-esp_error_t init_adc(void) {
+esp_err_t init_adc(void) {
   // Calibration should already be fused into the chip from the factory, so
   // we should only need to read it back out again.
   esp_adc_cal_characterize(
