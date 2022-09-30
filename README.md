@@ -1,9 +1,33 @@
 # Building and flashing
 
-1. First, consult the ESP-IDF docs for the basic toolchain setup:
-https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html
-2. Once you've done this, you should be able to build with `idy.py build`
-3. TODO: Verify flashing configuration once we finally get our modules
+1. Make sure you've got all of the submodules in this repo correctly initialised;
+```
+git submodule update --init --recursive
+```
+
+2. If this is your first time setting up the repo, then you will need to install
+the ESP-IDF tools. You can consult the [ESP-IDF docs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html)
+for more detailed instructions, but the TL;DR is that you'll want to run
+something like this:
+```
+./lib/esp-adf/esp-idf/install.sh esp32
+```
+
+3. As a final piece of setup, you will need to source the env file in this repo
+to correctly set up your environment for building.
+```
+. ./.env
+```
+
+3. You can now build the project using `idf.py build`. Or to flash the project
+onto your board, something like:
+```
+idf.py -p /dev/ttyUSB0 -b 115200 flash
+```
+(give or take the correct serial port)
+
+Remember that you will need to boot your ESP32 into software download mode
+before you will be able to flash.
 
 # clangd setup
 
