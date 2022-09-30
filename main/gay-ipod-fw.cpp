@@ -8,7 +8,7 @@
 #include "esp_adc_cal.h"
 #include "esp_log.h"
 #include "gpio-expander.h"
-#include "gpio-expander.h"
+#include "battery.h"
 #include "hal/adc_types.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
@@ -97,20 +97,14 @@ extern "C" void app_main(void)
   ESP_ERROR_CHECK(expander.Write());
 
   ESP_LOGI(TAG, "Init ADC");
+  ESP_ERROR_CHECK(init_adc());
 
-  // Attentuate our battery voltage pin to read between 150mV and 2450mV.
-  esp_adc_cal_characteristics_t adc1_chars;
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 0, &adc1_chars);
-  adc1_config_width(ADC_WIDTH_BIT_12);
-  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
 
   while (1) {
-    int adc_raw = adc1_get_raw(ADC1_CHANNEL_6);
-    uint32_t adc_millivolts = esp_adc_cal_raw_to_voltage(adc_raw, &adc1_chars);
-
+    uint32_t battery = read_battery_voltage();
     expander.Read();
 
-    ESP_LOGI(TAG, "raw adc: %d, millivolts: %d, wall power? %d", adc_raw, adc_millivolts, expander.charge_power_ok());
+    ESP_LOGI(TAG, "millivolts: %d, wall power? %d", battery, expander.charge_power_ok());
 
     vTaskDelay(pdMS_TO_TICKS(1000));
     ESP_ERROR_CHECK(expander.Write());
