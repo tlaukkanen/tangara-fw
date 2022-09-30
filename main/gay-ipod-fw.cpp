@@ -1,18 +1,21 @@
 #include <stdio.h>
 
-#include "gpio-expander.h"
-#include "esp_log.h"
+#include "driver/adc.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#include "esp_adc_cal.h"
+#include "esp_log.h"
 #include "gpio-expander.h"
+#include "gpio-expander.h"
+#include "hal/adc_types.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 
 #define I2C_SDA_IO (GPIO_NUM_0)
 #define I2C_SCL_IO (GPIO_NUM_4)
-#define I2C_CLOCK_HZ (100000)
+#define I2C_CLOCK_HZ (400000)
 
 #define SPI_SDI_IO (GPIO_NUM_19)
 #define SPI_SDO_IO (GPIO_NUM_23)
@@ -87,7 +90,29 @@ extern "C" void app_main(void)
 
   ESP_LOGI(TAG, "Setting default GPIO state");
   gay_ipod::GpioExpander expander;
+
+  // for debugging usb ic
+  //expander.set_sd_mux(gay_ipod::GpioExpander::USB);
+
   ESP_ERROR_CHECK(expander.Write());
 
-  ESP_LOGI(TAG, "Idling.");
+  ESP_LOGI(TAG, "Init ADC");
+
+  // Attentuate our battery voltage pin to read between 150mV and 2450mV.
+  esp_adc_cal_characteristics_t adc1_chars;
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 0, &adc1_chars);
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
+
+  while (1) {
+    int adc_raw = adc1_get_raw(ADC1_CHANNEL_6);
+    uint32_t adc_millivolts = esp_adc_cal_raw_to_voltage(adc_raw, &adc1_chars);
+
+    expander.Read();
+
+    ESP_LOGI(TAG, "raw adc: %d, millivolts: %d, wall power? %d", adc_raw, adc_millivolts, expander.charge_power_ok());
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP_ERROR_CHECK(expander.Write());
+  }
 }
