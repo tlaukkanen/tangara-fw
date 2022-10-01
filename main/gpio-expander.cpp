@@ -54,8 +54,7 @@ bool GpioExpander::charge_power_ok(void) {
 }
 
 bool GpioExpander::headphone_detect(void) {
-  // Active-low.
-  return (input_b_ & (1 << 0)) == 0; // TODO.
+  return (input_b_ & (1 << 0));
 }
 
 uint8_t GpioExpander::key_states(void) {
@@ -63,15 +62,27 @@ uint8_t GpioExpander::key_states(void) {
 }
 
 void GpioExpander::set_sd_mux(SdMuxController controller) {
-  port_a_ &= (1 << 5);
+  if (controller == USB) {
+    port_a_ |= (1 << 5);
+  } else {
+    port_a_ &= ~(1 << 5);
+  }
 }
 
 void GpioExpander::set_sd_cs(bool high) {
-  port_a_ &= (1 << 6);
+  if (high) {
+    port_a_ |= (1 << 6);
+  } else {
+    port_a_ &= ~(1 << 6);
+  }
 }
 
 void GpioExpander::set_display_cs(bool high) {
-  port_a_ &= (1 << 7);
+  if (high) {
+    port_a_ |= (1 << 7);
+  } else {
+    port_a_ &= ~(1 << 7);
+  }
 }
 
 } // namespace gay_ipod
