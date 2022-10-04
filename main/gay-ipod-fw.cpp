@@ -1,17 +1,20 @@
 #include <stdio.h>
 
+#include "battery.h"
 #include "driver/adc.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "esp_adc_cal.h"
+#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "gpio-expander.h"
-#include "battery.h"
 #include "hal/adc_types.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
+#include "storage.h"
 
 #define I2C_SDA_IO (GPIO_NUM_0)
 #define I2C_SCL_IO (GPIO_NUM_4)
@@ -69,15 +72,11 @@ esp_err_t init_spi(void) {
 
     // Use the DMA default size.
     .max_transfer_sz = 0,
-    // TODO: check flags
-    .flags = 0,
+    .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_IOMUX_PINS,
     .intr_flags = 0,
   };
 
   ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &config, SPI_DMA_CH_AUTO));
-
-  // TODO: CS lines
-  // TODO: add devices to the bus (sd card and display)
 
   return ESP_OK;
 }
@@ -85,8 +84,10 @@ esp_err_t init_spi(void) {
 extern "C" void app_main(void)
 {
   ESP_LOGI(TAG, "Initialising peripherals");
+
+  ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
   init_i2c();
-  //init_spi();
+  init_spi();
 
   ESP_LOGI(TAG, "Setting default GPIO state");
   gay_ipod::GpioExpander expander;
@@ -99,14 +100,18 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Init ADC");
   ESP_ERROR_CHECK(gay_ipod::init_adc());
 
+  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
+  vTaskDelay(pdMS_TO_TICKS(2500));
 
-  while (1) {
-    uint32_t battery = gay_ipod::read_battery_voltage();
-    expander.Read();
+  ESP_LOGI(TAG, "Trying to init SD card");
+  gay_ipod::SdStorage storage(&expander);
 
-    ESP_LOGI(TAG, "millivolts: %d, wall power? %d", battery, expander.charge_power_ok());
+  ESP_ERROR_CHECK(storage.Acquire());
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    ESP_ERROR_CHECK(expander.Write());
-  }
+  ESP_LOGI(TAG, "Looks okay? Trying to deinit now.");
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  ESP_ERROR_CHECK(storage.Release());
+
+  ESP_LOGI(TAG, "Hooray!");
+  vTaskDelay(pdMS_TO_TICKS(1000));
 }
