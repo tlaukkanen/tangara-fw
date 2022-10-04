@@ -4,9 +4,14 @@
 #include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
 #include "esp_err.h"
+#include "esp_vfs_fat.h"
 #include "gpio-expander.h"
 
+#define MAX_OPEN_FILES (8)
+
 namespace gay_ipod {
+
+static const char *STORAGE_PATH = "/sd";
 
 class SdStorage {
   public:
@@ -24,9 +29,13 @@ class SdStorage {
   private:
     GpioExpander *gpio_;
 
+    // SPI and SD driver info
     sdspi_dev_handle_t handle_;
     sdmmc_host_t host_;
     sdmmc_card_t card_;
+
+    // Filesystem info
+    FATFS *fs_ = nullptr;
 };
 
 } // namespace gay_ipod

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <dirent.h>
 
 #include "battery.h"
 #include "driver/adc.h"
@@ -107,9 +108,23 @@ extern "C" void app_main(void)
   gay_ipod::SdStorage storage(&expander);
 
   ESP_ERROR_CHECK(storage.Acquire());
-
-  ESP_LOGI(TAG, "Looks okay? Trying to deinit now.");
+  ESP_LOGI(TAG, "Looks okay? Let's list some files!");
   vTaskDelay(pdMS_TO_TICKS(1000));
+
+  DIR *d;
+  struct dirent *dir;
+  d = opendir(gay_ipod::STORAGE_PATH);
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      ESP_LOGI(TAG, "file! %s", dir->d_name);
+    }
+    closedir(d);
+  } else {
+    ESP_LOGI(TAG, "nope!");
+  }
+
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  ESP_LOGI(TAG, "Time to deinit.");
   ESP_ERROR_CHECK(storage.Release());
 
   ESP_LOGI(TAG, "Hooray!");
