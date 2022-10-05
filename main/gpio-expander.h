@@ -1,5 +1,4 @@
-#ifndef GPIO_EXPANDER_H
-#define GPIO_EXPANDER_H
+#pragma once
 
 #include <stdint.h>
 
@@ -23,9 +22,9 @@ class GpioExpander {
     esp_err_t Write(void);
     esp_err_t Read(void);
 
-    bool charge_power_ok(void);
-    bool headphone_detect(void);
-    uint8_t key_states(void);
+    bool charge_power_ok(void) const;
+    bool headphone_detect(void) const;
+    uint8_t key_states(void) const;
 
     enum SdMuxController {
       ESP,
@@ -71,5 +70,3 @@ class GpioExpander {
 };
 
 } // namespace gay_ipod
-
-#endif

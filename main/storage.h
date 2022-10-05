@@ -1,5 +1,4 @@
-#ifndef STORAGE_H
-#define STORAGE_H
+#pragma once
 
 #include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
@@ -58,5 +57,3 @@ class SdStorage {
 };
 
 } // namespace gay_ipod
-
-#endif

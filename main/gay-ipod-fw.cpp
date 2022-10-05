@@ -2,6 +2,7 @@
 #include <dirent.h>
 
 #include "battery.h"
+#include "dac.h"
 #include "driver/adc.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
@@ -101,17 +102,28 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Init ADC");
   ESP_ERROR_CHECK(gay_ipod::init_adc());
 
-  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
-  vTaskDelay(pdMS_TO_TICKS(2500));
-
-  ESP_LOGI(TAG, "Trying to init SD card");
+  ESP_LOGI(TAG, "Init SD card");
   gay_ipod::SdStorage storage(&expander);
-
   gay_ipod::SdStorage::Error err = storage.Acquire();
   if (err != gay_ipod::SdStorage::Error::OK) {
     ESP_LOGE(TAG, "Failed to acquire storage!");
     return;
   }
+
+  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
+  vTaskDelay(pdMS_TO_TICKS(1500));
+
+  /*
+   * TODO: not working :(
+  ESP_LOGI(TAG, "Trying to init DAC");
+  gay_ipod::AudioDac dac(&expander);
+  dac.Start(
+	gay_ipod::AudioDac::SAMPLE_RATE_44_1K,
+	gay_ipod::AudioDac::BIT_DEPTH_16);
+
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  */
+
   ESP_LOGI(TAG, "Looks okay? Let's list some files!");
   vTaskDelay(pdMS_TO_TICKS(1000));
 

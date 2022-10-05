@@ -1,5 +1,4 @@
-#ifndef BATTERY_H
-#define BATTERY_H
+#pragma once
 
 #include <stdint.h>
 
@@ -15,5 +14,3 @@ esp_err_t init_adc(void);
 uint32_t read_battery_voltage(void);
 
 } // namespace gay_ipod
-
-#endif

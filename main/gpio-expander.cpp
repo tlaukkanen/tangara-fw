@@ -48,16 +48,16 @@ esp_err_t GpioExpander::Read() {
   return ret;
 }
 
-bool GpioExpander::charge_power_ok(void) {
+bool GpioExpander::charge_power_ok(void) const {
   // Active-low.
   return (input_a_ & (1 << 4)) == 0;
 }
 
-bool GpioExpander::headphone_detect(void) {
+bool GpioExpander::headphone_detect(void) const {
   return (input_b_ & (1 << 0));
 }
 
-uint8_t GpioExpander::key_states(void) {
+uint8_t GpioExpander::key_states(void) const {
   return input_b_ & 0b00111111;
 }
 
