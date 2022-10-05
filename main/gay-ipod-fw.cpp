@@ -107,13 +107,17 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Trying to init SD card");
   gay_ipod::SdStorage storage(&expander);
 
-  ESP_ERROR_CHECK(storage.Acquire());
+  gay_ipod::SdStorage::Error err = storage.Acquire();
+  if (err != gay_ipod::SdStorage::Error::OK) {
+    ESP_LOGE(TAG, "Failed to acquire storage!");
+    return;
+  }
   ESP_LOGI(TAG, "Looks okay? Let's list some files!");
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   DIR *d;
   struct dirent *dir;
-  d = opendir(gay_ipod::STORAGE_PATH);
+  d = opendir(gay_ipod::kStoragePath);
   if (d) {
     while ((dir = readdir(d)) != NULL) {
       ESP_LOGI(TAG, "file! %s", dir->d_name);
@@ -125,7 +129,7 @@ extern "C" void app_main(void)
 
   vTaskDelay(pdMS_TO_TICKS(1000));
   ESP_LOGI(TAG, "Time to deinit.");
-  ESP_ERROR_CHECK(storage.Release());
+  storage.Release();
 
   ESP_LOGI(TAG, "Hooray!");
   vTaskDelay(pdMS_TO_TICKS(1000));

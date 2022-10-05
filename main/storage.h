@@ -7,19 +7,38 @@
 #include "esp_vfs_fat.h"
 #include "gpio-expander.h"
 
-#define MAX_OPEN_FILES (8)
-
 namespace gay_ipod {
 
-static const char *STORAGE_PATH = "/sd";
+static const char *kStoragePath = "/sd";
+static const uint8_t kMaxOpenFiles = 8;
 
 class SdStorage {
   public:
     SdStorage(GpioExpander *gpio);
     ~SdStorage();
 
-    esp_err_t Acquire(void);
-    esp_err_t Release(void);
+    enum Error {
+      OK,
+      /** We couldn't interact with the SD card at all. Is it missing? */
+      FAILED_TO_READ,
+      /** We couldn't mount the SD card. Is it formatted? */
+      FAILED_TO_MOUNT,
+    };
+
+    // FIXME: these methods should also handling powering the SD card up and
+    // down once we have that capability.
+
+    /**
+     * Initialises the SDSPI driver and mounts the SD card for reading and
+     * writing. This must be called before any interactions with the underlying
+     * storage.
+     */
+    Error Acquire(void);
+
+    /**
+     * Unmounts the SD card and frees memory associated with the SDSPI driver.
+     */
+    void Release(void);
 
     // Not copyable or movable.
     // TODO: maybe this could be movable?
