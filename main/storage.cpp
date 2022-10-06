@@ -1,7 +1,10 @@
 #include "storage.h"
 
+#include <mutex>
+
 #include "diskio_impl.h"
 #include "diskio_sdmmc.h"
+#include "driver/gpio.h"
 #include "driver/sdspi_host.h"
 #include "esp_check.h"
 #include "esp_err.h"
@@ -23,10 +26,9 @@ SdStorage::SdStorage(GpioExpander *gpio) {
 SdStorage::~SdStorage() {}
 
 SdStorage::Error SdStorage::Acquire(void) {
-  // First switch to this device, and pull CS.
-  gpio_->set_sd_mux(GpioExpander::ESP);
-  gpio_->set_sd_cs(false);
-  gpio_->Write();
+  // Acquiring the bus will also flush the mux switch change.
+  gpio_->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
+  auto lock = gpio_->AcquireSpiBus(GpioExpander::SD_CARD);
 
   // Now we can init the driver and set up the SD card into SPI mode.
   sdspi_host_init();
@@ -47,8 +49,6 @@ SdStorage::Error SdStorage::Acquire(void) {
   esp_err_t err = sdmmc_card_init(&host_, &card_);
   if (err != ESP_OK) {
     ESP_LOGW(TAG, "Failed to read, err: %d", err);
-    gpio_->set_sd_cs(true);
-    gpio_->Write();
     return Error::FAILED_TO_READ;
   }
 
@@ -62,16 +62,11 @@ SdStorage::Error SdStorage::Acquire(void) {
     return Error::FAILED_TO_MOUNT;
   }
 
-  // We're done chatting for now.
-  //gpio_->set_sd_cs(true);
-  //gpio_->Write();
-
   return Error::OK;
 }
 
 void SdStorage::Release(void) {
-  gpio_->set_sd_cs(false);
-  gpio_->Write();
+  auto lock = gpio_->AcquireSpiBus(GpioExpander::SD_CARD);
 
   // Unmount and unregister the filesystem
   f_unmount("");
@@ -82,10 +77,6 @@ void SdStorage::Release(void) {
   // Uninstall the SPI driver
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
-
-  gpio_->set_sd_mux(GpioExpander::USB);
-  gpio_->set_sd_cs(true);
-  gpio_->Write();
 }
 
 } // namespace gay_ipod

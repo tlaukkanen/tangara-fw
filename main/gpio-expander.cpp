@@ -1,11 +1,22 @@
 #include "gpio-expander.h"
+#include <cstdint>
 
 namespace gay_ipod {
 
 GpioExpander::GpioExpander() {
+  ports_ = pack(kPortADefault, kPortBDefault);
+  // Read and write initial values on initialisation so that we do not have a
+  // strange partially-initialised state.
+  // TODO: log or abort if these error; it's really bad!
+  Write();
+  Read();
 }
 
-GpioExpander::~GpioExpander() {
+GpioExpander::~GpioExpander() {}
+
+void GpioExpander::with(std::function<void(GpioExpander&)> f) {
+  f(*this);
+  Write();
 }
 
 esp_err_t GpioExpander::Write() {
@@ -14,15 +25,17 @@ esp_err_t GpioExpander::Write() {
     return ESP_ERR_NO_MEM;
   }
 
+  std::pair<uint8_t, uint8_t> ports_ab = unpack(ports());
+
   // Technically enqueuing these commands could fail, but we don't worry about
   // it because that would indicate some really very badly wrong more generally.
   i2c_master_start(handle);
-  i2c_master_write_byte(handle, (PCA8575_ADDRESS << 1 | I2C_MASTER_WRITE), true);
-  i2c_master_write_byte(handle, port_a_, true);
-  i2c_master_write_byte(handle, port_b_, true);
+  i2c_master_write_byte(handle, (kPca8575Address << 1 | I2C_MASTER_WRITE), true);
+  i2c_master_write_byte(handle, ports_ab.first, true);
+  i2c_master_write_byte(handle, ports_ab.second, true);
   i2c_master_stop(handle);
 
-  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, PCA8575_TIMEOUT);
+  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, kPca8575Timeout);
 
   i2c_cmd_link_delete(handle);
   return ret;
@@ -34,55 +47,55 @@ esp_err_t GpioExpander::Read() {
     return ESP_ERR_NO_MEM;
   }
 
+  uint8_t input_a, input_b;
+
   // Technically enqueuing these commands could fail, but we don't worry about
   // it because that would indicate some really very badly wrong more generally.
   i2c_master_start(handle);
-  i2c_master_write_byte(handle, (PCA8575_ADDRESS << 1 | I2C_MASTER_READ), true);
-  i2c_master_read_byte(handle, &input_a_, I2C_MASTER_ACK);
-  i2c_master_read_byte(handle, &input_b_, I2C_MASTER_LAST_NACK);
+  i2c_master_write_byte(handle, (kPca8575Address << 1 | I2C_MASTER_READ), true);
+  i2c_master_read_byte(handle, &input_a, I2C_MASTER_ACK);
+  i2c_master_read_byte(handle, &input_b, I2C_MASTER_LAST_NACK);
   i2c_master_stop(handle);
 
-  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, PCA8575_TIMEOUT);
+  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, kPca8575Timeout);
 
   i2c_cmd_link_delete(handle);
+
+  inputs_ = pack(input_a, input_b);
   return ret;
 }
 
-bool GpioExpander::charge_power_ok(void) const {
-  // Active-low.
-  return (input_a_ & (1 << 4)) == 0;
+void GpioExpander::set_pin(ChipSelect cs, bool value) {
+  set_pin((Pin) cs, value);
 }
 
-bool GpioExpander::headphone_detect(void) const {
-  return (input_b_ & (1 << 0));
-}
-
-uint8_t GpioExpander::key_states(void) const {
-  return input_b_ & 0b00111111;
-}
-
-void GpioExpander::set_sd_mux(SdMuxController controller) {
-  if (controller == USB) {
-    port_a_ |= (1 << 5);
+void GpioExpander::set_pin(Pin pin, bool value) {
+  if (value) {
+    ports_ |= (1 << pin);
   } else {
-    port_a_ &= ~(1 << 5);
+    ports_ &= ~(1 << pin);
   }
 }
 
-void GpioExpander::set_sd_cs(bool high) {
-  if (high) {
-    port_a_ |= (1 << 6);
-  } else {
-    port_a_ &= ~(1 << 6);
-  }
+bool GpioExpander::get_input(Pin pin) const {
+  return (inputs_ & (1 << pin)) > 0;
 }
 
-void GpioExpander::set_display_cs(bool high) {
-  if (high) {
-    port_a_ |= (1 << 7);
-  } else {
-    port_a_ &= ~(1 << 7);
-  }
+GpioExpander::SpiLock GpioExpander::AcquireSpiBus(ChipSelect cs) {
+  return SpiLock(*this, cs);
+}
+
+GpioExpander::SpiLock::SpiLock(GpioExpander& gpio, ChipSelect cs)
+  : lock_(gpio.cs_mutex_), gpio_(gpio), cs_(cs) {
+  gpio_.with([&](auto& gpio) {
+      gpio.set_pin(cs_, 0);
+  });
+}
+
+GpioExpander::SpiLock::~SpiLock() { 
+  gpio_.with([&](auto& gpio) {
+      gpio.set_pin(cs_, 1);
+  });
 }
 
 } // namespace gay_ipod

@@ -92,13 +92,11 @@ extern "C" void app_main(void)
   init_i2c();
   init_spi();
 
-  ESP_LOGI(TAG, "Setting default GPIO state");
+  ESP_LOGI(TAG, "Init GPIOs");
   gay_ipod::GpioExpander expander;
 
   // for debugging usb ic
   //expander.set_sd_mux(gay_ipod::GpioExpander::USB);
-
-  ESP_ERROR_CHECK(expander.Write());
 
   ESP_LOGI(TAG, "Init ADC");
   ESP_ERROR_CHECK(gay_ipod::init_adc());
@@ -125,16 +123,19 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Looks okay? Let's list some files!");
   vTaskDelay(pdMS_TO_TICKS(1000));
 
-  DIR *d;
-  struct dirent *dir;
-  d = opendir(gay_ipod::kStoragePath);
-  if (d) {
-    while ((dir = readdir(d)) != NULL) {
-      ESP_LOGI(TAG, "file! %s", dir->d_name);
+  {
+    auto lock = expander.AcquireSpiBus(gay_ipod::GpioExpander::SD_CARD);
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(gay_ipod::kStoragePath);
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+	ESP_LOGI(TAG, "file! %s", dir->d_name);
+      }
+      closedir(d);
+    } else {
+      ESP_LOGI(TAG, "nope!");
     }
-    closedir(d);
-  } else {
-    ESP_LOGI(TAG, "nope!");
   }
 
   vTaskDelay(pdMS_TO_TICKS(1000));
