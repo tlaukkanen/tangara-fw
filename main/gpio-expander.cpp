@@ -1,4 +1,7 @@
 #include "gpio-expander.h"
+
+#include "i2c.h"
+
 #include <cstdint>
 
 namespace gay_ipod {
@@ -27,40 +30,26 @@ esp_err_t GpioExpander::Write() {
 
   std::pair<uint8_t, uint8_t> ports_ab = unpack(ports());
 
-  // Technically enqueuing these commands could fail, but we don't worry about
-  // it because that would indicate some really very badly wrong more generally.
-  i2c_master_start(handle);
-  i2c_master_write_byte(handle, (kPca8575Address << 1 | I2C_MASTER_WRITE), true);
-  i2c_master_write_byte(handle, ports_ab.first, true);
-  i2c_master_write_byte(handle, ports_ab.second, true);
-  i2c_master_stop(handle);
+  I2CTransaction transaction;
+  transaction.start()
+    .write_addr(kPca8575Address, I2C_MASTER_WRITE)
+    .write_ack(ports_ab.first, ports_ab.second)
+    .stop();
 
-  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, kPca8575Timeout);
-
-  i2c_cmd_link_delete(handle);
-  return ret;
+  return transaction.Execute();
 }
 
 esp_err_t GpioExpander::Read() {
-  i2c_cmd_handle_t handle = i2c_cmd_link_create();
-  if (handle == NULL) {
-    return ESP_ERR_NO_MEM;
-  }
-
   uint8_t input_a, input_b;
 
-  // Technically enqueuing these commands could fail, but we don't worry about
-  // it because that would indicate some really very badly wrong more generally.
-  i2c_master_start(handle);
-  i2c_master_write_byte(handle, (kPca8575Address << 1 | I2C_MASTER_READ), true);
-  i2c_master_read_byte(handle, &input_a, I2C_MASTER_ACK);
-  i2c_master_read_byte(handle, &input_b, I2C_MASTER_LAST_NACK);
-  i2c_master_stop(handle);
+  I2CTransaction transaction;
+  transaction.start()
+    .write_addr(kPca8575Address, I2C_MASTER_READ)
+    .read(&input_a, I2C_MASTER_ACK)
+    .read(&input_b, I2C_MASTER_LAST_NACK)
+    .stop();
 
-  esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, handle, kPca8575Timeout);
-
-  i2c_cmd_link_delete(handle);
-
+  esp_err_t ret = transaction.Execute();
   inputs_ = pack(input_a, input_b);
   return ret;
 }

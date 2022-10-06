@@ -1,5 +1,6 @@
 #include "dac.h"
 
+#include "i2c.h"
 #include "esp_log.h"
 #include "assert.h"
 #include "driver/i2c.h"
@@ -10,18 +11,6 @@
 namespace gay_ipod {
 
 static const char* TAG = "AUDIODAC";
-
-/**
- * Utility method for writing to a register on the PCM5122. Writes two bytes:
- * first the address for the register that we're writing to, and then the value
- * to write.
- *
- * Note this function assumes that the correct page has already been selected.
- */
-static void set_register(i2c_cmd_handle_t handle, uint8_t reg, uint8_t val) {
-    i2c_master_write_byte(handle, reg, true);
-    i2c_master_write_byte(handle, val, true);
-}
 
 AudioDac::AudioDac(GpioExpander *gpio) {
   this->gpio_ = gpio;
@@ -132,51 +121,44 @@ void AudioDac::Start(SampleRate sample_rate, BitDepth bit_depth) {
 
   // We've calculated all of our data. Now assemble the big list of registers
   // that we need to configure.
-  i2c_cmd_handle_t handle = i2c_cmd_link_create();
-  if (handle == NULL) {
-    return;
-  }
+  I2CTransaction transaction;
+  transaction
+    .start()
+    .write_addr(kPCM5122Address, I2C_MASTER_WRITE)
+    // All our registers are on the first page.
+    .write_ack(Register::PAGE_SELECT, 0)
+    // Disable clock autoset and ignore SCK detection
+    .write_ack(Register::IGNORE_ERRORS, 0x1A)
+    // Set PLL clock source to BCK
+    .write_ack(Register::PLL_CLOCK_SOURCE, 0x10)
+    // Set DAC clock source to PLL output
+    .write_ack(Register::DAC_CLOCK_SOURCE, 0x10)
 
-  i2c_master_start(handle);
-  i2c_master_write_byte(handle, (kPCM5122Address << 1 | I2C_MASTER_WRITE), true);
+    // Configure PLL
+    .write_ack(Register::PLL_P, p - 1)
+    .write_ack(Register::PLL_J, j)
+    .write_ack(Register::PLL_D_MSB, (d >> 8) & 0x3F)
+    .write_ack(Register::PLL_D_LSB, d & 0xFF)
+    .write_ack(Register::PLL_R, r - 1)
 
-  // All our registers are on the first page.
-  set_register(handle, Register::PAGE_SELECT, 0);
+    // Clock dividers
+    .write_ack(Register::DSP_CLOCK_DIV, nmac - 1)
+    .write_ack(Register::DAC_CLOCK_DIV, ndac - 1)
+    .write_ack(Register::NCP_CLOCK_DIV, ncp - 1)
+    .write_ack(Register::OSR_CLOCK_DIV, dosr - 1)
 
-  // Disable clock autoset and ignore SCK detection
-  set_register(handle, Register::IGNORE_ERRORS, 0x1A);
-  // Set PLL clock source to BCK
-  set_register(handle, Register::PLL_CLOCK_SOURCE, 0x10);
-  // Set DAC clock source to PLL output
-  set_register(handle, Register::DAC_CLOCK_SOURCE, 0x10);
+    // IDAC (nb of DSP clock cycles per sample)
+    .write_ack(Register::IDAC_MSB, (idac >> 8) & 0xFF)
+    .write_ack(Register::IDAC_LSB, idac & 0xFF)
 
-  // Configure PLL
-  set_register(handle, Register::PLL_P, p - 1);
-  set_register(handle, Register::PLL_J, j);
-  set_register(handle, Register::PLL_D_MSB, (d >> 8) & 0x3F);
-  set_register(handle, Register::PLL_D_LSB, d & 0xFF);
-  set_register(handle, Register::PLL_R, r - 1);
+    .write_ack(Register::FS_SPEED_MODE, speedMode)
+    .write_ack(Register::I2S_FORMAT, i2s_format)
 
-  // Clock dividers
-  set_register(handle, Register::DSP_CLOCK_DIV, nmac - 1);
-  set_register(handle, Register::DAC_CLOCK_DIV, ndac - 1);
-  set_register(handle, Register::NCP_CLOCK_DIV, ncp - 1);
-  set_register(handle, Register::OSR_CLOCK_DIV, dosr - 1);
-
-  // IDAC (nb of DSP clock cycles per sample)
-  set_register(handle, Register::IDAC_MSB, (idac >> 8) & 0xFF);
-  set_register(handle, Register::IDAC_LSB, idac & 0xFF);
-
-  set_register(handle, Register::FS_SPEED_MODE, speedMode);
-  set_register(handle, Register::I2S_FORMAT, i2s_format);
-
-  i2c_master_stop(handle);
+    .stop();
 
   ESP_LOGI(TAG, "Configuring DAC");
   // TODO: Handle this gracefully.
-  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, handle, kPCM5122Timeout));
-
-  i2c_cmd_link_delete(handle);
+  ESP_ERROR_CHECK(transaction.Execute());
 
   // The DAC takes a moment to reconfigure itself. Give it some time before we
   // start asking for its state.
@@ -205,45 +187,33 @@ void AudioDac::Start(SampleRate sample_rate, BitDepth bit_depth) {
 }
 
 uint8_t AudioDac::ReadPowerState() {
-  i2c_cmd_handle_t handle = i2c_cmd_link_create();
-  if (handle == NULL) {
-    return 0;
-  }
-
   uint8_t result = 0;
 
-  i2c_master_start(handle);
-  i2c_master_write_byte(handle, (kPCM5122Address << 1 | I2C_MASTER_WRITE), true);
-  i2c_master_write_byte(handle, DSP_BOOT_POWER_STATE, true);
-  i2c_master_start(handle);
-  i2c_master_write_byte(handle, (kPCM5122Address << 1 | I2C_MASTER_READ), true);
-  i2c_master_read_byte(handle, &result, I2C_MASTER_NACK);
-  i2c_master_stop(handle);
+  I2CTransaction transaction;
+  transaction
+    .start()
+    .write_addr(kPCM5122Address, I2C_MASTER_WRITE)
+    .write_ack(DSP_BOOT_POWER_STATE)
+    .start()
+    .write_addr(kPCM5122Address, I2C_MASTER_READ)
+    .read(&result, I2C_MASTER_NACK)
+    .stop();
 
-  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, handle, kPCM5122Timeout));
-
-  i2c_cmd_link_delete(handle);
+  ESP_ERROR_CHECK(transaction.Execute());
 
   return result;
 }
 
 void AudioDac::WriteVolume(uint8_t volume) {
-  i2c_cmd_handle_t handle = i2c_cmd_link_create();
-  if (handle == NULL) {
-    return;
-  }
+  I2CTransaction transaction;
+  transaction
+    .start()
+    .write_addr(kPCM5122Address, I2C_MASTER_WRITE)
+    .write_ack(Register::DIGITAL_VOLUME_L, volume)
+    .write_ack(Register::DIGITAL_VOLUME_R, volume)
+    .stop();
 
-  i2c_master_start(handle);
-  i2c_master_write_byte(handle, (kPCM5122Address << 1 | I2C_MASTER_WRITE), true);
-
-  set_register(handle, Register::DIGITAL_VOLUME_L, volume);
-  set_register(handle, Register::DIGITAL_VOLUME_R, volume);
-
-  i2c_master_stop(handle);
-
-  i2c_master_cmd_begin(I2C_NUM_0, handle, 50);
-
-  i2c_cmd_link_delete(handle);
+  ESP_ERROR_CHECK(transaction.Execute());
 }
 
 void AudioDac::WritePowerMode(PowerMode mode) {
