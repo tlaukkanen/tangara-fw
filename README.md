@@ -18,8 +18,17 @@ to correctly set up your environment for building.
 ```
 . ./.env
 ```
+**For VSCode:**
 
-3. You can now build the project using `idf.py build`. Or to flash the project
+When using the Espressif IDF extension, you may want to set the following in your settings.json file:
+```
+  "idf.espAdfPath": "${workspaceFolder}/lib/esp-adf",
+  "idf.espAdfPathWin": "${workspaceFolder}/lib/esp-adf",
+  "idf.espIdfPath": "${workspaceFolder}/lib/esp-adf/esp-idf",
+  "idf.espIdfPathWin": "${workspaceFolder}/lib/esp-adf/esp-idf"
+```
+
+4. You can now build the project using `idf.py build`. Or to flash the project
 onto your board, something like:
 ```
 idf.py -p /dev/ttyUSB0 -b 115200 flash
