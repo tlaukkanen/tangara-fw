@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <stdio.h>
 #include <dirent.h>
 
@@ -113,16 +114,13 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
   vTaskDelay(pdMS_TO_TICKS(1500));
 
-  /*
-   * TODO: not working :(
   ESP_LOGI(TAG, "Trying to init DAC");
   gay_ipod::AudioDac dac(&expander);
   dac.Start(
-	gay_ipod::AudioDac::SAMPLE_RATE_44_1K,
+	gay_ipod::AudioDac::SAMPLE_RATE_48K,
 	gay_ipod::AudioDac::BIT_DEPTH_16);
 
   vTaskDelay(pdMS_TO_TICKS(1000));
-  */
 
   ESP_LOGI(TAG, "Looks okay? Let's list some files!");
   vTaskDelay(pdMS_TO_TICKS(1000));

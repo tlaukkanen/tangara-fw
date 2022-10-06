@@ -44,6 +44,25 @@ void AudioDac::Start(SampleRate sample_rate, BitDepth bit_depth) {
     return;
   }
 
+  // Next, wait for the IC to boot up before we try configuring it.
+  bool is_booted = false;
+  for (int i=0; i<10; i++) {
+    uint8_t result = ReadPowerState();
+    is_booted = result >> 7;  
+    if (is_booted) {
+      break;
+    } else {
+      ESP_LOGI(TAG, "Waiting for boot...");
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+  }
+
+  if (!is_booted) {
+    // TODO: properly handle
+    ESP_LOGE(TAG, "Timed out waiting for boot!");
+    return;
+  }
+
   // Now do all the math required to correctly set up the internal clocks.
   int p, j, d, r;
   int nmac, ndac, ncp, dosr, idac;
@@ -153,15 +172,36 @@ void AudioDac::Start(SampleRate sample_rate, BitDepth bit_depth) {
 
   i2c_master_stop(handle);
 
+  ESP_LOGI(TAG, "Configuring DAC");
   // TODO: Handle this gracefully.
-  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, handle, 50));
+  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, handle, kPCM5122Timeout));
 
   i2c_cmd_link_delete(handle);
 
-  vTaskDelay(pdMS_TO_TICKS(10));
+  // The DAC takes a moment to reconfigure itself. Give it some time before we
+  // start asking for its state.
+  vTaskDelay(pdMS_TO_TICKS(5));
 
-  // TODO: Handle this gracefully.
-  assert(ReadPowerState() == 0x05);
+  // TODO: investigate why it's stuck waiting for CP voltage.
+  /*
+  bool is_configured = false;
+  for (int i=0; i<10; i++) {
+    uint8_t result = ReadPowerState();
+    is_configured = (result & 0b1111) == 0b1001;
+    if (is_configured) {
+      break;
+    } else {
+      ESP_LOGI(TAG, "Waiting for configure...");
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+  }
+
+  if (!is_configured) {
+    // TODO: properly handle
+    ESP_LOGE(TAG, "Timed out waiting for configure!");
+    return;
+  }
+  */
 }
 
 uint8_t AudioDac::ReadPowerState() {
@@ -176,10 +216,11 @@ uint8_t AudioDac::ReadPowerState() {
   i2c_master_write_byte(handle, (kPCM5122Address << 1 | I2C_MASTER_WRITE), true);
   i2c_master_write_byte(handle, DSP_BOOT_POWER_STATE, true);
   i2c_master_start(handle);
+  i2c_master_write_byte(handle, (kPCM5122Address << 1 | I2C_MASTER_READ), true);
   i2c_master_read_byte(handle, &result, I2C_MASTER_NACK);
   i2c_master_stop(handle);
 
-  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, handle, 50));
+  ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, handle, kPCM5122Timeout));
 
   i2c_cmd_link_delete(handle);
 

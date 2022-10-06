@@ -51,7 +51,7 @@ class GpioExpander {
     // 6 - sd chip select
     // 7 - display chip select
     // All power switches low, chip selects high, active-low charge power high
-    uint8_t port_a_ = 0b11010000;
+    uint8_t port_a_ = 0b11010001;
 
     // Port B:
     // 0 - 3.5mm jack detect (active low)

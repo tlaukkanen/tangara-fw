@@ -6,6 +6,7 @@
 namespace gay_ipod {
 
   static const uint8_t kPCM5122Address = 0x4C;
+  static const uint8_t kPCM5122Timeout = 100 / portTICK_RATE_MS;
 
 /**
  * PCM5122PWR
