@@ -8,6 +8,20 @@
 
 namespace gay_ipod {
 
+// Static functions for interrop with the ESP IDF API, which requires a function
+// pointer.
+namespace sdspi {
+  // Holds a lambda created by SdStorage.
+  static std::function<esp_err_t(sdspi_dev_handle_t,sdmmc_command_t*)> do_transaction_wrapper;
+
+  // Fits the required function pointer signature, but just delegates to the
+  // wrapper function. Does that make this the wrapper? Who knows.
+  __attribute__ ((unused)) // (gcc incorrectly thinks this is unused)
+  static esp_err_t do_transaction(sdspi_dev_handle_t handle, sdmmc_command_t *cmdinfo) {
+    return do_transaction_wrapper(handle, cmdinfo);
+  }
+} // namespace sdspi
+
 static const char *kStoragePath = "/sd";
 static const uint8_t kMaxOpenFiles = 8;
 

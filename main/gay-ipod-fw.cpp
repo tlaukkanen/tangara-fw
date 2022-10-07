@@ -123,19 +123,16 @@ extern "C" void app_main(void)
   ESP_LOGI(TAG, "Looks okay? Let's list some files!");
   vTaskDelay(pdMS_TO_TICKS(1000));
 
-  {
-    auto lock = expander.AcquireSpiBus(gay_ipod::GpioExpander::SD_CARD);
-    DIR *d;
-    struct dirent *dir;
-    d = opendir(gay_ipod::kStoragePath);
-    if (d) {
-      while ((dir = readdir(d)) != NULL) {
-	ESP_LOGI(TAG, "file! %s", dir->d_name);
-      }
-      closedir(d);
-    } else {
-      ESP_LOGI(TAG, "nope!");
+  DIR *d;
+  struct dirent *dir;
+  d = opendir(gay_ipod::kStoragePath);
+  if (d) {
+    while ((dir = readdir(d)) != NULL) {
+      ESP_LOGI(TAG, "file! %s", dir->d_name);
     }
+    closedir(d);
+  } else {
+    ESP_LOGI(TAG, "nope!");
   }
 
   vTaskDelay(pdMS_TO_TICKS(1000));
