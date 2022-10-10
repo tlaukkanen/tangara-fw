@@ -55,7 +55,7 @@ class GpioExpander {
     // 6 - GPIO
     // 7 - GPIO
     // DAC mute output low, everything else is active-low inputs.
-    static const uint8_t kPortBDefault = 0b11111101;
+    static const uint8_t kPortBDefault = 0b11111111;
 
     /*
      * Convenience mehod for packing the port a and b bytes into a single 16 bit

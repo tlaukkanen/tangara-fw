@@ -22,7 +22,7 @@ namespace sdspi {
   }
 } // namespace sdspi
 
-static const char *kStoragePath = "/sd";
+static const char *kStoragePath = "/sdcard";
 static const uint8_t kMaxOpenFiles = 8;
 
 class SdStorage {
