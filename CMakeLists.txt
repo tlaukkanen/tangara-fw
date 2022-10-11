@@ -7,5 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include($ENV{ADF_PATH}/CMakeLists.txt)
+list(APPEND EXTRA_COMPONENT_DIRS "lib/result")
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(gay-ipod-fw)
