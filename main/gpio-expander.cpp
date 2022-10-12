@@ -1,8 +1,8 @@
 #include "gpio-expander.h"
 
-#include "i2c.h"
-
 #include <cstdint>
+
+#include "i2c.h"
 
 namespace gay_ipod {
 
@@ -32,9 +32,9 @@ esp_err_t GpioExpander::Write() {
 
   I2CTransaction transaction;
   transaction.start()
-    .write_addr(kPca8575Address, I2C_MASTER_WRITE)
-    .write_ack(ports_ab.first, ports_ab.second)
-    .stop();
+      .write_addr(kPca8575Address, I2C_MASTER_WRITE)
+      .write_ack(ports_ab.first, ports_ab.second)
+      .stop();
 
   return transaction.Execute();
 }
@@ -44,10 +44,10 @@ esp_err_t GpioExpander::Read() {
 
   I2CTransaction transaction;
   transaction.start()
-    .write_addr(kPca8575Address, I2C_MASTER_READ)
-    .read(&input_a, I2C_MASTER_ACK)
-    .read(&input_b, I2C_MASTER_LAST_NACK)
-    .stop();
+      .write_addr(kPca8575Address, I2C_MASTER_READ)
+      .read(&input_a, I2C_MASTER_ACK)
+      .read(&input_b, I2C_MASTER_LAST_NACK)
+      .stop();
 
   esp_err_t ret = transaction.Execute();
   inputs_ = pack(input_a, input_b);
@@ -55,7 +55,7 @@ esp_err_t GpioExpander::Read() {
 }
 
 void GpioExpander::set_pin(ChipSelect cs, bool value) {
-  set_pin((Pin) cs, value);
+  set_pin((Pin)cs, value);
 }
 
 void GpioExpander::set_pin(Pin pin, bool value) {
@@ -75,16 +75,12 @@ GpioExpander::SpiLock GpioExpander::AcquireSpiBus(ChipSelect cs) {
 }
 
 GpioExpander::SpiLock::SpiLock(GpioExpander& gpio, ChipSelect cs)
-  : lock_(gpio.cs_mutex_), gpio_(gpio), cs_(cs) {
-  gpio_.with([&](auto& gpio) {
-      gpio.set_pin(cs_, 0);
-  });
+    : lock_(gpio.cs_mutex_), gpio_(gpio), cs_(cs) {
+  gpio_.with([&](auto& gpio) { gpio.set_pin(cs_, 0); });
 }
 
-GpioExpander::SpiLock::~SpiLock() { 
-  gpio_.with([&](auto& gpio) {
-      gpio.set_pin(cs_, 1);
-  });
+GpioExpander::SpiLock::~SpiLock() {
+  gpio_.with([&](auto& gpio) { gpio.set_pin(cs_, 1); });
 }
 
-} // namespace gay_ipod
+}  // namespace gay_ipod

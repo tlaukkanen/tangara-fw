@@ -13,4 +13,4 @@ esp_err_t init_adc(void);
  */
 uint32_t read_battery_voltage(void);
 
-} // namespace gay_ipod
+}  // namespace gay_ipod
