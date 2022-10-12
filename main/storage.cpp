@@ -19,7 +19,7 @@ namespace gay_ipod {
 
 static const char* TAG = "SDSTORAGE";
 
-SdStorage::SdStorage(GpioExpander *gpio) {
+SdStorage::SdStorage(GpioExpander* gpio) {
   this->gpio_ = gpio;
 }
 
@@ -33,12 +33,12 @@ SdStorage::Error SdStorage::Acquire(void) {
   sdspi_host_init();
 
   sdspi_device_config_t config = {
-    .host_id = VSPI_HOST,
-    // CS handled manually bc it's on the GPIO expander
-    .gpio_cs = GPIO_NUM_2,
-    .gpio_cd = SDSPI_SLOT_NO_CD,
-    .gpio_wp = SDSPI_SLOT_NO_WP,
-    .gpio_int = GPIO_NUM_NC,
+      .host_id = VSPI_HOST,
+      // CS handled manually bc it's on the GPIO expander
+      .gpio_cs = GPIO_NUM_2,
+      .gpio_cd = SDSPI_SLOT_NO_CD,
+      .gpio_wp = SDSPI_SLOT_NO_WP,
+      .gpio_int = GPIO_NUM_NC,
   };
   ESP_ERROR_CHECK(sdspi_host_init_device(&config, &handle_));
 
@@ -49,7 +49,8 @@ SdStorage::Error SdStorage::Acquire(void) {
   // with our own that acquires the CS mutex for the duration of the SPI
   // transaction.
   auto src = host_.do_transaction;
-  sdspi::do_transaction_wrapper = [=](sdspi_dev_handle_t handle, sdmmc_command_t *cmd) -> esp_err_t {
+  sdspi::do_transaction_wrapper = [=](sdspi_dev_handle_t handle,
+                                      sdmmc_command_t* cmd) -> esp_err_t {
     auto lock = gpio_->AcquireSpiBus(GpioExpander::SD_CARD);
     return src(handle, cmd);
   };
@@ -88,4 +89,4 @@ void SdStorage::Release(void) {
   sdspi_host_deinit();
 }
 
-} // namespace gay_ipod
+}  // namespace gay_ipod

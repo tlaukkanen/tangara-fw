@@ -36,9 +36,9 @@ I2CTransaction& I2CTransaction::write_ack(uint8_t data) {
   return *this;
 }
 
-I2CTransaction& I2CTransaction::read(uint8_t *dest, i2c_ack_type_t ack) {
+I2CTransaction& I2CTransaction::read(uint8_t* dest, i2c_ack_type_t ack) {
   ESP_ERROR_CHECK(i2c_master_read_byte(handle_, dest, ack));
   return *this;
 }
 
-} // namespace gay_ipod
+}  // namespace gay_ipod
