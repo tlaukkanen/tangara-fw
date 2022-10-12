@@ -12,6 +12,7 @@
 #include "esp_err.h"
 #include "fatfs_stream.h"
 #include "i2s_stream.h"
+#include "mp3_decoder.h"
 #include "result.hpp"
 #include "storage.h"
 

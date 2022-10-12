@@ -29,8 +29,8 @@ class SdStorage {
   SdStorage(GpioExpander* gpio,
             esp_err_t (*do_transaction)(sdspi_dev_handle_t, sdmmc_command_t*),
             sdspi_dev_handle_t handle_,
-            sdmmc_host_t host_,
-            sdmmc_card_t card_,
+            std::unique_ptr<sdmmc_host_t>& host_,
+            std::unique_ptr<sdmmc_card_t>& card_,
             FATFS* fs_);
   ~SdStorage();
 
@@ -49,8 +49,8 @@ class SdStorage {
 
   // SPI and SD driver info
   sdspi_dev_handle_t handle_;
-  sdmmc_host_t host_;
-  sdmmc_card_t card_;
+  std::unique_ptr<sdmmc_host_t> host_;
+  std::unique_ptr<sdmmc_card_t> card_;
 
   // Filesystem info
   FATFS* fs_ = nullptr;

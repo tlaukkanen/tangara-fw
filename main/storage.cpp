@@ -1,11 +1,13 @@
 #include "storage.h"
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 
 #include "diskio_impl.h"
 #include "diskio_sdmmc.h"
 #include "driver/gpio.h"
+#include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
 #include "esp_check.h"
 #include "esp_err.h"
@@ -52,8 +54,8 @@ auto SdStorage::create(GpioExpander* gpio)
   gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
 
   sdspi_dev_handle_t handle;
-  sdmmc_host_t host;
-  sdmmc_card_t card;
+  std::unique_ptr<sdmmc_host_t> host;
+  std::unique_ptr<sdmmc_card_t> card;
   FATFS* fs = nullptr;
 
   // Now we can init the driver and set up the SD card into SPI mode.
@@ -72,27 +74,28 @@ auto SdStorage::create(GpioExpander* gpio)
     return cpp::fail(Error::FAILED_TO_INIT);
   }
 
-  host = sdmmc_host_t SDSPI_HOST_DEFAULT();
+  host = std::make_unique<sdmmc_host_t>(sdmmc_host_t SDSPI_HOST_DEFAULT());
+  card = std::make_unique<sdmmc_card_t>();
 
   // We manage the CS pin ourselves via the GPIO expander. To do this safely in
   // a multithreaded environment, we wrap the ESP IDF do_transaction function
   // with our own that acquires the CS mutex for the duration of the SPI
   // transaction.
-  auto do_transaction = host.do_transaction;
-  host.do_transaction = &callback::do_transaction;
-  host.slot = handle;
+  auto do_transaction = host->do_transaction;
+  host->do_transaction = &callback::do_transaction;
+  host->slot = handle;
   callback::bootstrap = do_transaction;
 
   auto lock = gpio->AcquireSpiBus(GpioExpander::SD_CARD);
   // Will return ESP_ERR_INVALID_RESPONSE if there is no card
-  esp_err_t err = sdmmc_card_init(&host, &card);
+  esp_err_t err = sdmmc_card_init(host.get(), card.get());
   if (err != ESP_OK) {
     ESP_LOGW(kTag, "Failed to read, err: %d", err);
     return cpp::fail(Error::FAILED_TO_READ);
   }
 
   ESP_ERROR_CHECK(esp_vfs_fat_register(kStoragePath, "", kMaxOpenFiles, &fs));
-  ff_diskio_register_sdmmc(fs->pdrv, &card);
+  ff_diskio_register_sdmmc(fs->pdrv, card.get());
 
   // Mount right now, not on first operation.
   FRESULT ferr = f_mount(fs, "", 1);
@@ -109,14 +112,14 @@ SdStorage::SdStorage(GpioExpander* gpio,
                      esp_err_t (*do_transaction)(sdspi_dev_handle_t,
                                                  sdmmc_command_t*),
                      sdspi_dev_handle_t handle,
-                     sdmmc_host_t host,
-                     sdmmc_card_t card,
+                     std::unique_ptr<sdmmc_host_t>& host,
+                     std::unique_ptr<sdmmc_card_t>& card,
                      FATFS* fs)
     : gpio_(gpio),
       do_transaction_(do_transaction),
       handle_(handle),
-      host_(host),
-      card_(card),
+      host_(std::move(host)),
+      card_(std::move(card)),
       fs_(fs) {
   callback::instance = this;
   callback::bootstrap = nullptr;
