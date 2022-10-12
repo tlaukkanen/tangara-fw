@@ -1,4 +1,4 @@
-#include "battery.h"
+#include "battery.hpp"
 
 #include "driver/adc.h"
 #include "esp_adc_cal.h"

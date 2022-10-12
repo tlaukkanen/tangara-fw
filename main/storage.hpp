@@ -1,12 +1,13 @@
 #pragma once
 
+#include "gpio-expander.hpp"
+
 #include <memory>
 
 #include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
 #include "esp_err.h"
 #include "esp_vfs_fat.h"
-#include "gpio-expander.h"
 #include "result.hpp"
 
 namespace gay_ipod {

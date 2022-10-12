@@ -1,4 +1,7 @@
-#include "dac.h"
+#include "dac.hpp"
+
+#include "gpio-expander.hpp"
+#include "i2c.hpp"
 
 #include <cstdint>
 
@@ -6,9 +9,7 @@
 #include "driver/i2c.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "gpio-expander.h"
 #include "hal/i2c_types.h"
-#include "i2c.h"
 
 namespace gay_ipod {
 

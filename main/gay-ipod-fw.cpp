@@ -1,34 +1,26 @@
-#include <dirent.h>
-#include <stdio.h>
+#include "battery.hpp"
+#include "dac.hpp"
+#include "gpio-expander.hpp"
+#include "playback.hpp"
+#include "storage.hpp"
 
 #include <cstdint>
+#include <dirent.h>
 #include <memory>
+#include <stdio.h>
 
 #include "audio_common.h"
 #include "audio_element.h"
 #include "audio_pipeline.h"
-#include "battery.h"
-#include "dac.h"
-#include "driver/adc.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
-#include "driver/i2s.h"
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
-#include "esp_adc_cal.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
-#include "fatfs_stream.h"
-#include "gpio-expander.h"
-#include "hal/adc_types.h"
 #include "hal/gpio_types.h"
-#include "hal/i2s_types.h"
 #include "hal/spi_types.h"
-#include "i2s_stream.h"
-#include "mp3_decoder.h"
-#include "playback.h"
-#include "storage.h"
 
 #define I2C_SDA_IO (GPIO_NUM_2)
 #define I2C_SCL_IO (GPIO_NUM_4)
@@ -39,11 +31,6 @@
 #define SPI_SCLK_IO (GPIO_NUM_18)
 #define SPI_QUADWP_IO (GPIO_NUM_22)
 #define SPI_QUADHD_IO (GPIO_NUM_21)
-
-#define I2S_SCK_IO (GPIO_NUM_25)
-#define I2S_BCK_IO (GPIO_NUM_26)
-#define I2S_LRCK_IO (GPIO_NUM_27)
-#define I2S_DIN_IO (GPIO_NUM_5)
 
 static const char* TAG = "MAIN";
 

@@ -1,5 +1,8 @@
 #pragma once
 
+#include "dac.hpp"
+#include "storage.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -8,13 +11,11 @@
 #include "audio_element.h"
 #include "audio_event_iface.h"
 #include "audio_pipeline.h"
-#include "dac.h"
 #include "esp_err.h"
 #include "fatfs_stream.h"
+#include "result.hpp"
 #include "i2s_stream.h"
 #include "mp3_decoder.h"
-#include "result.hpp"
-#include "storage.h"
 
 namespace gay_ipod {
 

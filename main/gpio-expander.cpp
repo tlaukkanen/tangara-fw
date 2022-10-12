@@ -1,8 +1,8 @@
-#include "gpio-expander.h"
+#include "gpio-expander.hpp"
+
+#include "i2c.hpp"
 
 #include <cstdint>
-
-#include "i2c.h"
 
 namespace gay_ipod {
 

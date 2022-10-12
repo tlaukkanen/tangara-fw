@@ -1,11 +1,12 @@
-#include "playback.h"
+#include "playback.hpp"
+
+#include "dac.hpp"
 
 #include <cstdint>
 
 #include "audio_element.h"
 #include "audio_event_iface.h"
 #include "audio_pipeline.h"
-#include "dac.h"
 #include "driver/i2s.h"
 #include "esp_err.h"
 #include "mp3_decoder.h"

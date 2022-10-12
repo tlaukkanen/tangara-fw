@@ -1,11 +1,11 @@
 #pragma once
 
-#include <stdint.h>
+#include "gpio-expander.hpp"
 
 #include <functional>
+#include <stdint.h>
 
 #include "esp_err.h"
-#include "gpio-expander.h"
 #include "result.hpp"
 
 namespace gay_ipod {

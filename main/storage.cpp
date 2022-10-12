@@ -1,4 +1,6 @@
-#include "storage.h"
+#include "storage.hpp"
+
+#include "gpio-expander.hpp"
 
 #include <atomic>
 #include <memory>
@@ -13,7 +15,6 @@
 #include "esp_err.h"
 #include "esp_vfs_fat.h"
 #include "ff.h"
-#include "gpio-expander.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 #include "sdmmc_cmd.h"
