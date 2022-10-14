@@ -37,16 +37,13 @@ class DacAudioPlayback {
   void Resume();
   void Pause();
 
-  // For debug :)
-  void WaitForSongEnd();
+  void ProcessEvents();
 
   /* for gapless */
   void set_next_file(const std::string& filename);
 
   void set_volume(uint8_t volume);
   auto volume() -> uint8_t;
-
-  auto HandleEvent(audio_event_iface_msg_t* event, void* data) -> esp_err_t;
 
   // Not copyable or movable.
   DacAudioPlayback(const DacAudioPlayback&) = delete;

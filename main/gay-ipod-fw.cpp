@@ -17,6 +17,7 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#include "esp_heap_trace.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "hal/gpio_types.h"
@@ -89,15 +90,13 @@ extern "C" void app_main(void) {
   ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
   init_i2c();
   init_spi();
+  ESP_ERROR_CHECK(gay_ipod::init_adc());
 
   ESP_LOGI(TAG, "Init GPIOs");
   gay_ipod::GpioExpander expander;
 
   // for debugging usb ic
   // expander.set_sd_mux(gay_ipod::GpioExpander::USB);
-
-  ESP_LOGI(TAG, "Init ADC");
-  ESP_ERROR_CHECK(gay_ipod::init_adc());
 
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = gay_ipod::SdStorage::create(&expander);
@@ -130,7 +129,7 @@ extern "C" void app_main(void) {
   playback->Play("/sdcard/test.mp3");
   playback->set_volume(100);
 
-  playback->WaitForSongEnd();
+  playback->ProcessEvents();
 
   ESP_LOGI(TAG, "Time to deinit.");
 

@@ -9,6 +9,7 @@
 #include "audio_pipeline.h"
 #include "driver/i2s.h"
 #include "esp_err.h"
+#include "freertos/portmacro.h"
 #include "mp3_decoder.h"
 
 static const char* kTag = "PLAYBACK";
@@ -16,28 +17,13 @@ static const i2s_port_t kI2SPort = I2S_NUM_0;
 
 namespace gay_ipod {
 
-// Static functions for interrop with the ESP IDF API, which requires a
-// function pointer.
-namespace callback {
-static DacAudioPlayback* instance = nullptr;
-
-// Fits the required function pointer signature, but just delegates to the
-// wrapper function. Does that make this the wrapper? Who knows.
-__attribute__((unused))  // (gcc incorrectly thinks this is unused)
-static esp_err_t
-on_event(audio_event_iface_msg_t* event, void* data) {
-  if (instance == nullptr) {
-    ESP_LOGW(kTag, "uncaught ADF event, type %x", event->cmd);
-    return ESP_OK;
-  }
-  return instance->HandleEvent(event, data);
+static audio_element_status_t status_from_the_void(void *status) {
+  uintptr_t as_pointer_int = reinterpret_cast<uintptr_t>(status);
+  return static_cast<audio_element_status_t>(as_pointer_int);
 }
-}  // namespace callback
 
 auto DacAudioPlayback::create(AudioDac* dac)
     -> cpp::result<std::unique_ptr<DacAudioPlayback>, Error> {
-  assert(callback::instance == nullptr);
-
   // Ensure we're soft-muted before initialising, in order to reduce protential
   // clicks and pops.
   dac->WriteVolume(255);
@@ -119,9 +105,12 @@ auto DacAudioPlayback::create(AudioDac* dac)
   assert(mp3_decoder != NULL);
 
   audio_event_iface_cfg_t event_config = AUDIO_EVENT_IFACE_DEFAULT_CFG();
-  event_config.on_cmd = &callback::on_event;
   event_interface = audio_event_iface_init(&event_config);
+
   audio_pipeline_set_listener(pipeline, event_interface);
+  audio_element_msg_set_listener(fatfs_stream_reader, event_interface);
+  audio_element_msg_set_listener(mp3_decoder, event_interface);
+  audio_element_msg_set_listener(i2s_stream_writer, event_interface);
 
   // TODO: most of this is likely post-init, since it involves a decoder.
   // All the elements of our pipeline have been initialised. Now switch them
@@ -149,15 +138,15 @@ DacAudioPlayback::DacAudioPlayback(AudioDac* dac,
       fatfs_stream_reader_(fatfs_stream_reader),
       i2s_stream_writer_(i2s_stream_writer),
       event_interface_(event_interface),
-      mp3_decoder_(mp3_decoder) {
-  callback::instance = this;
-}
+      mp3_decoder_(mp3_decoder) {}
 
 DacAudioPlayback::~DacAudioPlayback() {
   dac_->WriteVolume(255);
 
   audio_pipeline_remove_listener(pipeline_);
-  callback::instance = nullptr;
+  audio_element_msg_remove_listener(fatfs_stream_reader_, event_interface_);
+  audio_element_msg_remove_listener(mp3_decoder_, event_interface_);
+  audio_element_msg_remove_listener(i2s_stream_writer_, event_interface_);
 
   audio_pipeline_stop(pipeline_);
   audio_pipeline_wait_for_stop(pipeline_);
@@ -190,14 +179,49 @@ void DacAudioPlayback::Pause() {
   // TODO.
 }
 
-void DacAudioPlayback::WaitForSongEnd() {
+void DacAudioPlayback::ProcessEvents() {
   while (1) {
-    audio_element_state_t state = audio_element_get_state(i2s_stream_writer_);
-    if (state == AEL_STATE_FINISHED) {
-      return;
+    audio_event_iface_msg_t event;
+    esp_err_t err = audio_event_iface_listen(event_interface_, &event, portMAX_DELAY);
+    if (err != ESP_OK) {
+      ESP_LOGI(kTag, "error listening for event:%x", err);
+      continue;
+    }
+    ESP_LOGI(kTag, "received event, cmd %i", event.cmd);
+
+    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
+	&& event.source == (void *) mp3_decoder_
+	&& event.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
+      audio_element_info_t music_info = {0};
+      audio_element_getinfo(mp3_decoder_, &music_info);
+      ESP_LOGI(kTag, "sample_rate=%d, bits=%d, ch=%d", music_info.sample_rates, music_info.bits, music_info.channels);
+      audio_element_setinfo(i2s_stream_writer_, &music_info);
+      i2s_stream_set_clk(i2s_stream_writer_, music_info.sample_rates, music_info.bits, music_info.channels);
     }
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
+	&& event.source == (void *) fatfs_stream_reader_
+	&& event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
+      audio_element_status_t status = status_from_the_void(event.data);
+      if (status == AEL_STATUS_STATE_FINISHED) {
+      // TODO: enqueue next track?
+      }
+    }
+
+    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
+	&& event.source == (void *) i2s_stream_writer_
+	&& event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
+      audio_element_status_t status = status_from_the_void(event.data);
+      if (status == AEL_STATUS_STATE_FINISHED) {
+	// TODO.
+	return;
+      }
+    }
+
+    if (event.need_free_data) {
+      ESP_LOGI(kTag, "freeing event data");
+      free(event.data);
+    }
   }
 }
 
@@ -214,12 +238,6 @@ void DacAudioPlayback::set_volume(uint8_t volume) {
 
 auto DacAudioPlayback::volume() -> uint8_t {
   return volume_;
-}
-
-auto DacAudioPlayback::HandleEvent(audio_event_iface_msg_t* event, void* data)
-    -> esp_err_t {
-  ESP_LOGI(kTag, "got event!");
-  return ESP_OK;
 }
 
 }  // namespace gay_ipod
