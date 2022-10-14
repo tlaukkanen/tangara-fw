@@ -17,7 +17,6 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
-#include "esp_heap_trace.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "hal/gpio_types.h"

@@ -6,12 +6,12 @@
 
 namespace gay_ipod {
 
+static constexpr int kCmdLinkSize = I2C_LINK_RECOMMENDED_SIZE(12);
+
 I2CTransaction::I2CTransaction() {
   // Use a fixed size buffer to avoid many many tiny allocations.
-  // TODO: make this static and tune the size. possibly make it optional too?
-  // threading.
-  buffer_ = (uint8_t*) calloc(sizeof(uint8_t), I2C_LINK_RECOMMENDED_SIZE(10));
-  handle_ = i2c_cmd_link_create_static(buffer_, I2C_LINK_RECOMMENDED_SIZE(10));
+  buffer_ = (uint8_t*) calloc(sizeof(uint8_t), kCmdLinkSize);
+  handle_ = i2c_cmd_link_create_static(buffer_, kCmdLinkSize);
   assert(handle_ != NULL && "failed to create command link");
 }
 
