@@ -1,0 +1,18 @@
+target extended-remote :3333
+
+mon reset halt
+flushregs
+
+tb heap_trace_start
+commands
+mon esp sysview start file:///tmp/pro-heap.svdat file:///tmp/app-heap.svdat
+
+c
+end
+
+tb heap_trace_stop
+commands
+mon esp sysview stop
+end
+
+c
