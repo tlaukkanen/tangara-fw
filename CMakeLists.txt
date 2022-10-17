@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include($ENV{ADF_PATH}/CMakeLists.txt)
 list(APPEND EXTRA_COMPONENT_DIRS "lib/result")
+list(APPEND EXTRA_COMPONENT_DIRS "lib/lvgl")
+
+set(ENV{EXTRA_CPPFLAGS} "-DRESULT_DISABLE_EXCEPTIONS -DLV_CONF_INCLUDE_SIMPLE")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(gay-ipod-fw)
