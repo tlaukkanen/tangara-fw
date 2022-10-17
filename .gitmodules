@@ -1,3 +1,6 @@
 [submodule "lib/esp-adf"]
 	path = lib/esp-adf
 	url = https://github.com/espressif/esp-adf.git
+[submodule "lib/lvgl"]
+	path = lib/lvgl
+	url = https://github.com/lvgl/lvgl.git
