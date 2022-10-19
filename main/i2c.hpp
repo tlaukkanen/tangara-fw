@@ -32,7 +32,7 @@ class I2CTransaction {
    * ESP_ERR_INVALID_STATE I2C driver not installed or not in master mode.
    * ESP_ERR_TIMEOUT Operation timeout because the bus is busy.
    */
-  esp_err_t Execute();
+  esp_err_t Execute(i2c_port_t port = I2C_NUM_0);
 
   /*
    * Enqueues a start condition. May also be used for repeated start

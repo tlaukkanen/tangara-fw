@@ -1,6 +1,6 @@
 idf_component_register(
   SRCS
-  "gay-ipod-fw.cpp" "dac.cpp" "gpio-expander.cpp" "battery.cpp"
+  "gay-ipod-fw.cpp" "dac.cpp" "gpio-expander.cpp" "battery.cpp" "trackpad.cpp"
   "storage.cpp" "i2c.cpp" "playback.cpp"
   INCLUDE_DIRS "."
   REQUIRES

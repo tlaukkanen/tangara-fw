@@ -19,8 +19,8 @@ I2CTransaction::~I2CTransaction() {
   free(buffer_);
 }
 
-esp_err_t I2CTransaction::Execute() {
-  return i2c_master_cmd_begin(I2C_NUM_0, handle_, kI2CTimeout);
+esp_err_t I2CTransaction::Execute(i2c_port_t port) {
+  return i2c_master_cmd_begin(port, handle_, kI2CTimeout);
 }
 
 I2CTransaction& I2CTransaction::start() {

@@ -3,6 +3,7 @@
 #include "gpio-expander.hpp"
 #include "playback.hpp"
 #include "storage.hpp"
+#include "trackpad.hpp"
 
 #include <cstdint>
 #include <dirent.h>
@@ -58,13 +59,38 @@ esp_err_t init_i2c(void) {
   return ESP_OK;
 }
 
+esp_err_t init_i2c_the_second(void) {
+  i2c_port_t port = I2C_NUM_1;
+  i2c_config_t config = {
+      .mode = I2C_MODE_MASTER,
+      .sda_io_num = SPI_QUADWP_IO,
+      .scl_io_num = SPI_QUADHD_IO,
+      .sda_pullup_en = GPIO_PULLUP_ENABLE,
+      .scl_pullup_en = GPIO_PULLUP_ENABLE,
+      .master =
+          {
+              .clk_speed = I2C_CLOCK_HZ,
+          },
+      // No requirements for the clock.
+      .clk_flags = 0,
+  };
+
+  ESP_ERROR_CHECK(i2c_param_config(port, &config));
+  ESP_ERROR_CHECK(i2c_driver_install(port, config.mode, 0, 0, 0));
+
+  // TODO: INT line
+
+  return ESP_OK;
+}
+
+
 esp_err_t init_spi(void) {
   spi_bus_config_t config = {
       .mosi_io_num = SPI_SDO_IO,
       .miso_io_num = SPI_SDI_IO,
       .sclk_io_num = SPI_SCLK_IO,
-      .quadwp_io_num = SPI_QUADWP_IO,
-      .quadhd_io_num = SPI_QUADHD_IO,
+      .quadwp_io_num = -1,
+      .quadhd_io_num = -1,
 
       // Unused
       .data4_io_num = -1,
@@ -88,49 +114,18 @@ extern "C" void app_main(void) {
 
   ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
   init_i2c();
+  init_i2c_the_second();
   init_spi();
   ESP_ERROR_CHECK(gay_ipod::init_adc());
 
   ESP_LOGI(TAG, "Init GPIOs");
   gay_ipod::GpioExpander expander;
 
-  // for debugging usb ic
-  // expander.set_sd_mux(gay_ipod::GpioExpander::USB);
+  auto trackpad = gay_ipod::Trackpad::create(&expander);
 
-  ESP_LOGI(TAG, "Init SD card");
-  auto storage_res = gay_ipod::SdStorage::create(&expander);
-  if (storage_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", storage_res.error());
-    return;
+  while (true) {
+    ESP_LOGI(TAG, "Z Level: %d", trackpad.value()->GetZLevel());
+    vTaskDelay(pdMS_TO_TICKS(1500));
   }
-  std::unique_ptr<gay_ipod::SdStorage> storage = std::move(storage_res.value());
 
-  ESP_LOGI(TAG, "Init DAC");
-  auto dac_res = gay_ipod::AudioDac::create(&expander);
-  if (storage_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", dac_res.error());
-    return;
-  }
-  std::unique_ptr<gay_ipod::AudioDac> dac = std::move(dac_res.value());
-
-  ESP_LOGI(TAG, "Init Audio Pipeline");
-  auto playback_res = gay_ipod::DacAudioPlayback::create(dac.get());
-  if (playback_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", playback_res.error());
-    return;
-  }
-  std::unique_ptr<gay_ipod::DacAudioPlayback> playback =
-      std::move(playback_res.value());
-
-  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
-  vTaskDelay(pdMS_TO_TICKS(1500));
-
-  playback->Play("/sdcard/test.mp3");
-  playback->set_volume(100);
-
-  playback->ProcessEvents();
-
-  ESP_LOGI(TAG, "Time to deinit.");
-
-  ESP_LOGI(TAG, "Hooray!");
 }
