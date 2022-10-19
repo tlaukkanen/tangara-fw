@@ -21,6 +21,7 @@
 #include "esp_log.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
+#include "lvgl/lvgl.h"
 
 #define I2C_SDA_IO (GPIO_NUM_2)
 #define I2C_SCL_IO (GPIO_NUM_4)
@@ -63,8 +64,8 @@ esp_err_t init_spi(void) {
       .mosi_io_num = SPI_SDO_IO,
       .miso_io_num = SPI_SDI_IO,
       .sclk_io_num = SPI_SCLK_IO,
-      .quadwp_io_num = SPI_QUADWP_IO,
-      .quadhd_io_num = SPI_QUADHD_IO,
+      .quadwp_io_num = -1, //SPI_QUADWP_IO,
+      .quadhd_io_num = -1, //SPI_QUADHD_IO,
 
       // Unused
       .data4_io_num = -1,
@@ -124,11 +125,6 @@ extern "C" void app_main(void) {
 
   ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
   vTaskDelay(pdMS_TO_TICKS(1500));
-
-  playback->Play("/sdcard/test.mp3");
-  playback->set_volume(100);
-
-  playback->ProcessEvents();
 
   ESP_LOGI(TAG, "Time to deinit.");
 

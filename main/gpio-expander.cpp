@@ -71,6 +71,7 @@ bool GpioExpander::get_input(Pin pin) const {
 }
 
 GpioExpander::SpiLock GpioExpander::AcquireSpiBus(ChipSelect cs) {
+  // TODO: also spi_device_acquire_bus?
   return SpiLock(*this, cs);
 }
 
