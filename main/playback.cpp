@@ -17,7 +17,7 @@ static const i2s_port_t kI2SPort = I2S_NUM_0;
 
 namespace gay_ipod {
 
-static audio_element_status_t status_from_the_void(void *status) {
+static audio_element_status_t status_from_the_void(void* status) {
   uintptr_t as_pointer_int = reinterpret_cast<uintptr_t>(status);
   return static_cast<audio_element_status_t>(as_pointer_int);
 }
@@ -182,39 +182,42 @@ void DacAudioPlayback::Pause() {
 void DacAudioPlayback::ProcessEvents() {
   while (1) {
     audio_event_iface_msg_t event;
-    esp_err_t err = audio_event_iface_listen(event_interface_, &event, portMAX_DELAY);
+    esp_err_t err =
+        audio_event_iface_listen(event_interface_, &event, portMAX_DELAY);
     if (err != ESP_OK) {
       ESP_LOGI(kTag, "error listening for event:%x", err);
       continue;
     }
     ESP_LOGI(kTag, "received event, cmd %i", event.cmd);
 
-    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
-	&& event.source == (void *) mp3_decoder_
-	&& event.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
+    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+        event.source == (void*)mp3_decoder_ &&
+        event.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
       audio_element_info_t music_info = {0};
       audio_element_getinfo(mp3_decoder_, &music_info);
-      ESP_LOGI(kTag, "sample_rate=%d, bits=%d, ch=%d", music_info.sample_rates, music_info.bits, music_info.channels);
+      ESP_LOGI(kTag, "sample_rate=%d, bits=%d, ch=%d", music_info.sample_rates,
+               music_info.bits, music_info.channels);
       audio_element_setinfo(i2s_stream_writer_, &music_info);
-      i2s_stream_set_clk(i2s_stream_writer_, music_info.sample_rates, music_info.bits, music_info.channels);
+      i2s_stream_set_clk(i2s_stream_writer_, music_info.sample_rates,
+                         music_info.bits, music_info.channels);
     }
 
-    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
-	&& event.source == (void *) fatfs_stream_reader_
-	&& event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
+    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+        event.source == (void*)fatfs_stream_reader_ &&
+        event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
       audio_element_status_t status = status_from_the_void(event.data);
       if (status == AEL_STATUS_STATE_FINISHED) {
-      // TODO: enqueue next track?
+        // TODO: enqueue next track?
       }
     }
 
-    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
-	&& event.source == (void *) i2s_stream_writer_
-	&& event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
+    if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+        event.source == (void*)i2s_stream_writer_ &&
+        event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
       audio_element_status_t status = status_from_the_void(event.data);
       if (status == AEL_STATUS_STATE_FINISHED) {
-	// TODO.
-	return;
+        // TODO.
+        return;
       }
     }
 

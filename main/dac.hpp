@@ -2,8 +2,8 @@
 
 #include "gpio-expander.hpp"
 
-#include <functional>
 #include <stdint.h>
+#include <functional>
 
 #include "esp_err.h"
 #include "result.hpp"

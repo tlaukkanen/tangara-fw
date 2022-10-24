@@ -78,7 +78,7 @@ class I2CTransaction {
 
  private:
   i2c_cmd_handle_t handle_;
-  uint8_t *buffer_;
+  uint8_t* buffer_;
 };
 
 }  // namespace gay_ipod

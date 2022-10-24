@@ -4,10 +4,10 @@
 #include "playback.hpp"
 #include "storage.hpp"
 
-#include <cstdint>
 #include <dirent.h>
-#include <memory>
 #include <stdio.h>
+#include <cstdint>
+#include <memory>
 
 #include "audio_common.h"
 #include "audio_element.h"
