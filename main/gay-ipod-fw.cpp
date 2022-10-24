@@ -1,13 +1,14 @@
 #include "battery.hpp"
 #include "dac.hpp"
+#include "display.hpp"
 #include "gpio-expander.hpp"
 #include "playback.hpp"
 #include "storage.hpp"
 
-#include <cstdint>
 #include <dirent.h>
-#include <memory>
 #include <stdio.h>
+#include <cstdint>
+#include <memory>
 
 #include "audio_common.h"
 #include "audio_element.h"
@@ -64,8 +65,8 @@ esp_err_t init_spi(void) {
       .mosi_io_num = SPI_SDO_IO,
       .miso_io_num = SPI_SDI_IO,
       .sclk_io_num = SPI_SCLK_IO,
-      .quadwp_io_num = -1, //SPI_QUADWP_IO,
-      .quadhd_io_num = -1, //SPI_QUADHD_IO,
+      .quadwp_io_num = -1,  // SPI_QUADWP_IO,
+      .quadhd_io_num = -1,  // SPI_QUADHD_IO,
 
       // Unused
       .data4_io_num = -1,
@@ -125,6 +126,14 @@ extern "C" void app_main(void) {
 
   ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
   vTaskDelay(pdMS_TO_TICKS(1500));
+
+  ESP_LOGI(TAG, "Init Display");
+  auto display_res = gay_ipod::Display::create(&expander, gay_ipod::kInitData);
+  if (display_res.has_error()) {
+    ESP_LOGE(TAG, "Failed: %d", display_res.error());
+    return;
+  }
+  std::unique_ptr<gay_ipod::Display> display = std::move(display_res.value());
 
   ESP_LOGI(TAG, "Time to deinit.");
 
