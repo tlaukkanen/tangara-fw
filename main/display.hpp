@@ -1,20 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include "display-init.hpp"
 #include "driver/spi_master.h"
 #include "gpio-expander.hpp"
+#include "lvgl/lvgl.h"
 #include "result.hpp"
 
-// https://github.com/adafruit/Adafruit-ST7735-Library/blob/master/Adafruit_ST77xx.cpp
-// https://github.com/adafruit/Adafruit-ST7735-Library/blob/master/Adafruit_ST7735.cpp
 namespace gay_ipod {
-
-struct InitialisationData {
-  uint8_t num_sequences;
-  uint8_t* sequences[4];
-};
-
-extern InitialisationData kInitData;
 
 /*
  * Display driver for LVGL.
@@ -23,25 +16,45 @@ class Display {
  public:
   enum Error {};
   static auto create(GpioExpander* expander,
-                     const InitialisationData& init_data)
+                     const displays::InitialisationData& init_data)
       -> cpp::result<std::unique_ptr<Display>, Error>;
 
   Display(GpioExpander* gpio, spi_device_handle_t handle);
   ~Display();
 
   void WriteData();
+  void Flush(lv_disp_drv_t* disp_drv,
+             const lv_area_t* area,
+             lv_color_t* color_map);
+  void IRAM_ATTR PostTransaction(const spi_transaction_t& transaction);
+
+  void ServiceTransactions();
 
  private:
   GpioExpander* gpio_;
   spi_device_handle_t handle_;
 
-  void SendInitialisationSequence(uint8_t* data);
+  lv_disp_draw_buf_t buffers_;
+  lv_disp_drv_t driver_;
+  lv_disp_t* display_ = nullptr;
 
-  void SendCommandWithData(uint8_t command, uint8_t* data, size_t length);
+  enum TransactionData {
+    SEND_COMMAND = (1 << 0),
+    SEND_DATA = (1 << 1),
+    FLUSH_BUFFER = (1 << 2),
+    SMALL = (1 << 3),
+  };
 
-  void SendCmd(uint8_t* data, size_t length);
-  void SendData(uint8_t* data, size_t length);
-  void SendTransaction(uint8_t* data, size_t length);
+  void SendInitialisationSequence(const uint8_t* data);
+
+  void SendCommandWithData(uint8_t command,
+                           const uint8_t* data,
+                           size_t length,
+                           uintptr_t flags = 0);
+
+  void SendCmd(const uint8_t* data, size_t length, uintptr_t flags = 0);
+  void SendData(const uint8_t* data, size_t length, uintptr_t flags = 0);
+  void SendTransaction(const uint8_t* data, size_t length, uintptr_t flags = 0);
 };
 
 }  // namespace gay_ipod
