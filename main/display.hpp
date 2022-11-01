@@ -23,9 +23,11 @@ class Display {
   ~Display();
 
   void WriteData();
+
   void Flush(lv_disp_drv_t* disp_drv,
              const lv_area_t* area,
              lv_color_t* color_map);
+
   void IRAM_ATTR PostTransaction(const spi_transaction_t& transaction);
 
   void ServiceTransactions();
@@ -38,11 +40,13 @@ class Display {
   lv_disp_drv_t driver_;
   lv_disp_t* display_ = nullptr;
 
-  enum TransactionData {
-    SEND_COMMAND = (1 << 0),
-    SEND_DATA = (1 << 1),
-    FLUSH_BUFFER = (1 << 2),
-    SMALL = (1 << 3),
+  enum TransactionType {
+    COMMAND = 0,
+    DATA = 1,
+  };
+
+  enum TransactionFlags {
+    LVGL_FLUSH = 1,
   };
 
   void SendInitialisationSequence(const uint8_t* data);
@@ -54,7 +58,10 @@ class Display {
 
   void SendCmd(const uint8_t* data, size_t length, uintptr_t flags = 0);
   void SendData(const uint8_t* data, size_t length, uintptr_t flags = 0);
-  void SendTransaction(const uint8_t* data, size_t length, uintptr_t flags = 0);
+  void SendTransaction(TransactionType type,
+                       const uint8_t* data,
+                       size_t length,
+                       uintptr_t flags = 0);
 };
 
 }  // namespace gay_ipod

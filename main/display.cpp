@@ -96,9 +96,9 @@ auto Display::create(GpioExpander* expander,
       .duty_cycle_pos = 0,  // Unused
       .cs_ena_pretrans = 0,
       .cs_ena_posttrans = 0,
-      .clock_speed_hz = SPI_MASTER_FREQ_8M,
-      .input_delay_ns = 0,  // TODO: tune?
-      .spics_io_num = -1,   // TODO: change for R2
+      .clock_speed_hz = SPI_MASTER_FREQ_40M,
+      .input_delay_ns = 0,
+      .spics_io_num = -1,  // TODO: change for R2
       .flags = 0,
       .queue_size = kTransactionQueueSize,
       .pre_cb = NULL,
@@ -177,16 +177,17 @@ void Display::SendCommandWithData(uint8_t command,
 }
 
 void Display::SendCmd(const uint8_t* data, size_t length, uintptr_t flags) {
-  SendTransaction(data, length, flags | SEND_COMMAND);
+  SendTransaction(COMMAND, data, length, flags);
 }
 
 void Display::SendData(const uint8_t* data, size_t length, uintptr_t flags) {
-  SendTransaction(data, length, flags | SEND_DATA);
+  SendTransaction(DATA, data, length, flags);
 }
 
-void Display::SendTransaction(const uint8_t* data,
+void Display::SendTransaction(TransactionType type,
+                              const uint8_t* data,
                               size_t length,
-                              uintptr_t flags) {
+                              uint32_t flags) {
   if (length == 0) {
     return;
   }
@@ -200,15 +201,12 @@ void Display::SendTransaction(const uint8_t* data,
   transaction->length = length * 8;
   transaction->rxlength = 0;  // Match `length` value.
 
-  transaction->user = nullptr;  // TODO.
-
   // If the data to transmit is very short, then we can fit it directly
   // inside the transaction struct.
   if (length * 8 <= 32) {
     transaction->flags = SPI_TRANS_USE_TXDATA;
     std::memcpy(&transaction->tx_data, data, length);
   } else {
-    assert((flags & SMALL) == 0);
     // TODO: copy data to a DMA-capable transaction buffer
     transaction->tx_buffer = const_cast<uint8_t*>(data);
   }
@@ -222,11 +220,7 @@ void Display::SendTransaction(const uint8_t* data,
   //
 
   ServiceTransactions();
-  if (flags & SEND_COMMAND) {
-    gpio_set_level(kCommandOrDataPin, 0);
-  } else if (flags & SEND_DATA) {
-    gpio_set_level(kCommandOrDataPin, 1);
-  }
+  gpio_set_level(kCommandOrDataPin, type);
 
   gpio_->with([&](auto& gpio_) {
     gpio_.set_pin(GpioExpander::DISPLAY_CHIP_SELECT, 0);
@@ -242,29 +236,26 @@ void Display::SendTransaction(const uint8_t* data,
 void Display::Flush(lv_disp_drv_t* disp_drv,
                     const lv_area_t* area,
                     lv_color_t* color_map) {
-  // TODO: constants? based on init sequence?
-  uint16_t col_start = 2;
-  uint16_t row_start = 1;
   uint16_t data[2] = {0, 0};
 
-  data[0] = SPI_SWAP_DATA_TX(area->x1 + row_start, 16);
-  data[1] = SPI_SWAP_DATA_TX(area->x2 + row_start, 16);
-  SendCommandWithData(displays::ST77XX_CASET, (uint8_t*)data, 4, SMALL);
+  data[0] = SPI_SWAP_DATA_TX(area->x1, 16);
+  data[1] = SPI_SWAP_DATA_TX(area->x2, 16);
+  SendCommandWithData(displays::ST77XX_CASET, (uint8_t*)data, 4);
 
-  data[0] = SPI_SWAP_DATA_TX(area->y1 + col_start, 16);
-  data[1] = SPI_SWAP_DATA_TX(area->y2 + col_start, 16);
-  SendCommandWithData(displays::ST77XX_RASET, (uint8_t*)data, 4, SMALL);
+  data[0] = SPI_SWAP_DATA_TX(area->y1, 16);
+  data[1] = SPI_SWAP_DATA_TX(area->y2, 16);
+  SendCommandWithData(displays::ST77XX_RASET, (uint8_t*)data, 4);
 
   uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
   SendCommandWithData(displays::ST77XX_RAMWR, (uint8_t*)color_map, size * 2,
-                      FLUSH_BUFFER);
+                      LVGL_FLUSH);
 
   // ESP_LOGI(kTag, "finished flush.");
   // lv_disp_flush_ready(&driver_);
 }
 
 void IRAM_ATTR Display::PostTransaction(const spi_transaction_t& transaction) {
-  if (reinterpret_cast<uintptr_t>(transaction.user) & FLUSH_BUFFER) {
+  if (reinterpret_cast<uintptr_t>(transaction.user) & LVGL_FLUSH) {
     lv_disp_flush_ready(&driver_);
   }
 }

@@ -191,7 +191,7 @@ extern "C" void app_main(void) {
 
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
-  xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", 8 * 1024, (void*)lvglArgs,
+  xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize, (void*)lvglArgs,
                                 1, sLvglStack, &sLvglTaskBuffer, 1);
 
   while (1) {
