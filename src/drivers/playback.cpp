@@ -193,7 +193,7 @@ void DacAudioPlayback::ProcessEvents() {
     if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
         event.source == (void*)mp3_decoder_ &&
         event.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
-      audio_element_info_t music_info = {0};
+      audio_element_info_t music_info;
       audio_element_getinfo(mp3_decoder_, &music_info);
       ESP_LOGI(kTag, "sample_rate=%d, bits=%d, ch=%d", music_info.sample_rates,
                music_info.bits, music_info.channels);
