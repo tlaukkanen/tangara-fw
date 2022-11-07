@@ -124,8 +124,8 @@ extern "C" void app_main(void) {
   auto trackpad = gay_ipod::Trackpad::create(&expander);
 
   while (true) {
-    ESP_LOGI(TAG, "Z Level: %d", trackpad.value()->GetZLevel());
-    vTaskDelay(pdMS_TO_TICKS(1500));
+    ESP_LOGI(TAG, "Z Level: %d", trackpad.value()->readZLevel());
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 
 }

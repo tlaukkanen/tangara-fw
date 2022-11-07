@@ -92,7 +92,7 @@ void Trackpad::ReadRegister(uint8_t reg, uint8_t* data, uint8_t count) {
   ESP_ERROR_CHECK(transaction.Execute(I2C_NUM_1));
 }
 
-int Trackpad::GetZLevel() {
+int Trackpad::readZLevel() {
   uint8_t data = 0;
   this->ReadRegister(Register::Z_LEVEL, &data, 1);
   this->ClearFlags();

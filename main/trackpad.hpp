@@ -29,7 +29,7 @@ class Trackpad {
   Trackpad(const Trackpad&) = delete;
   Trackpad& operator=(const Trackpad&) = delete;
 
-  int GetZLevel();
+  int readZLevel();
 
  private:
   GpioExpander* gpio_;
