@@ -5,7 +5,7 @@
 #include "driver/i2c.h"
 #include "hal/i2c_types.h"
 
-namespace gay_ipod {
+namespace drivers {
 
 /*
  * Convenience wrapper for performing an I2C transaction with a reasonable
@@ -81,4 +81,4 @@ class I2CTransaction {
   uint8_t* buffer_;
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers

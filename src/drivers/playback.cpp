@@ -15,7 +15,7 @@
 static const char* kTag = "PLAYBACK";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
-namespace gay_ipod {
+namespace drivers {
 
 static audio_element_status_t status_from_the_void(void* status) {
   uintptr_t as_pointer_int = reinterpret_cast<uintptr_t>(status);
@@ -243,4 +243,4 @@ auto DacAudioPlayback::volume() -> uint8_t {
   return volume_;
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

@@ -104,13 +104,13 @@ static StaticTask_t sLvglTaskBuffer = {};
 static StackType_t sLvglStack[kLvglStackSize] = {0};
 
 struct LvglArgs {
-  gay_ipod::GpioExpander* gpio_expander;
+  drivers::GpioExpander* gpio_expander;
 };
 
 void lvgl_main(void* voidArgs) {
   ESP_LOGI(TAG, "starting LVGL task");
   LvglArgs* args = (LvglArgs*)voidArgs;
-  gay_ipod::GpioExpander* gpio_expander = args->gpio_expander;
+  drivers::GpioExpander* gpio_expander = args->gpio_expander;
 
   // Dispose of the args now that we've gotten everything out of them.
   delete args;
@@ -123,12 +123,12 @@ void lvgl_main(void* voidArgs) {
 
   ESP_LOGI(TAG, "init display");
   auto display_res =
-      gay_ipod::Display::create(gpio_expander, gay_ipod::displays::kST7735R);
+      drivers::Display::create(gpio_expander, drivers::displays::kST7735R);
   if (display_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", display_res.error());
     return;
   }
-  std::unique_ptr<gay_ipod::Display> display = std::move(display_res.value());
+  std::unique_ptr<drivers::Display> display = std::move(display_res.value());
 
   auto label = lv_label_create(NULL);
   lv_label_set_text(label, "g'day, cunts!");
@@ -151,38 +151,38 @@ extern "C" void app_main(void) {
   ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
   init_i2c();
   init_spi();
-  ESP_ERROR_CHECK(gay_ipod::init_adc());
+  ESP_ERROR_CHECK(drivers::init_adc());
 
   ESP_LOGI(TAG, "Init GPIOs");
-  gay_ipod::GpioExpander* expander = new gay_ipod::GpioExpander();
+  drivers::GpioExpander* expander = new drivers::GpioExpander();
 
   // for debugging usb ic
-  // expander.set_sd_mux(gay_ipod::GpioExpander::USB);
+  // expander.set_sd_mux(drivers::GpioExpander::USB);
 
   /*
   ESP_LOGI(TAG, "Init SD card");
-  auto storage_res = gay_ipod::SdStorage::create(expander);
+  auto storage_res = drivers::SdStorage::create(expander);
   if (storage_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", storage_res.error());
     return;
   }
-  std::unique_ptr<gay_ipod::SdStorage> storage = std::move(storage_res.value());
+  std::unique_ptr<drivers::SdStorage> storage = std::move(storage_res.value());
 
   ESP_LOGI(TAG, "Init DAC");
-  auto dac_res = gay_ipod::AudioDac::create(expander);
+  auto dac_res = drivers::AudioDac::create(expander);
   if (storage_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", dac_res.error());
     return;
   }
-  std::unique_ptr<gay_ipod::AudioDac> dac = std::move(dac_res.value());
+  std::unique_ptr<drivers::AudioDac> dac = std::move(dac_res.value());
 
   ESP_LOGI(TAG, "Init Audio Pipeline");
-  auto playback_res = gay_ipod::DacAudioPlayback::create(dac.get());
+  auto playback_res = drivers::DacAudioPlayback::create(dac.get());
   if (playback_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", playback_res.error());
     return;
   }
-  std::unique_ptr<gay_ipod::DacAudioPlayback> playback =
+  std::unique_ptr<drivers::DacAudioPlayback> playback =
       std::move(playback_res.value());
   */
 

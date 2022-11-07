@@ -11,7 +11,7 @@
 #include "esp_log.h"
 #include "hal/i2c_types.h"
 
-namespace gay_ipod {
+namespace drivers {
 
 static const char* kTag = "AUDIODAC";
 static const uint8_t kPcm5122Address = 0x4C;
@@ -103,4 +103,4 @@ void AudioDac::WriteRegister(Register reg, uint8_t val) {
   ESP_ERROR_CHECK(transaction.Execute());
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 
-namespace gay_ipod {
+namespace drivers {
 
 /**
  * Wrapper for interfacing with the PCA8575 GPIO expander. Includes basic
@@ -205,4 +205,4 @@ class GpioExpander {
   std::atomic<uint16_t> inputs_;
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers

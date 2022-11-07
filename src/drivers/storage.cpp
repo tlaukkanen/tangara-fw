@@ -22,7 +22,7 @@
 static const char* kTag = "SDSTORAGE";
 static const uint8_t kMaxOpenFiles = 8;
 
-namespace gay_ipod {
+namespace drivers {
 
 const char* kStoragePath = "/sdcard";
 
@@ -146,4 +146,4 @@ auto SdStorage::HandleTransaction(sdspi_dev_handle_t handle,
   return do_transaction_(handle, cmdinfo);
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

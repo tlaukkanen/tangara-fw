@@ -1,6 +1,6 @@
 #include "display-init.hpp"
 
-namespace gay_ipod {
+namespace drivers {
 namespace displays {
 
 /* Bit to use to signify we should delay after part of an init sequence */
@@ -100,4 +100,4 @@ const InitialisationData kST7735R = {
                   kST7735RCommonFooter}};
 
 }  // namespace displays
-}  // namespace gay_ipod
+}  // namespace drivers

@@ -4,7 +4,7 @@
 #include "assert.h"
 #include "driver/i2c.h"
 
-namespace gay_ipod {
+namespace drivers {
 
 static constexpr int kCmdLinkSize = I2C_LINK_RECOMMENDED_SIZE(12);
 
@@ -48,4 +48,4 @@ I2CTransaction& I2CTransaction::read(uint8_t* dest, i2c_ack_type_t ack) {
   return *this;
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

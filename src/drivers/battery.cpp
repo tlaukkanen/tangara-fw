@@ -4,7 +4,7 @@
 #include "esp_adc_cal.h"
 #include "hal/adc_types.h"
 
-namespace gay_ipod {
+namespace drivers {
 
 static esp_adc_cal_characteristics_t calibration;
 
@@ -28,4 +28,4 @@ uint32_t read_battery_voltage(void) {
   return esp_adc_cal_raw_to_voltage(raw, &calibration);
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

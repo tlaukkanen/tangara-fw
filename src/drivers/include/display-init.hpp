@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace gay_ipod {
+namespace drivers {
 namespace displays {
 
 extern const uint8_t kDelayBit;
@@ -78,4 +78,4 @@ enum StCommands {
 };
 
 }  // namespace displays
-}  // namespace gay_ipod
+}  // namespace drivers

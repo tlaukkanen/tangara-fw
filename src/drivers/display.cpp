@@ -41,7 +41,7 @@ static const int kDisplayBufferSize = (kDisplayWidth * kDisplayHeight) / 10;
 DMA_ATTR static lv_color_t sBuffer1[kDisplayBufferSize];
 DMA_ATTR static lv_color_t sBuffer2[kDisplayBufferSize];
 
-namespace gay_ipod {
+namespace drivers {
 
 // Static functions for interrop with the LVGL display driver API, which
 // requires a function pointer.
@@ -282,4 +282,4 @@ void Display::ServiceTransactions() {
   }
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

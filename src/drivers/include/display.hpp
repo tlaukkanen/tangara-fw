@@ -7,7 +7,7 @@
 #include "lvgl/lvgl.h"
 #include "result.hpp"
 
-namespace gay_ipod {
+namespace drivers {
 
 /*
  * Display driver for LVGL.
@@ -64,4 +64,4 @@ class Display {
                        uintptr_t flags = 0);
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers

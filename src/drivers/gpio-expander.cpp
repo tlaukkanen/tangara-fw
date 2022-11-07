@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace gay_ipod {
+namespace drivers {
 
 GpioExpander::GpioExpander() {
   ports_ = pack(kPortADefault, kPortBDefault);
@@ -84,4 +84,4 @@ GpioExpander::SpiLock::~SpiLock() {
   gpio_.with([&](auto& gpio) { gpio.set_pin(cs_, 1); });
 }
 
-}  // namespace gay_ipod
+}  // namespace drivers

@@ -17,7 +17,7 @@
 #include "mp3_decoder.h"
 #include "result.hpp"
 
-namespace gay_ipod {
+namespace drivers {
 
 class DacAudioPlayback {
  public:
@@ -64,4 +64,4 @@ class DacAudioPlayback {
   audio_element_handle_t mp3_decoder_;
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers

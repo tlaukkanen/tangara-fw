@@ -8,7 +8,7 @@
 #include "esp_err.h"
 #include "result.hpp"
 
-namespace gay_ipod {
+namespace drivers {
 
 /**
  * Interface for a PCM5122PWR DAC, configured over I2C.
@@ -70,4 +70,4 @@ class AudioDac {
   void WriteRegister(Register reg, uint8_t val);
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers

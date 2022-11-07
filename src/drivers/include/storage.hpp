@@ -10,7 +10,7 @@
 #include "esp_vfs_fat.h"
 #include "result.hpp"
 
-namespace gay_ipod {
+namespace drivers {
 
 extern const char* kStoragePath;
 
@@ -57,4 +57,4 @@ class SdStorage {
   FATFS* fs_ = nullptr;
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers
