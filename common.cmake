@@ -12,6 +12,7 @@ set(COMPONENTS "")
 # External dependencies
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/result")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/lvgl")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/catch2")
 
 # Project components
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")

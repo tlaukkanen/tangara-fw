@@ -1,9 +1,9 @@
-#include "unity.h"
+#include "catch2/catch.hpp"
 
 TEST_CASE("Example test case", "[cooltag]") {
-    TEST_ASSERT_EQUAL(0, 0);
+    REQUIRE ( 1 == 1 );
 }
 
 TEST_CASE("test that doesn't run", "[cooltag][ignore]") {
-    TEST_ASSERT_EQUAL(0, 1);
+    REQUIRE ( 0 == 1 );
 }
