@@ -5,3 +5,8 @@ build.clang/
 sdkconfig.old
 .vscode
 compile_commands.json
+warnings.txt
+
+test/build/
+test/dependencies.lock
+test/sdkconfig
