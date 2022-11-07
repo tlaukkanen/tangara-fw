@@ -77,11 +77,11 @@ GpioExpander::SpiLock GpioExpander::AcquireSpiBus(ChipSelect cs) {
 
 GpioExpander::SpiLock::SpiLock(GpioExpander& gpio, ChipSelect cs)
     : lock_(gpio.cs_mutex_), gpio_(gpio), cs_(cs) {
-  gpio_.with([&](auto& gpio) { gpio.set_pin(cs_, 0); });
+  gpio_.with([&](auto& expander) { expander.set_pin(cs_, 0); });
 }
 
 GpioExpander::SpiLock::~SpiLock() {
-  gpio_.with([&](auto& gpio) { gpio.set_pin(cs_, 1); });
+  gpio_.with([&](auto& expander) { expander.set_pin(cs_, 1); });
 }
 
 }  // namespace drivers
