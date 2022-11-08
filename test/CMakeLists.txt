@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 include(../common.cmake)
 
+set(SDKCONFIG_DEFAULTS "../sdkconfig.common;sdkconfig.test")
+
 idf_build_set_property(
   COMPILE_OPTIONS "-DCATCH_CONFIG_NO_POSIX_SIGNALS -DCATCH_CONFIG_FAST_COMPILE" APPEND)
 

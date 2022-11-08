@@ -2,6 +2,7 @@
 .clangd
 build/
 build.clang/
+sdkconfig
 sdkconfig.old
 .vscode
 compile_commands.json

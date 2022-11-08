@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 include(common.cmake)
 
+set(SDKCONFIG_DEFAULTS "sdkconfig.common")
+
 # No exceptions in app builds (this is different in test builds).
 idf_build_set_property(COMPILE_OPTIONS "-DRESULT_DISABLE_EXCEPTIONS" APPEND)
 
