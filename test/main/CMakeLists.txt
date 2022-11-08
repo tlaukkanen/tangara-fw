@@ -1,1 +1,4 @@
-idf_component_register(SRCS "main.cpp" INCLUDE_DIRS "." REQUIRE "catch2")
+idf_component_register(
+  SRCS "main.cpp"
+  INCLUDE_DIRS "."
+  REQUIRES "catch2")
