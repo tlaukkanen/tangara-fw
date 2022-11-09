@@ -7,6 +7,9 @@
 
 namespace drivers {
 
+esp_err_t init_i2c(void);
+esp_err_t deinit_i2c(void);
+
 /*
  * Convenience wrapper for performing an I2C transaction with a reasonable
  * preconfigured timeout, automatic management of a heap-based command buffer,

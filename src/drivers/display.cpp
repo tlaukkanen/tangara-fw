@@ -222,9 +222,8 @@ void Display::SendTransaction(TransactionType type,
   ServiceTransactions();
   gpio_set_level(kCommandOrDataPin, type);
 
-  gpio_->with([&](auto& gpio) {
-    gpio.set_pin(GpioExpander::DISPLAY_CHIP_SELECT, 0);
-  });
+  gpio_->with(
+      [&](auto& gpio) { gpio.set_pin(GpioExpander::DISPLAY_CHIP_SELECT, 0); });
   {
     // auto lock = gpio_->AcquireSpiBus(GpioExpander::DISPLAY);
     ESP_ERROR_CHECK(spi_device_polling_transmit(handle_, transaction));

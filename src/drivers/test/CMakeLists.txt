@@ -1,1 +1,1 @@
-idf_component_register(SRC_DIRS "." INCLUDE_DIRS "." REQUIRES catch2 cmock drivers)
+idf_component_register(SRCS "test_storage.cpp" INCLUDE_DIRS "." REQUIRES catch2 cmock drivers)

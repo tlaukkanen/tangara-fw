@@ -7,9 +7,11 @@
 #include "esp_freertos_hooks.h"
 #include "freertos/portmacro.h"
 #include "gpio-expander.hpp"
+#include "i2c.hpp"
 #include "misc/lv_color.h"
 #include "misc/lv_timer.h"
 #include "playback.hpp"
+#include "spi.hpp"
 #include "storage.hpp"
 
 #include <dirent.h>
@@ -33,67 +35,7 @@
 #include "lvgl/lvgl.h"
 #include "widgets/lv_label.h"
 
-#define I2C_SDA_IO (GPIO_NUM_2)
-#define I2C_SCL_IO (GPIO_NUM_4)
-#define I2C_CLOCK_HZ (400000)
-
-#define SPI_SDI_IO (GPIO_NUM_19)
-#define SPI_SDO_IO (GPIO_NUM_23)
-#define SPI_SCLK_IO (GPIO_NUM_18)
-#define SPI_QUADWP_IO (GPIO_NUM_22)
-#define SPI_QUADHD_IO (GPIO_NUM_21)
-
 static const char* TAG = "MAIN";
-
-esp_err_t init_i2c(void) {
-  i2c_port_t port = I2C_NUM_0;
-  i2c_config_t config = {
-      .mode = I2C_MODE_MASTER,
-      .sda_io_num = I2C_SDA_IO,
-      .scl_io_num = I2C_SCL_IO,
-      .sda_pullup_en = GPIO_PULLUP_ENABLE,
-      .scl_pullup_en = GPIO_PULLUP_ENABLE,
-      .master =
-          {
-              .clk_speed = I2C_CLOCK_HZ,
-          },
-      // No requirements for the clock.
-      .clk_flags = 0,
-  };
-
-  ESP_ERROR_CHECK(i2c_param_config(port, &config));
-  ESP_ERROR_CHECK(i2c_driver_install(port, config.mode, 0, 0, 0));
-
-  // TODO: INT line
-
-  return ESP_OK;
-}
-
-esp_err_t init_spi(void) {
-  spi_bus_config_t config = {
-      .mosi_io_num = SPI_SDO_IO,
-      .miso_io_num = SPI_SDI_IO,
-      .sclk_io_num = SPI_SCLK_IO,
-      .quadwp_io_num = -1,  // SPI_QUADWP_IO,
-      .quadhd_io_num = -1,  // SPI_QUADHD_IO,
-
-      // Unused
-      .data4_io_num = -1,
-      .data5_io_num = -1,
-      .data6_io_num = -1,
-      .data7_io_num = -1,
-
-      // Use the DMA default size. The display requires larger buffers, but it
-      // manages its down use of DMA-capable memory.
-      .max_transfer_sz = 128 * 16 * 2,  // TODO: hmm
-      .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_IOMUX_PINS,
-      .intr_flags = 0,
-  };
-
-  ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &config, SPI_DMA_CH_AUTO));
-
-  return ESP_OK;
-}
 
 void IRAM_ATTR tick_hook(void) {
   lv_tick_inc(1);
@@ -149,17 +91,13 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Initialising peripherals");
 
   ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
-  init_i2c();
-  init_spi();
+  ESP_ERROR_CHECK(drivers::init_i2c());
+  ESP_ERROR_CHECK(drivers::init_spi());
   ESP_ERROR_CHECK(drivers::init_adc());
 
   ESP_LOGI(TAG, "Init GPIOs");
   drivers::GpioExpander* expander = new drivers::GpioExpander();
 
-  // for debugging usb ic
-  // expander.set_sd_mux(drivers::GpioExpander::USB);
-
-  /*
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = drivers::SdStorage::create(expander);
   if (storage_res.has_error()) {
@@ -184,15 +122,15 @@ extern "C" void app_main(void) {
   }
   std::unique_ptr<drivers::DacAudioPlayback> playback =
       std::move(playback_res.value());
-  */
 
   ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
   vTaskDelay(pdMS_TO_TICKS(1500));
 
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
-  xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize, (void*)lvglArgs,
-                                1, sLvglStack, &sLvglTaskBuffer, 1);
+  xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize,
+                                (void*)lvglArgs, 1, sLvglStack,
+                                &sLvglTaskBuffer, 1);
 
   while (1) {
     // TODO: Find owners for everything so we can quit this task safely.
