@@ -8,6 +8,7 @@
 #include "freertos/portmacro.h"
 #include "gpio-expander.hpp"
 #include "i2c.hpp"
+#include "i2s_audio_output.hpp"
 #include "misc/lv_color.h"
 #include "misc/lv_timer.h"
 #include "playback.hpp"
@@ -106,34 +107,34 @@ extern "C" void app_main(void) {
   }
   std::unique_ptr<drivers::SdStorage> storage = std::move(storage_res.value());
 
-  ESP_LOGI(TAG, "Init DAC");
-  auto dac_res = drivers::AudioDac::create(expander);
-  if (storage_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", dac_res.error());
-    return;
-  }
-  std::unique_ptr<drivers::AudioDac> dac = std::move(dac_res.value());
-
-  ESP_LOGI(TAG, "Init Audio Pipeline");
-  auto playback_res = drivers::DacAudioPlayback::create(dac.get());
-  if (playback_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", playback_res.error());
-    return;
-  }
-  std::unique_ptr<drivers::DacAudioPlayback> playback =
-      std::move(playback_res.value());
-
-  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
-  vTaskDelay(pdMS_TO_TICKS(1500));
-
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
   xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize,
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
+  ESP_LOGI(TAG, "Init Audio Output (I2S)");
+  auto sink_res = drivers::I2SAudioOutput::create(expander);
+  if (sink_res.has_error()) {
+    ESP_LOGE(TAG, "Failed: %d", sink_res.error());
+    return;
+  }
+  std::unique_ptr<drivers::AudioOutput> sink = std::move(sink_res.value());
+
+  ESP_LOGI(TAG, "Init Audio Pipeline");
+  auto playback_res = drivers::AudioPlayback::create(std::move(sink));
+  if (playback_res.has_error()) {
+    ESP_LOGE(TAG, "Failed: %d", playback_res.error());
+    return;
+  }
+  std::unique_ptr<drivers::AudioPlayback> playback =
+      std::move(playback_res.value());
+
+  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
+  vTaskDelay(pdMS_TO_TICKS(1500));
+
   while (1) {
-    // TODO: Find owners for everything so we can quit this task safely.
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    playback->ProcessEvents(5);
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
