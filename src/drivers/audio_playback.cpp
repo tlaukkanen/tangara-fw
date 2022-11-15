@@ -124,6 +124,14 @@ void AudioPlayback::Play(const std::string& filename) {
   output_->SetVolume(volume_);
 }
 
+void AudioPlayback::Toggle() {
+  if (GetPlaybackState() == PLAYING) {
+    Pause();
+  } else if (GetPlaybackState() == PAUSED) {
+    Resume();
+  }
+}
+
 void AudioPlayback::Resume() {
   if (GetPlaybackState() == PAUSED) {
     current_state_ = PLAYING;

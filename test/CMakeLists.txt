@@ -9,7 +9,10 @@ idf_build_set_property(
 # Treat warnings as errors for test purposes.
 list(APPEND EXTRA_WARNINGS "-Werror")
 
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src/drivers")
+list(APPEND EXTRA_COMPONENT_DIRS
+  "$ENV{PROJ_PATH}/src/drivers"
+  "$ENV{PROJ_PATH}/src/dev_console"
+  )
 
 # List all components that include tests here.
 set(TEST_COMPONENTS "drivers")

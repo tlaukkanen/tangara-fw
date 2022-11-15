@@ -1,3 +1,5 @@
+#include "app_console.hpp"
+#include "audio_playback.hpp"
 #include "battery.hpp"
 #include "core/lv_disp.h"
 #include "core/lv_obj_pos.h"
@@ -11,8 +13,6 @@
 #include "i2s_audio_output.hpp"
 #include "misc/lv_color.h"
 #include "misc/lv_timer.h"
-#include "audio_playback.hpp"
-#include "i2s_audio_output.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
 
@@ -114,7 +114,7 @@ extern "C" void app_main(void) {
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
-  ESP_LOGI(TAG, "Init Audio Output (I2S)");
+  ESP_LOGI(TAG, "Init audio output (I2S)");
   auto sink_res = drivers::I2SAudioOutput::create(expander);
   if (sink_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", sink_res.error());
@@ -122,7 +122,7 @@ extern "C" void app_main(void) {
   }
   std::unique_ptr<drivers::IAudioOutput> sink = std::move(sink_res.value());
 
-  ESP_LOGI(TAG, "Init Audio Pipeline");
+  ESP_LOGI(TAG, "Init audio pipeline");
   auto playback_res = drivers::AudioPlayback::create(std::move(sink));
   if (playback_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", playback_res.error());
@@ -131,8 +131,9 @@ extern "C" void app_main(void) {
   std::unique_ptr<drivers::AudioPlayback> playback =
       std::move(playback_res.value());
 
-  ESP_LOGI(TAG, "Everything looks good! Waiting a mo for debugger.");
-  vTaskDelay(pdMS_TO_TICKS(1500));
+  ESP_LOGI(TAG, "Launch console");
+  console::AppConsole console(std::move(playback));
+  console.Launch();
 
   while (1) {
     playback->ProcessEvents(5);
