@@ -1,41 +1,45 @@
 #include "audio_playback.hpp"
 
 #include "audio_output.hpp"
-#include "dac.hpp"
 
 #include <algorithm>
 #include <cstdint>
-#include <exception>
 #include <memory>
 #include <string_view>
 
 #include "audio_element.h"
 #include "audio_event_iface.h"
 #include "audio_pipeline.h"
-#include "driver/i2s.h"
 #include "esp_err.h"
-#include "freertos/portmacro.h"
+
+#include "aac_decoder.h"
+#include "amr_decoder.h"
+#include "flac_decoder.h"
 #include "mp3_decoder.h"
+#include "ogg_decoder.h"
+#include "opus_decoder.h"
+#include "wav_decoder.h"
 
 static const char* kTag = "PLAYBACK";
 static const char* kSource = "src";
-static const char* kEncoder = "enc";
+static const char* kDecoder = "dec";
 static const char* kSink = "sink";
-
-static bool endsWith(std::string_view str, std::string_view suffix) {
-    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
-}
-
-static void toLower(std::string &str) {
-  std::transform(str.begin(), str.end(), str.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-}
 
 namespace drivers {
 
 static audio_element_status_t status_from_the_void(void* status) {
   uintptr_t as_pointer_int = reinterpret_cast<uintptr_t>(status);
   return static_cast<audio_element_status_t>(as_pointer_int);
+}
+
+static bool endsWith(std::string_view str, std::string_view suffix) {
+  return str.size() >= suffix.size() &&
+         0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix);
+}
+
+static void toLower(std::string& str) {
+  std::transform(str.begin(), str.end(), str.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
 }
 
 auto AudioPlayback::create(std::unique_ptr<IAudioOutput> output)
@@ -67,18 +71,17 @@ auto AudioPlayback::create(std::unique_ptr<IAudioOutput> output)
   audio_element_msg_set_listener(output->GetAudioElement(), event_interface);
 
   audio_pipeline_register(pipeline, fatfs_stream_reader, kSource);
-  audio_pipeline_register(pipeline, outut->GetAudioElement(), kSink);
+  audio_pipeline_register(pipeline, output->GetAudioElement(), kSink);
 
-
-  return std::make_unique<AudioPlayback>(output, pipeline, fatfs_stream_reader, event_interface
+  return std::make_unique<AudioPlayback>(output, pipeline, fatfs_stream_reader,
+                                         event_interface);
 }
 
-AudioPlayback::AudioPlayback(std::unique_ptr<IAudioOutput> output,
-                                   audio_pipeline_handle_t pipeline,
-                                   audio_element_handle_t source_element,
-                                   audio_event_iface_handle_t event_interface,
-                                   audio_element_handle_t mp3_decoder)
-    : output_(std::move(outout)),
+AudioPlayback::AudioPlayback(std::unique_ptr<IAudioOutput>& output,
+                             audio_pipeline_handle_t pipeline,
+                             audio_element_handle_t source_element,
+                             audio_event_iface_handle_t event_interface)
+    : output_(std::move(output)),
       pipeline_(pipeline),
       source_element_(source_element),
       event_interface_(event_interface) {}
@@ -86,7 +89,8 @@ AudioPlayback::AudioPlayback(std::unique_ptr<IAudioOutput> output,
 AudioPlayback::~AudioPlayback() {
   audio_pipeline_remove_listener(pipeline_);
   audio_element_msg_remove_listener(source_element_, event_interface_);
-  audio_element_msg_remove_listener(output_->GetAudioElement(), event_interface_);
+  audio_element_msg_remove_listener(output_->GetAudioElement(),
+                                    event_interface_);
 
   audio_pipeline_stop(pipeline_);
   audio_pipeline_wait_for_stop(pipeline_);
@@ -117,7 +121,7 @@ void AudioPlayback::Play(const std::string& filename) {
   audio_pipeline_reset_ringbuffer(pipeline_);
   audio_pipeline_reset_elements(pipeline_);
   audio_pipeline_run(pipeline_);
-  dac_->WriteVolume(volume_);
+  output_->SetVolume(volume_);
 }
 
 void AudioPlayback::Resume() {
@@ -143,8 +147,8 @@ void AudioPlayback::ProcessEvents(uint16_t max_time_ms) {
   }
   while (1) {
     audio_event_iface_msg_t event;
-    esp_err_t err =
-        audio_event_iface_listen(event_interface_, &event, pdMS_TO_TICKS(max_time_ms));
+    esp_err_t err = audio_event_iface_listen(event_interface_, &event,
+                                             pdMS_TO_TICKS(max_time_ms));
     if (err != ESP_OK) {
       ESP_LOGE(kTag, "error listening for event:%x", err);
       continue;
@@ -176,7 +180,7 @@ void AudioPlayback::ProcessEvents(uint16_t max_time_ms) {
         if (next_filename_ != "") {
           Decoder decoder = GetDecoderForFilename(next_filename_);
           if (decoder == decoder_type_) {
-            audio_element_set_uri(source_element_, next_filename_);
+            audio_element_set_uri(source_element_, next_filename_.c_str());
             audio_pipeline_reset_ringbuffer(pipeline_);
             audio_pipeline_reset_elements(pipeline_);
             audio_pipeline_change_state(pipeline_, AEL_STATE_INIT);
@@ -221,7 +225,7 @@ auto AudioPlayback::GetDecoderForFilename(std::string filename) -> Decoder {
   if (endsWith(filename, "mp3")) {
     return MP3;
   }
-  if (endsWith(filename, "amr") || endsWith(filename, "wamr") {
+  if (endsWith(filename, "amr") || endsWith(filename, "wamr")) {
     return AMR;
   }
   if (endsWith(filename, "opus")) {
@@ -236,38 +240,43 @@ auto AudioPlayback::GetDecoderForFilename(std::string filename) -> Decoder {
   if (endsWith(filename, "wav")) {
     return WAV;
   }
-  if (endsWith(filename, "aac") || endsWith(filename, "m4a") || endsWith(filename, "ts") || endsWith(filename, "mp4")) {
+  if (endsWith(filename, "aac") || endsWith(filename, "m4a") ||
+      endsWith(filename, "ts") || endsWith(filename, "mp4")) {
     return AAC;
   }
   return NONE;
 }
 
 auto AudioPlayback::CreateDecoder(Decoder decoder) -> audio_element_handle_t {
-  switch (decoder) {
-    case MP3:
-      mp3_decoder_cfg_t config = DEFAULT_MP3_DECODER_CONFIG();
-      return mp3_decoder_init(&config);
-    case AMR:
-      amr_decoder_cfg_t  config  = DEFAULT_AMR_DECODER_CONFIG();
-      return amr_decoder_init(&config);
-    case OPUS:
-      opus_decoder_cfg_t config = DEFAULT_OPUS_DECODER_CONFIG();
-      return decoder_opus_init(&config);
-    case OGG:
-      ogg_decoder_cfg_t  config  = DEFAULT_OGG_DECODER_CONFIG();
-      return ogg_decoder_init(&config);
-    case FLAC:
-      flac_decoder_cfg_t config = DEFAULT_FLAC_DECODER_CONFIG();
-      return flac_decoder_init(&config);
-    case WAV:
-      wav_decoder_cfg_t  config  = DEFAULT_WAV_DECODER_CONFIG();
-      return wav_decoder_init(&config);
-    case AAC:
-      aac_decoder_cfg_t  aac_dec_cfg  = DEFAULT_AAC_DECODER_CONFIG();
-      return aac_decoder_init(&aac_dec_cfg);
-    default:
-      return nullptr;
+  if (decoder == MP3) {
+    mp3_decoder_cfg_t config = DEFAULT_MP3_DECODER_CONFIG();
+    return mp3_decoder_init(&config);
   }
+  if (decoder == AMR) {
+    amr_decoder_cfg_t config = DEFAULT_AMR_DECODER_CONFIG();
+    return amr_decoder_init(&config);
+  }
+  if (decoder == OPUS) {
+    opus_decoder_cfg_t config = DEFAULT_OPUS_DECODER_CONFIG();
+    return decoder_opus_init(&config);
+  }
+  if (decoder == OGG) {
+    ogg_decoder_cfg_t config = DEFAULT_OGG_DECODER_CONFIG();
+    return ogg_decoder_init(&config);
+  }
+  if (decoder == FLAC) {
+    flac_decoder_cfg_t config = DEFAULT_FLAC_DECODER_CONFIG();
+    return flac_decoder_init(&config);
+  }
+  if (decoder == WAV) {
+    wav_decoder_cfg_t config = DEFAULT_WAV_DECODER_CONFIG();
+    return wav_decoder_init(&config);
+  }
+  if (decoder == AAC) {
+    aac_decoder_cfg_t config = DEFAULT_AAC_DECODER_CONFIG();
+    return aac_decoder_init(&config);
+  }
+  return nullptr;
 }
 
 void AudioPlayback::ReconfigurePipeline(Decoder decoder) {
@@ -276,7 +285,7 @@ void AudioPlayback::ReconfigurePipeline(Decoder decoder) {
   }
 
   if (decoder_type_ != NONE) {
-    audio_pipeline_unlink(pipeline);
+    audio_pipeline_unlink(pipeline_);
     audio_element_msg_remove_listener(decoder_, event_interface_);
     audio_pipeline_unregister(pipeline_, decoder_);
     audio_element_deinit(decoder_);
@@ -288,7 +297,7 @@ void AudioPlayback::ReconfigurePipeline(Decoder decoder) {
     audio_pipeline_register(pipeline_, decoder_, kDecoder);
     audio_element_msg_set_listener(decoder_, event_interface_);
     static const char* link_tag[3] = {kSource, kDecoder, kSink};
-    audio_pipeline_link(pipeline, &link_tag[0], 3);
+    audio_pipeline_link(pipeline_, &link_tag[0], 3);
   }
 }
 

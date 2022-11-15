@@ -1,19 +1,24 @@
 #include "i2s_audio_output.hpp"
+
 #include <algorithm>
-#include "audio_output.hpp"
-#include "gpio-expander.hpp"
+
+#include "audio_element.h"
+#include "driver/i2s.h"
+#include "esp_err.h"
+#include "freertos/portmacro.h"
+#include "i2s_stream.h"
 
 static const i2s_port_t kI2SPort = I2S_NUM_0;
+static const char* kTag = "I2SOUT";
 
 namespace drivers {
 
-auto I2SAudioOutput::create(GpioExpander *expander)
+auto I2SAudioOutput::create(GpioExpander* expander)
     -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error> {
-
   // First, we need to perform initial configuration of the DAC chip.
   auto dac_result = drivers::AudioDac::create(expander);
   if (dac_result.has_error()) {
-    ESP_LOGE(TAG, "failed to init dac: %d", dac_result.error());
+    ESP_LOGE(kTag, "failed to init dac: %d", dac_result.error());
     return cpp::fail(DAC_CONFIG);
   }
   std::unique_ptr<AudioDac> dac = std::move(dac_result.value());
@@ -54,7 +59,8 @@ auto I2SAudioOutput::create(GpioExpander *expander)
       .need_expand = false,
       .expand_src_bits = I2S_BITS_PER_SAMPLE_16BIT,
   };
-  i2s_stream_writer = i2s_stream_init(&i2s_stream_config);
+  audio_element_handle_t i2s_stream_writer =
+      i2s_stream_init(&i2s_stream_config);
   if (i2s_stream_writer == NULL) {
     return cpp::fail(Error::STREAM_INIT);
   }
@@ -74,8 +80,10 @@ auto I2SAudioOutput::create(GpioExpander *expander)
   return std::make_unique<I2SAudioOutput>(dac, i2s_stream_writer);
 }
 
-I2SAudioOutput(std::unique<AudioDac> dac, audio_element_handle_t element) : IAudioOutput(element), dac_(dac) {}
-~I2SAudioOutput() {
+I2SAudioOutput::I2SAudioOutput(std::unique_ptr<AudioDac>& dac,
+                               audio_element_handle_t element)
+    : IAudioOutput(element), dac_(std::move(dac)) {}
+I2SAudioOutput::~I2SAudioOutput() {
   // TODO: power down the DAC.
 }
 
@@ -83,10 +91,9 @@ auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
   dac_->WriteVolume(255);
 }
 
-auto I2SAudioOutput::Configure(audio_element_info_t info) -> void {
-      audio_element_setinfo(element_, &music_info);
-      i2s_stream_set_clk(element_, music_info.sample_rates,
-                         music_info.bits, music_info.channels);
+auto I2SAudioOutput::Configure(audio_element_info_t& info) -> void {
+  audio_element_setinfo(element_, &info);
+  i2s_stream_set_clk(element_, info.sample_rates, info.bits, info.channels);
 }
 
-}
+}  // namespace drivers

@@ -11,7 +11,8 @@
 #include "i2s_audio_output.hpp"
 #include "misc/lv_color.h"
 #include "misc/lv_timer.h"
-#include "playback.hpp"
+#include "audio_playback.hpp"
+#include "i2s_audio_output.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
 
@@ -119,7 +120,7 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Failed: %d", sink_res.error());
     return;
   }
-  std::unique_ptr<drivers::AudioOutput> sink = std::move(sink_res.value());
+  std::unique_ptr<drivers::IAudioOutput> sink = std::move(sink_res.value());
 
   ESP_LOGI(TAG, "Init Audio Pipeline");
   auto playback_res = drivers::AudioPlayback::create(std::move(sink));

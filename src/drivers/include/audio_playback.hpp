@@ -32,10 +32,10 @@ class AudioPlayback {
   static auto create(std::unique_ptr<IAudioOutput> output)
       -> cpp::result<std::unique_ptr<AudioPlayback>, Error>;
 
-  AudioPlayback(std::unqiue_ptr<IAudioOutput> output,
-                   audio_pipeline_handle_t pipeline,
-                   audio_element_handle_t source_element,
-                   audio_event_iface_handle_t event_interface);
+  AudioPlayback(std::unique_ptr<IAudioOutput>& output,
+                audio_pipeline_handle_t pipeline,
+                audio_element_handle_t source_element,
+                audio_event_iface_handle_t event_interface);
   ~AudioPlayback();
 
   /*
@@ -77,10 +77,10 @@ class AudioPlayback {
  private:
   PlaybackState current_state_;
 
-  enum Decoder {NONE, MP3, AMR, OPUS, OGG, FLAC, WAV, AAC};
+  enum Decoder { NONE, MP3, AMR, OPUS, OGG, FLAC, WAV, AAC };
   auto GetDecoderForFilename(std::string filename) -> Decoder;
   auto CreateDecoder(Decoder decoder) -> audio_element_handle_t;
-  void ReconfigurePipeline();
+  auto ReconfigurePipeline(Decoder decoder) -> void;
 
   std::unique_ptr<IAudioOutput> output_;
   std::mutex playback_lock_;
