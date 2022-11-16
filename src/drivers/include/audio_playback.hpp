@@ -44,14 +44,14 @@ class AudioPlayback {
    *
    * Any value set in `set_next_file` is cleared by this method.
    */
-  void Play(const std::string& filename);
+  auto Play(const std::string& filename) -> void;
   /* Toogle between resumed and paused. */
-  void Toggle();
-  void Resume();
-  void Pause();
+  auto Toggle() -> void;
+  auto Resume() -> void;
+  auto Pause() -> void;
 
   enum PlaybackState { PLAYING, PAUSED, STOPPED };
-  auto GetPlaybackState() -> PlaybackState;
+  auto GetPlaybackState() const -> PlaybackState;
 
   /*
    * Handles any pending events from the underlying audio pipeline. This must
@@ -59,34 +59,32 @@ class AudioPlayback {
    * different audio types (e.g. sample rate, bit depth), and for gapless
    * playback.
    */
-  void ProcessEvents(uint16_t max_time_ms);
+  auto ProcessEvents(uint16_t max_time_ms) -> void;
 
   /*
    * Sets the file that should be played immediately after the current file
    * finishes. This is used for gapless playback
    */
-  void set_next_file(const std::string& filename);
+  auto SetNextFile(const std::string& filename) -> void;
 
-  void set_volume(uint8_t volume);
-  auto volume() -> uint8_t;
+  auto SetVolume(uint8_t volume) -> void;
+  auto GetVolume() const -> uint8_t;
 
   // Not copyable or movable.
   AudioPlayback(const AudioPlayback&) = delete;
   AudioPlayback& operator=(const AudioPlayback&) = delete;
 
  private:
-  PlaybackState current_state_;
+  PlaybackState playback_state_;
 
   enum Decoder { NONE, MP3, AMR, OPUS, OGG, FLAC, WAV, AAC };
-  auto GetDecoderForFilename(std::string filename) -> Decoder;
-  auto CreateDecoder(Decoder decoder) -> audio_element_handle_t;
+  auto GetDecoderForFilename(std::string filename) const -> Decoder;
+  auto CreateDecoder(Decoder decoder) const -> audio_element_handle_t;
   auto ReconfigurePipeline(Decoder decoder) -> void;
 
   std::unique_ptr<IAudioOutput> output_;
-  std::mutex playback_lock_;
 
   std::string next_filename_ = "";
-  uint8_t volume_;
 
   audio_pipeline_handle_t pipeline_;
   audio_element_handle_t source_element_;

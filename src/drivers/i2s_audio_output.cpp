@@ -82,13 +82,28 @@ auto I2SAudioOutput::create(GpioExpander* expander)
 
 I2SAudioOutput::I2SAudioOutput(std::unique_ptr<AudioDac>& dac,
                                audio_element_handle_t element)
-    : IAudioOutput(element), dac_(std::move(dac)) {}
+    : IAudioOutput(element), dac_(std::move(dac)) {
+  volume_ = 255;
+}
 I2SAudioOutput::~I2SAudioOutput() {
   // TODO: power down the DAC.
 }
 
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
-  dac_->WriteVolume(255);
+  volume_ = volume;
+  if (!is_soft_muted_) {
+    dac_->WriteVolume(volume);
+  }
+}
+
+auto I2SAudioOutput::SetSoftMute(bool enabled) -> void {
+  if (enabled) {
+    is_soft_muted_ = true;
+    dac_->WriteVolume(255);
+  } else {
+    is_soft_muted_ = false;
+    dac_->WriteVolume(volume_);
+  }
 }
 
 auto I2SAudioOutput::Configure(audio_element_info_t& info) -> void {

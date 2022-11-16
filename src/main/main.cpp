@@ -130,9 +130,10 @@ extern "C" void app_main(void) {
   }
   std::unique_ptr<drivers::AudioPlayback> playback =
       std::move(playback_res.value());
+  playback->SetVolume(130);
 
   ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console(std::move(playback));
+  console::AppConsole console(playback.get());
   console.Launch();
 
   while (1) {

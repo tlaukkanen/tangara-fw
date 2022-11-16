@@ -9,10 +9,10 @@ namespace console {
 
 class AppConsole : public Console {
  public:
-  AppConsole(std::unique_ptr<drivers::AudioPlayback> playback);
+  AppConsole(drivers::AudioPlayback* playback);
   virtual ~AppConsole();
 
-  std::unique_ptr<drivers::AudioPlayback> playback_;
+  drivers::AudioPlayback* playback_;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

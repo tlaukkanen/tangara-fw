@@ -25,9 +25,7 @@ static const char* kSource = "src";
 static const char* kDecoder = "dec";
 static const char* kSink = "sink";
 
-namespace drivers {
-
-static audio_element_status_t status_from_the_void(void* status) {
+static audio_element_status_t toStatus(void* status) {
   uintptr_t as_pointer_int = reinterpret_cast<uintptr_t>(status);
   return static_cast<audio_element_status_t>(as_pointer_int);
 }
@@ -41,6 +39,8 @@ static void toLower(std::string& str) {
   std::transform(str.begin(), str.end(), str.begin(),
                  [](unsigned char c) { return std::tolower(c); });
 }
+
+namespace drivers {
 
 auto AudioPlayback::create(std::unique_ptr<IAudioOutput> output)
     -> cpp::result<std::unique_ptr<AudioPlayback>, Error> {
@@ -108,58 +108,67 @@ AudioPlayback::~AudioPlayback() {
 }
 
 void AudioPlayback::Play(const std::string& filename) {
-  if (GetPlaybackState() != STOPPED) {
+  output_->SetSoftMute(true);
+
+  if (playback_state_ != STOPPED) {
     audio_pipeline_stop(pipeline_);
     audio_pipeline_wait_for_stop(pipeline_);
     audio_pipeline_terminate(pipeline_);
   }
 
-  current_state_ = PLAYING;
+  playback_state_ = PLAYING;
   Decoder decoder = GetDecoderForFilename(filename);
   ReconfigurePipeline(decoder);
   audio_element_set_uri(source_element_, filename.c_str());
   audio_pipeline_reset_ringbuffer(pipeline_);
   audio_pipeline_reset_elements(pipeline_);
   audio_pipeline_run(pipeline_);
-  output_->SetVolume(volume_);
+
+  output_->SetSoftMute(false);
 }
 
 void AudioPlayback::Toggle() {
-  if (GetPlaybackState() == PLAYING) {
+  if (playback_state_ == PLAYING) {
     Pause();
-  } else if (GetPlaybackState() == PAUSED) {
+  } else if (playback_state_ == PAUSED) {
     Resume();
   }
 }
 
 void AudioPlayback::Resume() {
-  if (GetPlaybackState() == PAUSED) {
-    current_state_ = PLAYING;
+  if (playback_state_ == PAUSED) {
+    ESP_LOGI(kTag, "resuming");
+    playback_state_ = PLAYING;
     audio_pipeline_resume(pipeline_);
+    output_->SetSoftMute(false);
   }
 }
 void AudioPlayback::Pause() {
   if (GetPlaybackState() == PLAYING) {
-    current_state_ = PAUSED;
+    ESP_LOGI(kTag, "pausing");
+    output_->SetSoftMute(true);
+    playback_state_ = PAUSED;
     audio_pipeline_pause(pipeline_);
   }
 }
 
-auto AudioPlayback::GetPlaybackState() -> PlaybackState {
-  return current_state_;
+auto AudioPlayback::GetPlaybackState() const -> PlaybackState {
+  return playback_state_;
 }
 
 void AudioPlayback::ProcessEvents(uint16_t max_time_ms) {
-  if (current_state_ == STOPPED) {
+  if (playback_state_ == STOPPED) {
     return;
   }
+
   while (1) {
     audio_event_iface_msg_t event;
     esp_err_t err = audio_event_iface_listen(event_interface_, &event,
                                              pdMS_TO_TICKS(max_time_ms));
     if (err != ESP_OK) {
-      ESP_LOGE(kTag, "error listening for event:%x", err);
-      continue;
+      // Error should only be timeouts, so use a 'failure' as an indication that
+      // we're out of events to process.
+      break;
     }
 
     if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
@@ -174,61 +183,65 @@ void AudioPlayback::ProcessEvents(uint16_t max_time_ms) {
     if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
         event.source == (void*)source_element_ &&
         event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
-      audio_element_status_t status = status_from_the_void(event.data);
+      audio_element_status_t status = toStatus(event.data);
       if (status == AEL_STATUS_STATE_FINISHED) {
         // TODO: Could we change the uri here? hmm.
+        ESP_LOGI(kTag, "finished reading input.");
       }
     }
 
     if (event.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
         event.source == (void*)output_->GetAudioElement() &&
         event.cmd == AEL_MSG_CMD_REPORT_STATUS) {
-      audio_element_status_t status = status_from_the_void(event.data);
+      audio_element_status_t status = toStatus(event.data);
       if (status == AEL_STATUS_STATE_FINISHED) {
         if (next_filename_ != "") {
+          ESP_LOGI(kTag, "finished writing output. enqueing next.");
           Decoder decoder = GetDecoderForFilename(next_filename_);
           if (decoder == decoder_type_) {
+            output_->SetSoftMute(true);
             audio_element_set_uri(source_element_, next_filename_.c_str());
             audio_pipeline_reset_ringbuffer(pipeline_);
             audio_pipeline_reset_elements(pipeline_);
             audio_pipeline_change_state(pipeline_, AEL_STATE_INIT);
             audio_pipeline_run(pipeline_);
+            output_->SetSoftMute(true);
           } else {
             Play(next_filename_);
           }
           next_filename_ = "";
         } else {
-          audio_pipeline_stop(pipeline_);
+          ESP_LOGI(kTag, "finished writing output. stopping.");
           audio_pipeline_wait_for_stop(pipeline_);
           audio_pipeline_terminate(pipeline_);
-          current_state_ = STOPPED;
+          playback_state_ = STOPPED;
         }
         return;
       }
     }
 
     if (event.need_free_data) {
-      ESP_LOGI(kTag, "freeing event data");
+      // AFAICT this never happens in practice, but it doesn't hurt to follow
+      // the api here anyway.
       free(event.data);
     }
   }
 }
 
-void AudioPlayback::set_next_file(const std::string& filename) {
+void AudioPlayback::SetNextFile(const std::string& filename) {
   next_filename_ = filename;
 }
 
-void AudioPlayback::set_volume(uint8_t volume) {
-  volume_ = volume;
-  // TODO: don't write immediately if we're muted to change track or similar.
+void AudioPlayback::SetVolume(uint8_t volume) {
   output_->SetVolume(volume);
 }
 
-auto AudioPlayback::volume() -> uint8_t {
-  return volume_;
+auto AudioPlayback::GetVolume() const -> uint8_t {
+  return output_->GetVolume();
 }
 
-auto AudioPlayback::GetDecoderForFilename(std::string filename) -> Decoder {
+auto AudioPlayback::GetDecoderForFilename(std::string filename) const
+    -> Decoder {
   toLower(filename);
   if (endsWith(filename, "mp3")) {
     return MP3;
@@ -255,7 +268,8 @@ auto AudioPlayback::GetDecoderForFilename(std::string filename) -> Decoder {
   return NONE;
 }
 
-auto AudioPlayback::CreateDecoder(Decoder decoder) -> audio_element_handle_t {
+auto AudioPlayback::CreateDecoder(Decoder decoder) const
+    -> audio_element_handle_t {
   if (decoder == MP3) {
     mp3_decoder_cfg_t config = DEFAULT_MP3_DECODER_CONFIG();
     return mp3_decoder_init(&config);

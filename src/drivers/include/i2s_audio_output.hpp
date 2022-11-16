@@ -24,9 +24,11 @@ class I2SAudioOutput : public IAudioOutput {
 
   virtual auto SetVolume(uint8_t volume) -> void;
   virtual auto Configure(audio_element_info_t& info) -> void;
+  virtual auto SetSoftMute(bool enabled) -> void;
 
  private:
   std::unique_ptr<AudioDac> dac_;
+  bool is_soft_muted_ = false;
 };
 
 }  // namespace drivers
