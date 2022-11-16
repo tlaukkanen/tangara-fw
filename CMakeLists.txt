@@ -1,16 +1,12 @@
-# For more information about build system see
-# https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
-# The following five lines of boilerplate have to be in your project's
-# CMakeLists in this exact order for cmake to work correctly
-cmake_minimum_required(VERSION 3.8)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+cmake_minimum_required(VERSION 3.16)
+include(common.cmake)
 
-include($ENV{ADF_PATH}/CMakeLists.txt)
-list(APPEND EXTRA_COMPONENT_DIRS "lib/result")
-list(APPEND EXTRA_COMPONENT_DIRS "lib/lvgl")
+set(SDKCONFIG_DEFAULTS "sdkconfig.common")
 
-set(ENV{EXTRA_CPPFLAGS} "-DRESULT_DISABLE_EXCEPTIONS -DLV_CONF_INCLUDE_SIMPLE")
+# No exceptions in app builds (this is different in test builds).
+idf_build_set_property(COMPILE_OPTIONS "-DRESULT_DISABLE_EXCEPTIONS" APPEND)
 
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+# Include all app components.
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")
+
 project(gay-ipod-fw)

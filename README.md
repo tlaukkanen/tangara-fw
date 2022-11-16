@@ -38,6 +38,21 @@ idf.py -p /dev/ttyUSB0 -b 115200 flash
 Remember that you will need to boot your ESP32 into software download mode
 before you will be able to flash.
 
+# Running tests
+
+Tests are implemented as a separate application build, located in the `test`
+directory. We use Catch2 as our test framework.
+
+To run them, navigate to the test directory, then build and flash as normal.
+Connect to your device via UART, and you will be presented with a terminal
+prompt that you may run tests from.
+
+To add new tests to a components, you must:
+ 1. Create a `test` subcomponent within that component. See `drivers/test` for
+    an example of this.
+ 2. Include the component in the test build and list of testable components, in
+    `test/CMakeLists.txt`.
+
 # clangd setup
 
 A regular build will generate `build/compile_commands.json`, which clangd will
