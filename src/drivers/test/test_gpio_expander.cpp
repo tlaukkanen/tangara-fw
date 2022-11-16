@@ -1,8 +1,9 @@
 #include "gpio_expander.hpp"
-#include "i2c.hpp"
-#include "i2c_fixture.hpp"
 
 #include "catch2/catch.hpp"
+
+#include "i2c.hpp"
+#include "i2c_fixture.hpp"
 
 namespace drivers {
 

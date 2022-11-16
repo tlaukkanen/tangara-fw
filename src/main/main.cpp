@@ -1,23 +1,6 @@
-#include "app_console.hpp"
-#include "audio_playback.hpp"
-#include "battery.hpp"
-#include "core/lv_disp.h"
-#include "core/lv_obj_pos.h"
-#include "dac.hpp"
-#include "display_init.hpp"
-#include "display.hpp"
-#include "esp_freertos_hooks.h"
-#include "freertos/portmacro.h"
-#include "gpio_expander.hpp"
-#include "i2c.hpp"
-#include "i2s_audio_output.hpp"
-#include "misc/lv_color.h"
-#include "misc/lv_timer.h"
-#include "spi.hpp"
-#include "storage.hpp"
-
 #include <dirent.h>
 #include <stdio.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -25,17 +8,35 @@
 #include "audio_common.h"
 #include "audio_element.h"
 #include "audio_pipeline.h"
+#include "core/lv_disp.h"
+#include "core/lv_obj_pos.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#include "esp_freertos_hooks.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
+#include "freertos/portmacro.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
+#include "misc/lv_color.h"
+#include "misc/lv_timer.h"
 #include "widgets/lv_label.h"
+
+#include "app_console.hpp"
+#include "audio_playback.hpp"
+#include "battery.hpp"
+#include "dac.hpp"
+#include "display.hpp"
+#include "display_init.hpp"
+#include "gpio_expander.hpp"
+#include "i2c.hpp"
+#include "i2s_audio_output.hpp"
+#include "spi.hpp"
+#include "storage.hpp"
 
 static const char* TAG = "MAIN";
 

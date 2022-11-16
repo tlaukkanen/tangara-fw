@@ -1,9 +1,5 @@
 #pragma once
 
-#include "audio_output.hpp"
-#include "dac.hpp"
-#include "storage.hpp"
-
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -17,6 +13,10 @@
 #include "i2s_stream.h"
 #include "mp3_decoder.h"
 #include "result.hpp"
+
+#include "audio_output.hpp"
+#include "dac.hpp"
+#include "storage.hpp"
 
 namespace drivers {
 

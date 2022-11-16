@@ -1,5 +1,6 @@
-#include <cstdint>
 #include "battery.hpp"
+
+#include <cstdint>
 
 #include "catch2/catch.hpp"
 

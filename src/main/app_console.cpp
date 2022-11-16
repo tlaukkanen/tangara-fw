@@ -1,11 +1,13 @@
 #include "app_console.hpp"
 
 #include <dirent.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <string>
+
 #include "esp_console.h"
 
 namespace console {

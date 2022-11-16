@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "audio_common.h"
 #include "audio_element.h"
 #include "audio_output.hpp"

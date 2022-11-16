@@ -1,8 +1,5 @@
 #include "dac.hpp"
 
-#include "gpio_expander.hpp"
-#include "i2c.hpp"
-
 #include <cstdint>
 
 #include "assert.h"
@@ -10,6 +7,9 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "hal/i2c_types.h"
+
+#include "gpio_expander.hpp"
+#include "i2c.hpp"
 
 namespace drivers {
 

@@ -1,24 +1,23 @@
 #include "audio_playback.hpp"
 
-#include "audio_output.hpp"
-
 #include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string_view>
 
+#include "aac_decoder.h"
+#include "amr_decoder.h"
 #include "audio_element.h"
 #include "audio_event_iface.h"
 #include "audio_pipeline.h"
 #include "esp_err.h"
-
-#include "aac_decoder.h"
-#include "amr_decoder.h"
 #include "flac_decoder.h"
 #include "mp3_decoder.h"
 #include "ogg_decoder.h"
 #include "opus_decoder.h"
 #include "wav_decoder.h"
+
+#include "audio_output.hpp"
 
 static const char* kTag = "PLAYBACK";
 static const char* kSource = "src";

@@ -1,16 +1,18 @@
+#include "storage.hpp"
+
 #include <dirent.h>
+
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+
+#include "catch2/catch.hpp"
 
 #include "gpio_expander.hpp"
 #include "i2c.hpp"
 #include "i2c_fixture.hpp"
 #include "spi.hpp"
 #include "spi_fixture.hpp"
-#include "storage.hpp"
-
-#include "catch2/catch.hpp"
 
 namespace drivers {
 

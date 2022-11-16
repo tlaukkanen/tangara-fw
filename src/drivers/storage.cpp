@@ -1,7 +1,5 @@
 #include "storage.hpp"
 
-#include "gpio_expander.hpp"
-
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -18,6 +16,8 @@
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 #include "sdmmc_cmd.h"
+
+#include "gpio_expander.hpp"
 
 static const char* kTag = "SDSTORAGE";
 static const uint8_t kMaxOpenFiles = 8;

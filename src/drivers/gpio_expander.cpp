@@ -1,8 +1,8 @@
 #include "gpio_expander.hpp"
 
-#include "i2c.hpp"
-
 #include <cstdint>
+
+#include "i2c.hpp"
 
 namespace drivers {
 

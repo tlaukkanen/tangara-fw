@@ -1,9 +1,9 @@
 #pragma once
 
+#include <memory>
+
 #include "audio_playback.hpp"
 #include "console.hpp"
-
-#include <memory>
 
 namespace console {
 

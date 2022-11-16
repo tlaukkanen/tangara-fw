@@ -1,11 +1,12 @@
 #include "display.hpp"
+
 #include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <mutex>
+
 #include "assert.h"
-#include "display_init.hpp"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_attr.h"
@@ -16,6 +17,8 @@
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
+
+#include "display_init.hpp"
 
 static const char* kTag = "DISPLAY";
 static const gpio_num_t kCommandOrDataPin = GPIO_NUM_21;

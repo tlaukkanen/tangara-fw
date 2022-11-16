@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include "display_init.hpp"
+
 #include "driver/spi_master.h"
-#include "gpio_expander.hpp"
 #include "lvgl/lvgl.h"
 #include "result.hpp"
+
+#include "display_init.hpp"
+#include "gpio_expander.hpp"
 
 namespace drivers {
 

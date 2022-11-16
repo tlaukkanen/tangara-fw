@@ -1,7 +1,5 @@
 #pragma once
 
-#include "gpio_expander.hpp"
-
 #include <memory>
 
 #include "driver/sdmmc_types.h"
@@ -9,6 +7,8 @@
 #include "esp_err.h"
 #include "esp_vfs_fat.h"
 #include "result.hpp"
+
+#include "gpio_expander.hpp"
 
 namespace drivers {
 

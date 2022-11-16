@@ -1,4 +1,5 @@
 #include "i2c.hpp"
+
 #include <cstdint>
 
 #include "assert.h"

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+
 #include "audio_common.h"
 #include "audio_element.h"
 

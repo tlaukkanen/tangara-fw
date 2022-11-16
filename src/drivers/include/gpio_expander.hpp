@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+
 #include <atomic>
 #include <functional>
 #include <mutex>
