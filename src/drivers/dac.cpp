@@ -1,6 +1,6 @@
 #include "dac.hpp"
 
-#include "gpio-expander.hpp"
+#include "gpio_expander.hpp"
 #include "i2c.hpp"
 
 #include <cstdint>

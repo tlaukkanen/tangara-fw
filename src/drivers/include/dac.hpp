@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gpio-expander.hpp"
+#include "gpio_expander.hpp"
 
 #include <stdint.h>
 #include <functional>

@@ -1,4 +1,4 @@
-#include "display-init.hpp"
+#include "display_init.hpp"
 
 namespace drivers {
 namespace displays {

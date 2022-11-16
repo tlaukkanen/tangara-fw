@@ -5,7 +5,7 @@
 #include <memory>
 #include <mutex>
 #include "assert.h"
-#include "display-init.hpp"
+#include "display_init.hpp"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_attr.h"

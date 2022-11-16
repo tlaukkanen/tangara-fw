@@ -2,7 +2,7 @@
 
 #include "audio_output.hpp"
 #include "dac.hpp"
-#include "gpio-expander.hpp"
+#include "gpio_expander.hpp"
 #include "result.hpp"
 
 #include <cstdint>

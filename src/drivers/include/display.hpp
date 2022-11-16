@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include "display-init.hpp"
+#include "display_init.hpp"
 #include "driver/spi_master.h"
-#include "gpio-expander.hpp"
+#include "gpio_expander.hpp"
 #include "lvgl/lvgl.h"
 #include "result.hpp"
 

@@ -1,4 +1,4 @@
-#include "gpio-expander.hpp"
+#include "gpio_expander.hpp"
 #include "i2c.hpp"
 #include "i2c_fixture.hpp"
 

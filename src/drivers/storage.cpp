@@ -1,6 +1,6 @@
 #include "storage.hpp"
 
-#include "gpio-expander.hpp"
+#include "gpio_expander.hpp"
 
 #include <atomic>
 #include <memory>
