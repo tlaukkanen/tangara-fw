@@ -3,9 +3,6 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ESP-ADF clobbers EXTRA_COMPONENT_DIRS, so include it first.
-include($ENV{ADF_PATH}/CMakeLists.txt)
-
 # Build only the subset of components that we actually depend on.
 set(COMPONENTS "")
 
