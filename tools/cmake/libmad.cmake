@@ -5,8 +5,8 @@ externalproject_add(libmad_build
   SOURCE_DIR "${LIBMAD_SRC}"
   PREFIX "${LIBMAD_BIN}"
   CONFIGURE_COMMAND ${LIBMAD_SRC}/configure CC=${CMAKE_C_COMPILER} --srcdir=${LIBMAD_SRC} --prefix=${LIBMAD_BIN} --host=xtensa-elf --disable-debugging --disable-shared
-  BUILD_COMMAND "make"
-  INSTALL_COMMAND "make install"
+  BUILD_COMMAND make
+  INSTALL_COMMAND make install
   BUILD_BYPRODUCTS "${LIBMAD_BIN}/libmad.a"
 )
 
