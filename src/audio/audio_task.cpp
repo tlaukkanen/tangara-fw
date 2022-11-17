@@ -10,10 +10,12 @@
 #include "freertos/stream_buffer.h"
 
 #include "audio_element.hpp"
+#include "include/audio_element.hpp"
 
 namespace audio {
 
 static const TickType_t kCommandWaitTicks = 1;
+static const TickType_t kIdleTaskDelay = 1;
 
 void audio_task(void* args) {
   AudioTaskArgs* real_args = reinterpret_cast<AudioTaskArgs*>(args);
@@ -30,8 +32,16 @@ void audio_task(void* args) {
 
   while (1) {
     IAudioElement::Command command;
+    ProcessResult result;
+
     if (!xQueueReceive(commands, &command, kCommandWaitTicks)) {
-      element->ProcessIdle();
+      result = element->ProcessIdle();
+      if (result == IAudioElement::ERROR) {
+	break;
+      }
+      if (result == IAudioElement::OUTPUT_FULL) {
+	vTaskDelay(kIdleTaskDelay);
+      }
       continue;
     };
 
@@ -39,7 +49,6 @@ void audio_task(void* args) {
       if (command.sequence_number > current_sequence_number) {
         current_sequence_number = command.sequence_number;
       }
-
       continue;
     }
 
@@ -49,7 +58,13 @@ void audio_task(void* args) {
       xStreamBufferReceive(stream, &frame_buffer, command.read_size, 0);
 
       if (command.sequence_number == current_sequence_number) {
-        element->ProcessData(frame_buffer, command.read_size);
+        result = element->ProcessData(frame_buffer, command.read_size);
+	if (result == IAudioElement::ERROR) {
+	  break;
+	}
+	if (result == IAudioElement::OUTPUT_FULL) {
+	  // TODO: Do we care about this? could just park indefinitely.
+	}
       }
 
       continue;
@@ -58,7 +73,13 @@ void audio_task(void* args) {
     if (command.type == IAudioElement::ELEMENT) {
       assert(command.data != NULL);
       if (command.sequence_number == current_sequence_number) {
-        element->ProcessElementCommand(command.data);
+        result = element->ProcessElementCommand(command.data);
+	if (result == IAudioElement::ERROR) {
+	  break;
+	}
+	if (result == IAudioElement::OUTPUT_FULL) {
+	  // TODO: what does this mean lol
+	}
       } else {
         element->SkipElementCommand(command.data);
       }

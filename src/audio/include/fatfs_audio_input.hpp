@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -16,10 +17,12 @@ class FatfsAudioInput : public IAudioElement {
  public:
   struct InputCommand {
     std::string filename;
+    size_t seek_to;
+    bool interrupt;
   };
 
   struct OutputCommand {
-    // TODO: does this actually need any special output?
+    std::string extension;
   };
 
   FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
@@ -31,7 +34,11 @@ class FatfsAudioInput : public IAudioElement {
  private:
   std::shared_ptr<drivers::SdStorage> storage_;
 
-  uint8_t current_sequence = 0;
+  uint8_t *working_buffer_;
+
+  uint8_t current_sequence_ = 0;
+  FIL current_file_;
+  bool is_file_open_ = false;
 
   uint8_t* input_queue_memory_;
   StaticQueue_t input_queue_metadata_;

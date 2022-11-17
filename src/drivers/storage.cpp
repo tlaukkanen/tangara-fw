@@ -146,4 +146,8 @@ auto SdStorage::HandleTransaction(sdspi_dev_handle_t handle,
   return do_transaction_(handle, cmdinfo);
 }
 
+auto SdStorage::GetFs() -> FATFS* {
+  return fs_;
+}
+
 }  // namespace drivers

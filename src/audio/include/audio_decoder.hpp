@@ -1,34 +1,36 @@
 #pragma once
 
 #include <cstddef>
+#include "audio_element.hpp"
 #include "ff.h"
+#include "codec.hpp"
 
 namespace audio {
 
-enum SampleRate {};
-enum BitDepth {};
-
-struct PcmStreamHeader {
-  SampleRate sample_rate;
-  BitDepth bit_depth;
-  bool configure_now;
-};
-
-class AudioDecoder {
+class AudioDecoder : public IAudioElement {
  public:
   AudioDecoder();
   ~AudioDecoder();
 
-  auto SetSource(RingbufHandle_t& source) -> void;
+  auto Pause() -> void;
+  auto IsPaused() -> bool;
 
-  enum Status {};
-  auto ProcessChunk() -> Status;
+  auto Resume() -> void;
 
-  auto GetOutputStream() const -> RingbufHandle_t;
+  auto SetInputCommandQueue(QueueHandle_t) -> void;
+  auto SetOutputCommandQueue(QueueHandle_t) -> void;
+  auto SetInputBuffer(StreamBufferHandle_t) -> void;
+  auto SetOutputBuffer(StreamBufferHandle_t) -> void;
 
  private:
-  RingbufHandle_t input_;
-  RingbufHandle_t output_;
+  std::unique_ptr<codecs::ICodec> current_codec_;
+
+  uint8_t *working_buffer_;
+
+  QueueHandle_t input_queue_;
+  QueueHandle_t output_queue_;
+  StreamBufferHandle_t input_buffer_;
+  StreamBufferHandle_t output_buffer_;
 };
 
 }  // namespace audio

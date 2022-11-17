@@ -6,6 +6,7 @@
 #include "driver/sdspi_host.h"
 #include "esp_err.h"
 #include "esp_vfs_fat.h"
+#include "ff.h"
 #include "result.hpp"
 
 #include "gpio_expander.hpp"
@@ -37,6 +38,8 @@ class SdStorage {
 
   auto HandleTransaction(sdspi_dev_handle_t handle, sdmmc_command_t* cmdinfo)
       -> esp_err_t;
+
+  auto GetFs() -> FATFS*;
 
   // Not copyable or movable.
   // TODO: maybe this could be movable?

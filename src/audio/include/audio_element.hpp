@@ -33,6 +33,7 @@ class IAudioElement {
   struct Command {
     CommandType type;
     uint8_t sequence_number;
+    // TODO: tag data's type
     union {
       void* data;
       std::size_t frame_size;
@@ -52,22 +53,28 @@ class IAudioElement {
    */
   virtual auto InputBuffer() -> StreamBufferHandle_t = 0;
 
+  enum ProcessResult {
+    OK,
+    OUTPUT_FULL,
+    ERROR,
+  };
+
   /*
    * Called when an element-specific command has been received.
    */
-  virtual auto ProcessElementCommand(void* command) -> void = 0;
+  virtual auto ProcessElementCommand(void* command) -> ProcessResult = 0;
 
   virtual auto SkipElementCommand(void* command) -> void = 0;
 
   /*
    * Called with the result of a read bytes command.
    */
-  virtual auto ProcessData(uint8_t* data, uint16_t length) -> void = 0;
+  virtual auto ProcessData(uint8_t* data, uint16_t length) -> ProcessResult = 0;
 
   /*
    * Called periodically when there are no pending commands.
    */
-  virtual auto ProcessIdle() -> void = 0;
+  virtual auto ProcessIdle() -> ProcessResult = 0;
 };
 
 }  // namespace audio
