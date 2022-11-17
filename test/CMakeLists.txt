@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-include(../common.cmake)
+include($ENV{PROJ_PATH}/tools/cmake/common.cmake)
 
 set(SDKCONFIG_DEFAULTS "../sdkconfig.common;sdkconfig.test")
 
@@ -18,3 +18,4 @@ list(APPEND EXTRA_COMPONENT_DIRS
 set(TEST_COMPONENTS "drivers")
 
 project(device_tests)
+include($ENV{PROJ_PATH}/tools/cmake/extra-libs.cmake)
