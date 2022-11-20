@@ -2,17 +2,15 @@
 
 #include <memory>
 
-#include "audio_playback.hpp"
+#include "storage.hpp"
 #include "console.hpp"
 
 namespace console {
 
 class AppConsole : public Console {
  public:
-  AppConsole(drivers::AudioPlayback* playback);
-  virtual ~AppConsole();
-
-  drivers::AudioPlayback* playback_;
+  AppConsole() {};
+  virtual ~AppConsole() {};
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

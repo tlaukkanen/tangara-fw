@@ -3,10 +3,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "audio_element.h"
 #include "result.hpp"
 
-#include "audio_output.hpp"
 #include "dac.hpp"
 #include "gpio_expander.hpp"
 

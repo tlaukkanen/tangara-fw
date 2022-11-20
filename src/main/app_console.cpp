@@ -12,8 +12,6 @@
 
 namespace console {
 
-static AppConsole* sInstance = nullptr;
-
 std::string toSdPath(std::string filepath) {
   return std::string(drivers::kStoragePath) + "/" + filepath;
 }
@@ -59,10 +57,12 @@ int CmdPlayFile(int argc, char** argv) {
     return 1;
   }
 
+  /*
   sInstance->playback_->Play(toSdPath(argv[1]));
   if (argc == 3) {
     sInstance->playback_->SetNextFile(toSdPath(argv[2]));
   }
+  */
 
   return 0;
 }
@@ -83,7 +83,7 @@ int CmdToggle(int argc, char** argv) {
     return 1;
   }
 
-  sInstance->playback_->Toggle();
+  //sInstance->playback_->Toggle();
 
   return 0;
 }
@@ -110,7 +110,7 @@ int CmdVolume(int argc, char** argv) {
     return 1;
   }
 
-  sInstance->playback_->SetVolume((uint8_t)raw_vol);
+  //sInstance->playback_->SetVolume((uint8_t)raw_vol);
 
   return 0;
 }
@@ -125,12 +125,14 @@ void RegisterVolume() {
   esp_console_cmd_register(&cmd);
 }
 
-AppConsole::AppConsole(drivers::AudioPlayback* playback) : playback_(playback) {
+/*
+AppConsole::AppConsole() {
   sInstance = this;
 }
 AppConsole::~AppConsole() {
   sInstance = nullptr;
 }
+*/
 
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();

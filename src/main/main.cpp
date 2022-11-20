@@ -5,9 +5,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "audio_common.h"
-#include "audio_element.h"
-#include "audio_pipeline.h"
 #include "core/lv_disp.h"
 #include "core/lv_obj_pos.h"
 #include "driver/gpio.h"
@@ -27,7 +24,6 @@
 #include "widgets/lv_label.h"
 
 #include "app_console.hpp"
-#include "audio_playback.hpp"
 #include "battery.hpp"
 #include "dac.hpp"
 #include "display.hpp"
@@ -123,6 +119,7 @@ extern "C" void app_main(void) {
   }
   std::unique_ptr<drivers::IAudioOutput> sink = std::move(sink_res.value());
 
+  /*
   ESP_LOGI(TAG, "Init audio pipeline");
   auto playback_res = drivers::AudioPlayback::create(std::move(sink));
   if (playback_res.has_error()) {
@@ -132,13 +129,14 @@ extern "C" void app_main(void) {
   std::unique_ptr<drivers::AudioPlayback> playback =
       std::move(playback_res.value());
   playback->SetVolume(130);
+  */
 
   ESP_LOGI(TAG, "Launch console");
   console::AppConsole console(playback.get());
   console.Launch();
 
   while (1) {
-    playback->ProcessEvents(5);
+    //playback->ProcessEvents(5);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
