@@ -21,8 +21,6 @@
 #include "display_init.hpp"
 
 static const char* kTag = "DISPLAY";
-static const gpio_num_t kCommandOrDataPin = GPIO_NUM_21;
-static const gpio_num_t kLedPin = GPIO_NUM_22;
 
 static const uint8_t kDisplayWidth = 128;
 static const uint8_t kDisplayHeight = 160;
@@ -76,18 +74,9 @@ static void IRAM_ATTR post_cb(spi_transaction_t* transaction) {
 auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> cpp::result<std::unique_ptr<Display>, Error> {
-  // First, set up our GPIOs
-  gpio_config_t gpio_cfg = {
-      .pin_bit_mask = GPIO_SEL_22 | GPIO_SEL_21,
-      .mode = GPIO_MODE_OUTPUT,
-      .pull_up_en = GPIO_PULLUP_DISABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_DISABLE,
-  };
-  gpio_config(&gpio_cfg);
 
-  gpio_set_level(kLedPin, 1);
-  gpio_set_level(kCommandOrDataPin, 0);
+  expander->with(
+      [&](auto& gpio) { gpio.set_pin(GpioExpander::DISPLAY_LED, 1); });
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -101,7 +90,7 @@ auto Display::create(GpioExpander* expander,
       .cs_ena_posttrans = 0,
       .clock_speed_hz = SPI_MASTER_FREQ_40M,
       .input_delay_ns = 0,
-      .spics_io_num = -1,  // TODO: change for R2
+      .spics_io_num = GPIO_NUM_22,
       .flags = 0,
       .queue_size = kTransactionQueueSize,
       .pre_cb = NULL,
@@ -223,14 +212,11 @@ void Display::SendTransaction(TransactionType type,
   //
 
   ServiceTransactions();
-  gpio_set_level(kCommandOrDataPin, type);
 
   gpio_->with(
-      [&](auto& gpio) { gpio.set_pin(GpioExpander::DISPLAY_CHIP_SELECT, 0); });
-  {
-    // auto lock = gpio_->AcquireSpiBus(GpioExpander::DISPLAY);
-    ESP_ERROR_CHECK(spi_device_polling_transmit(handle_, transaction));
-  }
+      [&](auto& gpio) { gpio.set_pin(GpioExpander::DISPLAY_DR, type); });
+
+  ESP_ERROR_CHECK(spi_device_polling_transmit(handle_, transaction));
 
   free(transaction);
 }
