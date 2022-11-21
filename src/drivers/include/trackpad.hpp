@@ -8,7 +8,14 @@
 #include "esp_err.h"
 #include "result.hpp"
 
-namespace gay_ipod {
+namespace drivers {
+
+struct TrackpadData {
+  bool is_touched;
+  uint16_t x_position;
+  uint16_t y_position;
+  uint16_t z_level;
+}
 
 /**
  * Interface for a PCM5122PWR DAC, configured over I2C.
@@ -29,13 +36,18 @@ class Trackpad {
   Trackpad(const Trackpad&) = delete;
   Trackpad& operator=(const Trackpad&) = delete;
 
-  int readZLevel();
+  auto Update() -> void;
+  auto GetTrackpadData() const -> TrackpadData;
 
  private:
   GpioExpander* gpio_;
+  TrackpadData trackpad_data_;
   
   enum Register {
     STATUS1 = 0x02, // Contains status flags about the state of Pinnacle
+    X_LOW_BITS = 0x14, 
+    Y_LOW_BITS = 0x15, 
+    X_Y_HIGH_BITS = 0x16,
     Z_LEVEL = 0x17, 
   };
 
@@ -46,4 +58,4 @@ class Trackpad {
 
 };
 
-}  // namespace gay_ipod
+}  // namespace drivers
