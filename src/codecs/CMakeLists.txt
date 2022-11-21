@@ -1,4 +1,6 @@
-idf_component_register(INCLUDE_DIRS "include")
+idf_component_register(
+  SRCS "mad.cpp"
+  INCLUDE_DIRS "include")
 
-#target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
+target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
 add_dependencies("${COMPONENT_LIB}" libmad)
