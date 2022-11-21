@@ -14,8 +14,8 @@ static const gpio_num_t kI2CSclPin = GPIO_NUM_4;
 static const uint32_t kI2CClkSpeed = 400'000;
 
 static const i2c_port_t kI2C2Port = I2C_NUM_1;
-static const gpio_num_t kI2C2SdaPin = SPI_QUADWP_IO;
-static const gpio_num_t kI2C2SclPin = SPI_QUADHD_IO;
+static const gpio_num_t kI2C2SdaPin = GPIO_NUM_22;
+static const gpio_num_t kI2C2SclPin = GPIO_NUM_21;
 static const uint32_t kI2C2ClkSpeed = 400'000;
 
 static constexpr int kCmdLinkSize = I2C_LINK_RECOMMENDED_SIZE(12);

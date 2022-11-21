@@ -1,12 +1,13 @@
 #pragma once
 
-#include "gpio-expander.hpp"
 
 #include <functional>
 #include <stdint.h>
 
 #include "esp_err.h"
 #include "result.hpp"
+
+#include "gpio_expander.hpp"
 
 namespace drivers {
 
@@ -15,7 +16,7 @@ struct TrackpadData {
   uint16_t x_position;
   uint16_t y_position;
   uint16_t z_level;
-}
+};
 
 /**
  * Interface for a PCM5122PWR DAC, configured over I2C.

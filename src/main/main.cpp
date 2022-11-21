@@ -37,6 +37,7 @@
 #include "i2s_audio_output.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
+#include "trackpad.hpp"
 
 static const char* TAG = "MAIN";
 
@@ -44,9 +45,6 @@ void IRAM_ATTR tick_hook(void) {
   lv_tick_inc(1);
 }
 
-static const size_t kLvglStackSize = 8 * 1024;
-static StaticTask_t sLvglTaskBuffer = {};
-static StackType_t sLvglStack[kLvglStackSize] = {0};
 
 struct LvglArgs {
   drivers::GpioExpander* gpio_expander;
@@ -101,44 +99,19 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Init GPIOs");
   drivers::GpioExpander* expander = new drivers::GpioExpander();
 
-  ESP_LOGI(TAG, "Init SD card");
-  auto storage_res = drivers::SdStorage::create(expander);
-  if (storage_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", storage_res.error());
+  ESP_LOGI(TAG, "Init trackpad");
+  auto trackpad_res = drivers::Trackpad::create(expander);
+  if (trackpad_res.has_error()) {
+    ESP_LOGE(TAG, "Failed: %d", trackpad_res.error());
     return;
   }
-  std::unique_ptr<drivers::SdStorage> storage = std::move(storage_res.value());
+  std::unique_ptr<drivers::Trackpad> trackpad = std::move(trackpad_res.value());
 
-  LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
-  lvglArgs->gpio_expander = expander;
-  xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize,
-                                (void*)lvglArgs, 1, sLvglStack,
-                                &sLvglTaskBuffer, 1);
-
-  ESP_LOGI(TAG, "Init audio output (I2S)");
-  auto sink_res = drivers::I2SAudioOutput::create(expander);
-  if (sink_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", sink_res.error());
-    return;
-  }
-  std::unique_ptr<drivers::IAudioOutput> sink = std::move(sink_res.value());
-
-  ESP_LOGI(TAG, "Init audio pipeline");
-  auto playback_res = drivers::AudioPlayback::create(std::move(sink));
-  if (playback_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", playback_res.error());
-    return;
-  }
-  std::unique_ptr<drivers::AudioPlayback> playback =
-      std::move(playback_res.value());
-  playback->SetVolume(130);
-
-  ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console(playback.get());
-  console.Launch();
 
   while (1) {
-    playback->ProcessEvents(5);
-    vTaskDelay(pdMS_TO_TICKS(100));
+    trackpad->Update();
+    drivers::TrackpadData data = trackpad->GetTrackpadData();
+    ESP_LOGI(TAG, "X: %d, Y: %d, Z: %d", data.x_position, data.y_position, data.z_level);
+    vTaskDelay(pdMS_TO_TICKS(200));
   }
 }

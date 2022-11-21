@@ -8,7 +8,6 @@
 #include "esp_log.h"
 #include "hal/i2c_types.h"
 
-#include "gpio-expander.hpp"
 #include "i2c.hpp"
 
 namespace drivers {
@@ -96,15 +95,18 @@ void Trackpad::ReadRegister(uint8_t reg, uint8_t* data, uint8_t count) {
 
 void Trackpad::Update() {
   // Read trackpad data from device
-  // TODO: Only do if data_ready is high?
+  uint8_t data_ready = 0;
   uint8_t z_level = 0;
   uint8_t x_low = 0;
   uint8_t y_low = 0;
   uint8_t x_y_high = 0;
-  this->ReadRegister(Register::X_LOW_BITS, &x_low, 1);
-  this->ReadRegister(Register::Y_LOW_BITS, &y_low, 1);
-  this->ReadRegister(Register::X_Y_HIGH_BITS, &x_y_high, 1);
-  this->ReadRegister(Register::Z_LEVEL, &z_level, 1);
+  this->ReadRegister(Register::STATUS1, &data_ready, 1);
+  if ((data_ready & (1 << 2)) != 0) {
+    this->ReadRegister(Register::X_LOW_BITS, &x_low, 1);
+    this->ReadRegister(Register::Y_LOW_BITS, &y_low, 1);
+    this->ReadRegister(Register::X_Y_HIGH_BITS, &x_y_high, 1);
+    this->ReadRegister(Register::Z_LEVEL, &z_level, 1);
+  }
   this->ClearFlags();
   trackpad_data_.x_position = x_low | ((x_y_high & 0x0F) << 8);
   trackpad_data_.y_position = y_low | ((x_y_high & 0xF0) << 4);
