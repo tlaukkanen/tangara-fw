@@ -18,68 +18,6 @@ static auto ArrayDecoder::Create(uint8_t *buffer, size_t buffer_len) -> cpp::res
   return std::move(decoder);
 }
 
-
-auto ArrayDecoder::ParseString() -> cpp::result<std::string, CborError> {
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-
-  if (!cbor_value_is_byte_string(&it_)) {
-    error_ = CborErrorIllegalType;
-    return cpp::fail(error_);
-  }
-  uint8_t *buf; size_t len; CborValue new_val;
-  error_ = cbor_value_dup_byte_string(&it_, &buf, &len, &new_val);
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-  std::string ret(buf, len);
-  free(buf);
-  val_ = new_val;
-  return ret;
-}
-
-auto ArrayDecoder::ParseUnsigned() -> cpp::result<uint32_t, CborError> {
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-
-  if (!cbor_value_is_unsigned_integer(&it_)) {
-    error_ = CborErrorIllegalType;
-    return cpp::fail(error_);
-  }
-  uint64_t ret;
-  error_ = cbor_value_get_uint64(&it_, &ret);
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-  error_ = cbor_value_advance(&it_);
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-  return ret;
-}
-
-auto ArrayDecoder::ParseSigned() -> cpp::result<int32_t, CborError> {
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-  if (!cbor_value_is_unsigned_integer(&it_)) {
-    error_ = CborErrorIllegalType;
-    return cpp::fail(error_);
-  }
-  uint64_t ret;
-  error_ = cbor_value_get_uint64(&it_, &ret);
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-  error_ = cbor_value_advance(&it_);
-  if (error_ != CborNoError) {
-    return cpp::fail(error_);
-  }
-  return ret;
-}
-
 static auto MapDecoder::Create(uint8_t *buffer, size_t buffer_len) -> cpp::result<std::unique_ptr<MapDecoder>, CborError> {
   auto decoder = std::make_unique<MapDecoder>();
   cbor_parser_init(buffer, buffer_len, &decoder->parser_, &decoder->root_);
@@ -141,6 +79,7 @@ auto MapDecoder::FindSigned(const std::string &key) -> std::optional<int32_t> {
     return {};
   }
   if (cbor_value_map_find_value(&it_, key.c_str(), &val) != CborNoError) {
+    // Don't store this as an error; missing keys are fine.
     return {};
   }
   if (!cbor_value_is_integer(&val)) {

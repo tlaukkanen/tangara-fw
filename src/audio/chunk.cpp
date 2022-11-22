@@ -10,18 +10,22 @@
 namespace audio {
 
 /*
- * The maximum size that we expect a header to take up.
+ * The amount of space to allocate for the first chunk's header. After the first
+ * chunk, we have a more concrete idea of the header's size and can allocate
+ * space for future headers more compactly.
  */
-// TODO: tune this.
-static const size_t kMaxHeaderSize = 64;
+// TODO: measure how big headers tend to be to pick a better value.
+static const size_t kInitialHeaderSize = 32;
 
 auto WriteChunksToStream(MessageBufferHandle_t *stream, uint8_t *working_buffer, size_t working_buffer_length, std::function<size_t(uint8_t*,size_t)> callback, TickType_t max_wait) -> EncodeWriteResult {
+
+  size_t header_size = kInitialHeaderSize;
   while (1) {
     // First, ask the callback for some data to write.
     size_t chunk_size =
       callback(
-          working_buffer + kMaxHeaderSize,
-          working_buffer_length - kMaxHeaderSize);
+          working_buffer + header_size,
+          working_buffer_length - header_size);
 
     if (chunk_size == 0) {
       // They had nothing for us, so bail out.
@@ -31,22 +35,28 @@ auto WriteChunksToStream(MessageBufferHandle_t *stream, uint8_t *working_buffer,
     // Put together a header.
     cbor::Encoder encoder(cbor::CONTAINER_ARRAY, 3, working_buffer, working_buffer_length);
     encoder.WriteUnsigned(TYPE_CHUNK_HEADER);
-    // Note here that we need to write the offset of the chunk into the header.
-    // We could be smarter here and write the actual header size, allowing us to
-    // pack slightly more data into each message, but this is hard so I haven't
-    // done it. Please make my code better for me.
-    encoder.WriteUnsigned(kMaxHeaderSize);
+    encoder.WriteUnsigned(header_size);
     encoder.WriteUnsigned(chunk_size);
-    if (encoder.Finish().has_error()) {
+
+    size_t new_header_size = header_size;
+    cpp::result<size_t, CborError> encoder_res = encoder.Finish();
+    if (encoder_res.has_error()) {
       return CHUNK_ENCODING_ERROR;
-    };
+    } else {
+      // We can now tune the space to allocate for the header to be closer to
+      // its actual size. We pad this by 2 bytes to allow extra space for the
+      // chunk size and header size fields to each spill over into another byte
+      // each.
+      new_header_size = encoder_res.value() + 2;
+    }
 
     // Try to write to the buffer. Note the return type here will be either 0 or
-    // kMaxHeaderSize + chunk_size, as MessageBuffer doesn't allow partial
-    // writes.
+    // header_size + chunk_size, as MessageBuffer doesn't allow partial writes.
     size_t actual_write_size =
       xMessageBufferSend(
-          *stream, working_buffer, kMaxHeaderSize + chunk_size, max_wait);
+          *stream, working_buffer, header_size + chunk_size, max_wait);
+
+    header_size = new_header_size;
 
     if (actual_write_size == 0) {
       // We failed to write in time, so bail out. This is techinically data loss
@@ -84,8 +94,7 @@ auto ReadChunksFromStream(MessageBufferHandle_t *stream, uint8_t *working_buffer
       return CHUNK_STREAM_ENDED;
     }
 
-    // Work the size and position of the chunk (don't assume it's at
-    // kMaxHeaderSize offset for future-proofing).
+    // Work the size and position of the chunk.
     header_length = decoder.ParseUnsigned().value_or(0);
     chunk_length = decoder.ParseUnsigned().value_or(0);
     if (decoder.Failed()) {
