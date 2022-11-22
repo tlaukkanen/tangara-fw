@@ -1,12 +1,13 @@
 #include "audio_decoder.hpp"
 #include <cstddef>
+#include <cstdint>
+#include <string.h>
 #include "esp_heap_caps.h"
 #include "include/audio_element.hpp"
 #include "include/fatfs_audio_input.hpp"
 
 namespace audio {
 
-static const TickType_t kMaxWaitTicks = portMAX_DELAY;
   // TODO: could this be larger? depends on the codecs i guess
   static const std::size_t kWorkingBufferSize = kMaxFrameSize;
 
@@ -18,20 +19,12 @@ static const TickType_t kMaxWaitTicks = portMAX_DELAY;
     free(working_buffer_);
   }
 
-  auto AudioDecoder::InputCommandQueue() -> QueueHandle_t {
-    return input_queue_;
-  }
-
-  auto AudioDecoder::SetInputCommandQueue(QueueHandle_t queue) -> void {
-    input_queue_ = queue;
-  }
-
-  auto AudioDecoder::SetOutputCommandQueue(QueueHandle_t queue) -> void {
-    output_queue_ = queue;
-  }
-
   auto AudioDecoder::InputBuffer() -> StreamBufferHandle_t {
     return input_buffer_;
+  }
+
+  auto AudioDecoder::OutputBuffer() -> StreamBufferHandle_t {
+    return output_buffer_;
   }
 
   auto AudioDecoder::SetInputBuffer(StreamBufferHandle_t buffer) -> void {
@@ -72,12 +65,23 @@ static const TickType_t kMaxWaitTicks = portMAX_DELAY;
       return OK;
     }
 
-    auto result = current_codec_->Process(data, length, working_buffer_, kWorkingBufferSize);
-    if (result.has_value()) {
-      xStreamBufferSend(&output_buffer_, working_buffer_, result.value(), kMaxWaitTicks);
-    } else {
-      // TODO: handle i guess
-      return ERROR;
+    while (true) {
+      auto result = current_codec_->Process(data, length, working_buffer_, kWorkingBufferSize);
+
+      if (result.has_error()) {
+        // TODO: handle i guess
+        return ERROR;
+      }
+      ICodec::Result process_res = result.value();
+
+      if (process_res.flush_output) {
+        xStreamBufferSend(&output_buffer_, working_buffer_, process_res.output_written, kMaxWaitTicks);
+      }
+
+      if (process_res.need_more_input) {
+        // TODO: wtf do we do about the leftover bytes?
+        return OK;
+      }
     }
 
     return OK;

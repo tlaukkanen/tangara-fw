@@ -16,59 +16,30 @@ static const TickType_t kMaxWaitTicks = portMAX_DELAY;
 // into memory as soon as possible.
 static constexpr std::size_t kOutputBufferSize = 1024 * 128;
 static constexpr std::size_t kQueueItemSize = sizeof(IAudioElement::Command);
-// Use a large enough command queue size that we can fit reads for the full
-// buffer into the queue.
-static constexpr std::size_t kOutputQueueItemNumber = kOutputBufferSize / kMaxFrameSize;
-static constexpr std::size_t kOutputQueueSize = kOutputQueueItemNumber * kQueueItemSize;
-
-// This should be a relatively responsive element, so no need for a particularly
-// large queue.
-static constexpr std::size_t kInputQueueItemNumber = 4;
-static constexpr std::size_t kInputQueueSize = kInputQueueItemNumber * kQueueItemSize;
 
 FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
     : IAudioElement(), storage_(storage) {
   working_buffer_ = heap_caps_malloc(kMaxFrameSize, MALLOC_CAP_SPIRAM);
 
-  input_queue_memory_ = heap_caps_malloc(kInputQueueSize, MALLOC_CAP_SPIRAM);
-  input_queue_ = xQueueCreateStatic(
-      kInputQueueItemNumber, kQueueItemSize, input_queue_memory_, &input_queue_metadata_);
-
-  output_queue_memory_ = heap_caps_malloc(kOutputQueueSize, MALLOC_CAP_SPIRAM);
-  output_queue_ =
-      xQueueCreateStatic(kOutputQueueItems, kQueueItemSize, output_queue_memory_,
-                         &output_queue_metadata_);
-
   output_buffer_memory_ =
-      heap_caps_malloc(kOutputBufferSize, MALLOC_CAP_SPIRAM);
+      heap_caps_malloc(kOutputBufferSize + 1, MALLOC_CAP_SPIRAM);
   output_buffer_ =
-      xStreamBufferCreateStatic(kOutputBufferSize - 1, 1, output_buffer_memory_,
+      xMessageBufferCreateStatic(kOutputBufferSize, output_buffer_memory_,
                                 &output_buffer_metadata_);
 }
 
 FatfsAudioInput::~FatfsAudioInput() {
   free(working_buffer_);
-  vStreamBufferDelete(output_buffer_);
+  vMessageBufferDelete(output_buffer_);
   free(output_buffer_memory_);
-  vQueueDelete(output_queue_);
-  free(output_queue_memory_);
-  vQueueDelete(input_queue_);
-  free(input_queue_memory_);
 }
 
-auto FatfsAudioInput::InputCommandQueue() -> QueueHandle_t {
-  return input_queue_;
+
+auto FatfsAudioInput::InputBuffer() -> MessageBufferHandle_t {
+  return input_buffer_;
 }
 
-auto FatfsAudioInput::OutputCommandQueue() -> QueueHandle_t {
-  return output_queue_;
-}
-
-auto FatfsAudioInput::InputBuffer() -> StreamBufferHandle_t {
-  return nullptr;
-}
-
-auto FatfsAudioInput::OutputBuffer() -> StreamBufferHandle_t {
+auto FatfsAudioInput::OutputBuffer() -> MessageBufferHandle_t {
   return output_buffer_;
 }
 
@@ -94,20 +65,16 @@ auto FatfsAudioInput::ProcessElementCommand(void* command) -> ProcessResult {
   }
 
   is_file_open_ = true;
-  current_sequence_++;
-
-  Command sequence_update;
-  sequence_update.type = SEQUENCE_NUMBER;
-  sequence_update.sequence_number = current_sequence_;
 
   if (real->interrupt) {
+    Command sequence_update;
+    sequence_update.type = SEQUENCE_NUMBER;
+    sequence_update.sequence_number = current_sequence_++;
     xQueueSendToFront(output_queue_, &sequence_update, kMaxWaitTicks);
-  } else {
-    xQueueSendToBack(output_queue_, &sequence_update, kMaxWaitTicks);
   }
 
   OutputCommand *data = new OutputCommand;
-  data->extension = "txt";
+  data->extension = "mp3";
   Command file_info;
   file_info.type = ELEMENT;
   file_info.sequence_number = current_sequence_;

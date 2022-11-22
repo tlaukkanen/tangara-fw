@@ -30,7 +30,6 @@
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
 #include "i2c.hpp"
-#include "i2s_audio_output.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
 
