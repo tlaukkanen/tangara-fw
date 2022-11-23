@@ -135,7 +135,7 @@ extern "C" void app_main(void) {
   console.Launch();
 
   while (1) {
-    //playback->ProcessEvents(5);
+    // playback->ProcessEvents(5);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }

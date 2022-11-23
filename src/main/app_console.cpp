@@ -83,7 +83,7 @@ int CmdToggle(int argc, char** argv) {
     return 1;
   }
 
-  //sInstance->playback_->Toggle();
+  // sInstance->playback_->Toggle();
 
   return 0;
 }
@@ -110,7 +110,7 @@ int CmdVolume(int argc, char** argv) {
     return 1;
   }
 
-  //sInstance->playback_->SetVolume((uint8_t)raw_vol);
+  // sInstance->playback_->SetVolume((uint8_t)raw_vol);
 
   return 0;
 }

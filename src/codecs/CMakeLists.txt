@@ -1,5 +1,5 @@
 idf_component_register(
-  SRCS "mad.cpp"
+  SRCS "codec.cpp" "mad.cpp"
   INCLUDE_DIRS "include")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

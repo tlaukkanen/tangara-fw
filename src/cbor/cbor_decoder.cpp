@@ -5,7 +5,8 @@
 
 namespace cbor {
 
-static auto ArrayDecoder::Create(uint8_t *buffer, size_t buffer_len) -> cpp::result<std::unique_ptr<ArrayDecoder>, CborError> {
+static auto ArrayDecoder::Create(uint8_t* buffer, size_t buffer_len)
+    -> cpp::result<std::unique_ptr<ArrayDecoder>, CborError> {
   auto decoder = std::make_unique<ArrayDecoder>();
   cbor_parser_init(buffer, buffer_len, &decoder->parser_, &decoder->root_);
   if (!cbor_value_is_array(&decoder->root_)) {
@@ -18,7 +19,23 @@ static auto ArrayDecoder::Create(uint8_t *buffer, size_t buffer_len) -> cpp::res
   return std::move(decoder);
 }
 
-static auto MapDecoder::Create(uint8_t *buffer, size_t buffer_len) -> cpp::result<std::unique_ptr<MapDecoder>, CborError> {
+static auto ArrayDecoder::Create(CborValue& root)
+    -> cpp::result<std::unique_ptr<ArrayDecoder>, CborError> {
+  auto decoder = std::make_unique<ArrayDecoder>();
+  decoder->root_ = root;
+  if (!cbor_value_is_array(&decoder->root_)) {
+    return cpp::fail(CborErrorIllegalType);
+  }
+
+  CborError err = cbor_value_enter_container(&decoder->root_, &decoder->it_);
+  if (err != CborNoError) {
+    return cpp::fail(err);
+  }
+  return std::move(decoder);
+}
+
+static auto MapDecoder::Create(uint8_t* buffer, size_t buffer_len)
+    -> cpp::result<std::unique_ptr<MapDecoder>, CborError> {
   auto decoder = std::make_unique<MapDecoder>();
   cbor_parser_init(buffer, buffer_len, &decoder->parser_, &decoder->root_);
   if (!cbor_value_is_map(&decoder->root_)) {
@@ -31,7 +48,22 @@ static auto MapDecoder::Create(uint8_t *buffer, size_t buffer_len) -> cpp::resul
   return std::move(decoder);
 }
 
-auto MapDecoder::FindString(const std::string &key) -> std::optional<std::string> {
+static auto MapDecoder::Create(CborValue& root)
+    -> cpp::result<std::unique_ptr<MapDecoder>, CborError> {
+  auto decoder = std::make_unique<MapDecoder>();
+  decoder->root_ = root;
+  if (!cbor_value_is_map(&decoder->root_)) {
+    return cpp::fail(CborErrorIllegalType);
+  }
+  CborError err = cbor_value_enter_container(&decoder->root_, &decoder->it_);
+  if (err != CborNoError) {
+    return cpp::fail(err);
+  }
+  return std::move(decoder);
+}
+
+auto MapDecoder::FindString(const std::string& key)
+    -> std::optional<std::string> {
   CborValue val;
   if (error_ != CborNoError) {
     return {};
@@ -43,7 +75,8 @@ auto MapDecoder::FindString(const std::string &key) -> std::optional<std::string
     error_ = CborErrorIllegalType;
     return {};
   }
-  uint8_t *buf; size_t len;
+  uint8_t* buf;
+  size_t len;
   error_ = cbor_value_dup_byte_string(&val, &buf, &len, NULL);
   if (error_ != CborNoError) {
     return cpp::fail(error_);
@@ -53,7 +86,8 @@ auto MapDecoder::FindString(const std::string &key) -> std::optional<std::string
   return ret;
 }
 
-auto MapDecoder::FindUnsigned(const std::string &key) -> std::optional<uint32_t> {
+auto MapDecoder::FindUnsigned(const std::string& key)
+    -> std::optional<uint32_t> {
   CborValue val;
   if (error_ != CborNoError) {
     return {};
@@ -73,7 +107,7 @@ auto MapDecoder::FindUnsigned(const std::string &key) -> std::optional<uint32_t>
   return ret;
 }
 
-auto MapDecoder::FindSigned(const std::string &key) -> std::optional<int32_t> {
+auto MapDecoder::FindSigned(const std::string& key) -> std::optional<int32_t> {
   CborValue val;
   if (error_ != CborNoError) {
     return {};
@@ -94,4 +128,4 @@ auto MapDecoder::FindSigned(const std::string &key) -> std::optional<int32_t> {
   return ret;
 }
 
-} // namespace cbor
+}  // namespace cbor

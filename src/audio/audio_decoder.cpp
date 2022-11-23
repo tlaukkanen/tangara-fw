@@ -1,107 +1,87 @@
 #include "audio_decoder.hpp"
+#include <string.h>
 #include <cstddef>
 #include <cstdint>
-#include <string.h>
+#include "chunk.hpp"
 #include "esp_heap_caps.h"
+#include "freertos/portmacro.h"
 #include "include/audio_element.hpp"
 #include "include/fatfs_audio_input.hpp"
 
 namespace audio {
 
-  // TODO: could this be larger? depends on the codecs i guess
-  static const std::size_t kWorkingBufferSize = kMaxFrameSize;
+AudioDecoder::AudioDecoder()
+    : IAudioElement(),
+      chunk_buffer_(heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM)),
+      stream_info_({}) {}
 
-  AudioDecoder::AudioDecoder() {
-    working_buffer_ = heap_caps_malloc(kWorkingBufferSize, MALLOC_CAP_SPIRAM);
+AudioDecoder::~AudioDecoder() {
+  free(chunk_buffer_);
+}
+
+auto AudioDecoder::SetInputBuffer(StreamBufferHandle_t* buffer) -> void {
+  input_buffer_ = buffer;
+}
+
+auto AudioDecoder::SetOutputBuffer(StreamBufferHandle_t* buffer) -> void {
+  output_buffer_ = buffer;
+}
+
+auto AudioDecoder::ProcessStreamInfo(StreamInfo&& info)
+    -> cpp::result<void, StreamError> {
+  stream_info_ = info;
+
+  // Reuse the existing codec if we can. This will help with gapless playback,
+  // since we can potentially just continue to decode as we were before,
+  // without any setup overhead.
+  if (current_codec_->CanHandleFile(info.path)) {
+    current_codec_->ResetForNewStream();
+    return {};
   }
 
-  AudioDecoder::~AudioDecoder() {
-    free(working_buffer_);
+  auto result = codecs::CreateCodecForFile(info.path);
+  if (result.has_value()) {
+    current_codec_ = std::move(result.value());
+  } else {
+    return cpp::fail(UNSUPPORTED_STREAM);
   }
 
-  auto AudioDecoder::InputBuffer() -> StreamBufferHandle_t {
-    return input_buffer_;
+  return {};
+}
+
+auto AudioDecoder::ProcessChunk(uint8_t* data, std::size_t length)
+    -> cpp::result<size_t, StreamError> {
+  if (current_codec_ == nullptr) {
+    // Should never happen, but fail explicitly anyway.
+    return cpp::fail(UNSUPPORTED_STREAM);
   }
 
-  auto AudioDecoder::OutputBuffer() -> StreamBufferHandle_t {
-    return output_buffer_;
+  current_codec_->SetInput(data, length);
+  cpp::result<size_t, codecs::ICodec::ProcessingError> result;
+  WriteChunksToStream(
+      output_buffer_, working_buffer_, kWorkingBufferSize,
+      [&](uint8_t* buf, size_t len) {
+        result = current_codec_->Process(data, length, buf, len);
+        if (result.has_error()) {
+          // End our output stream immediately if the codec barfed.
+          return 0;
+        }
+        return result.value();
+      },
+      // This element doesn't support any kind of out of band commands, so we
+      // can just suspend the whole task if the output buffer fills up.
+      portMAX_DELAY);
+
+  if (result.has_error()) {
+    return cpp::fail(IO_ERROR);
   }
 
-  auto AudioDecoder::SetInputBuffer(StreamBufferHandle_t buffer) -> void {
-    input_buffer_ = buffer;
-  }
+  return current_codec_->GetOutputProcessed();
+}
 
-  auto AudioDecoder::SetOutputBuffer(StreamBufferHandle_t buffer) -> void {
-    output_buffer_ = buffer;
-  }
+auto AudioDecoder::ProcessIdle() -> cpp::result<void, StreamError> {
+  // Not used; we delay forever when waiting on IO.
+  return {};
+}
 
-  auto AudioDecoder::ProcessElementCommand(void* command) -> ProcessResult {
-    FatfsAudioInput::OutputCommand *real = std::reinterpret_cast<FatfsAudioInput::OutputCommand*>(command);
-
-    if (current_codec_->CanHandleExtension(real->extension)) {
-      // TODO: Do we need to reset the codec?
-      delete real;
-      return OK;
-    }
-
-    auto result = codecs::CreateCodecForExtension(real->extension);
-    // TODO: handle error case
-    if (result.has_value()) {
-      current_codec_ = result.value();
-    }
-
-    delete real;
-    return OK;
-  }
-
-  auto AudioDecoder::SkipElementCommand(void* command) -> void {
-    FatfsAudioInput::OutputCommand *real = std::reinterpret_cast<FatfsAudioInput::OutputCommand*>(command);
-    delete real;
-  }
-
-  auto AudioDecoder::ProcessData(uint8_t* data, uint16_t length) -> ProcessResult {
-    if (current_codec_ == nullptr) {
-      // TODO: signal this
-      return OK;
-    }
-
-    while (true) {
-      auto result = current_codec_->Process(data, length, working_buffer_, kWorkingBufferSize);
-
-      if (result.has_error()) {
-        // TODO: handle i guess
-        return ERROR;
-      }
-      ICodec::Result process_res = result.value();
-
-      if (process_res.flush_output) {
-        xStreamBufferSend(&output_buffer_, working_buffer_, process_res.output_written, kMaxWaitTicks);
-      }
-
-      if (process_res.need_more_input) {
-        // TODO: wtf do we do about the leftover bytes?
-        return OK;
-      }
-    }
-
-    return OK;
-  }
-
-  auto AudioDecoder::ProcessIdle() -> ProcessResult {
-    // Not used.
-    return OK;
-  }
-
-  auto AudioDecoder::Pause() -> void {
-    // TODO.
-  }
-  auto AudioDecoder::IsPaused() -> bool {
-    // TODO.
-  }
-
-  auto AudioDecoder::Resume() -> void {
-    // TODO.
-  }
-
-
-} // namespace audio
+}  // namespace audio

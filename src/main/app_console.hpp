@@ -2,15 +2,15 @@
 
 #include <memory>
 
-#include "storage.hpp"
 #include "console.hpp"
+#include "storage.hpp"
 
 namespace console {
 
 class AppConsole : public Console {
  public:
-  AppConsole() {};
-  virtual ~AppConsole() {};
+  AppConsole(){};
+  virtual ~AppConsole(){};
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

@@ -2,11 +2,11 @@
 
 #include <string>
 
-namespace codecs  {
+namespace codecs {
 
-  enum StreamType {
-    STREAM_MP3,
-  };
+enum StreamType {
+  STREAM_MP3,
+};
 
-  auto GetStreamTypeFromFilename(std::string filename);
-}
+auto GetStreamTypeFromFilename(std::string filename);
+}  // namespace codecs

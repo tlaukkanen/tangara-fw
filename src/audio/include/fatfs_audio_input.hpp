@@ -20,10 +20,17 @@ class FatfsAudioInput : public IAudioElement {
 
   auto OutputBuffer() -> MessageBufferHandle_t;
 
+  auto SendChunk(uint8_t* buffer, size_t size) -> size_t;
+
  private:
   std::shared_ptr<drivers::SdStorage> storage_;
 
-  uint8_t *working_buffer_;
+  uint8_t* file_buffer_;
+  uint8_t* file_buffer_read_pos_;
+  uint8_t* pending_read_pos_;
+  uint8_t* file_buffer_write_pos_;
+
+  uint8_t* chunk_buffer_;
 
   FIL current_file_;
   bool is_file_open_ = false;

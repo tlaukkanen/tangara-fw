@@ -10,6 +10,8 @@ struct AudioTaskArgs {
   std::shared_ptr<IAudioElement>& element;
 };
 
-void audio_task(void* args);
+auto StartAudioTask(std::shared_ptr<IAudioElement>& element) -> void;
+
+void AudioTaskMain(void* args);
 
 }  // namespace audio
