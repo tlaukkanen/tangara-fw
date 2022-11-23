@@ -1,4 +1,4 @@
-#include "tasks.cpp"
+#include "tasks.hpp"
 
-static const UBaseType_t kTaskPriorityLvgl = 4;
-static const UBaseType_t kTaskPriorityAudio = 5;
+const UBaseType_t kTaskPriorityLvgl = 4;
+const UBaseType_t kTaskPriorityAudio = 5;

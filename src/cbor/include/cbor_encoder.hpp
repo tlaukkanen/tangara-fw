@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include "esp-idf/components/cbor/tinycbor/src/cbor.h"
+
+#include "cbor.h"
+
 namespace cbor {
 
 class Encoder {
