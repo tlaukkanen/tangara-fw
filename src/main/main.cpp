@@ -110,6 +110,7 @@ extern "C" void app_main(void) {
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
+  /*
   ESP_LOGI(TAG, "Init audio output (I2S)");
   auto sink_res = drivers::I2SAudioOutput::create(expander);
   if (sink_res.has_error()) {
@@ -118,7 +119,6 @@ extern "C" void app_main(void) {
   }
   std::unique_ptr<drivers::IAudioOutput> sink = std::move(sink_res.value());
 
-  /*
   ESP_LOGI(TAG, "Init audio pipeline");
   auto playback_res = drivers::AudioPlayback::create(std::move(sink));
   if (playback_res.has_error()) {
@@ -131,7 +131,7 @@ extern "C" void app_main(void) {
   */
 
   ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console(playback.get());
+  console::AppConsole console;
   console.Launch();
 
   while (1) {

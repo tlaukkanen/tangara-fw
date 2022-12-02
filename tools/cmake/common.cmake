@@ -25,3 +25,5 @@ set(EXTRA_WARNINGS "-Wshadow" "-Wnon-virtual-dtor" "-Wunused"
 # just be used to setting flags that our external dependencies requires.
 # Otherwise, prefer adding per-component build flags to keep things neat.
 idf_build_set_property(COMPILE_OPTIONS "-DLV_CONF_INCLUDE_SIMPLE" APPEND)
+
+include($ENV{PROJ_PATH}/tools/cmake/extra-libs.cmake)

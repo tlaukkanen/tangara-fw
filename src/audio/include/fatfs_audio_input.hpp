@@ -5,8 +5,9 @@
 #include <string>
 
 #include "freertos/FreeRTOS.h"
+
+#include "freertos/message_buffer.h"
 #include "freertos/queue.h"
-#include "freertos/stream_buffer.h"
 
 #include "audio_element.hpp"
 #include "storage.hpp"
@@ -18,11 +19,16 @@ class FatfsAudioInput : public IAudioElement {
   FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
   ~FatfsAudioInput();
 
-  auto OutputBuffer() -> MessageBufferHandle_t;
+  auto ProcessStreamInfo(StreamInfo&& info) -> cpp::result<void, StreamError>;
+  auto ProcessChunk(uint8_t* data, std::size_t length)
+      -> cpp::result<size_t, StreamError>;
+  auto ProcessIdle() -> cpp::result<void, StreamError>;
 
   auto SendChunk(uint8_t* buffer, size_t size) -> size_t;
 
  private:
+  auto GetRingBufferDistance() -> size_t;
+
   std::shared_ptr<drivers::SdStorage> storage_;
 
   uint8_t* file_buffer_;
@@ -39,7 +45,6 @@ class FatfsAudioInput : public IAudioElement {
 
   uint8_t* output_buffer_memory_;
   StaticMessageBuffer_t output_buffer_metadata_;
-  MessageBufferHandle_t output_buffer_;
 };
 
 }  // namespace audio

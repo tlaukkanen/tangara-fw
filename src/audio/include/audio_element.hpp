@@ -1,12 +1,27 @@
 #pragma once
 
 #include <stdint.h>
+
 #include <cstdint>
+
+#include "freertos/FreeRTOS.h"
+
+#include "freertos/message_buffer.h"
 #include "freertos/portmacro.h"
 #include "result.hpp"
+
+#include "stream_info.hpp"
 #include "types.hpp"
 
 namespace audio {
+
+/* Errors that may be returned by any of the Process* methods. */
+enum StreamError {
+  // Indicates that this element is unable to handle the upcoming chunks.
+  UNSUPPORTED_STREAM,
+  // Indicates an error with reading or writing stream data.
+  IO_ERROR,
+};
 
 /*
  * One indepedentent part of an audio pipeline. Each element has an input and
@@ -46,14 +61,6 @@ class IAudioElement {
   /* Returns this element's output buffer. */
   auto OutputBuffer() -> MessageBufferHandle_t* { return output_buffer_; }
 
-  /* Errors that may be returned by any of the Process* methods. */
-  enum StreamError {
-    // Indicates that this element is unable to handle the upcoming chunks.
-    UNSUPPORTED_STREAM,
-    // Indicates an error with reading or writing stream data.
-    IO_ERROR,
-  };
-
   /*
    * Called when a StreamInfo message is received. Used to configure this
    * element in preperation for incoming chunks.
@@ -78,8 +85,8 @@ class IAudioElement {
   virtual auto ProcessIdle() -> cpp::result<void, StreamError> = 0;
 
  protected:
-  StreamBufferHandle_t* input_buffer_;
-  StreamBufferHandle_t* output_buffer_;
+  MessageBufferHandle_t* input_buffer_;
+  MessageBufferHandle_t* output_buffer_;
 };
 
 }  // namespace audio

@@ -10,4 +10,3 @@ idf_build_set_property(COMPILE_OPTIONS "-DRESULT_DISABLE_EXCEPTIONS" APPEND)
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")
 
 project(gay-ipod-fw)
-include($ENV{PROJ_PATH}/tools/cmake/extra-libs.cmake)

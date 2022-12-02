@@ -1,17 +1,20 @@
 #include "chunk.hpp"
 
 #include <string.h>
+
 #include <cstddef>
 #include <cstdint>
+
+#include "cbor.h"
+
 #include "cbor_decoder.hpp"
 #include "cbor_encoder.hpp"
-#include "esp-idf/components/cbor/tinycbor/src/cbor.h"
 #include "stream_message.hpp"
 
 namespace audio {
 
 // TODO: tune.
-static const std::size_t kMaxChunkSize = 512;
+const std::size_t kMaxChunkSize = 512;
 
 // TODO: tune
 static const std::size_t kWorkingBufferSize = kMaxChunkSize * 1.5;
@@ -28,7 +31,7 @@ auto WriteChunksToStream(MessageBufferHandle_t* stream,
                          uint8_t* working_buffer,
                          size_t working_buffer_length,
                          std::function<size_t(uint8_t*, size_t)> callback,
-                         TickType_t max_wait) -> EncodeWriteResult {
+                         TickType_t max_wait) -> ChunkWriteResult {
   size_t header_size = kInitialHeaderSize;
   while (1) {
     // First, ask the callback for some data to write.
@@ -43,9 +46,9 @@ auto WriteChunksToStream(MessageBufferHandle_t* stream,
     // Put together a header.
     cbor::Encoder encoder(cbor::CONTAINER_ARRAY, 3, working_buffer,
                           working_buffer_length);
-    encoder.WriteUnsigned(TYPE_CHUNK_HEADER);
-    encoder.WriteUnsigned(header_size);
-    encoder.WriteUnsigned(chunk_size);
+    encoder.WriteValue(TYPE_CHUNK_HEADER);
+    encoder.WriteValue(header_size);
+    encoder.WriteValue(chunk_size);
 
     size_t new_header_size = header_size;
     cpp::result<size_t, CborError> encoder_res = encoder.Finish();
@@ -76,7 +79,8 @@ auto WriteChunksToStream(MessageBufferHandle_t* stream,
 }
 
 ChunkReader::ChunkReader(MessageBufferHandle_t* stream) : stream_(stream) {
-  working_buffer_ = heap_caps_malloc(kWorkingBufferSize, MALLOC_CAP_SPIRAM);
+  working_buffer_ = static_cast<uint8_t*>(
+      heap_caps_malloc(kWorkingBufferSize, MALLOC_CAP_SPIRAM));
 };
 
 ChunkReader::~ChunkReader() {
@@ -94,7 +98,7 @@ auto ChunkReader::GetLastMessage() -> std::pair<uint8_t*, size_t> {
 
 auto ChunkReader::ReadChunkFromStream(
     std::function<std::optional<size_t>(uint8_t*, size_t)> callback,
-    TickType_t max_wait) -> EncodeReadResult {
+    TickType_t max_wait) -> ChunkReadResult {
   // First, wait for a message to arrive over the buffer.
   last_message_size_ =
       xMessageBufferReceive(*stream_, working_buffer_ + leftover_bytes_,
@@ -104,14 +108,15 @@ auto ChunkReader::ReadChunkFromStream(
     return CHUNK_READ_TIMEOUT;
   }
 
-  auto decoder = cbor::MapDecoder::Create(working_buffer_ + leftover_bytes_,
-                                          last_message_size_);
+  auto decoder = cbor::ArrayDecoder::Create(working_buffer_ + leftover_bytes_,
+                                            last_message_size_);
   if (decoder.has_error()) {
     // Weird; this implies someone is shoving invalid data into the buffer.
     return CHUNK_DECODING_ERROR;
   }
 
-  MessageType type = decoder.value().ParseUnsigned().value_or(TYPE_UNKNOWN);
+  MessageType type = static_cast<MessageType>(
+      decoder.value()->NextValue<uint64_t>().value_or(TYPE_UNKNOWN));
   if (type != TYPE_CHUNK_HEADER) {
     // This message wasn't for us, so let the caller handle it.
     Reset();
@@ -119,9 +124,9 @@ auto ChunkReader::ReadChunkFromStream(
   }
 
   // Work the size and position of the chunk.
-  header_length = decoder.ParseUnsigned().value_or(0);
-  chunk_length = decoder.ParseUnsigned().value_or(0);
-  if (decoder.Failed()) {
+  size_t header_length = decoder.value()->NextValue<uint64_t>().value_or(0);
+  size_t chunk_length = decoder.value()->NextValue<uint64_t>().value_or(0);
+  if (decoder.value()->Failed()) {
     return CHUNK_DECODING_ERROR;
   }
 
@@ -146,7 +151,10 @@ auto ChunkReader::ReadChunkFromStream(
   if (leftover_bytes_ > 0) {
     memmove(working_buffer_, combined_buffer + amount_processed.value(),
             leftover_bytes_);
+    return CHUNK_LEFTOVER_DATA;
   }
+
+  return CHUNK_READ_OKAY;
 }
 
 }  // namespace audio

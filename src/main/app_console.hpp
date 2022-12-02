@@ -9,8 +9,8 @@ namespace console {
 
 class AppConsole : public Console {
  public:
-  AppConsole(){};
-  virtual ~AppConsole(){};
+  AppConsole() {}
+  virtual ~AppConsole() {}
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

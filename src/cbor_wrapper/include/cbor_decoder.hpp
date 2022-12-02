@@ -3,22 +3,12 @@
 #include <stdint.h>
 
 #include <cstdint>
+#include <string>
 
 #include "cbor.h"
+#include "result.hpp"
 
 namespace cbor {
-
-static auto parse_stdstring(CborValue* val, std::string* out) -> CborError {
-  uint8_t* buf;
-  size_t len;
-  CborError err = cbor_value_dup_byte_string(val, &buf, &len, NULL);
-  if (err != CborNoError) {
-    return err;
-  }
-  *out = std::move(std::string(buf, len));
-  free(buf);
-  return err
-}
 
 class ArrayDecoder {
  public:
@@ -28,25 +18,14 @@ class ArrayDecoder {
   static auto Create(CborValue& root)
       -> cpp::result<std::unique_ptr<ArrayDecoder>, CborError>;
 
+  ArrayDecoder() {}
+
   template <typename T>
   auto NextValue() -> cpp::result<T, CborError>;
 
-  template <>
-  auto NextValue() -> cpp::result<int64_t, CborError> {
-    return NextValue(&cbor_value_is_integer, &cbor_value_get_int);
-  }
-  template <>
-  auto NextValue() -> cpp::result<uint64_t, CborError> {
-    return NextValue(&cbor_value_is_unsigned_integer, &cbor_value_get_uint64);
-  }
-  template <>
-  auto NextValue() -> cpp::result<std::string, CborError> {
-    return NextValue(&cbor_value_is_byte_string, &parse_stdstring);
-  }
-
   template <typename T>
-  auto NextValue(bool (*is_valid)(CborValue*),
-                 CborError (*parse)(CborValue*, T*))
+  auto NextValue(bool (*is_valid)(const CborValue*),
+                 CborError (*parse)(const CborValue*, T*))
       -> cpp::result<T, CborError> {
     if (error_ != CborNoError) {
       return cpp::fail(error_);
@@ -90,30 +69,19 @@ class MapDecoder {
   static auto Create(CborValue& root)
       -> cpp::result<std::unique_ptr<MapDecoder>, CborError>;
 
+  MapDecoder() {}
+
   template <typename T>
   auto FindValue(const std::string& key) -> std::optional<T>;
 
-  template <>
-  auto FindValue(const std::string& key) -> std::optional<int64_t> {
-    return FindValue(key, &cbor_value_is_integer, &cbor_value_get_int);
-  }
-  template <>
-  auto FindValue(const std::string& key) -> std::optional<uint64_t> {
-    return FindValue(key, &cbor_value_is_unsigned_integer,
-                     &cbor_value_get_uint64);
-  }
-  template <>
-  auto FindValue(const std::string& key) -> std::optional<std::string> {
-    return FindValue(key, &cbor_value_is_byte_string, &parse_stdstring);
-  }
-
   template <typename T>
   auto FindValue(const std::string& key,
-                 bool (*is_valid)(CborValue*),
-                 CborError (*parse)(CborValue*, T*)) -> std::optional<T> {
+                 bool (*is_valid)(const CborValue*),
+                 CborError (*parse)(const CborValue*, T*)) -> std::optional<T> {
     if (error_ != CborNoError) {
       return {};
     }
+    CborValue val;
     if (cbor_value_map_find_value(&it_, key.c_str(), &val) != CborNoError) {
       return {};
     }
@@ -124,7 +92,7 @@ class MapDecoder {
     T ret;
     error_ = parse(&val, &ret);
     if (error_ != CborNoError) {
-      return cpp::fail(error_);
+      return {};
     }
     return ret;
   }

@@ -18,8 +18,13 @@ class AudioDecoder : public IAudioElement {
   AudioDecoder();
   ~AudioDecoder();
 
-  auto SetInputBuffer(StreamBufferHandle_t*) -> void;
-  auto SetOutputBuffer(StreamBufferHandle_t*) -> void;
+  auto SetInputBuffer(MessageBufferHandle_t*) -> void;
+  auto SetOutputBuffer(MessageBufferHandle_t*) -> void;
+
+  auto ProcessStreamInfo(StreamInfo&& info) -> cpp::result<void, StreamError>;
+  auto ProcessChunk(uint8_t* data, std::size_t length)
+      -> cpp::result<size_t, StreamError>;
+  auto ProcessIdle() -> cpp::result<void, StreamError>;
 
   AudioDecoder(const AudioDecoder&) = delete;
   AudioDecoder& operator=(const AudioDecoder&) = delete;

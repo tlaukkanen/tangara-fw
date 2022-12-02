@@ -4,8 +4,13 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include "esp-idf/components/cbor/tinycbor/src/cbor.h"
+
+#include "freertos/FreeRTOS.h"
+
+#include "cbor.h"
+#include "freertos/message_buffer.h"
 #include "freertos/portmacro.h"
+#include "freertos/queue.h"
 #include "result.hpp"
 
 namespace audio {
@@ -35,7 +40,22 @@ auto WriteChunksToStream(MessageBufferHandle_t* stream,
                          uint8_t* working_buffer,
                          size_t working_buffer_length,
                          std::function<size_t(uint8_t*, size_t)> callback,
-                         TickType_t max_wait) -> EncodeWriteResult;
+                         TickType_t max_wait) -> ChunkWriteResult;
+
+enum ChunkReadResult {
+  CHUNK_READ_OKAY,
+  // Returned when the chunk was read successfully, but the consumer did not
+  // use all of the data.
+  CHUNK_LEFTOVER_DATA,
+  // Returned an error in parsing the cbor-encoded header.
+  CHUNK_DECODING_ERROR,
+  // Returned when max_wait expired before any data was read.
+  CHUNK_READ_TIMEOUT,
+  // Returned when a non-chunk message is received.
+  CHUNK_STREAM_ENDED,
+  // Returned when the processing callback does not return a value.
+  CHUNK_PROCESSING_ERROR,
+};
 
 class ChunkReader {
  public:
@@ -45,17 +65,6 @@ class ChunkReader {
   auto Reset() -> void;
 
   auto GetLastMessage() -> std::pair<uint8_t*, size_t>;
-
-  enum ChunkReadResult {
-    // Returned an error in parsing the cbor-encoded header.
-    CHUNK_DECODING_ERROR,
-    // Returned when max_wait expired before any data was read.
-    CHUNK_READ_TIMEOUT,
-    // Returned when a non-chunk message is received.
-    CHUNK_STREAM_ENDED,
-    // Returned when the processing callback does not return a value.
-    CHUNK_PROCESSING_ERROR,
-  };
 
   /*
    * Reads chunks of data from the given input stream, and invokes the given
@@ -71,7 +80,7 @@ class ChunkReader {
    */
   auto ReadChunkFromStream(
       std::function<std::optional<size_t>(uint8_t*, size_t)> callback,
-      TickType_t max_wait) -> EncodeReadResult;
+      TickType_t max_wait) -> ChunkReadResult;
 
  private:
   MessageBufferHandle_t* stream_;

@@ -1,14 +1,15 @@
-#include "fatfs_audio_input.hpp<D-c>ccc
-#include <cstdint>
-#include <memory>
-#include "chunk.hpp"
 #include "fatfs_audio_input.hpp"
 
-#include "esp_heap_caps.h"
+#include <cstdint>
+#include <memory>
+#include <string>
 
 #include "audio_element.hpp"
+#include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
-#include "include/audio_element.hpp"
+
+#include "audio_element.hpp"
+#include "chunk.hpp"
 
 namespace audio {
 
@@ -20,14 +21,17 @@ static const std::size_t kOutputBufferSize = 1024 * 4;
 
 FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
     : IAudioElement(), storage_(storage) {
-  file_buffer_ = heap_caps_malloc(kMaxFrameSize, MALLOC_CAP_SPIRAM);
+  file_buffer_ = static_cast<uint8_t*>(
+      heap_caps_malloc(kFileBufferSize, MALLOC_CAP_SPIRAM));
   file_buffer_read_pos_ = file_buffer_;
   file_buffer_write_pos_ = file_buffer_;
-  chunk_buffer_ = heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM);
+  chunk_buffer_ =
+      static_cast<uint8_t*>(heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM));
 
-  output_buffer_memory_ =
-      heap_caps_malloc(kOutputBufferSize, MALLOC_CAP_SPIRAM);
-  output_buffer_ = xMessageBufferCreateStatic(
+  output_buffer_memory_ = static_cast<uint8_t*>(
+      heap_caps_malloc(kOutputBufferSize, MALLOC_CAP_SPIRAM));
+  output_buffer_ = new MessageBufferHandle_t;
+  *output_buffer_ = xMessageBufferCreateStatic(
       kOutputBufferSize, output_buffer_memory_, &output_buffer_metadata_);
 }
 
@@ -36,24 +40,18 @@ FatfsAudioInput::~FatfsAudioInput() {
   free(chunk_buffer_);
   vMessageBufferDelete(output_buffer_);
   free(output_buffer_memory_);
+  free(output_buffer_);
 }
 
-auto FatfsAudioInput::InputBuffer() -> MessageBufferHandle_t {
-  return input_buffer_;
-}
-
-auto FatfsAudioInput::OutputBuffer() -> MessageBufferHandle_t {
-  return output_buffer_;
-}
-
-auto FatfsAudioInput::ProcessStreamInfo(StreamInfo& info)
+auto FatfsAudioInput::ProcessStreamInfo(StreamInfo&& info)
     -> cpp::result<void, StreamError> {
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
   }
 
-  FRESULT res = f_open(&current_file_, info.path.c_str(), FA_READ);
+  std::string path = info.Path().value_or("");
+  FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
   if (res != FR_OK) {
     return cpp::fail(IO_ERROR);
   }
@@ -66,12 +64,12 @@ auto FatfsAudioInput::ProcessStreamInfo(StreamInfo& info)
 }
 
 auto FatfsAudioInput::ProcessChunk(uint8_t* data, std::size_t length)
-    -> cpp::result<void, StreamError> {
+    -> cpp::result<size_t, StreamError> {
   // TODO.
-  return {};
+  return 0;
 }
 
-static auto GetRingBufferDistance() -> size_t {
+auto FatfsAudioInput::GetRingBufferDistance() -> size_t {
   if (file_buffer_read_pos_ == file_buffer_write_pos_) {
     return 0;
   }
@@ -82,10 +80,10 @@ static auto GetRingBufferDistance() -> size_t {
       // Read position to end of buffer.
       (file_buffer_ + kFileBufferSize - file_buffer_read_pos_)
       // Start of buffer to write position.
-      + (file_buffer_write_pos_ - file_buffer_)
+      + (file_buffer_write_pos_ - file_buffer_);
 }
 
-virtual auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
+auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
   // First, see if we're able to fill up the input buffer with any more of the
   // file's contents.
   if (is_file_open_) {
@@ -103,8 +101,8 @@ virtual auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
       UINT bytes_read = 0;
       FRESULT result = f_read(&current_file_, file_buffer_write_pos_, read_size,
                               &bytes_read);
-      if (!FR_OK) {
-        return ERROR;  // TODO;
+      if (result != FR_OK) {
+        return cpp::fail(IO_ERROR);  // TODO;
       }
 
       if (f_eof(&current_file_)) {
@@ -123,16 +121,16 @@ virtual auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
 
   // Now stream data into the output buffer until it's full.
   pending_read_pos_ = nullptr;
-  EncodeWriteResult result =
-      WriteChunksToStream(&output_buffer_, chunk_buffer_, kMaxChunkSize,
-                          &SendChunk, kServiceInterval);
+  ChunkWriteResult result = WriteChunksToStream(
+      output_buffer_, chunk_buffer_, kMaxChunkSize,
+      [&](uint8_t* b, size_t s) { return SendChunk(b, s); }, kServiceInterval);
 
   switch (result) {
     case CHUNK_WRITE_TIMEOUT:
     case CHUNK_OUT_OF_DATA:
-      return;  // TODO.
+      return {};  // TODO.
     default:
-      return;  // TODO.
+      return {};  // TODO.
   }
 }
 
