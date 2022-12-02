@@ -7,22 +7,11 @@
 #include "cbor.h"
 #include "result.hpp"
 
-#include "cbor_decoder.hpp"
-#include "cbor_encoder.hpp"
-
 namespace audio {
 
 class StreamInfo {
  public:
-  enum ParseError {
-    WRONG_TYPE,
-    MISSING_MAP,
-    CBOR_ERROR,
-  };
-
-  static auto Create(const uint8_t* buffer, size_t length)
-      -> cpp::result<StreamInfo, ParseError>;
-  StreamInfo(cbor::MapDecoder*);
+  static auto Parse(CborValue& container) -> cpp::result<StreamInfo, CborError>;
 
   StreamInfo() = default;
   StreamInfo(const StreamInfo&) = default;
@@ -38,7 +27,7 @@ class StreamInfo {
     return sample_rate_;
   }
 
-  auto WriteToMap(cbor::Encoder& encoder) -> cpp::result<size_t, CborError>;
+  auto Encode(CborEncoder& enc) -> std::optional<CborError>;
 
  private:
   std::optional<std::string> path_;

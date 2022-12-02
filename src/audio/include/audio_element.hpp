@@ -15,8 +15,11 @@
 
 namespace audio {
 
-/* Errors that may be returned by any of the Process* methods. */
-enum StreamError {
+/*
+ * Errors that may be returned by any of the Process* methods of an audio
+ * element.
+ */
+enum AudioProcessingError {
   // Indicates that this element is unable to handle the upcoming chunks.
   UNSUPPORTED_STREAM,
   // Indicates an error with reading or writing stream data.
@@ -65,8 +68,8 @@ class IAudioElement {
    * Called when a StreamInfo message is received. Used to configure this
    * element in preperation for incoming chunks.
    */
-  virtual auto ProcessStreamInfo(StreamInfo&& info)
-      -> cpp::result<void, StreamError> = 0;
+  virtual auto ProcessStreamInfo(StreamInfo& info)
+      -> cpp::result<void, AudioProcessingError> = 0;
 
   /*
    * Called when a ChunkHeader message is received. Includes the data associated
@@ -75,14 +78,14 @@ class IAudioElement {
    * prepended to the next call.
    */
   virtual auto ProcessChunk(uint8_t* data, std::size_t length)
-      -> cpp::result<size_t, StreamError> = 0;
+      -> cpp::result<size_t, AudioProcessingError> = 0;
 
   /*
    * Called when there has been no data received over the input buffer for some
    * time. This could be used to synthesize output, or to save memory by
    * releasing unused resources.
    */
-  virtual auto ProcessIdle() -> cpp::result<void, StreamError> = 0;
+  virtual auto ProcessIdle() -> cpp::result<void, AudioProcessingError> = 0;
 
  protected:
   MessageBufferHandle_t* input_buffer_;

@@ -39,8 +39,8 @@ auto AudioDecoder::SetOutputBuffer(MessageBufferHandle_t* buffer) -> void {
   output_buffer_ = buffer;
 }
 
-auto AudioDecoder::ProcessStreamInfo(StreamInfo&& info)
-    -> cpp::result<void, StreamError> {
+auto AudioDecoder::ProcessStreamInfo(StreamInfo& info)
+    -> cpp::result<void, AudioProcessingError> {
   stream_info_ = info;
 
   // Reuse the existing codec if we can. This will help with gapless playback,
@@ -62,7 +62,7 @@ auto AudioDecoder::ProcessStreamInfo(StreamInfo&& info)
 }
 
 auto AudioDecoder::ProcessChunk(uint8_t* data, std::size_t length)
-    -> cpp::result<size_t, StreamError> {
+    -> cpp::result<size_t, AudioProcessingError> {
   if (current_codec_ == nullptr) {
     // Should never happen, but fail explicitly anyway.
     return cpp::fail(UNSUPPORTED_STREAM);
@@ -111,7 +111,7 @@ auto AudioDecoder::ProcessChunk(uint8_t* data, std::size_t length)
   return current_codec_->GetInputPosition();
 }
 
-auto AudioDecoder::ProcessIdle() -> cpp::result<void, StreamError> {
+auto AudioDecoder::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   // Not used; we delay forever when waiting on IO.
   return {};
 }

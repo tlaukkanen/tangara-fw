@@ -21,10 +21,11 @@ class AudioDecoder : public IAudioElement {
   auto SetInputBuffer(MessageBufferHandle_t*) -> void;
   auto SetOutputBuffer(MessageBufferHandle_t*) -> void;
 
-  auto ProcessStreamInfo(StreamInfo&& info) -> cpp::result<void, StreamError>;
+  auto ProcessStreamInfo(StreamInfo& info)
+      -> cpp::result<void, AudioProcessingError>;
   auto ProcessChunk(uint8_t* data, std::size_t length)
-      -> cpp::result<size_t, StreamError>;
-  auto ProcessIdle() -> cpp::result<void, StreamError>;
+      -> cpp::result<size_t, AudioProcessingError>;
+  auto ProcessIdle() -> cpp::result<void, AudioProcessingError>;
 
   AudioDecoder(const AudioDecoder&) = delete;
   AudioDecoder& operator=(const AudioDecoder&) = delete;

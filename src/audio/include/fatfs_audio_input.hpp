@@ -19,10 +19,11 @@ class FatfsAudioInput : public IAudioElement {
   FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
   ~FatfsAudioInput();
 
-  auto ProcessStreamInfo(StreamInfo&& info) -> cpp::result<void, StreamError>;
+  auto ProcessStreamInfo(StreamInfo& info)
+      -> cpp::result<void, AudioProcessingError>;
   auto ProcessChunk(uint8_t* data, std::size_t length)
-      -> cpp::result<size_t, StreamError>;
-  auto ProcessIdle() -> cpp::result<void, StreamError>;
+      -> cpp::result<size_t, AudioProcessingError>;
+  auto ProcessIdle() -> cpp::result<void, AudioProcessingError>;
 
   auto SendChunk(uint8_t* buffer, size_t size) -> size_t;
 

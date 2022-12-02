@@ -1,14 +1,12 @@
 #include "chunk.hpp"
 
-#include <string.h>
-
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <optional>
 
 #include "cbor.h"
 
-#include "cbor_decoder.hpp"
-#include "cbor_encoder.hpp"
 #include "stream_message.hpp"
 
 namespace audio {
@@ -25,7 +23,7 @@ static const std::size_t kWorkingBufferSize = kMaxChunkSize * 1.5;
  * space for future headers more compactly.
  */
 // TODO: measure how big headers tend to be to pick a better value.
-static const size_t kInitialHeaderSize = 32;
+static const std::size_t kInitialHeaderSize = 32;
 
 auto WriteChunksToStream(MessageBufferHandle_t* stream,
                          uint8_t* working_buffer,
@@ -44,14 +42,20 @@ auto WriteChunksToStream(MessageBufferHandle_t* stream,
     }
 
     // Put together a header.
-    cbor::Encoder encoder(cbor::CONTAINER_ARRAY, 3, working_buffer,
-                          working_buffer_length);
-    encoder.WriteValue(TYPE_CHUNK_HEADER);
-    encoder.WriteValue(header_size);
-    encoder.WriteValue(chunk_size);
+    cpp::result<size_t, CborError> encoder_res;
+    CborEncoder arr;
+    WriteMessage(
+        TYPE_CHUNK_HEADER,
+        [&](CborEncoder& container) {
+          cbor_encoder_create_array(&container, &arr, 2);
+          cbor_encode_uint(&arr, header_size);
+          cbor_encode_uint(&arr, chunk_size);
+          cbor_encoder_close_container(&container, &arr);
+          return std::nullopt;
+        },
+        working_buffer, working_buffer_length);
 
     size_t new_header_size = header_size;
-    cpp::result<size_t, CborError> encoder_res = encoder.Finish();
     if (encoder_res.has_error()) {
       return CHUNK_ENCODING_ERROR;
     } else {
@@ -108,15 +112,9 @@ auto ChunkReader::ReadChunkFromStream(
     return CHUNK_READ_TIMEOUT;
   }
 
-  auto decoder = cbor::ArrayDecoder::Create(working_buffer_ + leftover_bytes_,
-                                            last_message_size_);
-  if (decoder.has_error()) {
-    // Weird; this implies someone is shoving invalid data into the buffer.
-    return CHUNK_DECODING_ERROR;
-  }
+  MessageType type =
+      ReadMessageType(working_buffer_ + leftover_bytes_, last_message_size_);
 
-  MessageType type = static_cast<MessageType>(
-      decoder.value()->NextValue<uint64_t>().value_or(TYPE_UNKNOWN));
   if (type != TYPE_CHUNK_HEADER) {
     // This message wasn't for us, so let the caller handle it.
     Reset();
@@ -124,11 +122,9 @@ auto ChunkReader::ReadChunkFromStream(
   }
 
   // Work the size and position of the chunk.
-  size_t header_length = decoder.value()->NextValue<uint64_t>().value_or(0);
-  size_t chunk_length = decoder.value()->NextValue<uint64_t>().value_or(0);
-  if (decoder.value()->Failed()) {
-    return CHUNK_DECODING_ERROR;
-  }
+  size_t header_length = 0, chunk_length = 0;
+
+  // TODO: chunker header type to encapsulate this?
 
   // Now we need to stick the end of the last chunk (if it exists) onto the
   // front of the new chunk. Do it this way around bc we assume the old chunk

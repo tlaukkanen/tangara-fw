@@ -5,8 +5,6 @@
 
 #include "cbor.h"
 
-#include "cbor_decoder.hpp"
-#include "cbor_encoder.hpp"
 #include "stream_message.hpp"
 
 namespace audio {
@@ -16,48 +14,72 @@ static const std::string kKeyChannels = "c";
 static const std::string kKeyBitsPerSample = "b";
 static const std::string kKeySampleRate = "r";
 
-auto StreamInfo::Create(const uint8_t* buffer, size_t length)
-    -> cpp::result<StreamInfo, ParseError> {
-  CborParser parser;
-  CborValue value;
+auto StreamInfo::Parse(CborValue& container)
+    -> cpp::result<StreamInfo, CborError> {
+  CborValue map;
+  cbor_value_enter_container(&container, &map);
 
-  cbor_parser_init(buffer, length, 0, &parser, &value);
+  CborValue entry;
+  StreamInfo ret;
 
-  int type = 0;
-  if (!cbor_value_is_integer(&value) || !cbor_value_get_int(&value, &type) ||
-      type != TYPE_STREAM_INFO) {
-    return cpp::fail(WRONG_TYPE);
+  cbor_value_map_find_value(&map, kKeyPath.c_str(), &entry);
+  if (cbor_value_get_type(&entry) != CborInvalidType) {
+    char* val;
+    size_t len;
+    cbor_value_dup_text_string(&entry, &val, &len, NULL);
+    ret.path_ = std::string(val, len);
+    free(val);
+  }
+  cbor_value_map_find_value(&map, kKeyChannels.c_str(), &entry);
+  if (cbor_value_get_type(&entry) != CborInvalidType) {
+    uint64_t val;
+    cbor_value_get_uint64(&entry, &val);
+    ret.channels_ = val;
+  }
+  cbor_value_map_find_value(&map, kKeyBitsPerSample.c_str(), &entry);
+  if (cbor_value_get_type(&entry) != CborInvalidType) {
+    uint64_t val;
+    cbor_value_get_uint64(&entry, &val);
+    ret.bits_per_sample_ = val;
+  }
+  cbor_value_map_find_value(&map, kKeySampleRate.c_str(), &entry);
+  if (cbor_value_get_type(&entry) != CborInvalidType) {
+    uint64_t val;
+    cbor_value_get_uint64(&entry, &val);
+    ret.sample_rate_ = val;
   }
 
-  cbor_value_advance_fixed(&value);
-
-  if (!cbor_value_is_map(&value)) {
-    return cpp::fail(MISSING_MAP);
-  }
-
-  auto map_decoder = cbor::MapDecoder::Create(value);
-  if (map_decoder.has_value()) {
-    return StreamInfo(map_decoder.value().get());
-  }
-  return cpp::fail(CBOR_ERROR);
+  return ret;
 }
 
-StreamInfo::StreamInfo(cbor::MapDecoder* decoder) {
-  // TODO: this method is n^2, which seems less than ideal. But you don't do it
-  // that frequently, so maybe it's okay? Needs investigation.
-  channels_ = decoder->FindValue<uint64_t>(kKeyChannels);
-  bits_per_sample_ = decoder->FindValue<uint64_t>(kKeyBitsPerSample);
-  sample_rate_ = decoder->FindValue<uint64_t>(kKeySampleRate);
-  path_ = decoder->FindValue<std::string>(kKeyPath);
-}
+auto StreamInfo::Encode(CborEncoder& enc) -> std::optional<CborError> {
+  CborEncoder map;
+  size_t num_items = 0 + channels_.has_value() + bits_per_sample_.has_value() +
+                     sample_rate_.has_value() + path_.has_value();
+  cbor_encoder_create_map(&enc, &map, num_items);
 
-auto StreamInfo::WriteToMap(cbor::Encoder& map_encoder)
-    -> cpp::result<size_t, CborError> {
-  map_encoder.WriteKeyValue<uint64_t>(kKeyChannels, channels_);
-  map_encoder.WriteKeyValue<uint64_t>(kKeyBitsPerSample, bits_per_sample_);
-  map_encoder.WriteKeyValue<uint64_t>(kKeySampleRate, sample_rate_);
-  map_encoder.WriteKeyValue<std::string>(kKeyPath, path_);
-  return map_encoder.Finish();
+  if (channels_) {
+    cbor_encode_text_string(&map, kKeyChannels.c_str(), kKeyChannels.size());
+    cbor_encode_uint(&map, channels_.value());
+  }
+  if (bits_per_sample_) {
+    cbor_encode_text_string(&map, kKeyBitsPerSample.c_str(),
+                            kKeyBitsPerSample.size());
+    cbor_encode_uint(&map, bits_per_sample_.value());
+  }
+  if (sample_rate_) {
+    cbor_encode_text_string(&map, kKeySampleRate.c_str(),
+                            kKeySampleRate.size());
+    cbor_encode_uint(&map, sample_rate_.value());
+  }
+  if (path_) {
+    cbor_encode_text_string(&map, kKeyPath.c_str(), kKeyPath.size());
+    cbor_encode_text_string(&map, path_.value().c_str(), path_.value().size());
+  }
+
+  cbor_encoder_close_container(&enc, &map);
+
+  return std::nullopt;
 }
 
 }  // namespace audio

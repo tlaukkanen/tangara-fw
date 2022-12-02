@@ -10,6 +10,9 @@
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
+#include "stream_message.hpp"
+
+static const char* kTag = "SRC";
 
 namespace audio {
 
@@ -43,14 +46,17 @@ FatfsAudioInput::~FatfsAudioInput() {
   free(output_buffer_);
 }
 
-auto FatfsAudioInput::ProcessStreamInfo(StreamInfo&& info)
-    -> cpp::result<void, StreamError> {
+auto FatfsAudioInput::ProcessStreamInfo(StreamInfo& info)
+    -> cpp::result<void, AudioProcessingError> {
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
   }
 
-  std::string path = info.Path().value_or("");
+  if (!info.Path()) {
+    return cpp::fail(UNSUPPORTED_STREAM);
+  }
+  std::string path = info.Path().value();
   FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
   if (res != FR_OK) {
     return cpp::fail(IO_ERROR);
@@ -58,15 +64,24 @@ auto FatfsAudioInput::ProcessStreamInfo(StreamInfo&& info)
 
   is_file_open_ = true;
 
-  // TODO: pass on stream info.
+  auto write_res =
+      WriteMessage(TYPE_STREAM_INFO,
+                   std::bind(&StreamInfo::Encode, info, std::placeholders::_1),
+                   chunk_buffer_, kMaxChunkSize);
+
+  if (write_res.has_error()) {
+    return cpp::fail(IO_ERROR);
+  } else {
+    xMessageBufferSend(output_buffer_, chunk_buffer_, write_res.value(),
+                       portMAX_DELAY);
+  }
 
   return {};
 }
 
 auto FatfsAudioInput::ProcessChunk(uint8_t* data, std::size_t length)
-    -> cpp::result<size_t, StreamError> {
-  // TODO.
-  return 0;
+    -> cpp::result<size_t, AudioProcessingError> {
+  return cpp::fail(UNSUPPORTED_STREAM);
 }
 
 auto FatfsAudioInput::GetRingBufferDistance() -> size_t {
@@ -83,7 +98,7 @@ auto FatfsAudioInput::GetRingBufferDistance() -> size_t {
       + (file_buffer_write_pos_ - file_buffer_);
 }
 
-auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
+auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   // First, see if we're able to fill up the input buffer with any more of the
   // file's contents.
   if (is_file_open_) {
@@ -102,7 +117,8 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
       FRESULT result = f_read(&current_file_, file_buffer_write_pos_, read_size,
                               &bytes_read);
       if (result != FR_OK) {
-        return cpp::fail(IO_ERROR);  // TODO;
+        ESP_LOGE(kTag, "file I/O error %d", result);
+        return cpp::fail(IO_ERROR);
       }
 
       if (f_eof(&current_file_)) {
@@ -128,9 +144,11 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, StreamError> {
   switch (result) {
     case CHUNK_WRITE_TIMEOUT:
     case CHUNK_OUT_OF_DATA:
-      return {};  // TODO.
+      // Both of these are fine; SendChunk keeps track of where it's up to
+      // internally, so we will pick back up where we left off.
+      return {};
     default:
-      return {};  // TODO.
+      return cpp::fail(IO_ERROR);
   }
 }
 

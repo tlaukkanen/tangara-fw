@@ -4,9 +4,7 @@
 
 #include <cstdint>
 
-#include "cbor_decoder.hpp"
-#include "chunk.hpp"
-#include "esp-idf/components/cbor/tinycbor/src/cbor.h"
+#include "cbor.h"
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
@@ -14,6 +12,7 @@
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
+#include "stream_info.hpp"
 #include "stream_message.hpp"
 #include "tasks.hpp"
 
@@ -39,7 +38,7 @@ void AudioTaskMain(void* args) {
     ChunkReader chunk_reader = ChunkReader(element->InputBuffer());
 
     while (1) {
-      cpp::result<size_t, StreamError> process_res;
+      cpp::result<size_t, AudioProcessingError> process_res;
 
       // If this element has an input stream, then our top priority is
       // processing any chunks from it. Try doing this first, then fall back to
@@ -67,26 +66,15 @@ void AudioTaskMain(void* args) {
 
       if (has_received_message) {
         auto [buffer, length] = chunk_reader.GetLastMessage();
-        auto decoder_res = cbor::ArrayDecoder::Create(buffer, length);
-        if (decoder_res.has_error()) {
-          // TODO.
-          break;
-        }
-        auto decoder = std::move(decoder_res.value());
-        // TODO: this can be more elegant i think
-        cpp::result<uint64_t, CborError> message_type =
-            decoder->NextValue<uint64_t>();
-        if (message_type.has_error()) {
-          break;  // TODO.
-        } else if (message_type.value() == TYPE_STREAM_INFO) {
-          auto info_decoder = cbor::MapDecoder::Create(decoder->Iterator());
-          if (info_decoder.has_value()) {
-            auto process_error = element->ProcessStreamInfo(
-                StreamInfo(info_decoder.value().get()));
-            if (process_error.has_error()) {
-              break;  // TODO.
-            }
-          } else {
+        MessageType msg = ReadMessageType(buffer, length);
+        if (msg == TYPE_STREAM_INFO) {
+          auto parse_res =
+              ReadMessage<StreamInfo>(&StreamInfo::Parse, buffer, length);
+          if (parse_res.has_error()) {
+            break;  // TODO.
+          }
+          auto info_res = element->ProcessStreamInfo(parse_res.value());
+          if (info_res.has_error()) {
             break;  // TODO.
           }
         }
