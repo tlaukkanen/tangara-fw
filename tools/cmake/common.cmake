@@ -7,9 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(COMPONENTS "")
 
 # External dependencies
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/result")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/lvgl")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/catch2")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/lvgl")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/result")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/span")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
@@ -25,5 +26,6 @@ set(EXTRA_WARNINGS "-Wshadow" "-Wnon-virtual-dtor" "-Wunused"
 # just be used to setting flags that our external dependencies requires.
 # Otherwise, prefer adding per-component build flags to keep things neat.
 idf_build_set_property(COMPILE_OPTIONS "-DLV_CONF_INCLUDE_SIMPLE" APPEND)
+idf_build_set_property(COMPILE_OPTIONS "-DTCB_SPAN_NAMESPACE_NAME=cpp" APPEND)
 
 include($ENV{PROJ_PATH}/tools/cmake/extra-libs.cmake)
