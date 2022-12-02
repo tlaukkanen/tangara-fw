@@ -42,9 +42,8 @@ auto WriteChunksToStream(MessageBufferHandle_t* stream,
     }
 
     // Put together a header.
-    cpp::result<size_t, CborError> encoder_res;
     CborEncoder arr;
-    WriteMessage(
+    cpp::result<size_t, CborError> encoder_res = WriteMessage(
         TYPE_CHUNK_HEADER,
         [&](CborEncoder& container) {
           cbor_encoder_create_array(&container, &arr, 2);
