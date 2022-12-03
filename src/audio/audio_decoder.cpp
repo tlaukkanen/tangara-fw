@@ -22,13 +22,14 @@ namespace audio {
 AudioDecoder::AudioDecoder()
     : IAudioElement(),
       stream_info_({}),
-      chunk_buffer_(static_cast<uint8_t*>(
-          heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM)))
+      raw_chunk_buffer_(static_cast<std::byte*>(
+          heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM))),
+      chunk_buffer_(raw_chunk_buffer_, kMaxChunkSize)
 
 {}
 
 AudioDecoder::~AudioDecoder() {
-  free(chunk_buffer_);
+  free(raw_chunk_buffer_);
 }
 
 auto AudioDecoder::SetInputBuffer(MessageBufferHandle_t* buffer) -> void {
@@ -61,21 +62,21 @@ auto AudioDecoder::ProcessStreamInfo(StreamInfo& info)
   return {};
 }
 
-auto AudioDecoder::ProcessChunk(uint8_t* data, std::size_t length)
+auto AudioDecoder::ProcessChunk(cpp::span<std::byte>& chunk)
     -> cpp::result<size_t, AudioProcessingError> {
   if (current_codec_ == nullptr) {
     // Should never happen, but fail explicitly anyway.
     return cpp::fail(UNSUPPORTED_STREAM);
   }
 
-  current_codec_->SetInput(data, length);
+  current_codec_->SetInput(chunk);
 
   bool has_samples_to_send = false;
   bool needs_more_input = false;
   std::optional<codecs::ICodec::ProcessingError> error = std::nullopt;
   WriteChunksToStream(
-      output_buffer_, chunk_buffer_, kMaxChunkSize,
-      [&](uint8_t* buf, size_t len) -> std::size_t {
+      output_buffer_, chunk_buffer_,
+      [&](cpp::span<std::byte> buffer) -> std::size_t {
         std::size_t bytes_written = 0;
         // Continue filling up the output buffer so long as we have samples
         // leftover, or are able to synthesize more samples from the input.
@@ -92,7 +93,7 @@ auto AudioDecoder::ProcessChunk(uint8_t* data, std::size_t length)
             }
           } else {
             auto result = current_codec_->WriteOutputSamples(
-                buf + bytes_written, len - bytes_written);
+                buffer.last(buffer.size() - bytes_written));
             bytes_written += result.first;
             has_samples_to_send = !result.second;
           }

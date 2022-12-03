@@ -1,12 +1,12 @@
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <functional>
 #include <optional>
 
 #include "cbor.h"
 #include "result.hpp"
+#include "span.hpp"
 
 namespace audio {
 
@@ -20,14 +20,13 @@ enum MessageType {
 };
 
 template <typename Writer>
-auto WriteMessage(MessageType type,
-                  Writer&& writer,
-                  uint8_t* buffer,
-                  size_t length) -> cpp::result<size_t, CborError> {
+auto WriteMessage(MessageType type, Writer&& writer, cpp::span<std::byte> data)
+    -> cpp::result<size_t, CborError> {
   CborEncoder root;
   CborEncoder container;
+  uint8_t* cast_data = reinterpret_cast<uint8_t*>(data.data());
 
-  cbor_encoder_init(&root, buffer, length, kEncoderFlags);
+  cbor_encoder_init(&root, cast_data, data.size(), kEncoderFlags);
   cbor_encoder_create_array(&root, &container, 2);
   cbor_encode_uint(&container, type);
 
@@ -37,17 +36,18 @@ auto WriteMessage(MessageType type,
   }
 
   cbor_encoder_close_container(&root, &container);
-  return cbor_encoder_get_buffer_size(&root, buffer);
+  return cbor_encoder_get_buffer_size(&root, cast_data);
 }
 
 template <typename Result, typename Reader>
-auto ReadMessage(Reader&& reader, uint8_t* buffer, size_t length)
+auto ReadMessage(Reader&& reader, cpp::span<std::byte> data)
     -> cpp::result<Result, CborError> {
   CborParser parser;
   CborValue root;
   CborValue container;
 
-  cbor_parser_init(buffer, length, kDecoderFlags, &parser, &root);
+  cbor_parser_init(reinterpret_cast<uint8_t*>(data.data()), data.size(),
+                   kDecoderFlags, &parser, &root);
   cbor_value_enter_container(&root, &container);
   // Skip the type header
   cbor_value_advance_fixed(&container);
@@ -55,6 +55,9 @@ auto ReadMessage(Reader&& reader, uint8_t* buffer, size_t length)
   return std::invoke(reader, container);
 }
 
-auto ReadMessageType(uint8_t* buffer, size_t length) -> MessageType;
+auto WriteTypeOnlyMessage(MessageType type, cpp::span<std::byte> data)
+    -> cpp::result<size_t, CborError>;
+auto ReadMessageType(cpp::span<std::byte> msg) -> MessageType;
+auto GetAdditionalData(cpp::span<std::byte> msg) -> cpp::span<std::byte>;
 
 }  // namespace audio

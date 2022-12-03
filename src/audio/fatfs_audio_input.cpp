@@ -23,24 +23,28 @@ static const std::size_t kMinFileReadSize = 1024 * 4;
 static const std::size_t kOutputBufferSize = 1024 * 4;
 
 FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
-    : IAudioElement(), storage_(storage) {
-  file_buffer_ = static_cast<uint8_t*>(
-      heap_caps_malloc(kFileBufferSize, MALLOC_CAP_SPIRAM));
-  file_buffer_read_pos_ = file_buffer_;
-  file_buffer_write_pos_ = file_buffer_;
-  chunk_buffer_ =
-      static_cast<uint8_t*>(heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM));
-
-  output_buffer_memory_ = static_cast<uint8_t*>(
-      heap_caps_malloc(kOutputBufferSize, MALLOC_CAP_SPIRAM));
+    : IAudioElement(),
+      storage_(storage),
+      raw_file_buffer_(static_cast<std::byte*>(
+          heap_caps_malloc(kFileBufferSize, MALLOC_CAP_SPIRAM))),
+      file_buffer_(raw_file_buffer_, kFileBufferSize),
+      file_buffer_read_pos_(file_buffer_.begin()),
+      file_buffer_write_pos_(file_buffer_.begin()),
+      raw_chunk_buffer_(static_cast<std::byte*>(
+          heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM))),
+      chunk_buffer_(raw_chunk_buffer_, kMaxChunkSize),
+      current_file_(),
+      is_file_open_(false),
+      output_buffer_memory_(static_cast<uint8_t*>(
+          heap_caps_malloc(kOutputBufferSize, MALLOC_CAP_SPIRAM))) {
   output_buffer_ = new MessageBufferHandle_t;
   *output_buffer_ = xMessageBufferCreateStatic(
       kOutputBufferSize, output_buffer_memory_, &output_buffer_metadata_);
 }
 
 FatfsAudioInput::~FatfsAudioInput() {
-  free(file_buffer_);
-  free(chunk_buffer_);
+  free(raw_file_buffer_);
+  free(raw_chunk_buffer_);
   vMessageBufferDelete(output_buffer_);
   free(output_buffer_memory_);
   free(output_buffer_);
@@ -64,22 +68,22 @@ auto FatfsAudioInput::ProcessStreamInfo(StreamInfo& info)
 
   is_file_open_ = true;
 
-  auto write_res =
+  auto write_size =
       WriteMessage(TYPE_STREAM_INFO,
                    std::bind(&StreamInfo::Encode, info, std::placeholders::_1),
-                   chunk_buffer_, kMaxChunkSize);
+                   chunk_buffer_);
 
-  if (write_res.has_error()) {
+  if (write_size.has_error()) {
     return cpp::fail(IO_ERROR);
   } else {
-    xMessageBufferSend(output_buffer_, chunk_buffer_, write_res.value(),
+    xMessageBufferSend(output_buffer_, chunk_buffer_.data(), write_size.value(),
                        portMAX_DELAY);
   }
 
   return {};
 }
 
-auto FatfsAudioInput::ProcessChunk(uint8_t* data, std::size_t length)
+auto FatfsAudioInput::ProcessChunk(cpp::span<std::byte>& chunk)
     -> cpp::result<size_t, AudioProcessingError> {
   return cpp::fail(UNSUPPORTED_STREAM);
 }
@@ -93,9 +97,9 @@ auto FatfsAudioInput::GetRingBufferDistance() -> size_t {
   }
   return
       // Read position to end of buffer.
-      (file_buffer_ + kFileBufferSize - file_buffer_read_pos_)
+      (file_buffer_.end() - file_buffer_read_pos_)
       // Start of buffer to write position.
-      + (file_buffer_write_pos_ - file_buffer_);
+      + (file_buffer_write_pos_ - file_buffer_.begin());
 }
 
 auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
@@ -103,19 +107,20 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   // file's contents.
   if (is_file_open_) {
     size_t ringbuf_distance = GetRingBufferDistance();
-    if (kFileBufferSize - ringbuf_distance > kMinFileReadSize) {
+    if (file_buffer_.size() - ringbuf_distance > kMinFileReadSize) {
       size_t read_size;
       if (file_buffer_write_pos_ < file_buffer_read_pos_) {
         // Don't worry about the start of buffer -> read pos size; we can get to
         // it next iteration.
         read_size = file_buffer_read_pos_ - file_buffer_write_pos_;
       } else {
-        read_size = file_buffer_ - file_buffer_write_pos_;
+        read_size = file_buffer_.begin() - file_buffer_write_pos_;
       }
 
       UINT bytes_read = 0;
-      FRESULT result = f_read(&current_file_, file_buffer_write_pos_, read_size,
-                              &bytes_read);
+      FRESULT result =
+          f_read(&current_file_, std::addressof(file_buffer_write_pos_),
+                 read_size, &bytes_read);
       if (result != FR_OK) {
         ESP_LOGE(kTag, "file I/O error %d", result);
         return cpp::fail(IO_ERROR);
@@ -129,17 +134,17 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
       }
 
       file_buffer_write_pos_ += bytes_read;
-      if (file_buffer_write_pos_ == file_buffer_ + kFileBufferSize) {
-        file_buffer_write_pos_ = file_buffer_;
+      if (file_buffer_write_pos_ == file_buffer_.end()) {
+        file_buffer_write_pos_ = file_buffer_.begin();
       }
     }
   }
 
   // Now stream data into the output buffer until it's full.
-  pending_read_pos_ = nullptr;
+  pending_read_pos_ = file_buffer_read_pos_;
   ChunkWriteResult result = WriteChunksToStream(
-      output_buffer_, chunk_buffer_, kMaxChunkSize,
-      [&](uint8_t* b, size_t s) { return SendChunk(b, s); }, kServiceInterval);
+      output_buffer_, chunk_buffer_,
+      [&](cpp::span<std::byte> d) { return SendChunk(d); }, kServiceInterval);
 
   switch (result) {
     case CHUNK_WRITE_TIMEOUT:
@@ -152,28 +157,28 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   }
 }
 
-auto FatfsAudioInput::SendChunk(uint8_t* buffer, size_t size) -> size_t {
-  if (pending_read_pos_ != nullptr) {
-    file_buffer_read_pos_ = pending_read_pos_;
-  }
+auto FatfsAudioInput::SendChunk(cpp::span<std::byte> dest) -> size_t {
+  file_buffer_read_pos_ = pending_read_pos_;
 
   if (file_buffer_read_pos_ == file_buffer_write_pos_) {
     return 0;
   }
-  std::size_t write_size;
+  std::size_t chunk_size;
   if (file_buffer_read_pos_ > file_buffer_write_pos_) {
-    write_size = file_buffer_ + kFileBufferSize - file_buffer_read_pos_;
+    chunk_size = file_buffer_.end() - file_buffer_read_pos_;
   } else {
-    write_size = file_buffer_write_pos_ - file_buffer_read_pos_;
+    chunk_size = file_buffer_write_pos_ - file_buffer_read_pos_;
   }
-  write_size = std::min(write_size, size);
-  memcpy(buffer, file_buffer_read_pos_, write_size);
+  chunk_size = std::min(chunk_size, dest.size());
 
-  pending_read_pos_ = file_buffer_read_pos_ + write_size;
-  if (pending_read_pos_ == file_buffer_ + kFileBufferSize) {
-    pending_read_pos_ = file_buffer_;
+  cpp::span<std::byte> source(file_buffer_read_pos_, chunk_size);
+  std::copy(source.begin(), source.end(), dest.begin());
+
+  pending_read_pos_ = file_buffer_read_pos_ + chunk_size;
+  if (pending_read_pos_ == file_buffer_.end()) {
+    pending_read_pos_ = file_buffer_.begin();
   }
-  return write_size;
+  return chunk_size;
 }
 
 }  // namespace audio

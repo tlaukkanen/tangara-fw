@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 #include "ff.h"
+#include "span.hpp"
 
 #include "audio_element.hpp"
 #include "codec.hpp"
@@ -23,8 +25,8 @@ class AudioDecoder : public IAudioElement {
 
   auto ProcessStreamInfo(StreamInfo& info)
       -> cpp::result<void, AudioProcessingError>;
-  auto ProcessChunk(uint8_t* data, std::size_t length)
-      -> cpp::result<size_t, AudioProcessingError>;
+  auto ProcessChunk(cpp::span<std::byte>& chunk)
+      -> cpp::result<std::size_t, AudioProcessingError>;
   auto ProcessIdle() -> cpp::result<void, AudioProcessingError>;
 
   AudioDecoder(const AudioDecoder&) = delete;
@@ -34,7 +36,8 @@ class AudioDecoder : public IAudioElement {
   std::unique_ptr<codecs::ICodec> current_codec_;
   std::optional<StreamInfo> stream_info_;
 
-  uint8_t* chunk_buffer_;
+  std::byte* raw_chunk_buffer_;
+  cpp::span<std::byte> chunk_buffer_;
 };
 
 }  // namespace audio

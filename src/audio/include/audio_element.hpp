@@ -1,7 +1,5 @@
 #pragma once
 
-#include <stdint.h>
-
 #include <cstdint>
 
 #include "freertos/FreeRTOS.h"
@@ -9,6 +7,7 @@
 #include "freertos/message_buffer.h"
 #include "freertos/portmacro.h"
 #include "result.hpp"
+#include "span.hpp"
 
 #include "stream_info.hpp"
 #include "types.hpp"
@@ -77,8 +76,8 @@ class IAudioElement {
    * bytes in this chunk that were actually used; leftover bytes will be
    * prepended to the next call.
    */
-  virtual auto ProcessChunk(uint8_t* data, std::size_t length)
-      -> cpp::result<size_t, AudioProcessingError> = 0;
+  virtual auto ProcessChunk(cpp::span<std::byte>& chunk)
+      -> cpp::result<std::size_t, AudioProcessingError> = 0;
 
   /*
    * Called when there has been no data received over the input buffer for some

@@ -12,6 +12,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
 #include "result.hpp"
+#include "span.hpp"
 
 namespace audio {
 
@@ -37,9 +38,8 @@ enum ChunkWriteResult {
  * more input to read.
  */
 auto WriteChunksToStream(MessageBufferHandle_t* stream,
-                         uint8_t* working_buffer,
-                         size_t working_buffer_length,
-                         std::function<size_t(uint8_t*, size_t)> callback,
+                         cpp::span<std::byte> working_buffer,
+                         std::function<size_t(cpp::span<std::byte>)> callback,
                          TickType_t max_wait) -> ChunkWriteResult;
 
 enum ChunkReadResult {
@@ -64,7 +64,7 @@ class ChunkReader {
 
   auto Reset() -> void;
 
-  auto GetLastMessage() -> std::pair<uint8_t*, size_t>;
+  auto GetLastMessage() -> cpp::span<std::byte>;
 
   /*
    * Reads chunks of data from the given input stream, and invokes the given
@@ -79,12 +79,13 @@ class ChunkReader {
    * will place the message at the start of the working_buffer and then return.
    */
   auto ReadChunkFromStream(
-      std::function<std::optional<size_t>(uint8_t*, size_t)> callback,
+      std::function<std::optional<size_t>(cpp::span<std::byte>)> callback,
       TickType_t max_wait) -> ChunkReadResult;
 
  private:
   MessageBufferHandle_t* stream_;
-  uint8_t* working_buffer_;
+  std::byte* raw_working_buffer_;
+  cpp::span<std::byte> working_buffer_;
 
   std::size_t leftover_bytes_ = 0;
   std::size_t last_message_size_ = 0;

@@ -51,8 +51,10 @@ auto MadMp3Decoder::ResetForNewStream() -> void {
   has_decoded_header_ = false;
 }
 
-auto MadMp3Decoder::SetInput(uint8_t* buffer, std::size_t length) -> void {
-  mad_stream_buffer(&stream_, buffer, length);
+auto MadMp3Decoder::SetInput(cpp::span<std::byte> input) -> void {
+  mad_stream_buffer(&stream_,
+                    reinterpret_cast<const unsigned char*>(input.data()),
+                    input.size());
 }
 
 auto MadMp3Decoder::GetInputPosition() -> std::size_t {
@@ -101,8 +103,7 @@ auto MadMp3Decoder::ProcessNextFrame() -> cpp::result<bool, ProcessingError> {
   return false;
 }
 
-auto MadMp3Decoder::WriteOutputSamples(uint8_t* output,
-                                       std::size_t output_length)
+auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
     -> std::pair<std::size_t, bool> {
   size_t output_byte = 0;
   // First ensure that we actually have some samples to send off.
@@ -111,16 +112,16 @@ auto MadMp3Decoder::WriteOutputSamples(uint8_t* output,
   }
 
   while (current_sample_ < synth_.pcm.length) {
-    if (output_byte + (3 * synth_.pcm.channels) >= output_length) {
+    if (output_byte + (3 * synth_.pcm.channels) >= output.size()) {
       return std::make_pair(output_byte, false);
     }
 
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
       uint32_t sample_24 =
           scaleTo24Bits(synth_.pcm.samples[channel][current_sample_]);
-      output[output_byte++] = (sample_24 >> 0) & 0xff;
-      output[output_byte++] = (sample_24 >> 8) & 0xff;
-      output[output_byte++] = (sample_24 >> 16) & 0xff;
+      output[output_byte++] = static_cast<std::byte>(sample_24 >> 0);
+      output[output_byte++] = static_cast<std::byte>(sample_24 >> 8);
+      output[output_byte++] = static_cast<std::byte>(sample_24 >> 16);
     }
     current_sample_++;
   }

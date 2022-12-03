@@ -9,6 +9,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
 #include "freertos/stream_buffer.h"
+#include "span.hpp"
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
@@ -46,8 +47,8 @@ void AudioTaskMain(void* args) {
       bool has_received_message = false;
       if (element->InputBuffer() != nullptr) {
         ChunkReadResult chunk_res = chunk_reader.ReadChunkFromStream(
-            [&](uint8_t* data, std::size_t length) -> std::optional<size_t> {
-              process_res = element->ProcessChunk(data, length);
+            [&](cpp::span<std::byte> data) -> std::optional<size_t> {
+              process_res = element->ProcessChunk(data);
               if (process_res.has_value()) {
                 return process_res.value();
               } else {
@@ -65,11 +66,10 @@ void AudioTaskMain(void* args) {
       }
 
       if (has_received_message) {
-        auto [buffer, length] = chunk_reader.GetLastMessage();
-        MessageType msg = ReadMessageType(buffer, length);
-        if (msg == TYPE_STREAM_INFO) {
-          auto parse_res =
-              ReadMessage<StreamInfo>(&StreamInfo::Parse, buffer, length);
+        auto message = chunk_reader.GetLastMessage();
+        MessageType type = ReadMessageType(message);
+        if (type == TYPE_STREAM_INFO) {
+          auto parse_res = ReadMessage<StreamInfo>(&StreamInfo::Parse, message);
           if (parse_res.has_error()) {
             break;  // TODO.
           }

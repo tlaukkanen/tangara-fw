@@ -8,6 +8,7 @@
 
 #include "freertos/message_buffer.h"
 #include "freertos/queue.h"
+#include "span.hpp"
 
 #include "audio_element.hpp"
 #include "storage.hpp"
@@ -21,28 +22,28 @@ class FatfsAudioInput : public IAudioElement {
 
   auto ProcessStreamInfo(StreamInfo& info)
       -> cpp::result<void, AudioProcessingError>;
-  auto ProcessChunk(uint8_t* data, std::size_t length)
-      -> cpp::result<size_t, AudioProcessingError>;
+  auto ProcessChunk(cpp::span<std::byte>& chunk)
+      -> cpp::result<std::size_t, AudioProcessingError> = 0;
   auto ProcessIdle() -> cpp::result<void, AudioProcessingError>;
 
-  auto SendChunk(uint8_t* buffer, size_t size) -> size_t;
+  auto SendChunk(cpp::span<std::byte> dest) -> size_t;
 
  private:
   auto GetRingBufferDistance() -> size_t;
 
   std::shared_ptr<drivers::SdStorage> storage_;
 
-  uint8_t* file_buffer_;
-  uint8_t* file_buffer_read_pos_;
-  uint8_t* pending_read_pos_;
-  uint8_t* file_buffer_write_pos_;
+  std::byte* raw_file_buffer_;
+  cpp::span<std::byte> file_buffer_;
+  cpp::span<std::byte>::iterator file_buffer_read_pos_;
+  cpp::span<std::byte>::iterator pending_read_pos_;
+  cpp::span<std::byte>::iterator file_buffer_write_pos_;
 
-  uint8_t* chunk_buffer_;
+  std::byte* raw_chunk_buffer_;
+  cpp::span<std::byte> chunk_buffer_;
 
   FIL current_file_;
-  bool is_file_open_ = false;
-
-  MessageBufferHandle_t input_buffer_;
+  bool is_file_open_;
 
   uint8_t* output_buffer_memory_;
   StaticMessageBuffer_t output_buffer_metadata_;

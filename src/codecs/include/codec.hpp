@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "result.hpp"
+#include "span.hpp"
 
 namespace codecs {
 
@@ -30,7 +31,7 @@ class ICodec {
 
   virtual auto ResetForNewStream() -> void = 0;
 
-  virtual auto SetInput(uint8_t* buffer, std::size_t length) -> void = 0;
+  virtual auto SetInput(cpp::span<std::byte> input) -> void = 0;
 
   /*
    * Returns the codec's next read position within the input buffer. If the
@@ -56,7 +57,7 @@ class ICodec {
    * written. If this returns false, then this method should be called again
    * after flushing the output buffer.
    */
-  virtual auto WriteOutputSamples(uint8_t* output, std::size_t output_length)
+  virtual auto WriteOutputSamples(cpp::span<std::byte> output)
       -> std::pair<std::size_t, bool> = 0;
 };
 

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "mad.h"
+#include "span.hpp"
 
 #include "codec.hpp"
 
@@ -18,10 +19,10 @@ class MadMp3Decoder : public ICodec {
   auto CanHandleFile(const std::string& path) -> bool override;
   auto GetOutputFormat() -> OutputFormat override;
   auto ResetForNewStream() -> void override;
-  auto SetInput(uint8_t* buffer, std::size_t length) -> void override;
+  auto SetInput(cpp::span<std::byte> input) -> void override;
   auto GetInputPosition() -> std::size_t override;
   auto ProcessNextFrame() -> cpp::result<bool, ProcessingError> override;
-  auto WriteOutputSamples(uint8_t* output, std::size_t output_length)
+  auto WriteOutputSamples(cpp::span<std::byte> output)
       -> std::pair<std::size_t, bool> override;
 
  private:
