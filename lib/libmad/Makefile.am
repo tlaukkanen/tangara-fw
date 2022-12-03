@@ -16,7 +16,7 @@
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 ##
-## $Id: Makefile.am,v 1.23 2004/02/17 02:02:03 rob Exp $
+## $Id: Makefile.am,v 1.4 2005-09-12 07:01:29 dmazzoni Exp $
 ##
 
 ## Process this file with automake to produce Makefile.in

@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Id: layer3.c,v 1.43 2004/01/23 09:41:32 rob Exp $
+ * $Id: layer3.c,v 1.3 2005-09-12 07:01:30 dmazzoni Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -2632,9 +2632,14 @@ int mad_layer_III(struct mad_stream *stream, struct mad_frame *frame)
 	assert(stream->md_len + md_len -
 	       si.main_data_begin <= MAD_BUFFER_MDLEN);
 
+   int nCopy = md_len - si.main_data_begin;
+   if (nCopy > MAD_BUFFER_MDLEN - stream->md_len)
+      // PRL defend against an observed violation of the assertion above
+      nCopy = MAD_BUFFER_MDLEN - stream->md_len;
+
 	memcpy(*stream->main_data + stream->md_len,
 	       mad_bit_nextbyte(&stream->ptr),
-	       frame_used = md_len - si.main_data_begin);
+	       frame_used = nCopy);
 	stream->md_len += frame_used;
       }
     }

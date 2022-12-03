@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Id: frame.c,v 1.29 2004/02/04 22:59:19 rob Exp $
+ * $Id: frame.c,v 1.2 2005-09-12 07:01:30 dmazzoni Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -144,7 +144,7 @@ int decode_header(struct mad_header *header, struct mad_stream *stream)
   /* layer */
   header->layer = 4 - mad_bit_read(&stream->ptr, 2);
 
-  if (header->layer == 4) {
+  if ((int)header->layer == 4) {
     stream->error = MAD_ERROR_BADLAYER;
     return -1;
   }

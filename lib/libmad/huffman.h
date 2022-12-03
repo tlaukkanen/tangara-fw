@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Id: huffman.h,v 1.11 2004/01/23 09:41:32 rob Exp $
+ * $Id: huffman.h,v 1.4 2005-09-12 07:01:30 dmazzoni Exp $
  */
 
 # ifndef LIBMAD_HUFFMAN_H

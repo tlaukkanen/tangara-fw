@@ -10,12 +10,14 @@ idf_build_set_property(
 list(APPEND EXTRA_WARNINGS "-Werror")
 
 list(APPEND EXTRA_COMPONENT_DIRS
+  "$ENV{PROJ_PATH}/src/audio"
+  "$ENV{PROJ_PATH}/src/codecs"
+  "$ENV{PROJ_PATH}/src/tasks"
   "$ENV{PROJ_PATH}/src/drivers"
   "$ENV{PROJ_PATH}/src/dev_console"
   )
 
 # List all components that include tests here.
-set(TEST_COMPONENTS "drivers")
+set(TEST_COMPONENTS "codecs" "drivers")
 
 project(device_tests)
-include($ENV{PROJ_PATH}/tools/cmake/extra-libs.cmake)

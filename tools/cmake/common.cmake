@@ -8,8 +8,8 @@ set(COMPONENTS "")
 
 # External dependencies
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/catch2")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/libmad")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/lvgl")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/psram_allocator")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/result")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/span")
 
@@ -28,5 +28,3 @@ set(EXTRA_WARNINGS "-Wshadow" "-Wnon-virtual-dtor" "-Wunused"
 # Otherwise, prefer adding per-component build flags to keep things neat.
 idf_build_set_property(COMPILE_OPTIONS "-DLV_CONF_INCLUDE_SIMPLE" APPEND)
 idf_build_set_property(COMPILE_OPTIONS "-DTCB_SPAN_NAMESPACE_NAME=cpp" APPEND)
-
-include($ENV{PROJ_PATH}/tools/cmake/extra-libs.cmake)

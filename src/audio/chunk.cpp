@@ -7,7 +7,6 @@
 #include <optional>
 
 #include "cbor.h"
-#include "psram_allocator.h"
 
 #include "stream_message.hpp"
 

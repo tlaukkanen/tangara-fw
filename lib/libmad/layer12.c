@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Id: layer12.c,v 1.17 2004/02/05 09:02:39 rob Exp $
+ * $Id: layer12.c,v 1.3 2006-10-19 10:44:19 msmeyer Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -363,6 +363,7 @@ int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
 # endif
     }
     else {  /* nch == 1 */
+#if 0 /* relax restriction, those files do import fine! */
       if (bitrate_per_channel > 192000) {
 	/*
 	 * ISO/IEC 11172-3 does not allow single channel mode for 224, 256,
@@ -371,6 +372,7 @@ int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
 	stream->error = MAD_ERROR_BADMODE;
 	return -1;
       }
+#endif
     }
 
     if (bitrate_per_channel <= 48000)

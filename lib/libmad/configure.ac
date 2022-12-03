@@ -17,7 +17,7 @@ dnl You should have received a copy of the GNU General Public License
 dnl along with this program; if not, write to the Free Software
 dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 dnl
-AC_REVISION([$Id: configure.ac,v 1.9 2004/01/23 09:41:32 rob Exp $])dnl
+AC_REVISION([$Id: configure.ac,v 1.4 2009-01-17 22:01:06 richardash1981 Exp $])dnl
 
 dnl Process this file with autoconf to produce a configure script.
 
@@ -26,9 +26,11 @@ AC_PREREQ(2.53)
 
 AC_CONFIG_SRCDIR([decoder.h])
 
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([-Wall foreign])
 
-AC_CONFIG_HEADER([config.h])
+AM_CONFIG_HEADER([config.h])
+
+AM_MAINTAINER_MODE
 
 dnl System type.
 
@@ -124,7 +126,71 @@ done
 
 if test "$GCC" = yes
 then
-    optimize="-O2"
+    if test -z "$arch"
+    then
+	case "$host" in
+	    i386-*)           ;;
+	    i?86-*)           arch="-march=i486" ;;
+	    arm*-empeg-*)     arch="-march=armv4 -mtune=strongarm1100" ;;
+	    armv4*-*)         arch="-march=armv4 -mtune=strongarm" ;;
+	    powerpc-*)        ;;
+	    mips*-agenda-*)   arch="-mcpu=vr4100" ;;
+	    mips*-luxsonor-*) arch="-mips1 -mcpu=r3000 -Wa,-m4010" ;;
+	esac
+    fi
+
+    case "$optimize" in
+	-O|"-O "*)
+	    optimize="-O"
+	    : #x optimize="$optimize -fforce-mem"
+	    : #x optimize="$optimize -fforce-addr"
+	    : #x optimize="$optimize -finline-functions"
+	    : #- optimize="$optimize -fstrength-reduce"
+	    optimize="$optimize -fthread-jumps"
+	    optimize="$optimize -fcse-follow-jumps"
+	    optimize="$optimize -fcse-skip-blocks"
+	    : #x optimize="$optimize -frerun-cse-after-loop"
+	    : #x optimize="$optimize -frerun-loop-opt"
+	    : #x optimize="$optimize -fgcse"
+	    optimize="$optimize -fexpensive-optimizations"
+	    optimize="$optimize -fregmove"
+	    : #* optimize="$optimize -fdelayed-branch"
+	    : #x optimize="$optimize -fschedule-insns"
+	    optimize="$optimize -fschedule-insns2"
+	    : #? optimize="$optimize -ffunction-sections"
+	    : #? optimize="$optimize -fcaller-saves"
+	    : #> optimize="$optimize -funroll-loops"
+	    : #> optimize="$optimize -funroll-all-loops"
+	    : #x optimize="$optimize -fmove-all-movables"
+	    : #x optimize="$optimize -freduce-all-givs"
+	    : #? optimize="$optimize -fstrict-aliasing"
+	    : #* optimize="$optimize -fstructure-noalias"
+
+	    case "$host" in
+		arm*-*)
+		    optimize="$optimize -fstrength-reduce"
+		    ;;
+		mips*-*)
+		    optimize="$optimize -fstrength-reduce"
+		    optimize="$optimize -finline-functions"
+		    ;;
+		i?86-*)
+		    optimize="$optimize -fstrength-reduce"
+		    ;;
+		powerpc-apple-*)
+		    # this triggers an internal compiler error with gcc2
+		    : #optimize="$optimize -fstrength-reduce"
+
+		    # this is really only beneficial with gcc3
+		    : #optimize="$optimize -finline-functions"
+		    ;;
+		*)
+		    # this sometimes provokes bugs in gcc 2.95.2
+		    : #optimize="$optimize -fstrength-reduce"
+		    ;;
+	    esac
+	    ;;
+    esac
 fi
 
 case "$host" in
@@ -233,7 +299,6 @@ if test -z "$FPM" && test "$GCC" = yes
 then
     case "$host" in
 	i?86-*)     FPM="INTEL"  ;;
-	x86_64*)    FPM="64BIT"  ;;
 	arm*-*)     FPM="ARM"    ;;
 	mips*-*)    FPM="MIPS"   ;;
 	sparc*-*)   FPM="SPARC"  ;;

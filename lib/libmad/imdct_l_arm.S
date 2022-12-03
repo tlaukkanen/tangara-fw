@@ -22,7 +22,7 @@
 *
 *****************************************************************************
 *
-* $Id: imdct_l_arm.S,v 1.7 2001/03/25 20:03:34 rob Rel $
+* $Id: imdct_l_arm.S,v 1.2 2005-09-12 07:01:30 dmazzoni Exp $
 *
 * 2001/03/24:  Andre McCurdy <armccurdy@yahoo.co.uk>
 *   - Corrected PIC unsafe loading of address of 'imdct36_long_karray'
@@ -468,7 +468,7 @@ _III_imdct_l:
 
     @----
 
-    add     r2, pc, #(imdct36_long_karray-.-8)  @ r2 = base address of Knn array (PIC safe ?)
+    adr     r2, imdct36_long_karray
 
 
 loop:
