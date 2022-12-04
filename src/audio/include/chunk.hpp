@@ -79,7 +79,7 @@ class ChunkReader {
    * will place the message at the start of the working_buffer and then return.
    */
   auto ReadChunkFromStream(
-      std::function<std::optional<size_t>(cpp::span<std::byte>)> callback,
+      std::function<std::optional<std::size_t>(cpp::span<std::byte>)> callback,
       TickType_t max_wait) -> ChunkReadResult;
 
  private:
