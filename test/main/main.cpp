@@ -24,8 +24,9 @@ class TestConsole : public Console {
  protected:
   virtual auto RegisterExtraComponents() -> void { RegisterCatch2(); }
   virtual auto GetStackSizeKiB() -> uint16_t {
-    // Catch2 requires a particularly large stack.
-    return 24;
+    // Catch2 requires a particularly large stack to begin with, and some of the
+    // tests (*cough*libmad*cough*) also use a lot of stack.
+    return 64;
   }
 };
 

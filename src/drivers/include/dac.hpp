@@ -5,7 +5,10 @@
 #include <functional>
 
 #include "esp_err.h"
+#include "freertos/portmacro.h"
+#include "hal/i2s_types.h"
 #include "result.hpp"
+#include "span.hpp"
 
 #include "gpio_expander.hpp"
 
@@ -19,7 +22,9 @@ class AudioDac {
   enum Error {
     FAILED_TO_BOOT,
     FAILED_TO_CONFIGURE,
+    FAILED_TO_INSTALL_I2S,
   };
+
   static auto create(GpioExpander* expander)
       -> cpp::result<std::unique_ptr<AudioDac>, Error>;
 
@@ -46,6 +51,22 @@ class AudioDac {
 
   /* Returns the current boot-up status and internal state of the DAC */
   std::pair<bool, PowerState> ReadPowerState();
+
+  enum BitsPerSample {
+    BPS_16 = I2S_BITS_PER_SAMPLE_16BIT,
+    BPS_24 = I2S_BITS_PER_SAMPLE_24BIT,
+    BPS_32 = I2S_BITS_PER_SAMPLE_32BIT
+  };
+  enum SampleRate {
+    SAMPLE_RATE_44_1 = 44100,
+    SAMPLE_RATE_48 = 48000,
+  };
+
+  // TODO(jacqueline): worth supporting channels here as well?
+  auto Reconfigure(BitsPerSample bps, SampleRate rate) -> bool;
+
+  auto WriteData(const cpp::span<std::byte>& data, TickType_t max_wait)
+      -> std::size_t;
 
   // Not copyable or movable.
   AudioDac(const AudioDac&) = delete;

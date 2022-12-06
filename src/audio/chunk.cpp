@@ -12,8 +12,15 @@
 
 namespace audio {
 
-// TODO: tune.
-const std::size_t kMaxChunkSize = 512;
+/*
+ * The maximum size of a single chunk of stream data. This should be comfortably
+ * larger than the largest size of a frame of audio we should expect to handle.
+ *
+ * 128 kbps MPEG-1 @ 44.1 kHz is approx. 418 bytes according to the internet.
+ *
+ * TODO(jacqueline): tune as more codecs are added.
+ */
+const std::size_t kMaxChunkSize = 2048;
 
 // TODO: tune
 static const std::size_t kWorkingBufferSize = kMaxChunkSize * 1.5;
@@ -60,11 +67,11 @@ ChunkReader::ChunkReader(MessageBufferHandle_t* stream)
     : stream_(stream),
       raw_working_buffer_(static_cast<std::byte*>(
           heap_caps_malloc(kWorkingBufferSize, MALLOC_CAP_SPIRAM))),
-      working_buffer_(raw_working_buffer_, kWorkingBufferSize){};
+      working_buffer_(raw_working_buffer_, kWorkingBufferSize) {}
 
 ChunkReader::~ChunkReader() {
   free(raw_working_buffer_);
-};
+}
 
 auto ChunkReader::Reset() -> void {
   leftover_bytes_ = 0;

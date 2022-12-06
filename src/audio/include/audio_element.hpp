@@ -48,26 +48,26 @@ class IAudioElement {
    * be tuned according to the observed stack size of each element, as different
    * elements have fairly different stack requirements.
    */
-  virtual auto StackSizeBytes() -> std::size_t { return 2048; };
+  virtual auto StackSizeBytes() const -> std::size_t { return 2048; };
 
   /*
    * How long to wait for new data on the input stream before triggering a call
    * to ProcessIdle(). If this is portMAX_DELAY (the default), then ProcessIdle
    * will never be called.
    */
-  virtual auto IdleTimeout() -> TickType_t { return portMAX_DELAY; }
+  virtual auto IdleTimeout() const -> TickType_t { return portMAX_DELAY; }
 
   /* Returns this element's input buffer. */
-  auto InputBuffer() -> MessageBufferHandle_t* { return input_buffer_; }
+  auto InputBuffer() const -> MessageBufferHandle_t* { return input_buffer_; }
 
   /* Returns this element's output buffer. */
-  auto OutputBuffer() -> MessageBufferHandle_t* { return output_buffer_; }
+  auto OutputBuffer() const -> MessageBufferHandle_t* { return output_buffer_; }
 
   /*
    * Called when a StreamInfo message is received. Used to configure this
    * element in preperation for incoming chunks.
    */
-  virtual auto ProcessStreamInfo(StreamInfo& info)
+  virtual auto ProcessStreamInfo(const StreamInfo& info)
       -> cpp::result<void, AudioProcessingError> = 0;
 
   /*
@@ -76,7 +76,7 @@ class IAudioElement {
    * bytes in this chunk that were actually used; leftover bytes will be
    * prepended to the next call.
    */
-  virtual auto ProcessChunk(cpp::span<std::byte>& chunk)
+  virtual auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> = 0;
 
   /*

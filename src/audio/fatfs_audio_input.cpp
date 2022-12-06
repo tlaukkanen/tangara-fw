@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 
-#include "audio_element.hpp"
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 
@@ -50,7 +49,7 @@ FatfsAudioInput::~FatfsAudioInput() {
   free(output_buffer_);
 }
 
-auto FatfsAudioInput::ProcessStreamInfo(StreamInfo& info)
+auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
     -> cpp::result<void, AudioProcessingError> {
   if (is_file_open_) {
     f_close(&current_file_);
@@ -83,12 +82,12 @@ auto FatfsAudioInput::ProcessStreamInfo(StreamInfo& info)
   return {};
 }
 
-auto FatfsAudioInput::ProcessChunk(cpp::span<std::byte>& chunk)
+auto FatfsAudioInput::ProcessChunk(const cpp::span<std::byte>& chunk)
     -> cpp::result<size_t, AudioProcessingError> {
   return cpp::fail(UNSUPPORTED_STREAM);
 }
 
-auto FatfsAudioInput::GetRingBufferDistance() -> size_t {
+auto FatfsAudioInput::GetRingBufferDistance() const -> size_t {
   if (file_buffer_read_pos_ == file_buffer_write_pos_) {
     return 0;
   }

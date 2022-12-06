@@ -40,7 +40,7 @@ auto AudioDecoder::SetOutputBuffer(MessageBufferHandle_t* buffer) -> void {
   output_buffer_ = buffer;
 }
 
-auto AudioDecoder::ProcessStreamInfo(StreamInfo& info)
+auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
     -> cpp::result<void, AudioProcessingError> {
   stream_info_ = info;
 
@@ -62,7 +62,7 @@ auto AudioDecoder::ProcessStreamInfo(StreamInfo& info)
   return {};
 }
 
-auto AudioDecoder::ProcessChunk(cpp::span<std::byte>& chunk)
+auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
     -> cpp::result<size_t, AudioProcessingError> {
   if (current_codec_ == nullptr) {
     // Should never happen, but fail explicitly anyway.

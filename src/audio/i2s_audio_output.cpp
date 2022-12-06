@@ -2,18 +2,20 @@
 
 #include <algorithm>
 
-#include "audio_element.h"
-#include "driver/i2s.h"
 #include "esp_err.h"
 #include "freertos/portmacro.h"
-#include "i2s_stream.h"
 
-static const i2s_port_t kI2SPort = I2S_NUM_0;
+#include "audio_element.hpp"
+#include "dac.hpp"
+#include "gpio_expander.hpp"
+#include "result.hpp"
+
+static const TickType_t kIdleTimeBeforeMute = pdMS_TO_TICKS(1000);
 static const char* kTag = "I2SOUT";
 
-namespace drivers {
+namespace audio {
 
-auto I2SAudioOutput::create(GpioExpander* expander)
+auto I2SAudioOutput::create(drivers::GpioExpander* expander)
     -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error> {
   // First, we need to perform initial configuration of the DAC chip.
   auto dac_result = drivers::AudioDac::create(expander);
@@ -21,72 +23,82 @@ auto I2SAudioOutput::create(GpioExpander* expander)
     ESP_LOGE(kTag, "failed to init dac: %d", dac_result.error());
     return cpp::fail(DAC_CONFIG);
   }
-  std::unique_ptr<AudioDac> dac = std::move(dac_result.value());
+  std::unique_ptr<drivers::AudioDac> dac = std::move(dac_result.value());
 
   // Soft mute immediately, in order to minimise any clicks and pops caused by
   // the initial output element and pipeline configuration.
   dac->WriteVolume(255);
 
-  i2s_stream_cfg_t i2s_stream_config = i2s_stream_cfg_t{
-      .type = AUDIO_STREAM_WRITER,
-      .i2s_config =
-          {
-              // static_cast bc esp-adf uses enums incorrectly
-              .mode = static_cast<i2s_mode_t>(I2S_MODE_MASTER | I2S_MODE_TX),
-              .sample_rate = 44100,
-              .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-              .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-              .communication_format = I2S_COMM_FORMAT_STAND_I2S,
-              .intr_alloc_flags = ESP_INTR_FLAG_LOWMED,
-              .dma_buf_count = 8,
-              .dma_buf_len = 64,
-              .use_apll = false,
-              .tx_desc_auto_clear = false,
-              .fixed_mclk = 0,
-              .mclk_multiple = I2S_MCLK_MULTIPLE_DEFAULT,
-              .bits_per_chan = I2S_BITS_PER_CHAN_DEFAULT,
-          },
-      .i2s_port = kI2SPort,
-      .use_alc = false,
-      .volume = 0,  // Does nothing; use AudioDac to change this.
-      .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,
-      .task_stack = I2S_STREAM_TASK_STACK,
-      .task_core = I2S_STREAM_TASK_CORE,
-      .task_prio = I2S_STREAM_TASK_PRIO,
-      .stack_in_ext = false,
-      .multi_out_num = 0,
-      .uninstall_drv = true,
-      .need_expand = false,
-      .expand_src_bits = I2S_BITS_PER_SAMPLE_16BIT,
-  };
-  audio_element_handle_t i2s_stream_writer =
-      i2s_stream_init(&i2s_stream_config);
-  if (i2s_stream_writer == NULL) {
-    return cpp::fail(Error::STREAM_INIT);
-  }
-
-  // NOTE: i2s_stream_init does some additional setup that hardcodes MCK as
-  // GPIO0. This happens to work fine for us, but be careful if changing.
-  i2s_pin_config_t pin_config = {.mck_io_num = GPIO_NUM_0,
-                                 .bck_io_num = GPIO_NUM_26,
-                                 .ws_io_num = GPIO_NUM_27,
-                                 .data_out_num = GPIO_NUM_5,
-                                 .data_in_num = I2S_PIN_NO_CHANGE};
-  if (esp_err_t err = i2s_set_pin(kI2SPort, &pin_config) != ESP_OK) {
-    ESP_LOGE(kTag, "failed to configure i2s pins %x", err);
-    return cpp::fail(Error::I2S_CONFIG);
-  }
-
-  return std::make_unique<I2SAudioOutput>(dac, i2s_stream_writer);
+  return std::make_unique<I2SAudioOutput>(expander, std::move(dac));
 }
 
-I2SAudioOutput::I2SAudioOutput(std::unique_ptr<AudioDac>& dac,
-                               audio_element_handle_t element)
-    : IAudioOutput(element), dac_(std::move(dac)) {
-  volume_ = 255;
-}
+I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
+                               std::unique_ptr<drivers::AudioDac> dac)
+    : expander_(expander),
+      dac_(std::move(dac)),
+      volume_(255),
+      is_soft_muted_(false) {}
+
 I2SAudioOutput::~I2SAudioOutput() {
   // TODO: power down the DAC.
+}
+
+auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
+    -> cpp::result<void, AudioProcessingError> {
+  // TODO(jacqueline): probs do something with the channel hey
+
+  if (!info.BitsPerSample() && !info.SampleRate()) {
+    return cpp::fail(UNSUPPORTED_STREAM);
+  }
+
+  drivers::AudioDac::BitsPerSample bps;
+  switch (*info.BitsPerSample()) {
+    case 16:
+      bps = drivers::AudioDac::BPS_16;
+      break;
+    case 24:
+      bps = drivers::AudioDac::BPS_24;
+      break;
+    case 32:
+      bps = drivers::AudioDac::BPS_32;
+      break;
+    default:
+      return cpp::fail(UNSUPPORTED_STREAM);
+  }
+
+  drivers::AudioDac::SampleRate sample_rate;
+  switch (*info.SampleRate()) {
+    case 44100:
+      sample_rate = drivers::AudioDac::SAMPLE_RATE_44_1;
+      break;
+    case 48000:
+      sample_rate = drivers::AudioDac::SAMPLE_RATE_48;
+      break;
+    default:
+      return cpp::fail(UNSUPPORTED_STREAM);
+  }
+
+  dac_->Reconfigure(bps, sample_rate);
+
+  return {};
+}
+
+auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
+    -> cpp::result<std::size_t, AudioProcessingError> {
+  SetSoftMute(false);
+  // TODO(jacqueline): write smaller parts with a small delay so that we can
+  // be responsive to pause and seek commands.
+  return dac_->WriteData(chunk, portMAX_DELAY);
+}
+
+auto I2SAudioOutput::IdleTimeout() const -> TickType_t {
+  return kIdleTimeBeforeMute;
+}
+
+auto I2SAudioOutput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
+  // TODO(jacqueline): Consider powering down the dac completely maybe?
+  SetSoftMute(true);
+  return {};
 }
 
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
@@ -97,18 +109,15 @@ auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
 }
 
 auto I2SAudioOutput::SetSoftMute(bool enabled) -> void {
-  if (enabled) {
-    is_soft_muted_ = true;
+  if (enabled == is_soft_muted_) {
+    return;
+  }
+  is_soft_muted_ = enabled;
+  if (is_soft_muted_) {
     dac_->WriteVolume(255);
   } else {
-    is_soft_muted_ = false;
     dac_->WriteVolume(volume_);
   }
 }
 
-auto I2SAudioOutput::Configure(audio_element_info_t& info) -> void {
-  audio_element_setinfo(element_, &info);
-  i2s_stream_set_clk(element_, info.sample_rates, info.bits, info.channels);
-}
-
-}  // namespace drivers
+}  // namespace audio

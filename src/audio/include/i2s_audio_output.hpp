@@ -3,30 +3,46 @@
 #include <cstdint>
 #include <memory>
 
+#include "audio_element.hpp"
 #include "result.hpp"
 
 #include "dac.hpp"
 #include "gpio_expander.hpp"
+#include "sys/_stdint.h"
 
-namespace drivers {
+namespace audio {
 
-class I2SAudioOutput : public IAudioOutput {
+class I2SAudioOutput : public IAudioElement {
  public:
   enum Error { DAC_CONFIG, I2S_CONFIG, STREAM_INIT };
-  static auto create(GpioExpander* expander)
+  static auto create(drivers::GpioExpander* expander)
       -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error>;
 
-  I2SAudioOutput(std::unique_ptr<AudioDac>& dac,
-                 audio_element_handle_t element);
+  I2SAudioOutput(drivers::GpioExpander* expander,
+                 std::unique_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
-  virtual auto SetVolume(uint8_t volume) -> void;
-  virtual auto Configure(audio_element_info_t& info) -> void;
-  virtual auto SetSoftMute(bool enabled) -> void;
+  auto SetInputBuffer(MessageBufferHandle_t* in) -> void { input_buffer_ = in; }
+
+  auto IdleTimeout() const -> TickType_t override;
+  auto ProcessStreamInfo(const StreamInfo& info)
+      -> cpp::result<void, AudioProcessingError> override;
+  auto ProcessChunk(const cpp::span<std::byte>& chunk)
+      -> cpp::result<std::size_t, AudioProcessingError> override;
+  auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
+
+  I2SAudioOutput(const I2SAudioOutput&) = delete;
+  I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
 
  private:
-  std::unique_ptr<AudioDac> dac_;
-  bool is_soft_muted_ = false;
+  auto SetVolume(uint8_t volume) -> void;
+  auto SetSoftMute(bool enabled) -> void;
+
+  drivers::GpioExpander* expander_;
+  std::unique_ptr<drivers::AudioDac> dac_;
+
+  uint8_t volume_;
+  bool is_soft_muted_;
 };
 
-}  // namespace drivers
+}  // namespace audio

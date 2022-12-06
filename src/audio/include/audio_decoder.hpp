@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "ff.h"
 #include "span.hpp"
@@ -23,11 +24,13 @@ class AudioDecoder : public IAudioElement {
   auto SetInputBuffer(MessageBufferHandle_t*) -> void;
   auto SetOutputBuffer(MessageBufferHandle_t*) -> void;
 
-  auto ProcessStreamInfo(StreamInfo& info)
-      -> cpp::result<void, AudioProcessingError>;
-  auto ProcessChunk(cpp::span<std::byte>& chunk)
-      -> cpp::result<std::size_t, AudioProcessingError>;
-  auto ProcessIdle() -> cpp::result<void, AudioProcessingError>;
+  auto StackSizeBytes() const -> std::size_t override { return 8196; };
+
+  auto ProcessStreamInfo(const StreamInfo& info)
+      -> cpp::result<void, AudioProcessingError> override;
+  auto ProcessChunk(const cpp::span<std::byte>& chunk)
+      -> cpp::result<std::size_t, AudioProcessingError> override;
+  auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
 
   AudioDecoder(const AudioDecoder&) = delete;
   AudioDecoder& operator=(const AudioDecoder&) = delete;

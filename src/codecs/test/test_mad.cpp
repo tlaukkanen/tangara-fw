@@ -1,15 +1,16 @@
 #include "mad.hpp"
 
-#include <cstdint>
 #include <algorithm>
+#include <cstdint>
 
-#include "span.hpp"
 #include "catch2/catch.hpp"
+#include "span.hpp"
 
 #include "test.mp3.hpp"
 
 void load_mp3(cpp::span<std::byte> dest) {
-  cpp::span<std::byte> src(reinterpret_cast<std::byte*>(test_mp3), test_mp3_len);
+  cpp::span<std::byte> src(reinterpret_cast<std::byte*>(test_mp3),
+                           test_mp3_len);
   std::copy(src.begin(), src.begin() + dest.size(), dest.begin());
 }
 
@@ -24,7 +25,7 @@ TEST_CASE("libmad mp3 decoder", "[unit]") {
   }
 
   SECTION("processes streams correctly") {
-    std::array<std::byte, 256> input;
+    std::array<std::byte, 2048> input;
     input.fill(std::byte{0});
 
     decoder.ResetForNewStream();
@@ -38,7 +39,7 @@ TEST_CASE("libmad mp3 decoder", "[unit]") {
     }
 
     SECTION("invalid stream fails") {
-      input.fill(std::byte{0xFF});
+      input.fill(std::byte{0x69});
 
       auto result = decoder.ProcessNextFrame();
 
@@ -65,23 +66,26 @@ TEST_CASE("libmad mp3 decoder", "[unit]") {
 
         // Just check that some kind of data was written. We don't care
         // about what.
-        REQUIRE(std::to_integer<uint8_t>(output[0]) != 0);
-        REQUIRE(std::to_integer<uint8_t>(output[1]) != 0);
-        REQUIRE(std::to_integer<uint8_t>(output[2]) != 0);
-        REQUIRE(std::to_integer<uint8_t>(output[3]) != 0);
+        bool wrote_something = false;
+        for (int i = 0; i < output.size(); i++) {
+          if (std::to_integer<uint8_t>(output[0]) != 0) {
+            wrote_something = true;
+            break;
+          }
+        }
+        REQUIRE(wrote_something == true);
       }
 
       SECTION("output format correct") {
         auto format = decoder.GetOutputFormat();
 
         // Matches the test data.
-        REQUIRE(format.num_channels == 2);
+        REQUIRE(format.num_channels == 1);
         REQUIRE(format.sample_rate_hz == 44100);
         // Matches libmad output
         REQUIRE(format.bits_per_sample == 24);
       }
     }
-
   }
 }
 

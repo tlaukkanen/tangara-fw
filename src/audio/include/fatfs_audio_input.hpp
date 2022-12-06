@@ -17,19 +17,19 @@ namespace audio {
 
 class FatfsAudioInput : public IAudioElement {
  public:
-  FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
+  explicit FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
   ~FatfsAudioInput();
 
-  auto ProcessStreamInfo(StreamInfo& info)
-      -> cpp::result<void, AudioProcessingError>;
-  auto ProcessChunk(cpp::span<std::byte>& chunk)
-      -> cpp::result<std::size_t, AudioProcessingError> = 0;
-  auto ProcessIdle() -> cpp::result<void, AudioProcessingError>;
+  auto ProcessStreamInfo(const StreamInfo& info)
+      -> cpp::result<void, AudioProcessingError> override;
+  auto ProcessChunk(const cpp::span<std::byte>& chunk)
+      -> cpp::result<std::size_t, AudioProcessingError> override;
+  auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
 
   auto SendChunk(cpp::span<std::byte> dest) -> size_t;
 
  private:
-  auto GetRingBufferDistance() -> size_t;
+  auto GetRingBufferDistance() const -> size_t;
 
   std::shared_ptr<drivers::SdStorage> storage_;
 
