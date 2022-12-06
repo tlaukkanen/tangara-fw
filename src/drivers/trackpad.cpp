@@ -25,11 +25,30 @@ static const uint8_t kTrackpadAddress = 0x2A;
 static const uint8_t kWriteMask = 0x80;
 static const uint8_t kReadMask = 0xA0;
 
-// Register config values for this demo
+static const uint16_t kHorizontalMin = 128;
+static const uint16_t kHorizontalMax = 1920;
+static const uint16_t kVerticalMin = 64;
+static const uint16_t kVerticalMax = 1472;
+static const uint16_t kZMin = 0;
+static const uint16_t kZMax = 64;
+
+// Register config values
 static const uint8_t kSysConfig1 = 0x00;
 static const uint8_t kFeedConfig1 = 0x03;
 static const uint8_t kFeedConfig2 = 0x1F;
 static const uint8_t kZIdleCount = 0x05;
+
+double normalise(uint16_t min, uint16_t max, uint16_t value) {
+  if (value >= max) {
+    return 1.0;
+  }
+  if (value <= min) {
+    return 0.0;
+  }
+  uint16_t range = max - min;
+  return (double)(value - min) / range;
+}
+
 
 auto Trackpad::create(GpioExpander* expander)
     -> cpp::result<std::unique_ptr<Trackpad>, Error> {
@@ -55,8 +74,6 @@ Trackpad::Trackpad(GpioExpander* gpio) {
 };
 
 Trackpad::~Trackpad(){
-    // TODO: reset stuff like de-emphasis? Reboot the whole dac? Need to think
-    // about this.
 };
 
 void Trackpad::WriteRegister(uint8_t reg, uint8_t val) {
@@ -66,7 +83,6 @@ void Trackpad::WriteRegister(uint8_t reg, uint8_t val) {
       .write_addr(kTrackpadAddress, I2C_MASTER_WRITE)
       .write_ack(maskedReg, val)
       .stop();
-  // TODO: Retry once?
   ESP_ERROR_CHECK(transaction.Execute(ki2cPort));
 }
 
@@ -90,6 +106,7 @@ void Trackpad::ReadRegister(uint8_t reg, uint8_t* data, uint8_t count) {
       .read(data, I2C_MASTER_NACK)
       .stop();
 
+  // TODO: Handle errors here.
   ESP_ERROR_CHECK(transaction.Execute(ki2cPort));
 }
 
@@ -106,16 +123,19 @@ void Trackpad::Update() {
     this->ReadRegister(Register::Y_LOW_BITS, &y_low, 1);
     this->ReadRegister(Register::X_Y_HIGH_BITS, &x_y_high, 1);
     this->ReadRegister(Register::Z_LEVEL, &z_level, 1);
+    this->ClearFlags();
+    uint16_t x_position = x_low | ((x_y_high & 0x0F) << 8);
+    uint16_t y_position = y_low | ((x_y_high & 0xF0) << 4);
+    trackpad_data_.x = normalise(kHorizontalMin, kHorizontalMax, x_position);
+    trackpad_data_.y = normalise(kVerticalMin, kVerticalMax, y_position);
+    trackpad_data_.z = normalise(kZMin, kZMax, z_level);
+    trackpad_data_.is_touched = z_level != 0;
   }
-  this->ClearFlags();
-  trackpad_data_.x_position = x_low | ((x_y_high & 0x0F) << 8);
-  trackpad_data_.y_position = y_low | ((x_y_high & 0xF0) << 4);
-  trackpad_data_.z_level = z_level;
-  trackpad_data_.is_touched = z_level != 0;
 }
 
 TrackpadData Trackpad::GetTrackpadData() const {
   return trackpad_data_;
 }
+
 
 }  // namespace drivers

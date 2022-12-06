@@ -12,15 +12,12 @@
 namespace drivers {
 
 struct TrackpadData {
-  bool is_touched;
-  uint16_t x_position;
-  uint16_t y_position;
-  uint16_t z_level;
+  bool is_touched = false;
+  double x = 0;
+  double y = 0;
+  double z = 0;
 };
 
-/**
- * Interface for a PCM5122PWR DAC, configured over I2C.
- */
 class Trackpad {
  public:
   enum Error {

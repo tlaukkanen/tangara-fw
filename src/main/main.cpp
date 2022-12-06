@@ -111,7 +111,6 @@ extern "C" void app_main(void) {
   while (1) {
     trackpad->Update();
     drivers::TrackpadData data = trackpad->GetTrackpadData();
-    ESP_LOGI(TAG, "X: %d, Y: %d, Z: %d", data.x_position, data.y_position, data.z_level);
-    vTaskDelay(pdMS_TO_TICKS(200));
+    ESP_LOGI(TAG, "X: %f, Y: %f, Z: %f", data.x, data.y, data.z);
   }
 }
