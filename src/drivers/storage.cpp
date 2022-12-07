@@ -50,7 +50,7 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 }  // namespace callback
 
 auto SdStorage::create(GpioExpander* gpio)
-    -> cpp::result<std::unique_ptr<SdStorage>, Error> {
+    -> cpp::result<std::shared_ptr<SdStorage>, Error> {
   // Acquiring the bus will also flush the mux switch change.
   gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
 

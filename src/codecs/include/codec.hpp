@@ -63,7 +63,7 @@ class ICodec {
 
 enum CreateCodecError { UNKNOWN_EXTENSION };
 
-auto CreateCodecForFile(const std::string& extension)
+auto CreateCodecForFile(const std::string& file)
     -> cpp::result<std::unique_ptr<ICodec>, CreateCodecError>;
 
 }  // namespace codecs

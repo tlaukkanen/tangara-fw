@@ -24,6 +24,7 @@
 #include "widgets/lv_label.h"
 
 #include "app_console.hpp"
+#include "audio_playback.hpp"
 #include "battery.hpp"
 #include "dac.hpp"
 #include "display.hpp"
@@ -102,7 +103,7 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Failed: %d", storage_res.error());
     return;
   }
-  std::unique_ptr<drivers::SdStorage> storage = std::move(storage_res.value());
+  std::shared_ptr<drivers::SdStorage> storage = std::move(storage_res.value());
 
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
@@ -110,32 +111,20 @@ extern "C" void app_main(void) {
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
-  /*
-  ESP_LOGI(TAG, "Init audio output (I2S)");
-  auto sink_res = drivers::I2SAudioOutput::create(expander);
-  if (sink_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", sink_res.error());
-    return;
-  }
-  std::unique_ptr<drivers::IAudioOutput> sink = std::move(sink_res.value());
-
   ESP_LOGI(TAG, "Init audio pipeline");
-  auto playback_res = drivers::AudioPlayback::create(std::move(sink));
+  auto playback_res = audio::AudioPlayback::create(expander, storage);
   if (playback_res.has_error()) {
     ESP_LOGE(TAG, "Failed: %d", playback_res.error());
     return;
   }
-  std::unique_ptr<drivers::AudioPlayback> playback =
+  std::shared_ptr<audio::AudioPlayback> playback =
       std::move(playback_res.value());
-  playback->SetVolume(130);
-  */
 
   ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console;
+  console::AppConsole console(playback.get());
   console.Launch();
 
   while (1) {
-    // playback->ProcessEvents(5);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }

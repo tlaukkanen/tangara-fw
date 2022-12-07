@@ -19,7 +19,6 @@ static const TickType_t kServiceInterval = pdMS_TO_TICKS(50);
 
 static const std::size_t kFileBufferSize = 1024 * 128;
 static const std::size_t kMinFileReadSize = 1024 * 4;
-static const std::size_t kOutputBufferSize = 1024 * 4;
 
 FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
     : IAudioElement(),
@@ -29,24 +28,11 @@ FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
       file_buffer_(raw_file_buffer_, kFileBufferSize),
       file_buffer_read_pos_(file_buffer_.begin()),
       file_buffer_write_pos_(file_buffer_.begin()),
-      raw_chunk_buffer_(static_cast<std::byte*>(
-          heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM))),
-      chunk_buffer_(raw_chunk_buffer_, kMaxChunkSize),
       current_file_(),
-      is_file_open_(false),
-      output_buffer_memory_(static_cast<uint8_t*>(
-          heap_caps_malloc(kOutputBufferSize, MALLOC_CAP_SPIRAM))) {
-  output_buffer_ = new MessageBufferHandle_t;
-  *output_buffer_ = xMessageBufferCreateStatic(
-      kOutputBufferSize, output_buffer_memory_, &output_buffer_metadata_);
-}
+      is_file_open_(false) {}
 
 FatfsAudioInput::~FatfsAudioInput() {
   free(raw_file_buffer_);
-  free(raw_chunk_buffer_);
-  vMessageBufferDelete(output_buffer_);
-  free(output_buffer_memory_);
-  free(output_buffer_);
 }
 
 auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
@@ -70,13 +56,13 @@ auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
   auto write_size =
       WriteMessage(TYPE_STREAM_INFO,
                    std::bind(&StreamInfo::Encode, info, std::placeholders::_1),
-                   chunk_buffer_);
+                   output_buffer_->WriteBuffer());
 
   if (write_size.has_error()) {
     return cpp::fail(IO_ERROR);
   } else {
-    xMessageBufferSend(output_buffer_, chunk_buffer_.data(), write_size.value(),
-                       portMAX_DELAY);
+    xMessageBufferSend(output_buffer_, output_buffer_->WriteBuffer().data(),
+                       write_size.value(), portMAX_DELAY);
   }
 
   return {};
@@ -142,8 +128,8 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   // Now stream data into the output buffer until it's full.
   pending_read_pos_ = file_buffer_read_pos_;
   ChunkWriteResult result = WriteChunksToStream(
-      output_buffer_, chunk_buffer_,
-      [&](cpp::span<std::byte> d) { return SendChunk(d); }, kServiceInterval);
+      output_buffer_, [&](cpp::span<std::byte> d) { return SendChunk(d); },
+      kServiceInterval);
 
   switch (result) {
     case CHUNK_WRITE_TIMEOUT:

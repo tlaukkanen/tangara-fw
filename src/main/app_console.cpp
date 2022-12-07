@@ -8,11 +8,14 @@
 #include <iostream>
 #include <string>
 
+#include "audio_playback.hpp"
 #include "esp_console.h"
 
 namespace console {
 
-std::string toSdPath(std::string filepath) {
+static AppConsole* sInstance = nullptr;
+
+std::string toSdPath(const std::string& filepath) {
   return std::string(drivers::kStoragePath) + "/" + filepath;
 }
 
@@ -57,12 +60,7 @@ int CmdPlayFile(int argc, char** argv) {
     return 1;
   }
 
-  /*
   sInstance->playback_->Play(toSdPath(argv[1]));
-  if (argc == 3) {
-    sInstance->playback_->SetNextFile(toSdPath(argv[2]));
-  }
-  */
 
   return 0;
 }
@@ -125,14 +123,12 @@ void RegisterVolume() {
   esp_console_cmd_register(&cmd);
 }
 
-/*
-AppConsole::AppConsole() {
+AppConsole::AppConsole(audio::AudioPlayback* playback) : playback_(playback) {
   sInstance = this;
 }
 AppConsole::~AppConsole() {
   sInstance = nullptr;
 }
-*/
 
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();

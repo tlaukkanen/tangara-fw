@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "audio_playback.hpp"
 #include "console.hpp"
 #include "storage.hpp"
 
@@ -9,8 +10,10 @@ namespace console {
 
 class AppConsole : public Console {
  public:
-  AppConsole() {}
-  virtual ~AppConsole() {}
+  explicit AppConsole(audio::AudioPlayback* playback);
+  virtual ~AppConsole();
+
+  audio::AudioPlayback* playback_;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

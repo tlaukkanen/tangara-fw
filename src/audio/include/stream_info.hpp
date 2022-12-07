@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "cbor.h"
 #include "result.hpp"
@@ -19,10 +20,14 @@ class StreamInfo {
   ~StreamInfo() = default;
 
   auto Path() const -> const std::optional<std::string>& { return path_; }
+  auto Path(const std::string_view& d) -> void { path_ = d; }
+
   auto Channels() const -> const std::optional<uint8_t>& { return channels_; }
+
   auto BitsPerSample() const -> const std::optional<uint8_t>& {
     return bits_per_sample_;
   }
+
   auto SampleRate() const -> const std::optional<uint16_t>& {
     return sample_rate_;
   }

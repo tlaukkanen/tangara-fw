@@ -26,7 +26,7 @@ class SdStorage {
   };
 
   static auto create(GpioExpander* gpio)
-      -> cpp::result<std::unique_ptr<SdStorage>, Error>;
+      -> cpp::result<std::shared_ptr<SdStorage>, Error>;
 
   SdStorage(GpioExpander* gpio,
             esp_err_t (*do_transaction)(sdspi_dev_handle_t, sdmmc_command_t*),

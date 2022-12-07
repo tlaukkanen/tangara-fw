@@ -13,10 +13,9 @@
 #include "freertos/queue.h"
 #include "result.hpp"
 #include "span.hpp"
+#include "stream_buffer.hpp"
 
 namespace audio {
-
-extern const std::size_t kMaxChunkSize;
 
 enum ChunkWriteResult {
   // Returned when the callback does not write any data.
@@ -37,8 +36,7 @@ enum ChunkWriteResult {
  * number of bytes it wrote. Return a value of 0 to indicate that there is no
  * more input to read.
  */
-auto WriteChunksToStream(MessageBufferHandle_t* stream,
-                         cpp::span<std::byte> working_buffer,
+auto WriteChunksToStream(StreamBuffer* stream,
                          std::function<size_t(cpp::span<std::byte>)> callback,
                          TickType_t max_wait) -> ChunkWriteResult;
 
@@ -59,7 +57,7 @@ enum ChunkReadResult {
 
 class ChunkReader {
  public:
-  ChunkReader(MessageBufferHandle_t* stream);
+  explicit ChunkReader(StreamBuffer* buffer);
   ~ChunkReader();
 
   auto Reset() -> void;
@@ -83,10 +81,7 @@ class ChunkReader {
       TickType_t max_wait) -> ChunkReadResult;
 
  private:
-  MessageBufferHandle_t* stream_;
-  std::byte* raw_working_buffer_;
-  cpp::span<std::byte> working_buffer_;
-
+  StreamBuffer* stream_;
   std::size_t leftover_bytes_ = 0;
   std::size_t last_message_size_ = 0;
 };

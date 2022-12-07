@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "chunk.hpp"
 #include "freertos/FreeRTOS.h"
 
 #include "freertos/message_buffer.h"
@@ -12,6 +13,7 @@
 
 #include "audio_element.hpp"
 #include "storage.hpp"
+#include "stream_buffer.hpp"
 
 namespace audio {
 
@@ -28,6 +30,9 @@ class FatfsAudioInput : public IAudioElement {
 
   auto SendChunk(cpp::span<std::byte> dest) -> size_t;
 
+  FatfsAudioInput(const FatfsAudioInput&) = delete;
+  FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
+
  private:
   auto GetRingBufferDistance() const -> size_t;
 
@@ -39,14 +44,8 @@ class FatfsAudioInput : public IAudioElement {
   cpp::span<std::byte>::iterator pending_read_pos_;
   cpp::span<std::byte>::iterator file_buffer_write_pos_;
 
-  std::byte* raw_chunk_buffer_;
-  cpp::span<std::byte> chunk_buffer_;
-
   FIL current_file_;
   bool is_file_open_;
-
-  uint8_t* output_buffer_memory_;
-  StaticMessageBuffer_t output_buffer_metadata_;
 };
 
 }  // namespace audio

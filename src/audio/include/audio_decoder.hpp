@@ -21,10 +21,14 @@ class AudioDecoder : public IAudioElement {
   AudioDecoder();
   ~AudioDecoder();
 
-  auto SetInputBuffer(MessageBufferHandle_t*) -> void;
-  auto SetOutputBuffer(MessageBufferHandle_t*) -> void;
-
   auto StackSizeBytes() const -> std::size_t override { return 8196; };
+
+  auto InputMinChunkSize() const -> std::size_t override {
+    // 128 kbps MPEG-1 @ 44.1 kHz is approx. 418 bytes according to the
+    // internet.
+    // TODO(jacqueline): tune as more codecs are added.
+    return 1024;
+  }
 
   auto ProcessStreamInfo(const StreamInfo& info)
       -> cpp::result<void, AudioProcessingError> override;
@@ -38,9 +42,6 @@ class AudioDecoder : public IAudioElement {
  private:
   std::unique_ptr<codecs::ICodec> current_codec_;
   std::optional<StreamInfo> stream_info_;
-
-  std::byte* raw_chunk_buffer_;
-  cpp::span<std::byte> chunk_buffer_;
 };
 
 }  // namespace audio

@@ -16,13 +16,17 @@ class I2SAudioOutput : public IAudioElement {
  public:
   enum Error { DAC_CONFIG, I2S_CONFIG, STREAM_INIT };
   static auto create(drivers::GpioExpander* expander)
-      -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error>;
+      -> cpp::result<std::shared_ptr<I2SAudioOutput>, Error>;
 
   I2SAudioOutput(drivers::GpioExpander* expander,
                  std::unique_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
-  auto SetInputBuffer(MessageBufferHandle_t* in) -> void { input_buffer_ = in; }
+  auto InputMinChunkSize() const -> std::size_t override {
+    // TODO(jacqueline): work out a good value here. Maybe similar to the total
+    // DMA buffer size?
+    return 128;
+  }
 
   auto IdleTimeout() const -> TickType_t override;
   auto ProcessStreamInfo(const StreamInfo& info)

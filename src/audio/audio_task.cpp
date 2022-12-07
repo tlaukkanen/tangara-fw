@@ -19,12 +19,8 @@
 
 namespace audio {
 
-static const TickType_t kCommandWaitTicks = 1;
-static const TickType_t kIdleTaskDelay = 1;
-static const size_t kChunkBufferSize = kMaxChunkSize * 1.5;
-
 auto StartAudioTask(const std::string& name,
-                    std::shared_ptr<IAudioElement>& element) -> void {
+                    std::shared_ptr<IAudioElement> element) -> void {
   AudioTaskArgs* args = new AudioTaskArgs{.element = element};
   xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
               kTaskPriorityAudio, NULL);
@@ -45,24 +41,22 @@ void AudioTaskMain(void* args) {
       // processing any chunks from it. Try doing this first, then fall back to
       // the other cases.
       bool has_received_message = false;
-      if (element->InputBuffer() != nullptr) {
-        ChunkReadResult chunk_res = chunk_reader.ReadChunkFromStream(
-            [&](cpp::span<std::byte> data) -> std::optional<size_t> {
-              process_res = element->ProcessChunk(data);
-              if (process_res.has_value()) {
-                return process_res.value();
-              } else {
-                return {};
-              }
-            },
-            element->IdleTimeout());
+      ChunkReadResult chunk_res = chunk_reader.ReadChunkFromStream(
+          [&](cpp::span<std::byte> data) -> std::optional<size_t> {
+            process_res = element->ProcessChunk(data);
+            if (process_res.has_value()) {
+              return process_res.value();
+            } else {
+              return {};
+            }
+          },
+          element->IdleTimeout());
 
-        if (chunk_res == CHUNK_PROCESSING_ERROR ||
-            chunk_res == CHUNK_DECODING_ERROR) {
-          break;  // TODO.
-        } else if (chunk_res == CHUNK_STREAM_ENDED) {
-          has_received_message = true;
-        }
+      if (chunk_res == CHUNK_PROCESSING_ERROR ||
+          chunk_res == CHUNK_DECODING_ERROR) {
+        break;  // TODO.
+      } else if (chunk_res == CHUNK_STREAM_ENDED) {
+        has_received_message = true;
       }
 
       if (has_received_message) {

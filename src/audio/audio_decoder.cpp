@@ -19,26 +19,9 @@ static const char* kTag = "DEC";
 
 namespace audio {
 
-AudioDecoder::AudioDecoder()
-    : IAudioElement(),
-      stream_info_({}),
-      raw_chunk_buffer_(static_cast<std::byte*>(
-          heap_caps_malloc(kMaxChunkSize, MALLOC_CAP_SPIRAM))),
-      chunk_buffer_(raw_chunk_buffer_, kMaxChunkSize)
+AudioDecoder::AudioDecoder() : IAudioElement(), stream_info_({}) {}
 
-{}
-
-AudioDecoder::~AudioDecoder() {
-  free(raw_chunk_buffer_);
-}
-
-auto AudioDecoder::SetInputBuffer(MessageBufferHandle_t* buffer) -> void {
-  input_buffer_ = buffer;
-}
-
-auto AudioDecoder::SetOutputBuffer(MessageBufferHandle_t* buffer) -> void {
-  output_buffer_ = buffer;
-}
+AudioDecoder::~AudioDecoder() {}
 
 auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
     -> cpp::result<void, AudioProcessingError> {
@@ -75,7 +58,7 @@ auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
   bool needs_more_input = false;
   std::optional<codecs::ICodec::ProcessingError> error = std::nullopt;
   WriteChunksToStream(
-      output_buffer_, chunk_buffer_,
+      output_buffer_,
       [&](cpp::span<std::byte> buffer) -> std::size_t {
         std::size_t bytes_written = 0;
         // Continue filling up the output buffer so long as we have samples

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "chunk.hpp"
 #include "freertos/FreeRTOS.h"
 
 #include "freertos/message_buffer.h"
@@ -9,6 +10,7 @@
 #include "result.hpp"
 #include "span.hpp"
 
+#include "stream_buffer.hpp"
 #include "stream_info.hpp"
 #include "types.hpp"
 
@@ -41,7 +43,7 @@ enum AudioProcessingError {
 class IAudioElement {
  public:
   IAudioElement() : input_buffer_(nullptr), output_buffer_(nullptr) {}
-  virtual ~IAudioElement();
+  virtual ~IAudioElement() {}
 
   /*
    * Returns the stack size in bytes that this element requires. This should
@@ -57,11 +59,17 @@ class IAudioElement {
    */
   virtual auto IdleTimeout() const -> TickType_t { return portMAX_DELAY; }
 
+  virtual auto InputMinChunkSize() const -> std::size_t { return 0; }
+
   /* Returns this element's input buffer. */
-  auto InputBuffer() const -> MessageBufferHandle_t* { return input_buffer_; }
+  auto InputBuffer() const -> StreamBuffer* { return input_buffer_; }
 
   /* Returns this element's output buffer. */
-  auto OutputBuffer() const -> MessageBufferHandle_t* { return output_buffer_; }
+  auto OutputBuffer() const -> StreamBuffer* { return output_buffer_; }
+
+  auto InputBuffer(StreamBuffer* b) -> void { input_buffer_ = b; }
+
+  auto OutputBuffer(StreamBuffer* b) -> void { output_buffer_ = b; }
 
   /*
    * Called when a StreamInfo message is received. Used to configure this
@@ -87,8 +95,8 @@ class IAudioElement {
   virtual auto ProcessIdle() -> cpp::result<void, AudioProcessingError> = 0;
 
  protected:
-  MessageBufferHandle_t* input_buffer_;
-  MessageBufferHandle_t* output_buffer_;
+  StreamBuffer* input_buffer_;
+  StreamBuffer* output_buffer_;
 };
 
 }  // namespace audio

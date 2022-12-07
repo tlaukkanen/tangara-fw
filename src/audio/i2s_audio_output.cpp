@@ -16,7 +16,7 @@ static const char* kTag = "I2SOUT";
 namespace audio {
 
 auto I2SAudioOutput::create(drivers::GpioExpander* expander)
-    -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error> {
+    -> cpp::result<std::shared_ptr<I2SAudioOutput>, Error> {
   // First, we need to perform initial configuration of the DAC chip.
   auto dac_result = drivers::AudioDac::create(expander);
   if (dac_result.has_error()) {
@@ -27,9 +27,10 @@ auto I2SAudioOutput::create(drivers::GpioExpander* expander)
 
   // Soft mute immediately, in order to minimise any clicks and pops caused by
   // the initial output element and pipeline configuration.
-  dac->WriteVolume(255);
+  // dac->WriteVolume(255);
+  dac->WriteVolume(120);  // for testing
 
-  return std::make_unique<I2SAudioOutput>(expander, std::move(dac));
+  return std::make_shared<I2SAudioOutput>(expander, std::move(dac));
 }
 
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
