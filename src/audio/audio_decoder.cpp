@@ -57,35 +57,45 @@ auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
   bool has_samples_to_send = false;
   bool needs_more_input = false;
   std::optional<codecs::ICodec::ProcessingError> error = std::nullopt;
-  WriteChunksToStream(
-      output_buffer_,
-      [&](cpp::span<std::byte> buffer) -> std::size_t {
-        std::size_t bytes_written = 0;
-        // Continue filling up the output buffer so long as we have samples
-        // leftover, or are able to synthesize more samples from the input.
-        while (has_samples_to_send || !needs_more_input) {
-          if (!has_samples_to_send) {
-            auto result = current_codec_->ProcessNextFrame();
-            has_samples_to_send = true;
-            if (result.has_error()) {
-              error = result.error();
-              // End our output stream immediately if the codec barfed.
-              return 0;
+  while (1) {
+    ChunkWriteResult res = chunk_writer_.WriteChunkToStream(
+        [&](cpp::span<std::byte> buffer) -> std::size_t {
+          std::size_t bytes_written = 0;
+          // Continue filling up the output buffer so long as we have samples
+          // leftover, or are able to synthesize more samples from the input.
+          while (has_samples_to_send || !needs_more_input) {
+            if (!has_samples_to_send) {
+              auto result = current_codec_->ProcessNextFrame();
+              has_samples_to_send = true;
+              if (result.has_error()) {
+                error = result.error();
+                // End our output stream immediately if the codec barfed.
+                return 0;
+              } else {
+                needs_more_input = result.value();
+              }
             } else {
-              needs_more_input = result.value();
+              auto result = current_codec_->WriteOutputSamples(
+                  buffer.last(buffer.size() - bytes_written));
+              bytes_written += result.first;
+              has_samples_to_send = !result.second;
             }
-          } else {
-            auto result = current_codec_->WriteOutputSamples(
-                buffer.last(buffer.size() - bytes_written));
-            bytes_written += result.first;
-            has_samples_to_send = !result.second;
           }
-        }
-        return bytes_written;
-      },
-      // This element doesn't support any kind of out of band commands, so we
-      // can just suspend the whole task if the output buffer fills up.
-      portMAX_DELAY);
+          return bytes_written;
+        },
+        // TODO
+        portMAX_DELAY);
+
+    switch (res) {
+      case CHUNK_WRITE_OKAY:
+        break;
+      case CHUNK_WRITE_TIMEOUT:
+      case CHUNK_OUT_OF_DATA:
+        return {};
+      default:
+        return cpp::fail(IO_ERROR);
+    }
+  }
 
   if (error) {
     ESP_LOGE(kTag, "Codec encountered error %d", error.value());

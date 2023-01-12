@@ -1,10 +1,11 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
-#include "chunk.hpp"
 #include "freertos/FreeRTOS.h"
 
+#include "chunk.hpp"
 #include "freertos/message_buffer.h"
 #include "freertos/portmacro.h"
 #include "result.hpp"
@@ -15,6 +16,12 @@
 #include "types.hpp"
 
 namespace audio {
+
+enum ElementState {
+  STATE_RUN,
+  STATE_PAUSE,
+  STATE_QUIT,
+};
 
 /*
  * Errors that may be returned by any of the Process* methods of an audio
@@ -42,7 +49,8 @@ enum AudioProcessingError {
  */
 class IAudioElement {
  public:
-  IAudioElement() : input_buffer_(nullptr), output_buffer_(nullptr) {}
+  IAudioElement()
+      : input_buffer_(nullptr), output_buffer_(nullptr), state_(STATE_RUN) {}
   virtual ~IAudioElement() {}
 
   /*
@@ -71,6 +79,9 @@ class IAudioElement {
 
   auto OutputBuffer(StreamBuffer* b) -> void { output_buffer_ = b; }
 
+  auto ElementState() const -> ElementState { return state_; }
+  auto ElementState(enum ElementState e) -> void { state_ = e; }
+
   /*
    * Called when a StreamInfo message is received. Used to configure this
    * element in preperation for incoming chunks.
@@ -94,9 +105,12 @@ class IAudioElement {
    */
   virtual auto ProcessIdle() -> cpp::result<void, AudioProcessingError> = 0;
 
+  virtual auto PrepareForPause() -> void{};
+
  protected:
   StreamBuffer* input_buffer_;
   StreamBuffer* output_buffer_;
+  std::atomic<enum ElementState> state_;
 };
 
 }  // namespace audio

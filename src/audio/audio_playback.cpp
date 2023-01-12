@@ -43,9 +43,9 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
   playback->ConnectElements(codec.get(), sink.get());
 
   // Launch!
-  StartAudioTask("src", source);
-  StartAudioTask("dec", codec);
-  StartAudioTask("sink", sink);
+  playback->element_handles_.push_back(StartAudioTask("src", source));
+  playback->element_handles_.push_back(StartAudioTask("dec", codec));
+  playback->element_handles_.push_back(StartAudioTask("sink", sink));
 
   return playback;
 }
@@ -55,7 +55,9 @@ AudioPlayback::AudioPlayback()
     : stream_start_(128, 128), stream_end_(128, 128) {}
 
 AudioPlayback::~AudioPlayback() {
-  // TODO(jacqueline): signal the end of all things, and maybe wait for it?
+  for (auto& element : element_handles_) {
+    element->Quit();
+  }
 }
 
 auto AudioPlayback::Play(const std::string& filename) -> void {

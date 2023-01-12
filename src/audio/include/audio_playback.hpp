@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "audio_element.hpp"
+#include "audio_element_handle.hpp"
 #include "esp_err.h"
 #include "gpio_expander.hpp"
 #include "result.hpp"
@@ -16,7 +17,8 @@
 namespace audio {
 
 /*
- * TODO.
+ * Creates and links together audio elements into a pipeline. This is the main
+ * entrypoint to playing audio on the system.
  */
 class AudioPlayback {
  public:
@@ -29,6 +31,10 @@ class AudioPlayback {
   AudioPlayback();
   ~AudioPlayback();
 
+  /*
+   * Begins playing the file at the given FatFS path. This will interrupt any
+   * currently in-progress playback.
+   */
   auto Play(const std::string& filename) -> void;
 
   // Not copyable or movable.
@@ -41,6 +47,7 @@ class AudioPlayback {
   StreamBuffer stream_start_;
   StreamBuffer stream_end_;
   std::vector<std::unique_ptr<StreamBuffer>> element_buffers_;
+  std::vector<std::unique_ptr<AudioElementHandle>> element_handles_;
 };
 
 }  // namespace audio

@@ -126,25 +126,25 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   }
 
   // Now stream data into the output buffer until it's full.
-  pending_read_pos_ = file_buffer_read_pos_;
-  ChunkWriteResult result = WriteChunksToStream(
-      output_buffer_, [&](cpp::span<std::byte> d) { return SendChunk(d); },
-      kServiceInterval);
+  while (1) {
+    ChunkWriteResult result = chunk_writer_.WriteChunkToStream(
+        [&](cpp::span<std::byte> d) { return SendChunk(d); }, kServiceInterval);
 
-  switch (result) {
-    case CHUNK_WRITE_TIMEOUT:
-    case CHUNK_OUT_OF_DATA:
-      // Both of these are fine; SendChunk keeps track of where it's up to
-      // internally, so we will pick back up where we left off.
-      return {};
-    default:
-      return cpp::fail(IO_ERROR);
+    switch (result) {
+      case CHUNK_WRITE_OKAY:
+        break;
+      case CHUNK_WRITE_TIMEOUT:
+      case CHUNK_OUT_OF_DATA:
+        // Both of these are fine; we will pick back up where we left off in
+        // the next idle call.
+        return {};
+      default:
+        return cpp::fail(IO_ERROR);
+    }
   }
 }
 
 auto FatfsAudioInput::SendChunk(cpp::span<std::byte> dest) -> size_t {
-  file_buffer_read_pos_ = pending_read_pos_;
-
   if (file_buffer_read_pos_ == file_buffer_write_pos_) {
     return 0;
   }
@@ -159,9 +159,9 @@ auto FatfsAudioInput::SendChunk(cpp::span<std::byte> dest) -> size_t {
   cpp::span<std::byte> source(file_buffer_read_pos_, chunk_size);
   std::copy(source.begin(), source.end(), dest.begin());
 
-  pending_read_pos_ = file_buffer_read_pos_ + chunk_size;
-  if (pending_read_pos_ == file_buffer_.end()) {
-    pending_read_pos_ = file_buffer_.begin();
+  file_buffer_read_pos_ = file_buffer_read_pos_ + chunk_size;
+  if (file_buffer_read_pos_ == file_buffer_.end()) {
+    file_buffer_read_pos_ = file_buffer_.begin();
   }
   return chunk_size;
 }

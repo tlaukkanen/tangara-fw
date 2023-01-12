@@ -10,13 +10,35 @@
 
 namespace audio {
 
+/*
+ * A collection of the buffers required for two IAudioElement implementations to
+ * stream data between each other.
+ *
+ * Currently, we use a FreeRTOS MessageBuffer to hold the byte stream, and also
+ * maintain two chunk-sized buffers for the elements to stage their read and
+ * write operations (as MessageBuffer copies the given data into its memory
+ * space). A future optimisation here could be to instead post himem memory
+ * addresses to the message buffer, and then maintain address spaces into which
+ * we map these messages, rather than 'real' allocated buffers as we do now.
+ */
 class StreamBuffer {
  public:
   explicit StreamBuffer(std::size_t chunk_size, std::size_t buffer_size);
   ~StreamBuffer();
 
+  /* Returns the handle for the underlying message buffer. */
   auto Handle() -> MessageBufferHandle_t* { return &handle_; }
+
+  /*
+   * Returns a chunk-sized staging buffer that should be used *only* by the
+   * reader (sink) element.
+   */
   auto ReadBuffer() -> cpp::span<std::byte> { return input_chunk_; }
+
+  /*
+   * Returns a chunk-sized staging buffer that should be used *only* by the
+   * writer (source) element.
+   */
   auto WriteBuffer() -> cpp::span<std::byte> { return output_chunk_; }
 
   StreamBuffer(const StreamBuffer&) = delete;

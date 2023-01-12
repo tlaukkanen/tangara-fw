@@ -102,6 +102,12 @@ auto I2SAudioOutput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
   return {};
 }
 
+auto I2SAudioOutput::PrepareForPause() -> void {
+  // TODO(jacqueline): We ideally want to ensure we have enough samples in the
+  // DMA buffer here, so that soft mute can work properly.
+  SetSoftMute(true);
+}
+
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
   volume_ = volume;
   if (!is_soft_muted_) {

@@ -19,6 +19,8 @@ namespace audio {
 
 enum ChunkWriteResult {
   // Returned when the callback does not write any data.
+  CHUNK_WRITE_OKAY,
+  // Returned when the callback does not write any data.
   CHUNK_OUT_OF_DATA,
   // Returned when there is an error encoding a chunk header using cbor.
   CHUNK_ENCODING_ERROR,
@@ -27,18 +29,32 @@ enum ChunkWriteResult {
   CHUNK_WRITE_TIMEOUT,
 };
 
-/*
- * Invokes the given callback to receive data, breaks the received data up into
- * chunks with headers, and writes those chunks to the given output stream.
- *
- * The callback will be invoked with a byte buffer and its size. The callback
- * should write as much data as it can to this buffer, and then return the
- * number of bytes it wrote. Return a value of 0 to indicate that there is no
- * more input to read.
- */
-auto WriteChunksToStream(StreamBuffer* stream,
-                         std::function<size_t(cpp::span<std::byte>)> callback,
-                         TickType_t max_wait) -> ChunkWriteResult;
+class ChunkWriter {
+ public:
+  explicit ChunkWriter(StreamBuffer* buffer);
+  ~ChunkWriter();
+
+  auto Reset() -> void;
+
+  auto GetLastMessage() -> cpp::span<std::byte>;
+
+  /*
+   * Invokes the given callback to receive data, breaks the received data up
+   * into chunks with headers, and writes those chunks to the given output
+   * stream.
+   *
+   * The callback will be invoked with a byte buffer and its size. The callback
+   * should write as much data as it can to this buffer, and then return the
+   * number of bytes it wrote. Return a value of 0 to indicate that there is no
+   * more input to read.
+   */
+  auto WriteChunkToStream(std::function<size_t(cpp::span<std::byte>)> callback,
+                          TickType_t max_wait) -> ChunkWriteResult;
+
+ private:
+  StreamBuffer* stream_;
+  std::size_t leftover_bytes_ = 0;
+};
 
 enum ChunkReadResult {
   CHUNK_READ_OKAY,

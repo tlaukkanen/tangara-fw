@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "audio_element.hpp"
+#include "audio_element_handle.hpp"
 
 namespace audio {
 
@@ -11,7 +12,8 @@ struct AudioTaskArgs {
 };
 
 auto StartAudioTask(const std::string& name,
-                    std::shared_ptr<IAudioElement> element) -> void;
+                    std::shared_ptr<IAudioElement> element)
+    -> std::unique_ptr<AudioElementHandle>;
 
 void AudioTaskMain(void* args);
 

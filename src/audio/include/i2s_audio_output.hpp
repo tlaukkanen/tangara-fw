@@ -34,6 +34,7 @@ class I2SAudioOutput : public IAudioElement {
   auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> override;
   auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
+  auto PrepareForPause() -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;

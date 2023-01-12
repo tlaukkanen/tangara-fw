@@ -3,9 +3,12 @@
 #include <stdlib.h>
 
 #include <cstdint>
+#include <memory>
 
+#include "audio_element_handle.hpp"
 #include "cbor.h"
 #include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
 #include "freertos/stream_buffer.h"
@@ -20,10 +23,17 @@
 namespace audio {
 
 auto StartAudioTask(const std::string& name,
-                    std::shared_ptr<IAudioElement> element) -> void {
+                    std::shared_ptr<IAudioElement> element)
+    -> std::unique_ptr<AudioElementHandle> {
+  auto task_handle = std::make_unique<TaskHandle_t>();
+
+  // Newly created task will free this.
   AudioTaskArgs* args = new AudioTaskArgs{.element = element};
+
   xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
-              kTaskPriorityAudio, NULL);
+              kTaskPriorityAudio, task_handle.get());
+
+  return std::make_unique<AudioElementHandle>(std::move(task_handle), element);
 }
 
 void AudioTaskMain(void* args) {
@@ -32,9 +42,16 @@ void AudioTaskMain(void* args) {
     std::shared_ptr<IAudioElement> element = std::move(real_args->element);
     delete real_args;
 
+    char tag[] = "task";
     ChunkReader chunk_reader = ChunkReader(element->InputBuffer());
 
-    while (1) {
+    while (element->ElementState() != STATE_QUIT) {
+      if (element->ElementState() == STATE_PAUSE) {
+        // TODO: park with a condition variable or something?
+        vTaskDelay(100);
+        continue;
+      }
+
       cpp::result<size_t, AudioProcessingError> process_res;
 
       // If this element has an input stream, then our top priority is
@@ -54,6 +71,7 @@ void AudioTaskMain(void* args) {
 
       if (chunk_res == CHUNK_PROCESSING_ERROR ||
           chunk_res == CHUNK_DECODING_ERROR) {
+        ESP_LOGE(tag, "failed to process chunk");
         break;  // TODO.
       } else if (chunk_res == CHUNK_STREAM_ENDED) {
         has_received_message = true;
@@ -65,21 +83,36 @@ void AudioTaskMain(void* args) {
         if (type == TYPE_STREAM_INFO) {
           auto parse_res = ReadMessage<StreamInfo>(&StreamInfo::Parse, message);
           if (parse_res.has_error()) {
+            ESP_LOGE(tag, "failed to parse stream info");
             break;  // TODO.
           }
           auto info_res = element->ProcessStreamInfo(parse_res.value());
           if (info_res.has_error()) {
+            ESP_LOGE(tag, "failed to process stream info");
             break;  // TODO.
           }
         }
       }
 
-      // TODO: Do any out of band reading, such a a pause command, here.
-
       // Chunk reading must have timed out, or we don't have an input stream.
+      ElementState state = element->ElementState();
+      if (state == STATE_PAUSE) {
+        element->PrepareForPause();
+
+        vTaskSuspend(NULL);
+
+        // Zzzzzz...
+
+        // When we wake up, skip straight to the start of the loop again.
+        continue;
+      } else if (state == STATE_QUIT) {
+        break;
+      }
+
       // Signal the element to do any of its idle tasks.
       auto process_error = element->ProcessIdle();
       if (process_error.has_error()) {
+        ESP_LOGE(tag, "failed to process idle");
         break;  // TODO.
       }
     }

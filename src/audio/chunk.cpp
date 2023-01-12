@@ -13,42 +13,58 @@
 
 namespace audio {
 
-auto WriteChunksToStream(StreamBuffer* stream,
-                         std::function<size_t(cpp::span<std::byte>)> callback,
-                         TickType_t max_wait) -> ChunkWriteResult {
-  cpp::span<std::byte> write_buffer = stream->WriteBuffer();
-  while (1) {
-    // First, write out our chunk header so we know how much space to give to
-    // the callback.
-    auto header_size = WriteTypeOnlyMessage(TYPE_CHUNK_HEADER, write_buffer);
-    if (header_size.has_error()) {
-      return CHUNK_ENCODING_ERROR;
-    }
+ChunkWriter::ChunkWriter(StreamBuffer* buffer)
+    : stream_(buffer), leftover_bytes_(0) {}
 
-    // Now we can ask the callback to fill the remaining space.
-    size_t chunk_size = std::invoke(
+ChunkWriter::~ChunkWriter() {}
+
+auto ChunkWriter::Reset() -> void {
+  leftover_bytes_ = 0;
+}
+
+auto ChunkWriter::WriteChunkToStream(
+    std::function<size_t(cpp::span<std::byte>)> callback,
+    TickType_t max_wait) -> ChunkWriteResult {
+  cpp::span<std::byte> write_buffer = stream_->WriteBuffer();
+  // First, write out our chunk header so we know how much space to give to
+  // the callback.
+  auto header_size = WriteTypeOnlyMessage(TYPE_CHUNK_HEADER, write_buffer);
+  if (header_size.has_error()) {
+    return CHUNK_ENCODING_ERROR;
+  }
+
+  // Now we can ask the callback to fill the remaining space. If the previous
+  // call to this method timed out, then we may already have the data we need
+  // in our write buffer.
+  size_t chunk_size;
+  if (leftover_bytes_ > 0) {
+    chunk_size = leftover_bytes_;
+  } else {
+    chunk_size = std::invoke(
         callback,
         write_buffer.subspan(header_size.value(),
                              write_buffer.size() - header_size.value()));
-
-    if (chunk_size == 0) {
-      // They had nothing for us, so bail out.
-      return CHUNK_OUT_OF_DATA;
-    }
-
-    // Try to write to the buffer. Note the return type here will be either 0 or
-    // header_size + chunk_size, as MessageBuffer doesn't allow partial writes.
-    size_t actual_write_size =
-        xMessageBufferSend(stream->Handle(), write_buffer.data(),
-                           header_size.value() + chunk_size, max_wait);
-
-    if (actual_write_size == 0) {
-      // We failed to write in time, so bail out. This is techinically data loss
-      // unless the caller wants to go and parse our working buffer, but we
-      // assume the caller has a good reason to time us out.
-      return CHUNK_WRITE_TIMEOUT;
-    }
   }
+
+  if (chunk_size == 0) {
+    // They had nothing for us, so bail out.
+    return CHUNK_OUT_OF_DATA;
+  }
+
+  // Try to write to the buffer. Note the return type here will be either 0 or
+  // header_size + chunk_size, as MessageBuffer doesn't allow partial writes.
+  size_t actual_write_size =
+      xMessageBufferSend(stream_->Handle(), write_buffer.data(),
+                         header_size.value() + chunk_size, max_wait);
+
+  if (actual_write_size == 0) {
+    leftover_bytes_ = chunk_size;
+    return CHUNK_WRITE_TIMEOUT;
+  } else {
+    leftover_bytes_ = 0;
+  }
+
+  return CHUNK_WRITE_OKAY;
 }
 
 ChunkReader::ChunkReader(StreamBuffer* stream) : stream_(stream) {}
