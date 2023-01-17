@@ -36,27 +36,27 @@ class GpioExpander {
 
   // Port A:
   // 0 - audio power enable
-  // 1 - usb interface power enable
+  // 1 - usb interface power enable (active low)
   // 2 - display power enable
-  // 3 - sd card power enable
-  // 4 - charge power ok (active low)
+  // 3 - touchpad power enable
+  // 4 - sd card power enable
   // 5 - sd mux switch
-  // 6 - sd chip select
-  // 7 - display chip select
-  // All power switches low, chip selects high, active-low charge power high
-  static const uint8_t kPortADefault = 0b11010001;
+  // 6 - LDO enable
+  // 7 - charge power ok (active low)
+  // All power switches low, sd mux pointing away from us, inputs high.
+  static const uint8_t kPortADefault = 0b10000010;
 
   // Port B:
   // 0 - 3.5mm jack detect (active low)
-  // 1 - dac soft mute switch
-  // 2 - GPIO
-  // 3 - GPIO
-  // 4 - GPIO
-  // 5 - GPIO
-  // 6 - GPIO
-  // 7 - GPIO
-  // DAC mute output low, everything else is active-low inputs.
-  static const uint8_t kPortBDefault = 0b11111111;
+  // 1 - unused
+  // 2 - volume up
+  // 3 - volume down
+  // 4 - lock switch
+  // 5 - touchpad interupt
+  // 6 - display DR
+  // 7 - display LED
+  // Inputs all high, all others low.
+  static const uint8_t kPortBDefault = 0b00111101;
 
   /*
    * Convenience mehod for packing the port a and b bytes into a single 16 bit
@@ -102,33 +102,27 @@ class GpioExpander {
     AUDIO_POWER_ENABLE = 0,
     USB_INTERFACE_POWER_ENABLE = 1,
     DISPLAY_POWER_ENABLE = 2,
-    SD_CARD_POWER_ENABLE = 3,
-    CHARGE_POWER_OK = 4,  // Active-low input
+    TOUCHPAD_POWER_ENABLE = 3,
+    SD_CARD_POWER_ENABLE = 4,
     SD_MUX_SWITCH = 5,
-    SD_CHIP_SELECT = 6,
-    DISPLAY_CHIP_SELECT = 7,
+    LDO_ENABLE = 6,
+    CHARGE_POWER_OK = 7,  // Active-low input
 
     // Port B
     PHONE_DETECT = 8,  // Active-high input
-    DAC_MUTE = 9,
-    GPIO_1 = 10,
-    GPIO_2 = 11,
-    GPIO_3 = 12,
-    GPIO_4 = 13,
-    GPIO_5 = 14,
-    GPIO_6 = 15,
-  };
-
-  /* Pins whose access should be guarded by `cs_lock`. */
-  enum ChipSelect {
-    SD_CARD = SD_CHIP_SELECT,
-    DISPLAY = DISPLAY_CHIP_SELECT,
+    //UNUSED = 9,
+    VOL_UP = 10,
+    VOL_DOWN = 11,
+    LOCK = 12,
+    TOUCHPAD_INT = 13,
+    DISPLAY_DR = 14,
+    DISPLAY_LED = 15,
   };
 
   /* Nicer value names for use with the SD_MUX_SWITCH pin. */
   enum SdController {
-    SD_MUX_ESP = 0,
-    SD_MUX_USB = 1,
+    SD_MUX_ESP = 1,
+    SD_MUX_USB = 0,
   };
 
   /**
@@ -145,7 +139,6 @@ class GpioExpander {
    * is made.
    */
   void set_pin(Pin pin, bool value);
-  void set_pin(ChipSelect cs, bool value);
 
   /**
    * Returns the input status of each of the ports. The first byte is port a,
@@ -159,49 +152,12 @@ class GpioExpander {
    */
   bool get_input(Pin pin) const;
 
-  /* Returns the mutex that must be held whilst pulling a CS pin low. */
-  std::mutex& cs_mutex() { return cs_mutex_; }
-
-  /*
-   * Helper class containing an active `cs_mutex` lock. When an instance of
-   * this class is destroyed (usually by falling out of scope), the associated
-   * CS pin will be driven high before the lock is released.
-   */
-  class SpiLock {
-   public:
-    SpiLock(GpioExpander& gpio, ChipSelect cs);
-    ~SpiLock();
-
-    SpiLock(const SpiLock&) = delete;
-
-   private:
-    std::scoped_lock<std::mutex> lock_;
-    GpioExpander& gpio_;
-    ChipSelect cs_;
-  };
-
-  /*
-   * Pulls the given CS pin low to signal that we are about to communicate
-   * with a particular device, after acquiring a lock on `cs_mutex`. The
-   * recommended way to safely interact with devices on the SPI bus is to have
-   * a self-contained block like so:
-   *
-   * ```
-   * {
-   *	auto lock = AcquireSpiBus(WHATEVER);
-   *  // Do some cool things here.
-   * }
-   * ```
-   */
-  SpiLock AcquireSpiBus(ChipSelect cs);
-
   // Not copyable or movable. There should usually only ever be once instance
   // of this class, and that instance will likely have a static lifetime.
   GpioExpander(const GpioExpander&) = delete;
   GpioExpander& operator=(const GpioExpander&) = delete;
 
  private:
-  std::mutex cs_mutex_;
   std::atomic<uint16_t> ports_;
   std::atomic<uint16_t> inputs_;
 };

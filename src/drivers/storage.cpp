@@ -51,8 +51,8 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 
 auto SdStorage::create(GpioExpander* gpio)
     -> cpp::result<std::unique_ptr<SdStorage>, Error> {
-  // Acquiring the bus will also flush the mux switch change.
   gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
+  gpio->Write();
 
   sdspi_dev_handle_t handle;
   std::unique_ptr<sdmmc_host_t> host;
@@ -64,8 +64,7 @@ auto SdStorage::create(GpioExpander* gpio)
 
   sdspi_device_config_t config = {
       .host_id = VSPI_HOST,
-      // CS handled manually bc it's on the GPIO expander
-      .gpio_cs = GPIO_NUM_2,
+      .gpio_cs = GPIO_NUM_21,
       .gpio_cd = SDSPI_SLOT_NO_CD,
       .gpio_wp = SDSPI_SLOT_NO_WP,
       .gpio_int = GPIO_NUM_NC,
@@ -87,7 +86,6 @@ auto SdStorage::create(GpioExpander* gpio)
   host->slot = handle;
   callback::bootstrap = do_transaction;
 
-  auto lock = gpio->AcquireSpiBus(GpioExpander::SD_CARD);
   // Will return ESP_ERR_INVALID_RESPONSE if there is no card
   esp_err_t err = sdmmc_card_init(host.get(), card.get());
   if (err != ESP_OK) {
@@ -142,7 +140,7 @@ SdStorage::~SdStorage() {
 
 auto SdStorage::HandleTransaction(sdspi_dev_handle_t handle,
                                   sdmmc_command_t* cmdinfo) -> esp_err_t {
-  auto lock = gpio_->AcquireSpiBus(GpioExpander::SD_CARD);
+  // TODO: not needed anymore?
   return do_transaction_(handle, cmdinfo);
 }
 
