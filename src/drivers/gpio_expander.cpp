@@ -54,10 +54,6 @@ esp_err_t GpioExpander::Read() {
   return ret;
 }
 
-void GpioExpander::set_pin(ChipSelect cs, bool value) {
-  set_pin((Pin)cs, value);
-}
-
 void GpioExpander::set_pin(Pin pin, bool value) {
   if (value) {
     ports_ |= (1 << pin);
@@ -68,20 +64,6 @@ void GpioExpander::set_pin(Pin pin, bool value) {
 
 bool GpioExpander::get_input(Pin pin) const {
   return (inputs_ & (1 << pin)) > 0;
-}
-
-GpioExpander::SpiLock GpioExpander::AcquireSpiBus(ChipSelect cs) {
-  // TODO: also spi_device_acquire_bus?
-  return SpiLock(*this, cs);
-}
-
-GpioExpander::SpiLock::SpiLock(GpioExpander& gpio, ChipSelect cs)
-    : lock_(gpio.cs_mutex_), gpio_(gpio), cs_(cs) {
-  gpio_.with([&](auto& expander) { expander.set_pin(cs_, 0); });
-}
-
-GpioExpander::SpiLock::~SpiLock() {
-  gpio_.with([&](auto& expander) { expander.set_pin(cs_, 1); });
 }
 
 }  // namespace drivers

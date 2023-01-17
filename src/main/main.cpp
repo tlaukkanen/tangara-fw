@@ -97,6 +97,14 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Init GPIOs");
   drivers::GpioExpander* expander = new drivers::GpioExpander();
 
+  ESP_LOGI(TAG, "Enable power rails for development");
+  expander->with(
+      [&](auto& gpio) {
+        gpio.set_pin(drivers::GpioExpander::AUDIO_POWER_ENABLE, 1);
+        gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 1);
+        gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH, drivers::GpioExpander::SD_MUX_ESP);
+      });
+
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = drivers::SdStorage::create(expander);
   if (storage_res.has_error()) {

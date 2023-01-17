@@ -70,8 +70,24 @@ forcible remove a couple of GCC-specific build flags. Do this by creating
 
 ```
 CompileFlags:
-  Add: [-mlong-calls, -isysroot=/Users/YOU/.espressif/tools/xtensa-clang/VERSION/xtensa-esp32-elf-clang]
-  Remove: [-fno-tree-switch-conversion, -mtext-section-literals, -mlongcalls, -fstrict-volatile-bitfields]
+  Add: [
+    -ferror-limit=0,
+    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/include,
+    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf/include,
+    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf/include/c++/8.4.0,
+    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf/include/c++/8.4.0/xtensa-esp32-elf,
+    -isysroot=/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf,
+  ]
+  Remove: [
+    -Wduplicated-cond,
+    -Wduplicated-branches,
+    -Wlogical-op,
+    -fno-tree-switch-conversion,
+    -mtext-section-literals,
+    -mlongcalls,
+    -fstrict-volatile-bitfields,
+  ]
+  Compiler: /Users/YOU/.espressif/tools/xtensa-clang/esp-clang/bin/clang++
 ```
 
 You should then get proper LSP integration via clangd, give or take a couple of
