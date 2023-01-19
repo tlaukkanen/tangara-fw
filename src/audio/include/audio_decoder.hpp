@@ -43,7 +43,7 @@ class AudioDecoder : public IAudioElement {
   std::unique_ptr<codecs::ICodec> current_codec_;
   std::optional<StreamInfo> stream_info_;
 
-  ChunkWriter chunk_writer_;
+  std::unique_ptr<ChunkWriter> chunk_writer_;
 };
 
 }  // namespace audio

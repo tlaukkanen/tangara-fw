@@ -9,6 +9,7 @@
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
+#include "stream_buffer.hpp"
 #include "stream_message.hpp"
 
 static const char* kTag = "SRC";
@@ -29,7 +30,10 @@ FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
       file_buffer_read_pos_(file_buffer_.begin()),
       file_buffer_write_pos_(file_buffer_.begin()),
       current_file_(),
-      is_file_open_(false) {}
+      is_file_open_(false),
+      chunk_writer_(nullptr) {
+  // TODO: create our chunk writer whenever the output buffer changes.
+}
 
 FatfsAudioInput::~FatfsAudioInput() {
   free(raw_file_buffer_);
@@ -127,7 +131,7 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
 
   // Now stream data into the output buffer until it's full.
   while (1) {
-    ChunkWriteResult result = chunk_writer_.WriteChunkToStream(
+    ChunkWriteResult result = chunk_writer_->WriteChunkToStream(
         [&](cpp::span<std::byte> d) { return SendChunk(d); }, kServiceInterval);
 
     switch (result) {

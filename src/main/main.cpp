@@ -98,12 +98,12 @@ extern "C" void app_main(void) {
   drivers::GpioExpander* expander = new drivers::GpioExpander();
 
   ESP_LOGI(TAG, "Enable power rails for development");
-  expander->with(
-      [&](auto& gpio) {
-        gpio.set_pin(drivers::GpioExpander::AUDIO_POWER_ENABLE, 1);
-        gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 1);
-        gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH, drivers::GpioExpander::SD_MUX_ESP);
-      });
+  expander->with([&](auto& gpio) {
+    gpio.set_pin(drivers::GpioExpander::AUDIO_POWER_ENABLE, 1);
+    gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 1);
+    gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH,
+                 drivers::GpioExpander::SD_MUX_ESP);
+  });
 
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = drivers::SdStorage::create(expander);
@@ -119,6 +119,8 @@ extern "C" void app_main(void) {
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
+  // TODO(jacqueline): re-enable this once our pipeline works.
+  /*
   ESP_LOGI(TAG, "Init audio pipeline");
   auto playback_res = audio::AudioPlayback::create(expander, storage);
   if (playback_res.has_error()) {
@@ -127,9 +129,10 @@ extern "C" void app_main(void) {
   }
   std::shared_ptr<audio::AudioPlayback> playback =
       std::move(playback_res.value());
+  */
 
   ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console(playback.get());
+  console::AppConsole console(nullptr);
   console.Launch();
 
   while (1) {

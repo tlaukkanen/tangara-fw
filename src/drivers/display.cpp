@@ -74,7 +74,6 @@ static void IRAM_ATTR post_cb(spi_transaction_t* transaction) {
 auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> cpp::result<std::unique_ptr<Display>, Error> {
-
   expander->with(
       [&](auto& gpio) { gpio.set_pin(GpioExpander::DISPLAY_LED, 1); });
 

@@ -47,7 +47,7 @@ class FatfsAudioInput : public IAudioElement {
   FIL current_file_;
   bool is_file_open_;
 
-  ChunkWriter chunk_writer_;
+  std::unique_ptr<ChunkWriter> chunk_writer_;
 };
 
 }  // namespace audio

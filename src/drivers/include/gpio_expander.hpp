@@ -110,7 +110,7 @@ class GpioExpander {
 
     // Port B
     PHONE_DETECT = 8,  // Active-high input
-    //UNUSED = 9,
+    // UNUSED = 9,
     VOL_UP = 10,
     VOL_DOWN = 11,
     LOCK = 12,
