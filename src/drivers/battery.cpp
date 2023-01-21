@@ -2,17 +2,19 @@
 #include <cstdint>
 
 #include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "hal/adc_types.h"
 
 namespace drivers {
 
-static const uint8_t kAdcBitWidth = ADC_BITWIDTH_12;
-static const uint8_t kAdcUnit = ADC_UNIT_1;
+static const adc_bitwidth_t kAdcBitWidth = ADC_BITWIDTH_12;
+static const adc_unit_t kAdcUnit = ADC_UNIT_1;
 // Max battery voltage should be a little over 2V due to our divider, so we need
 // the max attenuation to properly handle the full range.
-static const uint8_t kAdcAttenuation = ADC_ATTEN_DB_11;
+static const adc_atten_t kAdcAttenuation = ADC_ATTEN_DB_11;
 // Corresponds to GPIO 34.
-static const uint8_t kAdcChannel = ADC_CHANNEL_6;
+static const adc_channel_t kAdcChannel = ADC_CHANNEL_6;
 
 Battery::Battery() {
   adc_oneshot_unit_init_cfg_t unit_config = {
@@ -21,8 +23,8 @@ Battery::Battery() {
   ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_config, &adc_handle_));
 
   adc_oneshot_chan_cfg_t channel_config = {
-    .bitwidth = kAdcBitWidth,
     .atten = kAdcAttenuation,
+    .bitwidth = kAdcBitWidth,
   };
   ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle_, kAdcChannel, &channel_config));
   
@@ -42,11 +44,11 @@ Battery::~Battery() {
 
 auto Battery::Millivolts() -> uint32_t {
   // GPIO 34
-  int raw;
-  ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, kAdcChannel &raw));
+  int raw = 0;
+  ESP_ERROR_CHECK(adc_oneshot_read(adc_handle_, kAdcChannel, &raw));
 
-  int voltage;
-  ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_calibration_handle, raw, &voltage));
+  int voltage = 0;
+  ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_calibration_handle_, raw, &voltage));
 
   return voltage;
 }

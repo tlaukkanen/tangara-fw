@@ -32,7 +32,7 @@ class GpioExpander {
   ~GpioExpander();
 
   static const uint8_t kPca8575Address = 0x20;
-  static const uint8_t kPca8575Timeout = 100 / portTICK_RATE_MS;
+  static const uint8_t kPca8575Timeout = pdMS_TO_TICKS(100);
 
   // Port A:
   // 0 - audio power enable

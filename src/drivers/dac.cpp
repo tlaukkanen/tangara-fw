@@ -5,6 +5,8 @@
 #include "assert.h"
 #include "driver/i2c.h"
 #include "driver/i2s.h"
+#include "driver/i2s_types.h"
+#include "driver/i2s_types_legacy.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "hal/i2c_types.h"
@@ -17,7 +19,7 @@ namespace drivers {
 
 static const char* kTag = "AUDIODAC";
 static const uint8_t kPcm5122Address = 0x4C;
-static const uint8_t kPcm5122Timeout = 100 / portTICK_RATE_MS;
+static const uint8_t kPcm5122Timeout = pdMS_TO_TICKS(100);
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
 static const AudioDac::SampleRate kDefaultSampleRate =
@@ -46,7 +48,7 @@ auto AudioDac::create(GpioExpander* expander)
       .use_apll = false,
       .tx_desc_auto_clear = false,
       .fixed_mclk = 0,
-      .mclk_multiple = I2S_MCLK_MULTIPLE_DEFAULT,
+      .mclk_multiple = I2S_MCLK_MULTIPLE_512, // TODO: double check
       .bits_per_chan = I2S_BITS_PER_CHAN_DEFAULT,
   };
 

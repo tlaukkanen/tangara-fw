@@ -8,6 +8,7 @@
 
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
+#include "sys/_stdint.h"
 
 namespace drivers {
 
@@ -63,7 +64,7 @@ class Display {
   void SendTransaction(TransactionType type,
                        const uint8_t* data,
                        size_t length,
-                       uintptr_t flags = 0);
+                       uint32_t flags = 0);
 };
 
 }  // namespace drivers

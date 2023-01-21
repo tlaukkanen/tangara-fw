@@ -20,7 +20,7 @@ esp_err_t deinit_i2c(void);
  */
 class I2CTransaction {
  public:
-  static const uint8_t kI2CTimeout = 100 / portTICK_RATE_MS;
+  static const uint8_t kI2CTimeout = pdMS_TO_TICKS(100);
 
   I2CTransaction();
   ~I2CTransaction();

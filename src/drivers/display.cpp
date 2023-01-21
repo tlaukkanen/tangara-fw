@@ -122,7 +122,7 @@ auto Display::create(GpioExpander* expander,
   ESP_LOGI(kTag, "Registering driver");
   display->display_ = lv_disp_drv_register(&display->driver_);
 
-  return std::move(display);
+  return display;
 }
 
 Display::Display(GpioExpander* gpio, spi_device_handle_t handle)

@@ -1,6 +1,7 @@
 #include "audio_element_handle.hpp"
 #include "audio_element.hpp"
 #include "freertos/projdefs.h"
+#include "freertos/task.h"
 
 namespace audio {
 
@@ -47,7 +48,7 @@ auto AudioElementHandle::QuitSync() -> void {
 }
 
 auto AudioElementHandle::MonitorUtilState(eTaskState desired) -> void {
-  while (eTaskGetState(task_.get()) != desired) {
+  while (eTaskGetState(*task_) != desired) {
     WakeUpTask();
     vTaskDelay(pdMS_TO_TICKS(1));
   }
@@ -63,13 +64,13 @@ auto AudioElementHandle::WakeUpTask() -> void {
   // between now and its next element state check. Also think about chunk blocks
   // nested in element bodies.
   // Maybe we need a big mutex or semaphore somewhere in here.
-  switch (eTaskGetState(task_.get())) {
+  switch (eTaskGetState(*task_)) {
     case eBlocked:
       // TODO: when is this safe?
-      xTaskAbortDelay(task_.get());
+      xTaskAbortDelay(*task_);
       break;
     case eSuspended:
-      vTaskResume(task_.get());
+      vTaskResume(*task_);
       break;
     default:
       return;

@@ -9,6 +9,7 @@
 #include "hal/i2s_types.h"
 #include "result.hpp"
 #include "span.hpp"
+#include "driver/i2s_types_legacy.h"
 
 #include "gpio_expander.hpp"
 

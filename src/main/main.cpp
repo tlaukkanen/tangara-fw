@@ -106,7 +106,7 @@ extern "C" void app_main(void) {
 
   ESP_LOGI(TAG, "Init battery measurement");
   drivers::Battery* battery = new drivers::Battery();
-  ESP_LOGI(TAG, "it's reading %dmV!", battery->Millivolts());
+  ESP_LOGI(TAG, "it's reading %d mV!", (int) battery->Millivolts());
 
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = drivers::SdStorage::create(expander);
