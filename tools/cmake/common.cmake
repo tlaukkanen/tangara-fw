@@ -1,7 +1,5 @@
 # For more information about build system see
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Build only the subset of components that we actually depend on.
 set(COMPONENTS "")
