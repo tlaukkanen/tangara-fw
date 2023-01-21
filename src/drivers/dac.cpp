@@ -28,36 +28,37 @@ static const AudioDac::BitsPerSample kDefaultBps = AudioDac::BPS_16;
 
 auto AudioDac::create(GpioExpander* expander)
     -> cpp::result<std::unique_ptr<AudioDac>, Error> {
-
   // TODO: tune.
   i2s_chan_handle_t i2s_handle;
-  i2s_chan_config_t channel_config = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+  i2s_chan_config_t channel_config =
+      I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
   i2s_new_channel(&channel_config, &i2s_handle, NULL);
   //
   // First, instantiate the instance so it can do all of its power on
   // configuration.
-  std::unique_ptr<AudioDac> dac = std::make_unique<AudioDac>(expander, i2s_handle);
+  std::unique_ptr<AudioDac> dac =
+      std::make_unique<AudioDac>(expander, i2s_handle);
 
   // Whilst we wait for the initial boot, we can work on installing the I2S
   // driver.
   i2s_std_config_t i2s_config = {
       .clk_cfg = dac->clock_config_,
       .slot_cfg = dac->slot_config_,
-      .gpio_cfg = {
-         .mclk = GPIO_NUM_0,
-         .bclk = GPIO_NUM_26,
-         .ws = GPIO_NUM_27,
-         .dout = GPIO_NUM_5,
-         .din = I2S_GPIO_UNUSED,
-         .invert_flags = {
-           .mclk_inv = false,
-           .bclk_inv = false,
-           .ws_inv = false,
-         }
-      },
+      .gpio_cfg = {.mclk = GPIO_NUM_0,
+                   .bclk = GPIO_NUM_26,
+                   .ws = GPIO_NUM_27,
+                   .dout = GPIO_NUM_5,
+                   .din = I2S_GPIO_UNUSED,
+                   .invert_flags =
+                       {
+                           .mclk_inv = false,
+                           .bclk_inv = false,
+                           .ws_inv = false,
+                       }},
   };
 
-  if (esp_err_t err = i2s_channel_init_std_mode(i2s_handle, &i2s_config) != ESP_OK) {
+  if (esp_err_t err =
+          i2s_channel_init_std_mode(i2s_handle, &i2s_config) != ESP_OK) {
     ESP_LOGE(kTag, "failed to initialise i2s channel %x", err);
     return cpp::fail(Error::FAILED_TO_INSTALL_I2S);
   }
@@ -90,10 +91,12 @@ auto AudioDac::create(GpioExpander* expander)
   return dac;
 }
 
-AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle) : gpio_(gpio),
-  i2s_handle_(i2s_handle),
-  clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(48000)),
-  slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO)) {
+AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
+    : gpio_(gpio),
+      i2s_handle_(i2s_handle),
+      clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(48000)),
+      slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT,
+                                                   I2S_SLOT_MODE_STEREO)) {
   gpio_->set_pin(GpioExpander::AUDIO_POWER_ENABLE, true);
   gpio_->Write();
 }
@@ -152,7 +155,7 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> bool {
   // good enough.
   i2s_channel_disable(i2s_handle_);
 
-  slot_config_.slot_bit_width = (i2s_slot_bit_width_t) bps;
+  slot_config_.slot_bit_width = (i2s_slot_bit_width_t)bps;
   i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_);
 
   // TODO: update mclk multiple as well if needed?

@@ -1,9 +1,9 @@
 #include "battery.hpp"
 #include <cstdint>
 
-#include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
+#include "esp_adc/adc_oneshot.h"
 #include "hal/adc_types.h"
 
 namespace drivers {
@@ -18,24 +18,26 @@ static const adc_channel_t kAdcChannel = ADC_CHANNEL_6;
 
 Battery::Battery() {
   adc_oneshot_unit_init_cfg_t unit_config = {
-    .unit_id = kAdcUnit,
+      .unit_id = kAdcUnit,
   };
   ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_config, &adc_handle_));
 
   adc_oneshot_chan_cfg_t channel_config = {
-    .atten = kAdcAttenuation,
-    .bitwidth = kAdcBitWidth,
+      .atten = kAdcAttenuation,
+      .bitwidth = kAdcBitWidth,
   };
-  ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle_, kAdcChannel, &channel_config));
-  
+  ESP_ERROR_CHECK(
+      adc_oneshot_config_channel(adc_handle_, kAdcChannel, &channel_config));
+
   // calibrate
   // TODO: compile-time assert our scheme is available
   adc_cali_line_fitting_config_t calibration_config = {
-    .unit_id = kAdcUnit,
-    .atten = kAdcAttenuation,
-    .bitwidth = kAdcBitWidth,
+      .unit_id = kAdcUnit,
+      .atten = kAdcAttenuation,
+      .bitwidth = kAdcBitWidth,
   };
-  ESP_ERROR_CHECK(adc_cali_create_scheme_line_fitting(&calibration_config, &adc_calibration_handle_));
+  ESP_ERROR_CHECK(adc_cali_create_scheme_line_fitting(
+      &calibration_config, &adc_calibration_handle_));
 }
 
 Battery::~Battery() {
@@ -48,7 +50,8 @@ auto Battery::Millivolts() -> uint32_t {
   ESP_ERROR_CHECK(adc_oneshot_read(adc_handle_, kAdcChannel, &raw));
 
   int voltage = 0;
-  ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_calibration_handle_, raw, &voltage));
+  ESP_ERROR_CHECK(
+      adc_cali_raw_to_voltage(adc_calibration_handle_, raw, &voltage));
 
   return voltage;
 }

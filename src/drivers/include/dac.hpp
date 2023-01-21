@@ -6,12 +6,12 @@
 #include <memory>
 #include <utility>
 
+#include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
 #include "esp_err.h"
 #include "freertos/portmacro.h"
 #include "result.hpp"
 #include "span.hpp"
-#include "driver/i2s_std.h"
 
 #include "gpio_expander.hpp"
 

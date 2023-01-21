@@ -106,7 +106,7 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
         read_size = file_buffer_.begin() - file_buffer_write_pos_;
       }
 
-      ESP_LOGI(kTag, "reading up to %d bytes", (int) read_size);
+      ESP_LOGI(kTag, "reading up to %d bytes", (int)read_size);
 
       UINT bytes_read = 0;
       FRESULT result =
@@ -117,7 +117,7 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
         return cpp::fail(IO_ERROR);
       }
 
-      ESP_LOGI(kTag, "actual read size %d bytes", (int) bytes_read);
+      ESP_LOGI(kTag, "actual read size %d bytes", (int)bytes_read);
 
       if (f_eof(&current_file_)) {
         f_close(&current_file_);
@@ -135,7 +135,7 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
 
   // Now stream data into the output buffer until it's full.
   while (GetRingBufferDistance() > 0) {
-    ESP_LOGI(kTag, "writing up to %d bytes", (int) GetRingBufferDistance());
+    ESP_LOGI(kTag, "writing up to %d bytes", (int)GetRingBufferDistance());
     ChunkWriteResult result = chunk_writer_->WriteChunkToStream(
         [&](cpp::span<std::byte> d) { return SendChunk(d); }, kServiceInterval);
 
