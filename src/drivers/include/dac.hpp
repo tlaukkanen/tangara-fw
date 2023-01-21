@@ -3,13 +3,15 @@
 #include <stdint.h>
 
 #include <functional>
+#include <memory>
+#include <utility>
 
+#include "driver/i2s_types.h"
 #include "esp_err.h"
 #include "freertos/portmacro.h"
-#include "hal/i2s_types.h"
 #include "result.hpp"
 #include "span.hpp"
-#include "driver/i2s_types_legacy.h"
+#include "driver/i2s_std.h"
 
 #include "gpio_expander.hpp"
 
@@ -29,7 +31,7 @@ class AudioDac {
   static auto create(GpioExpander* expander)
       -> cpp::result<std::unique_ptr<AudioDac>, Error>;
 
-  AudioDac(GpioExpander* gpio);
+  AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle);
   ~AudioDac();
 
   /**
@@ -54,9 +56,9 @@ class AudioDac {
   std::pair<bool, PowerState> ReadPowerState();
 
   enum BitsPerSample {
-    BPS_16 = I2S_BITS_PER_SAMPLE_16BIT,
-    BPS_24 = I2S_BITS_PER_SAMPLE_24BIT,
-    BPS_32 = I2S_BITS_PER_SAMPLE_32BIT
+    BPS_16 = I2S_DATA_BIT_WIDTH_16BIT,
+    BPS_24 = I2S_DATA_BIT_WIDTH_24BIT,
+    BPS_32 = I2S_DATA_BIT_WIDTH_32BIT,
   };
   enum SampleRate {
     SAMPLE_RATE_44_1 = 44100,
@@ -75,6 +77,10 @@ class AudioDac {
 
  private:
   GpioExpander* gpio_;
+  i2s_chan_handle_t i2s_handle_;
+
+  i2s_std_clk_config_t clock_config_;
+  i2s_std_slot_config_t slot_config_;
 
   /*
    * Pools the power state for up to 10ms, waiting for the given predicate to

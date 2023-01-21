@@ -43,9 +43,11 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
   playback->ConnectElements(codec.get(), sink.get());
 
   // Launch!
+  /*
   playback->element_handles_.push_back(StartAudioTask("src", source));
   playback->element_handles_.push_back(StartAudioTask("dec", codec));
   playback->element_handles_.push_back(StartAudioTask("sink", sink));
+  */
 
   return playback;
 }
