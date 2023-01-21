@@ -1,16 +1,25 @@
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
+#include "esp_adc/adc_oneshot.h"
 #include "esp_err.h"
+#include "result.hpp"
 
 namespace drivers {
 
-esp_err_t init_adc(void);
+class Battery {
+  public:
+    Battery();
+    ~Battery();
 
-/**
- * Returns the current battery level in millivolts.
- */
-uint32_t read_battery_voltage(void);
+    /**
+     * Returns the current battery level in millivolts.
+     */
+    auto Millivolts() -> uint32_t;
+  private:
+    adc_oneshot_handle_t adc_handle_;
+    adc_cali_handle_t adc_calibration_handle_;
+};
 
 }  // namespace drivers

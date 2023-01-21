@@ -92,7 +92,6 @@ extern "C" void app_main(void) {
   ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
   ESP_ERROR_CHECK(drivers::init_i2c());
   ESP_ERROR_CHECK(drivers::init_spi());
-  ESP_ERROR_CHECK(drivers::init_adc());
 
   ESP_LOGI(TAG, "Init GPIOs");
   drivers::GpioExpander* expander = new drivers::GpioExpander();
@@ -104,6 +103,10 @@ extern "C" void app_main(void) {
     gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH,
                  drivers::GpioExpander::SD_MUX_ESP);
   });
+
+  ESP_LOGI(TAG, "Init battery measurement");
+  drivers::Battery* battery = new drivers::Battery();
+  ESP_LOGI(TAG, "it's reading %dmV!", battery->Millivolts());
 
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = drivers::SdStorage::create(expander);
