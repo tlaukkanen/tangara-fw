@@ -22,6 +22,8 @@
 
 namespace audio {
 
+  static const char *kTag = "task";
+
 auto StartAudioTask(const std::string& name,
                     std::shared_ptr<IAudioElement> element)
     -> std::unique_ptr<AudioElementHandle> {
@@ -30,6 +32,7 @@ auto StartAudioTask(const std::string& name,
   // Newly created task will free this.
   AudioTaskArgs* args = new AudioTaskArgs{.element = element};
 
+  ESP_LOGI(kTag, "starting audio task %s", name.c_str());
   xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
               kTaskPriorityAudio, task_handle.get());
 
@@ -37,18 +40,19 @@ auto StartAudioTask(const std::string& name,
 }
 
 void AudioTaskMain(void* args) {
+  // Nest the body within an additional scope to ensure that destructors are
+  // called before the task quits.
   {
     AudioTaskArgs* real_args = reinterpret_cast<AudioTaskArgs*>(args);
     std::shared_ptr<IAudioElement> element = std::move(real_args->element);
     delete real_args;
 
-    char tag[] = "task";
     ChunkReader chunk_reader = ChunkReader(element->InputBuffer());
 
     while (element->ElementState() != STATE_QUIT) {
       if (element->ElementState() == STATE_PAUSE) {
         // TODO: park with a condition variable or something?
-        vTaskDelay(100);
+        vTaskDelay(1000);
         continue;
       }
 
@@ -67,11 +71,11 @@ void AudioTaskMain(void* args) {
               return {};
             }
           },
-          element->IdleTimeout());
+          0);
 
       if (chunk_res == CHUNK_PROCESSING_ERROR ||
           chunk_res == CHUNK_DECODING_ERROR) {
-        ESP_LOGE(tag, "failed to process chunk");
+        ESP_LOGE(kTag, "failed to process chunk");
         break;  // TODO.
       } else if (chunk_res == CHUNK_STREAM_ENDED) {
         has_received_message = true;
@@ -83,12 +87,12 @@ void AudioTaskMain(void* args) {
         if (type == TYPE_STREAM_INFO) {
           auto parse_res = ReadMessage<StreamInfo>(&StreamInfo::Parse, message);
           if (parse_res.has_error()) {
-            ESP_LOGE(tag, "failed to parse stream info");
+            ESP_LOGE(kTag, "failed to parse stream info");
             break;  // TODO.
           }
           auto info_res = element->ProcessStreamInfo(parse_res.value());
           if (info_res.has_error()) {
-            ESP_LOGE(tag, "failed to process stream info");
+            ESP_LOGE(kTag, "failed to process stream info");
             break;  // TODO.
           }
         }
@@ -112,8 +116,16 @@ void AudioTaskMain(void* args) {
       // Signal the element to do any of its idle tasks.
       auto process_error = element->ProcessIdle();
       if (process_error.has_error()) {
-        ESP_LOGE(tag, "failed to process idle");
-        break;  // TODO.
+        auto err = process_error.error();
+        if (err == OUT_OF_DATA) {
+          // If we ran out of data, then place ourselves into the pause state.
+          // We will be woken up when there's something to do.
+          element->ElementState(STATE_PAUSE);
+          continue;
+        } else {
+          ESP_LOGE(kTag, "failed to process idle");
+          break;  // TODO.
+        }
       }
     }
   }

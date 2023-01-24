@@ -1,4 +1,6 @@
 #include "stream_buffer.hpp"
+#include "assert.h"
+#include "esp_log.h"
 
 namespace audio {
 
@@ -14,7 +16,11 @@ StreamBuffer::StreamBuffer(std::size_t chunk_size, std::size_t buffer_size)
       input_chunk_(raw_input_chunk_, chunk_size * 1.5),
       raw_output_chunk_(static_cast<std::byte*>(
           heap_caps_malloc(chunk_size, MALLOC_CAP_SPIRAM))),
-      output_chunk_(raw_output_chunk_, chunk_size) {}
+      output_chunk_(raw_output_chunk_, chunk_size) {
+        assert(input_chunk_.size() <= buffer_size);
+        assert(output_chunk_.size() <= buffer_size);
+        ESP_LOGI("streambuf", "created buffer of chunk size %d, total size %d", chunk_size, buffer_size);
+      }
 
 StreamBuffer::~StreamBuffer() {
   vMessageBufferDelete(handle_);

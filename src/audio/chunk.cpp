@@ -7,11 +7,14 @@
 #include <optional>
 
 #include "cbor.h"
+#include "esp_log.h"
 
 #include "stream_buffer.hpp"
 #include "stream_message.hpp"
 
 namespace audio {
+
+static const char* kTag = "chunk";
 
 ChunkWriter::ChunkWriter(StreamBuffer* buffer)
     : stream_(buffer), leftover_bytes_(0) {}
@@ -53,9 +56,11 @@ auto ChunkWriter::WriteChunkToStream(
 
   // Try to write to the buffer. Note the return type here will be either 0 or
   // header_size + chunk_size, as MessageBuffer doesn't allow partial writes.
+  size_t intended_write_size = header_size.value() + chunk_size;
+  ESP_LOGI(kTag, "writing chunk of size %d", intended_write_size);
   size_t actual_write_size =
       xMessageBufferSend(stream_->Handle(), write_buffer.data(),
-                         header_size.value() + chunk_size, max_wait);
+          intended_write_size, max_wait);
 
   if (actual_write_size == 0) {
     leftover_bytes_ = chunk_size;
@@ -86,6 +91,7 @@ auto ChunkReader::ReadChunkFromStream(
   // First, wait for a message to arrive over the buffer.
   cpp::span<std::byte> new_data_dest = stream_->ReadBuffer().last(
       stream_->ReadBuffer().size() - leftover_bytes_);
+  ESP_LOGI(kTag, "reading chunk of size %d", new_data_dest.size());
   last_message_size_ = xMessageBufferReceive(
       stream_->Handle(), new_data_dest.data(), new_data_dest.size(), max_wait);
 

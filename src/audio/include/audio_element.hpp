@@ -32,6 +32,8 @@ enum AudioProcessingError {
   UNSUPPORTED_STREAM,
   // Indicates an error with reading or writing stream data.
   IO_ERROR,
+  // Indicates that the element has run out of data to process.
+  OUT_OF_DATA,
 };
 
 /*
@@ -65,7 +67,7 @@ class IAudioElement {
    * to ProcessIdle(). If this is portMAX_DELAY (the default), then ProcessIdle
    * will never be called.
    */
-  virtual auto IdleTimeout() const -> TickType_t { return portMAX_DELAY; }
+  virtual auto IdleTimeout() const -> TickType_t { return 10; }
 
   virtual auto InputMinChunkSize() const -> std::size_t { return 0; }
 

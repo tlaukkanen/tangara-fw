@@ -131,6 +131,10 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
         file_buffer_write_pos_ = file_buffer_.begin();
       }
     }
+  } else if (GetRingBufferDistance() == 0) {
+    // We have no file open, and no data waiting to be written. We're out of
+    // stuff to do, so signal a pause.
+    return cpp::fail(OUT_OF_DATA);
   }
 
   // Now stream data into the output buffer until it's full.
@@ -152,6 +156,8 @@ auto FatfsAudioInput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
     }
   }
 
+  // We've finished writing out chunks, but there may be more of the file to
+  // read. Return, and begin again in the next idle call.
   return {};
 }
 

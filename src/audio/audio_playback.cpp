@@ -54,7 +54,7 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
 
 // TODO(jacqueline): think about sizes
 AudioPlayback::AudioPlayback()
-    : stream_start_(128, 128), stream_end_(128, 128) {}
+    : stream_start_(128, 256), stream_end_(128, 256) {}
 
 AudioPlayback::~AudioPlayback() {
   for (auto& element : element_handles_) {

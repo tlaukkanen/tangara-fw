@@ -33,7 +33,7 @@ class AudioElementHandle {
   std::unique_ptr<TaskHandle_t> task_;
   std::shared_ptr<IAudioElement> element_;
 
-  auto MonitorUtilState(eTaskState desired) -> void;
+  auto MonitorUntilState(eTaskState desired) -> void;
   auto SetStateAndWakeUp(ElementState state) -> void;
   auto WakeUpTask() -> void;
 };

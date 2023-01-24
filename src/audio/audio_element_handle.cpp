@@ -39,15 +39,15 @@ auto AudioElementHandle::Quit() -> void {
 
 auto AudioElementHandle::PauseSync() -> void {
   PlayPause(PAUSE);
-  MonitorUtilState(eSuspended);
+  MonitorUntilState(eSuspended);
 }
 
 auto AudioElementHandle::QuitSync() -> void {
   Quit();
-  MonitorUtilState(eDeleted);
+  MonitorUntilState(eDeleted);
 }
 
-auto AudioElementHandle::MonitorUtilState(eTaskState desired) -> void {
+auto AudioElementHandle::MonitorUntilState(eTaskState desired) -> void {
   while (eTaskGetState(*task_) != desired) {
     WakeUpTask();
     vTaskDelay(pdMS_TO_TICKS(1));
