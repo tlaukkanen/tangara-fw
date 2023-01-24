@@ -125,7 +125,12 @@ std::pair<bool, AudioDac::PowerState> AudioDac::ReadPowerState() {
       .read(&result, I2C_MASTER_NACK)
       .stop();
 
-  ESP_ERROR_CHECK(transaction.Execute());
+  esp_err_t err = transaction.Execute();
+  if (err == ESP_ERR_TIMEOUT) {
+    return std::pair(false, POWERDOWN);
+  } else {
+  }
+  ESP_ERROR_CHECK(err);
 
   bool is_booted = result >> 7;
   PowerState detail = (PowerState)(result & 0b1111);
@@ -143,7 +148,7 @@ bool AudioDac::WaitForPowerState(
     } else {
       ESP_LOGI(kTag, "Waiting for power state (was %d 0x%x)", result.first,
                (uint8_t)result.second);
-      vTaskDelay(pdMS_TO_TICKS(1));
+      vTaskDelay(pdMS_TO_TICKS(250));
     }
   }
   return has_matched;
