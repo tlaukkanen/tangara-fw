@@ -131,6 +131,9 @@ extern "C" void app_main(void) {
   std::shared_ptr<audio::AudioPlayback> playback =
       std::move(playback_res.value());
 
+  ESP_LOGI(TAG, "Waiting for background tasks before launching console...");
+  vTaskDelay(pdMS_TO_TICKS(1000));
+
   ESP_LOGI(TAG, "Launch console");
   console::AppConsole console(playback.get());
   console.Launch();
