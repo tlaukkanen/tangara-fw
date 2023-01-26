@@ -22,19 +22,14 @@ class I2SAudioOutput : public IAudioElement {
                  std::unique_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
-  auto InputMinChunkSize() const -> std::size_t override {
-    // TODO(jacqueline): work out a good value here. Maybe similar to the total
-    // DMA buffer size?
-    return 128;
-  }
+  // TODO.
+  auto HasUnprocessedInput() -> bool override { return false; }
 
-  auto IdleTimeout() const -> TickType_t override;
   auto ProcessStreamInfo(const StreamInfo& info)
       -> cpp::result<void, AudioProcessingError> override;
   auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> override;
-  auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
-  auto PrepareForPause() -> void override;
+  auto Process() -> cpp::result<void, AudioProcessingError> override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;

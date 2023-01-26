@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "chunk.hpp"
 #include "ff.h"
 #include "span.hpp"
 
@@ -30,11 +31,13 @@ class AudioDecoder : public IAudioElement {
     return 1024;
   }
 
+  auto HasUnprocessedInput() -> bool override;
+
   auto ProcessStreamInfo(const StreamInfo& info)
       -> cpp::result<void, AudioProcessingError> override;
   auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> override;
-  auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
+  auto Process() -> cpp::result<void, AudioProcessingError> override;
 
   AudioDecoder(const AudioDecoder&) = delete;
   AudioDecoder& operator=(const AudioDecoder&) = delete;
@@ -42,8 +45,11 @@ class AudioDecoder : public IAudioElement {
  private:
   std::unique_ptr<codecs::ICodec> current_codec_;
   std::optional<StreamInfo> stream_info_;
+  std::optional<ChunkReader> chunk_reader_;
 
-  std::unique_ptr<ChunkWriter> chunk_writer_;
+  std::size_t chunk_size_;
+  bool has_samples_to_send_;
+  bool needs_more_input_;
 };
 
 }  // namespace audio

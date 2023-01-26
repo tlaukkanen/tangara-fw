@@ -92,20 +92,10 @@ auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
   return dac_->WriteData(chunk, portMAX_DELAY);
 }
 
-auto I2SAudioOutput::IdleTimeout() const -> TickType_t {
-  return kIdleTimeBeforeMute;
-}
-
-auto I2SAudioOutput::ProcessIdle() -> cpp::result<void, AudioProcessingError> {
+auto I2SAudioOutput::Process() -> cpp::result<void, AudioProcessingError> {
   // TODO(jacqueline): Consider powering down the dac completely maybe?
   SetSoftMute(true);
   return {};
-}
-
-auto I2SAudioOutput::PrepareForPause() -> void {
-  // TODO(jacqueline): We ideally want to ensure we have enough samples in the
-  // DMA buffer here, so that soft mute can work properly.
-  SetSoftMute(true);
 }
 
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {

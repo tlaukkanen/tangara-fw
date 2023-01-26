@@ -22,32 +22,22 @@ class FatfsAudioInput : public IAudioElement {
   explicit FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
   ~FatfsAudioInput();
 
+  auto HasUnprocessedInput() -> bool override;
+
   auto ProcessStreamInfo(const StreamInfo& info)
       -> cpp::result<void, AudioProcessingError> override;
   auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> override;
-  auto ProcessIdle() -> cpp::result<void, AudioProcessingError> override;
-
-  auto SendChunk(cpp::span<std::byte> dest) -> size_t;
+  auto Process() -> cpp::result<void, AudioProcessingError> override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
-  auto GetRingBufferDistance() const -> size_t;
-
   std::shared_ptr<drivers::SdStorage> storage_;
-
-  std::byte* raw_file_buffer_;
-  cpp::span<std::byte> file_buffer_;
-  cpp::span<std::byte>::iterator file_buffer_read_pos_;
-  cpp::span<std::byte>::iterator pending_read_pos_;
-  cpp::span<std::byte>::iterator file_buffer_write_pos_;
 
   FIL current_file_;
   bool is_file_open_;
-
-  std::unique_ptr<ChunkWriter> chunk_writer_;
 };
 
 }  // namespace audio

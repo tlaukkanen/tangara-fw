@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "cbor.h"
-#include "esp-idf/components/cbor/tinycbor/src/cbor.h"
 #include "span.hpp"
 
 namespace audio {

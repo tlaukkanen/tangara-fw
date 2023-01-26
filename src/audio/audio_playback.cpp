@@ -18,9 +18,6 @@
 
 namespace audio {
 
-// TODO: idk
-static const std::size_t kMinElementBufferSize = 1024;
-
 auto AudioPlayback::create(drivers::GpioExpander* expander,
                            std::shared_ptr<drivers::SdStorage> storage)
     -> cpp::result<std::unique_ptr<AudioPlayback>, Error> {
@@ -37,8 +34,6 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
   auto playback = std::make_unique<AudioPlayback>();
 
   // Configure the pipeline
-  source->InputBuffer(&playback->stream_start_);
-  sink->OutputBuffer(&playback->stream_end_);
   playback->ConnectElements(source.get(), codec.get());
   playback->ConnectElements(codec.get(), sink.get());
 
@@ -52,9 +47,7 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
   return playback;
 }
 
-// TODO(jacqueline): think about sizes
-AudioPlayback::AudioPlayback()
-    : stream_start_(128, 256), stream_end_(128, 256) {}
+AudioPlayback::AudioPlayback() {}
 
 AudioPlayback::~AudioPlayback() {
   for (auto& element : element_handles_) {
@@ -63,33 +56,16 @@ AudioPlayback::~AudioPlayback() {
 }
 
 auto AudioPlayback::Play(const std::string& filename) -> void {
-  StreamInfo info;
-  info.Path(filename);
+  auto info = std::make_unique<StreamInfo>();
+  info->Path(filename);
+  auto event = StreamEvent::CreateStreamInfo(nullptr, std::move(info));
 
-  std::array<std::byte, 128> dest;
-  auto len = WriteMessage(
-      TYPE_STREAM_INFO, [&](auto enc) { return info.Encode(enc); }, dest);
-
-  if (len.has_error()) {
-    // TODO.
-    return;
-  }
-
-  // TODO: short delay, return error on fail
-  xMessageBufferSend(*stream_start_.Handle(), dest.data(), len.value(),
-                     portMAX_DELAY);
+  xQueueSend(input_handle_, event.release(), portMAX_DELAY);
 }
 
 auto AudioPlayback::ConnectElements(IAudioElement* src, IAudioElement* sink)
     -> void {
-  std::size_t chunk_size =
-      std::max(src->InputMinChunkSize(), sink->InputMinChunkSize());
-  std::size_t buffer_size = std::max(kMinElementBufferSize, chunk_size * 2);
-
-  auto buffer = std::make_unique<StreamBuffer>(chunk_size, buffer_size);
-  src->OutputBuffer(buffer.get());
-  sink->OutputBuffer(buffer.get());
-  element_buffers_.push_back(std::move(buffer));
+  src->OutputEventQueue(sink->InputEventQueue());
 }
 
 }  // namespace audio

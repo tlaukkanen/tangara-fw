@@ -43,11 +43,9 @@ class AudioPlayback {
 
  private:
   auto ConnectElements(IAudioElement* src, IAudioElement* sink) -> void;
-
-  StreamBuffer stream_start_;
-  StreamBuffer stream_end_;
-  std::vector<std::unique_ptr<StreamBuffer>> element_buffers_;
   std::vector<std::unique_ptr<AudioElementHandle>> element_handles_;
+
+  QueueHandle_t input_handle_;
 };
 
 }  // namespace audio
