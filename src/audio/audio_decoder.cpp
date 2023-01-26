@@ -21,7 +21,11 @@ namespace audio {
 
 static const std::size_t kSamplesPerChunk = 256;
 
-AudioDecoder::AudioDecoder() : IAudioElement(), stream_info_({}) {}
+AudioDecoder::AudioDecoder()
+    : IAudioElement(),
+      stream_info_({}),
+      has_samples_to_send_(false),
+      needs_more_input_(true) {}
 
 AudioDecoder::~AudioDecoder() {}
 
