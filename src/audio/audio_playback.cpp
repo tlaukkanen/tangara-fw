@@ -57,7 +57,7 @@ AudioPlayback::~AudioPlayback() {
 
 auto AudioPlayback::Play(const std::string& filename) -> void {
   auto info = std::make_unique<StreamInfo>();
-  info->Path(filename);
+  info->path = filename;
   auto event = StreamEvent::CreateStreamInfo(nullptr, std::move(info));
 
   xQueueSend(input_handle_, event.release(), portMAX_DELAY);

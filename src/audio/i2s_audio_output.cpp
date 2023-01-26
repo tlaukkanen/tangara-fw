@@ -48,12 +48,12 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
     -> cpp::result<void, AudioProcessingError> {
   // TODO(jacqueline): probs do something with the channel hey
 
-  if (!info.BitsPerSample() && !info.SampleRate()) {
+  if (!info.bits_per_sample && !info.sample_rate) {
     return cpp::fail(UNSUPPORTED_STREAM);
   }
 
   drivers::AudioDac::BitsPerSample bps;
-  switch (*info.BitsPerSample()) {
+  switch (*info.bits_per_sample) {
     case 16:
       bps = drivers::AudioDac::BPS_16;
       break;
@@ -68,7 +68,7 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
   }
 
   drivers::AudioDac::SampleRate sample_rate;
-  switch (*info.SampleRate()) {
+  switch (*info.sample_rate) {
     case 44100:
       sample_rate = drivers::AudioDac::SAMPLE_RATE_44_1;
       break;

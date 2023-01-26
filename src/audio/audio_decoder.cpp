@@ -37,8 +37,8 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
     -> cpp::result<void, AudioProcessingError> {
   stream_info_ = info;
 
-  if (info.ChunkSize()) {
-    chunk_reader_.emplace(info.ChunkSize().value());
+  if (info.chunk_size) {
+    chunk_reader_.emplace(*info.chunk_size);
   } else {
     // TODO.
   }
@@ -46,14 +46,14 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
   // Reuse the existing codec if we can. This will help with gapless playback,
   // since we can potentially just continue to decode as we were before,
   // without any setup overhead.
-  if (current_codec_->CanHandleFile(info.Path().value_or(""))) {
+  if (current_codec_->CanHandleFile(info.path.value_or(""))) {
     current_codec_->ResetForNewStream();
     return {};
   }
 
-  auto result = codecs::CreateCodecForFile(info.Path().value());
-  if (result.has_value()) {
-    current_codec_ = std::move(result.value());
+  auto result = codecs::CreateCodecForFile(*info.path);
+  if (result) {
+    current_codec_ = std::move(*result);
   } else {
     return cpp::fail(UNSUPPORTED_STREAM);
   }
@@ -62,10 +62,10 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
   // sample rate, chunk size, etc.
   auto downstream_info = StreamEvent::CreateStreamInfo(
       input_events_, std::make_unique<StreamInfo>(info));
-  downstream_info->stream_info->BitsPerSample(32);
-  downstream_info->stream_info->SampleRate(48'000);
+  downstream_info->stream_info->bits_per_sample = 32;
+  downstream_info->stream_info->sample_rate = 48'000;
   chunk_size_ = 128;
-  downstream_info->stream_info->ChunkSize(chunk_size_);
+  downstream_info->stream_info->chunk_size = chunk_size_;
 
   SendOrBufferEvent(std::move(downstream_info));
 

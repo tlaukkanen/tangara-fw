@@ -40,10 +40,10 @@ auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
     is_file_open_ = false;
   }
 
-  if (!info.Path()) {
+  if (!info.path) {
     return cpp::fail(UNSUPPORTED_STREAM);
   }
-  std::string path = info.Path().value();
+  std::string path = *info.path;
   FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
   if (res != FR_OK) {
     return cpp::fail(IO_ERROR);
@@ -52,7 +52,7 @@ auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
   is_file_open_ = true;
 
   std::unique_ptr<StreamInfo> new_info = std::make_unique<StreamInfo>(info);
-  new_info->ChunkSize(kChunkSize);
+  new_info->chunk_size = kChunkSize;
 
   auto event =
       StreamEvent::CreateStreamInfo(input_events_, std::move(new_info));
