@@ -56,11 +56,10 @@ AudioPlayback::~AudioPlayback() {
 }
 
 auto AudioPlayback::Play(const std::string& filename) -> void {
-  auto info = std::make_unique<StreamInfo>();
-  info->path = filename;
-  auto event = StreamEvent::CreateStreamInfo(nullptr, std::move(info));
-
-  xQueueSend(input_handle_, event.release(), portMAX_DELAY);
+  StreamInfo info;
+  info.path = filename;
+  auto event = StreamEvent::CreateStreamInfo(input_handle_, info);
+  xQueueSend(input_handle_, &event, portMAX_DELAY);
 }
 
 auto AudioPlayback::ConnectElements(IAudioElement* src, IAudioElement* sink)

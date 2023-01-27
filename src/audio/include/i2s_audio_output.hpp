@@ -8,7 +8,6 @@
 
 #include "dac.hpp"
 #include "gpio_expander.hpp"
-#include "sys/_stdint.h"
 
 namespace audio {
 

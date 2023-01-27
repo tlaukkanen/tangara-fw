@@ -65,26 +65,39 @@ void AudioTaskMain(void* args) {
            element->HasUnprocessedInput()) &&
           !element->IsOverBuffered();
 
+      if (has_work_to_do) {
+        ESP_LOGI(kTag, "checking for events");
+      } else {
+        ESP_LOGI(kTag, "waiting for events");
+      }
+
       // If we have no new events to process and the element has nothing left to
       // do, then just delay forever waiting for a new event.
       TickType_t ticks_to_wait = has_work_to_do ? 0 : portMAX_DELAY;
 
-      StreamEvent* event_ptr = nullptr;
+      StreamEvent* new_event = nullptr;
       bool has_event =
-          xQueueReceive(element->InputEventQueue(), &event_ptr, ticks_to_wait);
+          xQueueReceive(element->InputEventQueue(), &new_event, ticks_to_wait);
 
-      if (has_event && event_ptr != nullptr) {
-        std::unique_ptr<StreamEvent> event(event_ptr);
-        if (event->tag == StreamEvent::CHUNK_NOTIFICATION) {
+      if (has_event) {
+        if (new_event->tag == StreamEvent::UNINITIALISED) {
+          ESP_LOGE(kTag, "discarding invalid event!!");
+        } else if (new_event->tag == StreamEvent::CHUNK_NOTIFICATION) {
+          ESP_LOGI(kTag, "marking chunk as used");
           element->OnChunkProcessed();
         } else {
           // This isn't an event that needs to be actioned immediately. Add it
           // to our work queue.
-          pending_events.push_back(std::move(event));
+          pending_events.emplace_back(new_event);
+          ESP_LOGI(kTag, "deferring event");
         }
         // Loop again, so that we service all incoming events before doing our
         // possibly expensive processing.
         continue;
+      }
+
+      if (element->HasUnflushedOutput()) {
+        ESP_LOGI(kTag, "flushing output");
       }
 
       // We have no new events. Next, see if there's anything that needs to be
@@ -99,6 +112,7 @@ void AudioTaskMain(void* args) {
       }
 
       if (element->HasUnprocessedInput()) {
+        ESP_LOGI(kTag, "processing input events");
         auto process_res = element->Process();
         if (!process_res.has_error() || process_res.error() != OUT_OF_DATA) {
           // TODO: log!
@@ -109,27 +123,29 @@ void AudioTaskMain(void* args) {
       // The element ran out of data, so now it's time to let it process more
       // input.
       while (!pending_events.empty()) {
-        auto event = std::move(pending_events.front());
-        pending_events.pop_front();
+        auto& event = pending_events.front();
+        ESP_LOGI(kTag, "processing event, tag %i", event->tag);
 
         if (event->tag == StreamEvent::STREAM_INFO) {
+          ESP_LOGI(kTag, "processing stream info");
           auto process_res = element->ProcessStreamInfo(*event->stream_info);
+          pending_events.pop_front();
           if (process_res.has_error()) {
             // TODO(jacqueline)
             ESP_LOGE(kTag, "failed to process stream info");
           }
         } else if (event->tag == StreamEvent::CHUNK_DATA) {
-          StreamEvent* callback = new StreamEvent();
-          callback->source = element->InputEventQueue();
-          callback->tag = StreamEvent::CHUNK_NOTIFICATION;
-          if (!xQueueSend(event->source, callback, 0)) {
-            // TODO: log? crash? hmm.
-            pending_events.push_front(std::move(event));
+          ESP_LOGI(kTag, "processing chunk data");
+          auto callback =
+              StreamEvent::CreateChunkNotification(element->InputEventQueue());
+          if (!xQueueSend(event->source, &callback, 0)) {
+            ESP_LOGW(kTag, "failed to send chunk notif");
             continue;
           }
 
           auto process_chunk_res =
               element->ProcessChunk(event->chunk_data.bytes);
+          pending_events.pop_front();
           if (process_chunk_res.has_error()) {
             // TODO(jacqueline)
             ESP_LOGE(kTag, "failed to process chunk");

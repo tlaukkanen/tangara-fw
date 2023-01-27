@@ -19,6 +19,8 @@
 
 namespace audio {
 
+static const char* kTag = "DEC";
+
 static const std::size_t kSamplesPerChunk = 256;
 
 AudioDecoder::AudioDecoder()
@@ -60,14 +62,14 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
 
   // TODO: defer until first header read, so we can give better info about
   // sample rate, chunk size, etc.
-  auto downstream_info = StreamEvent::CreateStreamInfo(
-      input_events_, std::make_unique<StreamInfo>(info));
-  downstream_info->stream_info->bits_per_sample = 32;
-  downstream_info->stream_info->sample_rate = 48'000;
+  StreamInfo downstream_info(info);
+  downstream_info.bits_per_sample = 32;
+  downstream_info.sample_rate = 48'000;
   chunk_size_ = 128;
-  downstream_info->stream_info->chunk_size = chunk_size_;
+  downstream_info.chunk_size = chunk_size_;
 
-  SendOrBufferEvent(std::move(downstream_info));
+  auto event = StreamEvent::CreateStreamInfo(input_events_, downstream_info);
+  SendOrBufferEvent(std::unique_ptr<StreamEvent>(event));
 
   return {};
 }
@@ -86,17 +88,18 @@ auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
 
 auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
   if (has_samples_to_send_) {
+    ESP_LOGI(kTag, "sending samples");
     // Writing samples is relatively quick (it's just a bunch of memcopy's), so
     // do them all at once.
     while (has_samples_to_send_ && !IsOverBuffered()) {
-      auto buffer = StreamEvent::CreateChunkData(input_events_, chunk_size_);
+      auto chunk = std::unique_ptr<StreamEvent>(
+          StreamEvent::CreateChunkData(input_events_, chunk_size_));
       auto write_res =
-          current_codec_->WriteOutputSamples(buffer->chunk_data.bytes);
-      buffer->chunk_data.bytes =
-          buffer->chunk_data.bytes.first(write_res.first);
+          current_codec_->WriteOutputSamples(chunk->chunk_data.bytes);
+      chunk->chunk_data.bytes = chunk->chunk_data.bytes.first(write_res.first);
       has_samples_to_send_ = !write_res.second;
 
-      if (!SendOrBufferEvent(std::move(buffer))) {
+      if (!SendOrBufferEvent(std::move(chunk))) {
         return {};
       }
     }
@@ -105,6 +108,7 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
   }
 
   if (!needs_more_input_) {
+    ESP_LOGI(kTag, "decoding frame");
     auto res = current_codec_->ProcessNextFrame();
     if (res.has_error()) {
       // todo

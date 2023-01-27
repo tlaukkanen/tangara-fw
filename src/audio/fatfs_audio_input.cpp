@@ -12,6 +12,7 @@
 #include "chunk.hpp"
 #include "stream_buffer.hpp"
 #include "stream_event.hpp"
+#include "stream_info.hpp"
 #include "stream_message.hpp"
 
 static const char* kTag = "SRC";
@@ -43,6 +44,7 @@ auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
   if (!info.path) {
     return cpp::fail(UNSUPPORTED_STREAM);
   }
+  ESP_LOGI(kTag, "opening file %s", info.path->c_str());
   std::string path = *info.path;
   FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
   if (res != FR_OK) {
@@ -51,12 +53,11 @@ auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
 
   is_file_open_ = true;
 
-  std::unique_ptr<StreamInfo> new_info = std::make_unique<StreamInfo>(info);
-  new_info->chunk_size = kChunkSize;
+  StreamInfo new_info(info);
+  new_info.chunk_size = kChunkSize;
 
-  auto event =
-      StreamEvent::CreateStreamInfo(input_events_, std::move(new_info));
-  SendOrBufferEvent(std::move(event));
+  auto event = StreamEvent::CreateStreamInfo(input_events_, new_info);
+  SendOrBufferEvent(std::unique_ptr<StreamEvent>(event));
 
   return {};
 }
@@ -68,17 +69,19 @@ auto FatfsAudioInput::ProcessChunk(const cpp::span<std::byte>& chunk)
 
 auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
   if (is_file_open_) {
-    auto dest_event = StreamEvent::CreateChunkData(input_events_, kChunkSize);
+    auto dest_event = std::unique_ptr<StreamEvent>(
+        StreamEvent::CreateChunkData(input_events_, kChunkSize));
     UINT bytes_read = 0;
 
-    FRESULT result =
-        f_read(&current_file_, dest_event->chunk_data.raw_bytes.get(),
-               kChunkSize, &bytes_read);
+    ESP_LOGI(kTag, "reading from file");
+    FRESULT result = f_read(&current_file_, dest_event->chunk_data.raw_bytes,
+                            kChunkSize, &bytes_read);
     if (result != FR_OK) {
       ESP_LOGE(kTag, "file I/O error %d", result);
       return cpp::fail(IO_ERROR);
     }
 
+    ESP_LOGI(kTag, "sending file data");
     dest_event->chunk_data.bytes =
         dest_event->chunk_data.bytes.first(bytes_read);
     SendOrBufferEvent(std::move(dest_event));

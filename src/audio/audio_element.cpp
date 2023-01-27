@@ -3,7 +3,7 @@
 namespace audio {
 
 IAudioElement::IAudioElement()
-    : input_events_(xQueueCreate(kEventQueueSize, sizeof(StreamEvent))),
+    : input_events_(xQueueCreate(kEventQueueSize, sizeof(void*))),
       output_events_(nullptr),
       unprocessed_output_chunks_(0),
       buffered_output_(),
@@ -37,7 +37,7 @@ auto IAudioElement::SendOrBufferEvent(std::unique_ptr<StreamEvent> event)
     return false;
   }
   StreamEvent* raw_event = event.release();
-  if (!xQueueSend(output_events_, raw_event, 0)) {
+  if (!xQueueSend(output_events_, &raw_event, 0)) {
     buffered_output_.emplace_front(raw_event);
     return false;
   }
@@ -48,7 +48,7 @@ auto IAudioElement::FlushBufferedOutput() -> bool {
   while (!buffered_output_.empty()) {
     StreamEvent* raw_event = buffered_output_.front().release();
     buffered_output_.pop_front();
-    if (!xQueueSend(output_events_, raw_event, 0)) {
+    if (!xQueueSend(output_events_, &raw_event, 0)) {
       buffered_output_.emplace_front(raw_event);
       return false;
     }

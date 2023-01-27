@@ -11,13 +11,11 @@
 namespace audio {
 
 struct StreamEvent {
-  static auto CreateStreamInfo(QueueHandle_t source,
-                               std::unique_ptr<StreamInfo> payload)
-      -> std::unique_ptr<StreamEvent>;
+  static auto CreateStreamInfo(QueueHandle_t source, const StreamInfo& payload)
+      -> StreamEvent*;
   static auto CreateChunkData(QueueHandle_t source, std::size_t chunk_size)
-      -> std::unique_ptr<StreamEvent>;
-  static auto CreateChunkNotification(QueueHandle_t source)
-      -> std::unique_ptr<StreamEvent>;
+      -> StreamEvent*;
+  static auto CreateChunkNotification(QueueHandle_t source) -> StreamEvent*;
 
   StreamEvent();
   ~StreamEvent();
@@ -33,16 +31,10 @@ struct StreamEvent {
   } tag;
 
   union {
-    std::unique_ptr<StreamInfo> stream_info;
-
-    // Scott Meyers says:
-    // `About the only situation I can conceive of when a std::unique_ptr<T[]>
-    // would make sense would be when you’re using a C-like API that returns a
-    // raw pointer to a heap array that you assume ownership of.`
-    // :-)
+    StreamInfo* stream_info;
 
     struct {
-      std::unique_ptr<std::byte*> raw_bytes;
+      std::byte* raw_bytes;
       cpp::span<std::byte> bytes;
     } chunk_data;
 

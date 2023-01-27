@@ -64,7 +64,7 @@ class IAudioElement {
    * be tuned according to the observed stack size of each element, as different
    * elements have fairly different stack requirements (particular decoders).
    */
-  virtual auto StackSizeBytes() const -> std::size_t { return 2048; };
+  virtual auto StackSizeBytes() const -> std::size_t { return 4096; };
 
   virtual auto InputMinChunkSize() const -> std::size_t { return 0; }
 
