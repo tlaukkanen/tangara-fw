@@ -55,12 +55,13 @@ void RegisterListDir() {
 
 int CmdPlayFile(int argc, char** argv) {
   static const std::string usage = "usage: play [file]";
-  if (argc < 2 || argc > 3) {
+  if (argc != 2) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  sInstance->playback_->Play(toSdPath(argv[1]));
+  std::string path = "/";
+  sInstance->playback_->Play(path + argv[1]);
 
   return 0;
 }

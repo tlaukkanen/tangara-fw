@@ -40,36 +40,31 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
   stream_info_ = info;
 
   if (info.chunk_size) {
-    chunk_reader_.emplace(*info.chunk_size);
+    chunk_reader_ = ChunkReader(info.chunk_size.value());
   } else {
-    // TODO.
+    ESP_LOGE(kTag, "no chunk size given");
+    return cpp::fail(UNSUPPORTED_STREAM);
   }
 
   // Reuse the existing codec if we can. This will help with gapless playback,
   // since we can potentially just continue to decode as we were before,
   // without any setup overhead.
-  if (current_codec_->CanHandleFile(info.path.value_or(""))) {
+  if (current_codec_ != nullptr &&
+      current_codec_->CanHandleFile(info.path.value_or(""))) {
     current_codec_->ResetForNewStream();
     return {};
   }
 
-  auto result = codecs::CreateCodecForFile(*info.path);
-  if (result) {
-    current_codec_ = std::move(*result);
+  auto result = codecs::CreateCodecForFile(info.path.value_or(""));
+  if (result.has_value()) {
+    current_codec_ = std::move(result.value());
   } else {
+    ESP_LOGE(kTag, "no codec for this file");
     return cpp::fail(UNSUPPORTED_STREAM);
   }
 
-  // TODO: defer until first header read, so we can give better info about
-  // sample rate, chunk size, etc.
-  StreamInfo downstream_info(info);
-  downstream_info.bits_per_sample = 32;
-  downstream_info.sample_rate = 48'000;
-  chunk_size_ = 128;
-  downstream_info.chunk_size = chunk_size_;
-
-  auto event = StreamEvent::CreateStreamInfo(input_events_, downstream_info);
-  SendOrBufferEvent(std::unique_ptr<StreamEvent>(event));
+  stream_info_ = info;
+  has_sent_stream_info_ = false;
 
   return {};
 }
@@ -78,10 +73,13 @@ auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
     -> cpp::result<size_t, AudioProcessingError> {
   if (current_codec_ == nullptr || !chunk_reader_) {
     // Should never happen, but fail explicitly anyway.
+    ESP_LOGW(kTag, "received chunk without chunk size or codec");
     return cpp::fail(UNSUPPORTED_STREAM);
   }
 
+  ESP_LOGI(kTag, "received new chunk (size %u)", chunk.size());
   current_codec_->SetInput(chunk_reader_->HandleNewData(chunk));
+  needs_more_input_ = false;
 
   return {};
 }
@@ -92,6 +90,22 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
     // Writing samples is relatively quick (it's just a bunch of memcopy's), so
     // do them all at once.
     while (has_samples_to_send_ && !IsOverBuffered()) {
+      if (!has_sent_stream_info_) {
+        has_sent_stream_info_ = true;
+        auto format = current_codec_->GetOutputFormat();
+        stream_info_->bits_per_sample = format.bits_per_sample;
+        stream_info_->sample_rate = format.sample_rate_hz;
+        stream_info_->channels = format.num_channels;
+
+        chunk_size_ = kSamplesPerChunk * (*stream_info_->bits_per_sample);
+        stream_info_->chunk_size = chunk_size_;
+        ESP_LOGI(kTag, "pcm stream chunk size: %u bytes", chunk_size_);
+
+        auto event =
+            StreamEvent::CreateStreamInfo(input_events_, *stream_info_);
+        SendOrBufferEvent(std::unique_ptr<StreamEvent>(event));
+      }
+
       auto chunk = std::unique_ptr<StreamEvent>(
           StreamEvent::CreateChunkData(input_events_, chunk_size_));
       auto write_res =

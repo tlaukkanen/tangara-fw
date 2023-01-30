@@ -22,7 +22,7 @@ class AudioDecoder : public IAudioElement {
   AudioDecoder();
   ~AudioDecoder();
 
-  auto StackSizeBytes() const -> std::size_t override { return 8196; };
+  auto StackSizeBytes() const -> std::size_t override { return 10 * 1024; };
 
   auto InputMinChunkSize() const -> std::size_t override {
     // 128 kbps MPEG-1 @ 44.1 kHz is approx. 418 bytes according to the
@@ -47,6 +47,7 @@ class AudioDecoder : public IAudioElement {
   std::optional<StreamInfo> stream_info_;
   std::optional<ChunkReader> chunk_reader_;
 
+  bool has_sent_stream_info_;
   std::size_t chunk_size_;
   bool has_samples_to_send_;
   bool needs_more_input_;

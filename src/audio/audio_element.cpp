@@ -1,4 +1,5 @@
 #include "audio_element.hpp"
+#include <memory>
 
 namespace audio {
 
@@ -38,7 +39,8 @@ auto IAudioElement::SendOrBufferEvent(std::unique_ptr<StreamEvent> event)
   }
   StreamEvent* raw_event = event.release();
   if (!xQueueSend(output_events_, &raw_event, 0)) {
-    buffered_output_.emplace_front(raw_event);
+    event.reset(raw_event);
+    buffered_output_.push_back(std::move(event));
     return false;
   }
   return true;

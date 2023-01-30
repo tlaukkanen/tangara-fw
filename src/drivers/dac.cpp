@@ -1,6 +1,7 @@
 #include "dac.hpp"
 
 #include <cstdint>
+#include <cstring>
 
 #include "assert.h"
 #include "driver/i2c.h"
@@ -31,8 +32,10 @@ auto AudioDac::create(GpioExpander* expander)
   // TODO: tune.
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config =
-      I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
-  i2s_new_channel(&channel_config, &i2s_handle, NULL);
+      I2S_CHANNEL_DEFAULT_CONFIG(kI2SPort, I2S_ROLE_MASTER);
+  // Auto clear to trigger soft-mute when we run out of data.
+  channel_config.auto_clear = true;
+  ESP_ERROR_CHECK(i2s_new_channel(&channel_config, &i2s_handle, NULL));
   //
   // First, instantiate the instance so it can do all of its power on
   // configuration.
@@ -44,7 +47,7 @@ auto AudioDac::create(GpioExpander* expander)
   i2s_std_config_t i2s_config = {
       .clk_cfg = dac->clock_config_,
       .slot_cfg = dac->slot_config_,
-      .gpio_cfg = {.mclk = GPIO_NUM_0,
+      .gpio_cfg = {.mclk = I2S_GPIO_UNUSED,  // PCM5122 is self-clocking
                    .bclk = GPIO_NUM_26,
                    .ws = GPIO_NUM_27,
                    .dout = GPIO_NUM_5,
@@ -63,9 +66,7 @@ auto AudioDac::create(GpioExpander* expander)
     return cpp::fail(Error::FAILED_TO_INSTALL_I2S);
   }
 
-  // TODO: does starting the channel mean the dac will boot into a more
-  // meaningful state?
-  i2s_channel_enable(dac->i2s_handle_);
+  ESP_ERROR_CHECK(i2s_channel_enable(dac->i2s_handle_));
 
   // Now let's double check that the DAC itself came up whilst we we working.
   bool is_booted = dac->WaitForPowerState(
@@ -79,10 +80,12 @@ auto AudioDac::create(GpioExpander* expander)
   dac->WriteRegister(Register::DE_EMPHASIS, 1 << 4);
   dac->WriteVolume(255);
 
+  // We already started the I2S channel with a default clock rate, but sending
+  // only zeros. The DAC should see this and automatically enter standby (if
+  // it's still waiting for the charge pump then that's also okay.)
   bool is_configured =
       dac->WaitForPowerState([](bool booted, PowerState state) {
-        return state == WAIT_FOR_CP || state == RAMP_UP || state == RUN ||
-               state == STANDBY;
+        return state == STANDBY || state == WAIT_FOR_CP;
       });
   if (!is_configured) {
     return cpp::fail(Error::FAILED_TO_CONFIGURE);
@@ -94,8 +97,8 @@ auto AudioDac::create(GpioExpander* expander)
 AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
     : gpio_(gpio),
       i2s_handle_(i2s_handle),
-      clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(48000)),
-      slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT,
+      clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
+      slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                    I2S_SLOT_MODE_STEREO)) {
   gpio_->set_pin(GpioExpander::AUDIO_POWER_ENABLE, true);
   gpio_->Write();
@@ -158,23 +161,29 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> bool {
   // TODO(jacqueline): investigate how reliable the auto-clocking of the dac
   // is. We might need to explicit reconfigure the dac here as well if it's not
   // good enough.
-  i2s_channel_disable(i2s_handle_);
+  ESP_ERROR_CHECK(i2s_channel_disable(i2s_handle_));
 
   slot_config_.slot_bit_width = (i2s_slot_bit_width_t)bps;
-  i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_);
+  ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_));
 
-  // TODO: update mclk multiple as well if needed?
   clock_config_.sample_rate_hz = rate;
-  i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_);
+  clock_config_.mclk_multiple =
+      bps == BPS_24 ? I2S_MCLK_MULTIPLE_384 : I2S_MCLK_MULTIPLE_256;
+  ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
-  i2s_channel_enable(i2s_handle_);
+  ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
   return true;
 }
 
 auto AudioDac::WriteData(const cpp::span<std::byte>& data, TickType_t max_wait)
     -> std::size_t {
   std::size_t res = 0;
-  i2s_channel_write(i2s_handle_, data.data(), data.size(), &res, max_wait);
+  esp_err_t err =
+      i2s_channel_write(i2s_handle_, data.data(), data.size(), &res, max_wait);
+  if (err == ESP_ERR_TIMEOUT) {
+    return res;
+  }
+  ESP_ERROR_CHECK(err);
   return res;
 }
 

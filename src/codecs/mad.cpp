@@ -43,7 +43,8 @@ auto MadMp3Decoder::GetOutputFormat() -> OutputFormat {
   return OutputFormat{
       .num_channels = static_cast<uint8_t>(synth_.pcm.channels),
       .bits_per_sample = 24,
-      .sample_rate_hz = synth_.pcm.samplerate,
+      .sample_rate_hz =
+          synth_.pcm.samplerate == 0 ? 44100 : synth_.pcm.samplerate,
   };
 }
 

@@ -48,7 +48,8 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
     -> cpp::result<void, AudioProcessingError> {
   // TODO(jacqueline): probs do something with the channel hey
 
-  if (!info.bits_per_sample && !info.sample_rate) {
+  if (!info.bits_per_sample || !info.sample_rate) {
+    ESP_LOGE(kTag, "audio stream missing bits or sample rate");
     return cpp::fail(UNSUPPORTED_STREAM);
   }
 
@@ -67,6 +68,7 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
       bps = drivers::AudioDac::BPS_32;
       break;
     default:
+      ESP_LOGE(kTag, "dropping stream with unknown bps");
       return cpp::fail(UNSUPPORTED_STREAM);
   }
 
@@ -79,6 +81,7 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
       sample_rate = drivers::AudioDac::SAMPLE_RATE_48;
       break;
     default:
+      ESP_LOGE(kTag, "dropping stream with unknown rate");
       return cpp::fail(UNSUPPORTED_STREAM);
   }
 
@@ -93,11 +96,13 @@ auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
   SetSoftMute(false);
   // TODO(jacqueline): write smaller parts with a small delay so that we can
   // be responsive to pause and seek commands.
-  return dac_->WriteData(chunk, portMAX_DELAY);
+  std::size_t bytes_written = dac_->WriteData(chunk, portMAX_DELAY);
+  ESP_LOGI(kTag, "played %u bytes", bytes_written);
+  return 0;
 }
 
 auto I2SAudioOutput::Process() -> cpp::result<void, AudioProcessingError> {
-  // TODO(jacqueline): Consider powering down the dac completely maybe?
+  // TODO(jacqueline): Play the stream in smaller sections
   return {};
 }
 
