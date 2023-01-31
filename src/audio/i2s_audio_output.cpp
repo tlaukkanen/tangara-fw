@@ -92,12 +92,10 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
 
 auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
     -> cpp::result<std::size_t, AudioProcessingError> {
-  ESP_LOGI(kTag, "playing samples");
   SetSoftMute(false);
   // TODO(jacqueline): write smaller parts with a small delay so that we can
   // be responsive to pause and seek commands.
-  std::size_t bytes_written = dac_->WriteData(chunk, portMAX_DELAY);
-  ESP_LOGI(kTag, "played %u bytes", bytes_written);
+  dac_->WriteData(chunk, portMAX_DELAY);
   return 0;
 }
 

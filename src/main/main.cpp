@@ -89,7 +89,6 @@ void lvgl_main(void* voidArgs) {
 extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Initialising peripherals");
 
-  ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LOWMED));
   ESP_ERROR_CHECK(drivers::init_i2c());
   ESP_ERROR_CHECK(drivers::init_spi());
 

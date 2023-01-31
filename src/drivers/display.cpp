@@ -241,7 +241,7 @@ void Display::Flush(lv_disp_drv_t* disp_drv,
   // lv_disp_flush_ready(&driver_);
 }
 
-void IRAM_ATTR Display::PostTransaction(const spi_transaction_t& transaction) {
+void Display::PostTransaction(const spi_transaction_t& transaction) {
   if (reinterpret_cast<uintptr_t>(transaction.user) & LVGL_FLUSH) {
     lv_disp_flush_ready(&driver_);
   }
