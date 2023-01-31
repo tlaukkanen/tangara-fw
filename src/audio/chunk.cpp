@@ -16,7 +16,7 @@ namespace audio {
 
 ChunkReader::ChunkReader(std::size_t chunk_size)
     : raw_working_buffer_(static_cast<std::byte*>(
-          heap_caps_malloc(chunk_size * 1.5, MALLOC_CAP_SPIRAM))),
+          heap_caps_malloc(chunk_size * 2, MALLOC_CAP_SPIRAM))),
       working_buffer_(raw_working_buffer_, chunk_size * 1.5) {}
 
 ChunkReader::~ChunkReader() {

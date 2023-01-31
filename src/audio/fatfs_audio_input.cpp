@@ -20,7 +20,7 @@ static const char* kTag = "SRC";
 namespace audio {
 
 // 32KiB to match the minimum himen region size.
-static const std::size_t kChunkSize = 32 * 1024;
+static const std::size_t kChunkSize = 24 * 1024;
 
 FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
     : IAudioElement(),
@@ -88,7 +88,8 @@ auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
         dest_event->chunk_data.bytes.first(bytes_read);
     SendOrBufferEvent(std::move(dest_event));
 
-    if (f_eof(&current_file_)) {
+    if (bytes_read < kChunkSize || f_eof(&current_file_)) {
+      ESP_LOGI(kTag, "closing file");
       f_close(&current_file_);
       is_file_open_ = false;
     }
