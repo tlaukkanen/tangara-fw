@@ -18,6 +18,10 @@
 
 namespace audio {
 
+/**
+ * Utility for handling an input stream of chunk data, which simplifies needing
+ * access to blocks of data spanning two chunks.
+ */
 class ChunkReader {
  public:
   explicit ChunkReader(std::size_t chunk_size);
@@ -38,6 +42,9 @@ class ChunkReader {
    * will place the message at the start of the working_buffer and then return.
    */
   auto HandleNewData(cpp::span<std::byte> data) -> cpp::span<std::byte>;
+
+  ChunkReader(const ChunkReader&) = delete;
+  ChunkReader& operator=(const ChunkReader&) = delete;
 
  private:
   std::byte* raw_working_buffer_;

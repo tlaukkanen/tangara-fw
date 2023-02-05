@@ -151,6 +151,9 @@ void AudioTaskMain(void* args) {
             ESP_LOGE(kTag, "failed to process chunk");
             continue;
           }
+
+          // TODO: think about whether to do the whole queue
+          break;
         }
       }
     }

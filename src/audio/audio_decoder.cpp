@@ -40,7 +40,7 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
   stream_info_ = info;
 
   if (info.chunk_size) {
-    chunk_reader_ = ChunkReader(info.chunk_size.value());
+    chunk_reader_.emplace(info.chunk_size.value());
   } else {
     ESP_LOGE(kTag, "no chunk size given");
     return cpp::fail(UNSUPPORTED_STREAM);
