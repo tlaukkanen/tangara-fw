@@ -28,6 +28,7 @@ namespace audio {
 static const char* kTag = "task";
 
 auto StartAudioTask(const std::string& name,
+                    std::optional<BaseType_t> core_id,
                     std::shared_ptr<IAudioElement> element)
     -> std::unique_ptr<AudioElementHandle> {
   auto task_handle = std::make_unique<TaskHandle_t>();
@@ -36,8 +37,13 @@ auto StartAudioTask(const std::string& name,
   AudioTaskArgs* args = new AudioTaskArgs{.element = element};
 
   ESP_LOGI(kTag, "starting audio task %s", name.c_str());
-  xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
-              kTaskPriorityAudio, task_handle.get());
+  if (core_id) {
+    xTaskCreatePinnedToCore(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
+                kTaskPriorityAudio, task_handle.get(), *core_id);
+  } else {
+    xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
+                kTaskPriorityAudio, task_handle.get());
+  }
 
   return std::make_unique<AudioElementHandle>(std::move(task_handle), element);
 }

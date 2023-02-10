@@ -49,7 +49,7 @@ namespace drivers {
 namespace callback {
 static std::atomic<Display*> instance = nullptr;
 
-static void flush_cb(lv_disp_drv_t* disp_drv,
+extern "C" void flush_cb(lv_disp_drv_t* disp_drv,
                      const lv_area_t* area,
                      lv_color_t* color_map) {
   auto instance_unwrapped = instance.load();
@@ -74,8 +74,9 @@ static void IRAM_ATTR post_cb(spi_transaction_t* transaction) {
 auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> cpp::result<std::unique_ptr<Display>, Error> {
-  expander->with(
-      [&](auto& gpio) { gpio.set_pin(GpioExpander::DISPLAY_LED, 1); });
+  expander->set_pin(GpioExpander::DISPLAY_LED, 0);
+  expander->set_pin(GpioExpander::DISPLAY_POWER_ENABLE, 1);
+  expander->Write();
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -182,6 +183,7 @@ void Display::SendTransaction(TransactionType type,
   if (length == 0) {
     return;
   }
+  ESP_LOGI(kTag, "lvgl transaction");
 
   // TODO: Use a memory pool for these.
   spi_transaction_t* transaction = (spi_transaction_t*)heap_caps_calloc(

@@ -28,6 +28,7 @@ class FatfsAudioInput : public IAudioElement {
       -> cpp::result<void, AudioProcessingError> override;
   auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> override;
+  auto ProcessEndOfStream() -> void override;
   auto Process() -> cpp::result<void, AudioProcessingError> override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;

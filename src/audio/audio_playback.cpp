@@ -38,9 +38,9 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
   playback->ConnectElements(codec.get(), sink.get());
 
   // Launch!
-  playback->element_handles_.push_back(StartAudioTask("src", source));
-  playback->element_handles_.push_back(StartAudioTask("dec", codec));
-  playback->element_handles_.push_back(StartAudioTask("sink", sink));
+  playback->element_handles_.push_back(StartAudioTask("src", {}, source));
+  playback->element_handles_.push_back(StartAudioTask("dec", {}, codec));
+  playback->element_handles_.push_back(StartAudioTask("sink", 0, sink));
 
   playback->input_handle_ = source->InputEventQueue();
 
@@ -59,6 +59,8 @@ auto AudioPlayback::Play(const std::string& filename) -> void {
   StreamInfo info;
   info.path = filename;
   auto event = StreamEvent::CreateStreamInfo(input_handle_, info);
+  xQueueSend(input_handle_, &event, portMAX_DELAY);
+  event = StreamEvent::CreateEndOfStream(input_handle_);
   xQueueSend(input_handle_, &event, portMAX_DELAY);
 }
 

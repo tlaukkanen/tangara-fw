@@ -16,6 +16,7 @@ struct StreamEvent {
   static auto CreateChunkData(QueueHandle_t source, std::size_t chunk_size)
       -> StreamEvent*;
   static auto CreateChunkNotification(QueueHandle_t source) -> StreamEvent*;
+  static auto CreateEndOfStream(QueueHandle_t source) -> StreamEvent*;
 
   StreamEvent();
   ~StreamEvent();
@@ -28,6 +29,7 @@ struct StreamEvent {
     STREAM_INFO,
     CHUNK_DATA,
     CHUNK_NOTIFICATION,
+    END_OF_STREAM,
   } tag;
 
   union {

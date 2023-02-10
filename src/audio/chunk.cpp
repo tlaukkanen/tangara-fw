@@ -41,8 +41,11 @@ auto ChunkReader::HandleNewData(cpp::span<std::byte> data)
   return last_data_in_working_buffer_;
 }
 
-auto ChunkReader::HandleLeftovers(std::size_t bytes_used) -> void {
-  leftover_bytes_ = last_data_in_working_buffer_.size() - bytes_used;
+auto ChunkReader::HandleBytesUsed(std::size_t bytes_used) -> void {
+  HandleBytesLeftOver(last_data_in_working_buffer_.size() - bytes_used);
+}
+auto ChunkReader::HandleBytesLeftOver(std::size_t bytes_left) -> void {
+  leftover_bytes_ = bytes_left;
 
   // Ensure that we don't have more than a chunk of leftever bytes. This is
   // bad, because we probably won't have enough data to store the next chunk.
@@ -53,6 +56,10 @@ auto ChunkReader::HandleLeftovers(std::size_t bytes_used) -> void {
     std::copy(data_to_keep.begin(), data_to_keep.end(),
               working_buffer_.begin());
   }
+}
+
+auto ChunkReader::GetLeftovers() -> cpp::span<std::byte> {
+  return working_buffer_.first(leftover_bytes_);
 }
 
 }  // namespace audio

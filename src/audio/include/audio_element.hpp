@@ -105,6 +105,8 @@ class IAudioElement {
   virtual auto ProcessChunk(const cpp::span<std::byte>& chunk)
       -> cpp::result<std::size_t, AudioProcessingError> = 0;
 
+  virtual auto ProcessEndOfStream() -> void = 0;
+
   /*
    * Called when there has been no data received over the input buffer for some
    * time. This could be used to synthesize output, or to save memory by

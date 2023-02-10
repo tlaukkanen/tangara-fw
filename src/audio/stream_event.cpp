@@ -37,6 +37,13 @@ auto StreamEvent::CreateChunkNotification(QueueHandle_t source)
   return event;
 }
 
+auto StreamEvent::CreateEndOfStream(QueueHandle_t source) -> StreamEvent* {
+  auto event = new StreamEvent;
+  event->tag = StreamEvent::END_OF_STREAM;
+  event->source = source;
+  return event;
+}
+
 StreamEvent::StreamEvent() : tag(StreamEvent::UNINITIALISED) {}
 
 StreamEvent::~StreamEvent() {
@@ -50,6 +57,8 @@ StreamEvent::~StreamEvent() {
       free(chunk_data.raw_bytes);
       break;
     case CHUNK_NOTIFICATION:
+      break;
+    case END_OF_STREAM:
       break;
   }
 }
@@ -69,6 +78,8 @@ StreamEvent::StreamEvent(StreamEvent&& other) {
       other.chunk_data = {};
       break;
     case CHUNK_NOTIFICATION:
+      break;
+    case END_OF_STREAM:
       break;
   }
   other.tag = StreamEvent::UNINITIALISED;

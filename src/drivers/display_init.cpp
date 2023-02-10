@@ -96,7 +96,7 @@ static const uint8_t kST7735RCommonFooter[]{
 
 const InitialisationData kST7735R = {
     .num_sequences = 3,
-    .sequences = {kST7735RCommonHeader, kST7735RCommonRed,
+    .sequences = {kST7735RCommonHeader, kST7735RCommonGreen,
                   kST7735RCommonFooter}};
 
 }  // namespace displays

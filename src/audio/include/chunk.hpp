@@ -27,7 +27,8 @@ class ChunkReader {
   explicit ChunkReader(std::size_t chunk_size);
   ~ChunkReader();
 
-  auto HandleLeftovers(std::size_t bytes_used) -> void;
+  auto HandleBytesLeftOver(std::size_t bytes_left) -> void;
+  auto HandleBytesUsed(std::size_t bytes_used) -> void;
 
   /*
    * Reads chunks of data from the given input stream, and invokes the given
@@ -42,6 +43,8 @@ class ChunkReader {
    * will place the message at the start of the working_buffer and then return.
    */
   auto HandleNewData(cpp::span<std::byte> data) -> cpp::span<std::byte>;
+
+  auto GetLeftovers() -> cpp::span<std::byte>;
 
   ChunkReader(const ChunkReader&) = delete;
   ChunkReader& operator=(const ChunkReader&) = delete;

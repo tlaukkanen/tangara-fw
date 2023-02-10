@@ -84,6 +84,16 @@ auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
   return {};
 }
 
+auto AudioDecoder::ProcessEndOfStream() -> void {
+  has_samples_to_send_ = false;
+  needs_more_input_ = true;
+  current_codec_.reset();
+
+  SendOrBufferEvent(
+      std::unique_ptr<StreamEvent>(
+        StreamEvent::CreateEndOfStream(input_events_)));
+}
+
 auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
   if (has_samples_to_send_) {
     ESP_LOGI(kTag, "sending samples");
@@ -132,7 +142,7 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
     has_samples_to_send_ = true;
 
     if (needs_more_input_) {
-      chunk_reader_->HandleLeftovers(current_codec_->GetInputPosition());
+      chunk_reader_->HandleBytesUsed(current_codec_->GetInputPosition());
     }
   }
 

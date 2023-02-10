@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "driver/i2s_std.h"
@@ -66,10 +67,10 @@ class AudioDac {
   };
 
   // TODO(jacqueline): worth supporting channels here as well?
-  auto Reconfigure(BitsPerSample bps, SampleRate rate) -> bool;
-
-  auto WriteData(const cpp::span<std::byte>& data, TickType_t max_wait)
+  auto Reconfigure(BitsPerSample bps, SampleRate rate, QueueHandle_t dma_queue)
       -> std::size_t;
+
+  auto WriteDataFromISR(std::byte* data, std::size_t size) -> bool;
 
   // Not copyable or movable.
   AudioDac(const AudioDac&) = delete;
@@ -81,6 +82,9 @@ class AudioDac {
 
   i2s_std_clk_config_t clock_config_;
   i2s_std_slot_config_t slot_config_;
+
+  // TODO: volatile?
+  volatile QueueHandle_t dma_queue_;
 
   /*
    * Pools the power state for up to 10ms, waiting for the given predicate to

@@ -69,6 +69,16 @@ auto FatfsAudioInput::ProcessChunk(const cpp::span<std::byte>& chunk)
   return cpp::fail(UNSUPPORTED_STREAM);
 }
 
+auto FatfsAudioInput::ProcessEndOfStream() -> void {
+  if (is_file_open_) {
+      f_close(&current_file_);
+      is_file_open_ = false;
+      SendOrBufferEvent(
+          std::unique_ptr<StreamEvent>(
+            StreamEvent::CreateEndOfStream(input_events_)));
+  }
+}
+
 auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
   if (is_file_open_) {
     auto dest_event = std::unique_ptr<StreamEvent>(
