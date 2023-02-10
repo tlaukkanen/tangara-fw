@@ -183,7 +183,6 @@ void Display::SendTransaction(TransactionType type,
   if (length == 0) {
     return;
   }
-  ESP_LOGI(kTag, "lvgl transaction");
 
   // TODO: Use a memory pool for these.
   spi_transaction_t* transaction = (spi_transaction_t*)heap_caps_calloc(
