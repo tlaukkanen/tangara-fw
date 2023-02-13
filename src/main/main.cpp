@@ -98,9 +98,9 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Enable power rails for development");
   expander->with([&](auto& gpio) {
     gpio.set_pin(drivers::GpioExpander::USB_INTERFACE_POWER_ENABLE, 0);
-    gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 0);
+    gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 1);
     gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH,
-                 drivers::GpioExpander::SD_MUX_USB);
+                 drivers::GpioExpander::SD_MUX_ESP);
   });
 
   ESP_LOGI(TAG, "Init battery measurement");
