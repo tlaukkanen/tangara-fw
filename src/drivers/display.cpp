@@ -50,8 +50,8 @@ namespace callback {
 static std::atomic<Display*> instance = nullptr;
 
 extern "C" void flush_cb(lv_disp_drv_t* disp_drv,
-                     const lv_area_t* area,
-                     lv_color_t* color_map) {
+                         const lv_area_t* area,
+                         lv_color_t* color_map) {
   auto instance_unwrapped = instance.load();
   if (instance_unwrapped == nullptr) {
     ESP_LOGW(kTag, "uncaught flush callback");

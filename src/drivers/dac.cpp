@@ -8,9 +8,11 @@
 #include "driver/i2s_common.h"
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
+#include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
 #include "hal/i2c_types.h"
 
 #include "gpio_expander.hpp"
@@ -28,22 +30,13 @@ static const AudioDac::SampleRate kDefaultSampleRate =
     AudioDac::SAMPLE_RATE_44_1;
 static const AudioDac::BitsPerSample kDefaultBps = AudioDac::BPS_16;
 
-extern "C" {
-bool dma_callback(i2s_chan_handle_t handle,
-                  i2s_event_data_t* event,
-                  void* user_ctx) {
-  AudioDac* dac = static_cast<AudioDac*>(user_ctx);
-  return dac->WriteDataFromISR(static_cast<std::byte*>(event->data),
-                               event->size);
-}
-}
-
 auto AudioDac::create(GpioExpander* expander)
     -> cpp::result<std::unique_ptr<AudioDac>, Error> {
   // TODO: tune.
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config =
       I2S_CHANNEL_DEFAULT_CONFIG(kI2SPort, I2S_ROLE_MASTER);
+
   ESP_ERROR_CHECK(i2s_new_channel(&channel_config, &i2s_handle, NULL));
   //
   // First, instantiate the instance so it can do all of its power on
@@ -108,8 +101,7 @@ AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
       i2s_handle_(i2s_handle),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
       slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
-                                                   I2S_SLOT_MODE_STEREO)),
-      dma_queue_(nullptr) {
+                                                   I2S_SLOT_MODE_STEREO)) {
   gpio_->set_pin(GpioExpander::AUDIO_POWER_ENABLE, true);
   gpio_->Write();
 }
@@ -167,9 +159,7 @@ bool AudioDac::WaitForPowerState(
   return has_matched;
 }
 
-auto AudioDac::Reconfigure(BitsPerSample bps,
-                           SampleRate rate,
-                           QueueHandle_t dma_queue) -> std::size_t {
+auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   // TODO(jacqueline): investigate how reliable the auto-clocking of the dac
   // is. We might need to explicit reconfigure the dac here as well if it's not
   // good enough.
@@ -183,44 +173,17 @@ auto AudioDac::Reconfigure(BitsPerSample bps,
       bps == BPS_24 ? I2S_MCLK_MULTIPLE_384 : I2S_MCLK_MULTIPLE_256;
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
-  dma_queue_ = dma_queue;
-
-  // TODO: less spooky action here plz.
-  // dma_buffer_size = dma_frame_num (channel config) * slot_num (always 2?) *
-  // slot_bit_width / 8
-  //size_t dma_size = 240 * 2 * slot_config_.slot_bit_width / 8;
-  size_t dma_size = 960;
-  ESP_LOGI(kTag, "new dma size: %u bytes", dma_size);
-
-  i2s_event_callbacks_t callbacks = {
-      .on_recv = NULL,
-      .on_recv_q_ovf = NULL,
-      .on_sent = &dma_callback,
-      .on_send_q_ovf = NULL,
-  };
-  ESP_ERROR_CHECK(
-      i2s_channel_register_event_callback(i2s_handle_, &callbacks, this));
-
   ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
-
-  return dma_size;
 }
 
-auto AudioDac::WriteDataFromISR(std::byte* data, std::size_t size) -> bool {
-  std::byte* new_data;
-  BaseType_t high_priority_task_awoken = pdFALSE;
-
-  if (xQueueReceiveFromISR(dma_queue_, &new_data, &high_priority_task_awoken)) {
-    // Item was received. Copy it into the DMA buffer.
-    memcpy(data, new_data, size);
-    free(new_data);
-    ESP_DRAM_LOGI(kTag, "wrote dma");
-  } else {
-    // No item was received. Write empty data.
-    memset(data, 0, size);
+auto AudioDac::WriteData(cpp::span<std::byte> data) -> std::size_t {
+  std::size_t bytes_written = 0;
+  esp_err_t err = i2s_channel_write(i2s_handle_, data.data(), data.size_bytes(),
+                                    &bytes_written, 0);
+  if (err != ESP_ERR_TIMEOUT) {
+    ESP_ERROR_CHECK(err);
   }
-
-  return high_priority_task_awoken;
+  return bytes_written;
 }
 
 void AudioDac::WriteRegister(Register reg, uint8_t val) {

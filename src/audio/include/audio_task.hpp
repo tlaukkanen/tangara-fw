@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <optional>
+#include <string>
 
 #include "audio_element.hpp"
 #include "audio_element_handle.hpp"

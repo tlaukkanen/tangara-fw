@@ -38,8 +38,6 @@ class I2SAudioOutput : public IAudioElement {
   auto SetVolume(uint8_t volume) -> void;
   auto SetSoftMute(bool enabled) -> void;
 
-  auto ClearDmaQueue() -> void;
-
   drivers::GpioExpander* expander_;
   std::unique_ptr<drivers::AudioDac> dac_;
 
@@ -48,8 +46,6 @@ class I2SAudioOutput : public IAudioElement {
 
   std::optional<ChunkReader> chunk_reader_;
   cpp::span<std::byte> latest_chunk_;
-  std::optional<std::size_t> dma_size_;
-  QueueHandle_t dma_queue_;
 };
 
 }  // namespace audio

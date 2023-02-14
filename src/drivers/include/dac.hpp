@@ -10,6 +10,7 @@
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "result.hpp"
 #include "span.hpp"
@@ -67,10 +68,9 @@ class AudioDac {
   };
 
   // TODO(jacqueline): worth supporting channels here as well?
-  auto Reconfigure(BitsPerSample bps, SampleRate rate, QueueHandle_t dma_queue)
-      -> std::size_t;
+  auto Reconfigure(BitsPerSample bps, SampleRate rate) -> void;
 
-  auto WriteDataFromISR(std::byte* data, std::size_t size) -> bool;
+  auto WriteData(cpp::span<std::byte> data) -> std::size_t;
 
   // Not copyable or movable.
   AudioDac(const AudioDac&) = delete;
@@ -82,9 +82,6 @@ class AudioDac {
 
   i2s_std_clk_config_t clock_config_;
   i2s_std_slot_config_t slot_config_;
-
-  // TODO: volatile?
-  volatile QueueHandle_t dma_queue_;
 
   /*
    * Pools the power state for up to 10ms, waiting for the given predicate to

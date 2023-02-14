@@ -43,22 +43,12 @@ I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
       volume_(255),
       is_soft_muted_(false),
       chunk_reader_(),
-      latest_chunk_(),
-      dma_size_(),
-      dma_queue_(nullptr) {}
+      latest_chunk_() {}
 
-I2SAudioOutput::~I2SAudioOutput() {
-  if (dma_queue_ != nullptr) {
-    ClearDmaQueue();
-  }
-  // TODO: power down the DAC.
-}
+I2SAudioOutput::~I2SAudioOutput() {}
 
 auto I2SAudioOutput::HasUnprocessedInput() -> bool {
-  if (dma_queue_ == nullptr || !dma_size_) {
-    return false;
-  }
-  return latest_chunk_.size() >= *dma_size_;
+  return latest_chunk_.size() > 0;
 }
 
 auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
@@ -108,77 +98,30 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
       return cpp::fail(UNSUPPORTED_STREAM);
   }
 
-  QueueHandle_t new_dma_queue =
-      xQueueCreate(kDmaQueueLength, sizeof(std::byte*));
-
-  dma_size_ = dac_->Reconfigure(bps, sample_rate, new_dma_queue);
-
-  if (dma_queue_ != nullptr) {
-    ClearDmaQueue();
-  }
-  dma_queue_ = new_dma_queue;
+  dac_->Reconfigure(bps, sample_rate);
 
   return {};
 }
 
 auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
     -> cpp::result<std::size_t, AudioProcessingError> {
-  ESP_LOGI(kTag, "received new samples");
   latest_chunk_ = chunk_reader_->HandleNewData(chunk);
   return 0;
 }
 
 auto I2SAudioOutput::ProcessEndOfStream() -> void {
-  if (chunk_reader_ && dma_size_) {
-    auto leftovers = chunk_reader_->GetLeftovers();
-    if (leftovers.size() > 0 && leftovers.size() < *dma_size_) {
-      std::byte* dest = static_cast<std::byte*>(malloc(*dma_size_));
-      cpp::span dest_span(dest, *dma_size_);
-
-      std::copy(leftovers.begin(), leftovers.end(), dest_span.begin());
-      std::fill(dest_span.begin() + leftovers.size(), dest_span.end(), static_cast<std::byte>(0));
-
-      xQueueSend(dma_queue_, &dest, portMAX_DELAY);
-    }
-  }
-
-  SendOrBufferEvent(
-      std::unique_ptr<StreamEvent>(
-        StreamEvent::CreateEndOfStream(input_events_)));
-
-  chunk_reader_.reset();
-  dma_size_.reset();
+  SendOrBufferEvent(std::unique_ptr<StreamEvent>(
+      StreamEvent::CreateEndOfStream(input_events_)));
 }
 
 auto I2SAudioOutput::Process() -> cpp::result<void, AudioProcessingError> {
-  std::size_t spaces_available = uxQueueSpacesAvailable(dma_queue_);
-  if (spaces_available == 0) {
-    // TODO: think about this more. can this just be the output event queue?
-    vTaskDelay(pdMS_TO_TICKS(100));
-    return {};
-  }
-
-  // Fill the queue as much as possible, since we need to be able to stream
-  // FAST.
-  while (latest_chunk_.size() >= *dma_size_ && spaces_available > 0) {
-    // TODO: small memory arena for this?
-    std::byte* dest = static_cast<std::byte*>(malloc(*dma_size_));
-    cpp::span dest_span(dest, *dma_size_);
-    cpp::span src_span = latest_chunk_.first(*dma_size_);
-    std::copy(src_span.begin(), src_span.end(), dest_span.begin());
-    if (!xQueueSend(dma_queue_, &dest, 0)) {
-      // TODO: calculate how often we expect this to happen.
-      free(dest);
-      break;
-    }
-    latest_chunk_ = latest_chunk_.subspan(*dma_size_);
-    ESP_LOGI(kTag, "wrote dma buffer of size %u", *dma_size_);
-  }
-  if (latest_chunk_.size() < *dma_size_) {
-    // TODO: if this is the end of the stream, then we should be sending this
-    // with zero padding. hmm. i guess we need an explicit EOF event?
-    chunk_reader_->HandleBytesLeftOver(latest_chunk_.size());
-    ESP_LOGI(kTag, "not enough samples for dma buffer");
+  // Note: no logging here!
+  std::size_t bytes_written = dac_->WriteData(latest_chunk_);
+  if (bytes_written == latest_chunk_.size_bytes()) {
+    latest_chunk_ = cpp::span<std::byte>();
+    chunk_reader_->HandleBytesLeftOver(0);
+  } else {
+    latest_chunk_ = latest_chunk_.subspan(bytes_written);
   }
   return {};
 }
@@ -200,19 +143,6 @@ auto I2SAudioOutput::SetSoftMute(bool enabled) -> void {
   } else {
     dac_->WriteVolume(volume_);
   }
-}
-
-auto I2SAudioOutput::ClearDmaQueue() -> void {
-  // Ensure we don't leak any memory from events leftover in the queue.
-  while (uxQueueSpacesAvailable(dma_queue_) < kDmaQueueLength) {
-    std::byte* data = nullptr;
-    if (xQueueReceive(input_events_, &data, 0)) {
-      free(data);
-    } else {
-      break;
-    }
-  }
-  vQueueDelete(dma_queue_);
 }
 
 }  // namespace audio

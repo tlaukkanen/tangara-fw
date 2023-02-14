@@ -38,8 +38,9 @@ auto StartAudioTask(const std::string& name,
 
   ESP_LOGI(kTag, "starting audio task %s", name.c_str());
   if (core_id) {
-    xTaskCreatePinnedToCore(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
-                kTaskPriorityAudio, task_handle.get(), *core_id);
+    xTaskCreatePinnedToCore(&AudioTaskMain, name.c_str(),
+                            element->StackSizeBytes(), args, kTaskPriorityAudio,
+                            task_handle.get(), *core_id);
   } else {
     xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
                 kTaskPriorityAudio, task_handle.get());

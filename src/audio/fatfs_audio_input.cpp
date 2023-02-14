@@ -71,11 +71,10 @@ auto FatfsAudioInput::ProcessChunk(const cpp::span<std::byte>& chunk)
 
 auto FatfsAudioInput::ProcessEndOfStream() -> void {
   if (is_file_open_) {
-      f_close(&current_file_);
-      is_file_open_ = false;
-      SendOrBufferEvent(
-          std::unique_ptr<StreamEvent>(
-            StreamEvent::CreateEndOfStream(input_events_)));
+    f_close(&current_file_);
+    is_file_open_ = false;
+    SendOrBufferEvent(std::unique_ptr<StreamEvent>(
+        StreamEvent::CreateEndOfStream(input_events_)));
   }
 }
 
@@ -85,7 +84,6 @@ auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
         StreamEvent::CreateChunkData(input_events_, kChunkSize));
     UINT bytes_read = 0;
 
-    ESP_LOGI(kTag, "reading from file");
     FRESULT result = f_read(&current_file_, dest_event->chunk_data.raw_bytes,
                             kChunkSize, &bytes_read);
     if (result != FR_OK) {
@@ -93,13 +91,11 @@ auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
       return cpp::fail(IO_ERROR);
     }
 
-    ESP_LOGI(kTag, "sending file data (%u bytes)", bytes_read);
     dest_event->chunk_data.bytes =
         dest_event->chunk_data.bytes.first(bytes_read);
     SendOrBufferEvent(std::move(dest_event));
 
     if (bytes_read < kChunkSize || f_eof(&current_file_)) {
-      ESP_LOGI(kTag, "closing file");
       f_close(&current_file_);
       is_file_open_ = false;
     }

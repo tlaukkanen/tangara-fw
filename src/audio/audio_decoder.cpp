@@ -21,7 +21,7 @@ namespace audio {
 
 static const char* kTag = "DEC";
 
-static const std::size_t kSamplesPerChunk = 256;
+static const std::size_t kSamplesPerChunk = 1024;
 
 AudioDecoder::AudioDecoder()
     : IAudioElement(),
@@ -89,14 +89,12 @@ auto AudioDecoder::ProcessEndOfStream() -> void {
   needs_more_input_ = true;
   current_codec_.reset();
 
-  SendOrBufferEvent(
-      std::unique_ptr<StreamEvent>(
-        StreamEvent::CreateEndOfStream(input_events_)));
+  SendOrBufferEvent(std::unique_ptr<StreamEvent>(
+      StreamEvent::CreateEndOfStream(input_events_)));
 }
 
 auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
   if (has_samples_to_send_) {
-    ESP_LOGI(kTag, "sending samples");
     // Writing samples is relatively quick (it's just a bunch of memcopy's), so
     // do them all at once.
     while (has_samples_to_send_ && !IsOverBuffered()) {
@@ -132,7 +130,6 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
   }
 
   if (!needs_more_input_) {
-    ESP_LOGI(kTag, "decoding frame");
     auto res = current_codec_->ProcessNextFrame();
     if (res.has_error()) {
       // todo
