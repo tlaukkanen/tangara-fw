@@ -16,6 +16,7 @@
 #include "span.hpp"
 
 #include "gpio_expander.hpp"
+#include "sys/_stdint.h"
 
 namespace drivers {
 
@@ -72,6 +73,9 @@ class AudioDac {
 
   auto WriteData(cpp::span<std::byte> data) -> std::size_t;
 
+  auto Stop() -> void;
+  auto LogStatus() -> void;
+
   // Not copyable or movable.
   AudioDac(const AudioDac&) = delete;
   AudioDac& operator=(const AudioDac&) = delete;
@@ -91,13 +95,27 @@ class AudioDac {
 
   enum Register {
     PAGE_SELECT = 0,
+    RESET = 1,
+    POWER_MODE = 2,
     DE_EMPHASIS = 7,
+    DAC_CLOCK_SOURCE = 14,
+    CLOCK_ERRORS = 37,
+    I2S_FORMAT = 40,
     DIGITAL_VOLUME_L = 61,
     DIGITAL_VOLUME_R = 62,
+
+    SAMPLE_RATE_DETECTION = 91,
+    BCK_DETECTION = 93,
+    CLOCK_ERROR_STATE = 94,
+    CLOCK_STATUS = 95,
+    AUTO_MUTE_STATE = 108,
+    SOFT_MUTE_STATE = 114,
+    SAMPLE_RATE_STATE = 115,
     DSP_BOOT_POWER_STATE = 118,
   };
 
   void WriteRegister(Register reg, uint8_t val);
+  uint8_t ReadRegister(Register reg);
 };
 
 }  // namespace drivers

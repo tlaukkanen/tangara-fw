@@ -44,6 +44,12 @@ auto StreamEvent::CreateEndOfStream(QueueHandle_t source) -> StreamEvent* {
   return event;
 }
 
+auto StreamEvent::CreateLogStatus() -> StreamEvent* {
+  auto event = new StreamEvent;
+  event->tag = StreamEvent::LOG_STATUS;
+  return event;
+}
+
 StreamEvent::StreamEvent() : tag(StreamEvent::UNINITIALISED) {}
 
 StreamEvent::~StreamEvent() {
@@ -59,6 +65,8 @@ StreamEvent::~StreamEvent() {
     case CHUNK_NOTIFICATION:
       break;
     case END_OF_STREAM:
+      break;
+    case LOG_STATUS:
       break;
   }
 }
@@ -80,6 +88,8 @@ StreamEvent::StreamEvent(StreamEvent&& other) {
     case CHUNK_NOTIFICATION:
       break;
     case END_OF_STREAM:
+      break;
+    case LOG_STATUS:
       break;
   }
   other.tag = StreamEvent::UNINITIALISED;

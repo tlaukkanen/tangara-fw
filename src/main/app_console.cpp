@@ -124,6 +124,27 @@ void RegisterVolume() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdAudioStatus(int argc, char** argv) {
+  static const std::string usage = "usage: audio";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  sInstance->playback_->LogStatus();
+
+  return 0;
+}
+
+void RegisterAudioStatus() {
+  esp_console_cmd_t cmd{.command = "audio",
+                        .help = "logs the current status of the audio pipeline",
+                        .hint = NULL,
+                        .func = &CmdAudioStatus,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 AppConsole::AppConsole(audio::AudioPlayback* playback) : playback_(playback) {
   sInstance = this;
 }
@@ -136,6 +157,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterPlayFile();
   RegisterToggle();
   RegisterVolume();
+  RegisterAudioStatus();
 }
 
 }  // namespace console

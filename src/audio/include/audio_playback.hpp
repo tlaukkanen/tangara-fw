@@ -37,6 +37,8 @@ class AudioPlayback {
    */
   auto Play(const std::string& filename) -> void;
 
+  auto LogStatus() -> void;
+
   // Not copyable or movable.
   AudioPlayback(const AudioPlayback&) = delete;
   AudioPlayback& operator=(const AudioPlayback&) = delete;

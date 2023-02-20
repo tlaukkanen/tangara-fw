@@ -107,6 +107,8 @@ class IAudioElement {
 
   virtual auto ProcessEndOfStream() -> void = 0;
 
+  virtual auto ProcessLogStatus() -> void {}
+
   /*
    * Called when there has been no data received over the input buffer for some
    * time. This could be used to synthesize output, or to save memory by

@@ -64,6 +64,11 @@ auto AudioPlayback::Play(const std::string& filename) -> void {
   xQueueSend(input_handle_, &event, portMAX_DELAY);
 }
 
+auto AudioPlayback::LogStatus() -> void {
+  auto event = StreamEvent::CreateLogStatus();
+  xQueueSendToFront(input_handle_, &event, portMAX_DELAY);
+}
+
 auto AudioPlayback::ConnectElements(IAudioElement* src, IAudioElement* sink)
     -> void {
   src->OutputEventQueue(sink->InputEventQueue());

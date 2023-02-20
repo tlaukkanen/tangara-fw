@@ -110,8 +110,13 @@ auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
 }
 
 auto I2SAudioOutput::ProcessEndOfStream() -> void {
+  dac_->Stop();
   SendOrBufferEvent(std::unique_ptr<StreamEvent>(
       StreamEvent::CreateEndOfStream(input_events_)));
+}
+
+auto I2SAudioOutput::ProcessLogStatus() -> void {
+  dac_->LogStatus();
 }
 
 auto I2SAudioOutput::Process() -> cpp::result<void, AudioProcessingError> {

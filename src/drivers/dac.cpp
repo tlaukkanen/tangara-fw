@@ -18,6 +18,7 @@
 #include "gpio_expander.hpp"
 #include "hal/i2s_types.h"
 #include "i2c.hpp"
+#include "sys/_stdint.h"
 
 namespace drivers {
 
@@ -49,7 +50,9 @@ auto AudioDac::create(GpioExpander* expander)
   i2s_std_config_t i2s_config = {
       .clk_cfg = dac->clock_config_,
       .slot_cfg = dac->slot_config_,
-      .gpio_cfg = {.mclk = I2S_GPIO_UNUSED,  // PCM5122 is self-clocking
+      .gpio_cfg = {
+        // TODO: investigate running in three wire mode for less noise
+        .mclk = GPIO_NUM_0,
                    .bclk = GPIO_NUM_26,
                    .ws = GPIO_NUM_27,
                    .dout = GPIO_NUM_5,
@@ -68,9 +71,7 @@ auto AudioDac::create(GpioExpander* expander)
     return cpp::fail(Error::FAILED_TO_INSTALL_I2S);
   }
 
-  ESP_ERROR_CHECK(i2s_channel_enable(dac->i2s_handle_));
-
-  // Now let's double check that the DAC itself came up whilst we we working.
+  // Make sure the DAC has booted before sending commands to it.
   bool is_booted = dac->WaitForPowerState(
       [](bool booted, PowerState state) { return booted; });
   if (!is_booted) {
@@ -78,20 +79,21 @@ auto AudioDac::create(GpioExpander* expander)
     return cpp::fail(Error::FAILED_TO_BOOT);
   }
 
-  // Write the initial configuration.
-  dac->WriteRegister(Register::DE_EMPHASIS, 1 << 4);
-  dac->WriteVolume(255);
+  // The DAC should be booted but in power down mode, but it might not be if we
+  // didn't shut down cleanly. Reset it to ensure it is in a consistent state.
+  dac->WriteRegister(Register::POWER_MODE, 0b10001);
+  dac->WriteRegister(Register::POWER_MODE, 1 << 4);
+  dac->WriteRegister(Register::RESET, 0b10001);
 
-  // We already started the I2S channel with a default clock rate, but sending
-  // only zeros. The DAC should see this and automatically enter standby (if
-  // it's still waiting for the charge pump then that's also okay.)
-  bool is_configured =
-      dac->WaitForPowerState([](bool booted, PowerState state) {
-        return state == STANDBY || state == WAIT_FOR_CP;
-      });
-  if (!is_configured) {
-    return cpp::fail(Error::FAILED_TO_CONFIGURE);
-  }
+  // Now configure the DAC for standard auto-clock SCK mode.
+  dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b11 << 5);
+
+  // Enable auto clocking, and do your best to carry on despite errors.
+  //dac->WriteRegister(Register::CLOCK_ERRORS, 0b1111101);
+
+  i2s_channel_enable(dac->i2s_handle_);
+
+  dac->WaitForPowerState([](bool booted, PowerState state) { return state == STANDBY; });
 
   return dac;
 }
@@ -160,20 +162,33 @@ bool AudioDac::WaitForPowerState(
 }
 
 auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
-  // TODO(jacqueline): investigate how reliable the auto-clocking of the dac
-  // is. We might need to explicit reconfigure the dac here as well if it's not
-  // good enough.
-  ESP_ERROR_CHECK(i2s_channel_disable(i2s_handle_));
+  // Disable the current output, if it isn't already stopped.
+  WriteRegister(Register::POWER_MODE, 1 << 4);
+  i2s_channel_disable(i2s_handle_);
+
+  // I2S reconfiguration.
 
   slot_config_.slot_bit_width = (i2s_slot_bit_width_t)bps;
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_));
 
   clock_config_.sample_rate_hz = rate;
+  // If we have an MCLK/SCK, then it must be a multiple of both the sample rate
+  // and the bit clock. At 24 BPS, we therefore have to change the MCLK multiple
+  // to avoid issues at some sample rates. (e.g. 48KHz)
   clock_config_.mclk_multiple =
       bps == BPS_24 ? I2S_MCLK_MULTIPLE_384 : I2S_MCLK_MULTIPLE_256;
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
+  // DAC reconfiguration.
+
+  // TODO: base on BPS
+  WriteRegister(Register::I2S_FORMAT, 0);
+
+  // Configuration is all done, so we can now bring the DAC and I2S stream back
+  // up. I2S first, since otherwise the DAC will see that there's no clocks and
+  // shut itself down.
   ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
+  WriteRegister(Register::POWER_MODE, 0);
 }
 
 auto AudioDac::WriteData(cpp::span<std::byte> data) -> std::size_t {
@@ -186,6 +201,55 @@ auto AudioDac::WriteData(cpp::span<std::byte> data) -> std::size_t {
   return bytes_written;
 }
 
+auto AudioDac::Stop() -> void {
+  LogStatus();
+  WriteRegister(Register::POWER_MODE, 1 << 4);
+  i2s_channel_disable(i2s_handle_);
+}
+
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+  (byte & 0x80 ? '1' : '0'), \
+  (byte & 0x40 ? '1' : '0'), \
+  (byte & 0x20 ? '1' : '0'), \
+  (byte & 0x10 ? '1' : '0'), \
+  (byte & 0x08 ? '1' : '0'), \
+  (byte & 0x04 ? '1' : '0'), \
+  (byte & 0x02 ? '1' : '0'), \
+  (byte & 0x01 ? '1' : '0') 
+
+
+auto AudioDac::LogStatus() -> void {
+  uint8_t res;
+
+  res = ReadRegister(Register::SAMPLE_RATE_DETECTION);
+  ESP_LOGI(kTag, "detected sample rate (want 3): %u", (res >> 4) && 0b111);
+  ESP_LOGI(kTag, "detected SCK ratio (want 6): %u", res && 0b1111);
+
+  res = ReadRegister(Register::BCK_DETECTION);
+  ESP_LOGI(kTag, "detected BCK (want... 16? 32?): %u", res);
+
+  res = ReadRegister(Register::CLOCK_ERROR_STATE);
+  ESP_LOGI(kTag, "clock errors (want zeroes): ");
+  ESP_LOGI(kTag, BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(res & 0b1111111));
+
+  res = ReadRegister(Register::CLOCK_STATUS);
+  ESP_LOGI(kTag, "clock status (want zeroes): ");
+  ESP_LOGI(kTag, BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(res & 0b10111));
+
+  res = ReadRegister(Register::AUTO_MUTE_STATE);
+  ESP_LOGI(kTag, "automute status (want 3): %u", res & 0b11);
+
+  res = ReadRegister(Register::SOFT_MUTE_STATE);
+  ESP_LOGI(kTag, "soft mute pin status (want 3): %u", res & 0b11);
+
+  res = ReadRegister(Register::SAMPLE_RATE_STATE);
+  ESP_LOGI(kTag, "detected sample speed mode (want 0): %u", res & 0b11);
+
+  auto power = ReadPowerState();
+  ESP_LOGI(kTag, "current power state (want 5): %u", power.second);
+}
+
 void AudioDac::WriteRegister(Register reg, uint8_t val) {
   I2CTransaction transaction;
   transaction.start()
@@ -194,6 +258,21 @@ void AudioDac::WriteRegister(Register reg, uint8_t val) {
       .stop();
   // TODO: Retry once?
   ESP_ERROR_CHECK(transaction.Execute());
+}
+
+uint8_t AudioDac::ReadRegister(Register reg) {
+  uint8_t result = 0;
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kPcm5122Address, I2C_MASTER_WRITE)
+      .write_ack(reg)
+      .start()
+      .write_addr(kPcm5122Address, I2C_MASTER_READ)
+      .read(&result, I2C_MASTER_NACK)
+      .stop();
+
+  ESP_ERROR_CHECK(transaction.Execute());
+  return result;
 }
 
 }  // namespace drivers

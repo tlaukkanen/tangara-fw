@@ -92,6 +92,14 @@ void AudioTaskMain(void* args) {
         } else if (new_event->tag == StreamEvent::CHUNK_NOTIFICATION) {
           ESP_LOGD(kTag, "marking chunk as used");
           element->OnChunkProcessed();
+          delete new_event;
+        } else if (new_event->tag == StreamEvent::LOG_STATUS) {
+          element->ProcessLogStatus();
+          if (element->OutputEventQueue() != nullptr) {
+          xQueueSendToFront(element->OutputEventQueue(), &new_event, 0);
+          } else {
+            delete new_event;
+          }
         } else {
           // This isn't an event that needs to be actioned immediately. Add it
           // to our work queue.

@@ -8,9 +8,9 @@
 
 namespace codecs {
 
-static int32_t scaleTo24Bits(mad_fixed_t sample) {
+static int scaleTo24Bits(mad_fixed_t sample) {
   // Round the bottom bits.
-  sample += (1L << (MAD_F_FRACBITS - 24));
+  sample += (1L << (MAD_F_FRACBITS - 16));
 
   // Clip the leftover bits to within range.
   if (sample >= MAD_F_ONE)
@@ -19,7 +19,7 @@ static int32_t scaleTo24Bits(mad_fixed_t sample) {
     sample = -MAD_F_ONE;
 
   /* quantize */
-  return sample >> (MAD_F_FRACBITS + 1 - 24);
+  return sample >> (MAD_F_FRACBITS + 1 - 16);
 }
 
 MadMp3Decoder::MadMp3Decoder() {
@@ -42,7 +42,7 @@ auto MadMp3Decoder::CanHandleFile(const std::string& path) -> bool {
 auto MadMp3Decoder::GetOutputFormat() -> OutputFormat {
   return OutputFormat{
       .num_channels = static_cast<uint8_t>(synth_.pcm.channels),
-      .bits_per_sample = 24,
+      .bits_per_sample = 16,
       .sample_rate_hz =
           synth_.pcm.samplerate == 0 ? 44100 : synth_.pcm.samplerate,
   };
@@ -120,9 +120,8 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
       uint32_t sample_24 =
           scaleTo24Bits(synth_.pcm.samples[channel][current_sample_]);
-      output[output_byte++] = static_cast<std::byte>(sample_24 >> 0);
-      output[output_byte++] = static_cast<std::byte>(sample_24 >> 8);
-      output[output_byte++] = static_cast<std::byte>(sample_24 >> 16);
+      output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_24) & 0xFF);
     }
     current_sample_++;
   }

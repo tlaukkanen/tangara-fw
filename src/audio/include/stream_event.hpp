@@ -17,6 +17,7 @@ struct StreamEvent {
       -> StreamEvent*;
   static auto CreateChunkNotification(QueueHandle_t source) -> StreamEvent*;
   static auto CreateEndOfStream(QueueHandle_t source) -> StreamEvent*;
+  static auto CreateLogStatus() -> StreamEvent*;
 
   StreamEvent();
   ~StreamEvent();
@@ -30,6 +31,7 @@ struct StreamEvent {
     CHUNK_DATA,
     CHUNK_NOTIFICATION,
     END_OF_STREAM,
+    LOG_STATUS,
   } tag;
 
   union {
