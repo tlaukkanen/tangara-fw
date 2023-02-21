@@ -24,13 +24,12 @@ class FatfsAudioInput : public IAudioElement {
   ~FatfsAudioInput();
 
   auto HasUnprocessedInput() -> bool override;
+  auto IsOverBuffered() -> bool override;
 
-  auto ProcessStreamInfo(const StreamInfo& info)
-      -> cpp::result<void, AudioProcessingError> override;
-  auto ProcessChunk(const cpp::span<std::byte>& chunk)
-      -> cpp::result<std::size_t, AudioProcessingError> override;
+  auto ProcessStreamInfo(const StreamInfo& info) -> void override;
+  auto ProcessChunk(const cpp::span<std::byte>& chunk) -> void override;
   auto ProcessEndOfStream() -> void override;
-  auto Process() -> cpp::result<void, AudioProcessingError> override;
+  auto Process() -> void override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;

@@ -5,12 +5,12 @@
 #include <string>
 #include <vector>
 
-#include "audio_element.hpp"
-#include "audio_element_handle.hpp"
 #include "esp_err.h"
-#include "gpio_expander.hpp"
 #include "result.hpp"
 #include "span.hpp"
+
+#include "audio_element.hpp"
+#include "gpio_expander.hpp"
 #include "storage.hpp"
 #include "stream_buffer.hpp"
 
@@ -45,7 +45,6 @@ class AudioPlayback {
 
  private:
   auto ConnectElements(IAudioElement* src, IAudioElement* sink) -> void;
-  std::vector<std::unique_ptr<AudioElementHandle>> element_handles_;
 
   QueueHandle_t input_handle_;
 };

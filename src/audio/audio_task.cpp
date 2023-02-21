@@ -6,8 +6,6 @@
 #include <deque>
 #include <memory>
 
-#include "arena.hpp"
-#include "audio_element_handle.hpp"
 #include "cbor.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -16,6 +14,7 @@
 #include "freertos/queue.h"
 #include "span.hpp"
 
+#include "arena.hpp"
 #include "audio_element.hpp"
 #include "chunk.hpp"
 #include "stream_event.hpp"
@@ -30,8 +29,7 @@ static const char* kTag = "task";
 
 auto StartAudioTask(const std::string& name,
                     std::optional<BaseType_t> core_id,
-                    std::shared_ptr<IAudioElement> element)
-    -> std::unique_ptr<AudioElementHandle> {
+                    std::shared_ptr<IAudioElement> element) -> void {
   auto task_handle = std::make_unique<TaskHandle_t>();
 
   // Newly created task will free this.
@@ -46,8 +44,6 @@ auto StartAudioTask(const std::string& name,
     xTaskCreate(&AudioTaskMain, name.c_str(), element->StackSizeBytes(), args,
                 kTaskPriorityAudio, task_handle.get());
   }
-
-  return std::make_unique<AudioElementHandle>(std::move(task_handle), element);
 }
 
 void AudioTaskMain(void* args) {
@@ -62,7 +58,8 @@ void AudioTaskMain(void* args) {
     // processed.
     std::deque<std::unique_ptr<StreamEvent>> pending_events;
 
-    while (element->ElementState() != STATE_QUIT) {
+    // TODO(jacqueline): quit event
+    while (true) {
       // First, we pull events from our input queue into pending_events. This
       // keeps us responsive to any events that need to be handled immediately.
       // Then we check if there's any events to flush downstream.
@@ -91,8 +88,6 @@ void AudioTaskMain(void* args) {
         if (new_event->tag == StreamEvent::UNINITIALISED) {
           ESP_LOGE(kTag, "discarding invalid event!!");
         } else if (new_event->tag == StreamEvent::CHUNK_NOTIFICATION) {
-          ESP_LOGD(kTag, "marking chunk as used");
-          element->OnChunkProcessed();
           delete new_event;
         } else if (new_event->tag == StreamEvent::LOG_STATUS) {
           element->ProcessLogStatus();
@@ -129,10 +124,7 @@ void AudioTaskMain(void* args) {
 
       if (element->HasUnprocessedInput()) {
         ESP_LOGD(kTag, "processing input events");
-        auto process_res = element->Process();
-        if (!process_res.has_error() || process_res.error() != OUT_OF_DATA) {
-          // TODO: log!
-        }
+        element->Process();
         continue;
       }
 
@@ -146,13 +138,12 @@ void AudioTaskMain(void* args) {
 
         if (event->tag == StreamEvent::STREAM_INFO) {
           ESP_LOGD(kTag, "processing stream info");
-          auto process_res = element->ProcessStreamInfo(*event->stream_info);
-          if (process_res.has_error()) {
-            // TODO(jacqueline)
-            ESP_LOGE(kTag, "failed to process stream info");
-          }
+
+          element->ProcessStreamInfo(*event->stream_info);
+
         } else if (event->tag == StreamEvent::ARENA_CHUNK) {
           ESP_LOGD(kTag, "processing arena data");
+
           memory::ArenaRef ref(event->arena_chunk);
           auto callback =
               StreamEvent::CreateChunkNotification(element->InputEventQueue());
@@ -163,13 +154,7 @@ void AudioTaskMain(void* args) {
 
           // TODO(jacqueline): Consider giving the element a full ArenaRef here,
           // so that it can hang on to it and potentially save an alloc+copy.
-          auto process_chunk_res =
-              element->ProcessChunk({ref.ptr.start, ref.ptr.used_size});
-          if (process_chunk_res.has_error()) {
-            // TODO(jacqueline)
-            ESP_LOGE(kTag, "failed to process chunk");
-            continue;
-          }
+          element->ProcessChunk({ref.ptr.start, ref.ptr.used_size});
 
           // TODO: think about whether to do the whole queue
           break;

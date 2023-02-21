@@ -6,9 +6,7 @@ namespace audio {
 IAudioElement::IAudioElement()
     : input_events_(xQueueCreate(kEventQueueSize, sizeof(void*))),
       output_events_(nullptr),
-      unprocessed_output_chunks_(0),
-      buffered_output_(),
-      current_state_(STATE_RUN) {}
+      buffered_output_() {}
 
 IAudioElement::~IAudioElement() {
   // Ensure we don't leak any memory from events leftover in the queue.
@@ -28,9 +26,6 @@ IAudioElement::~IAudioElement() {
 
 auto IAudioElement::SendOrBufferEvent(std::unique_ptr<StreamEvent> event)
     -> bool {
-  if (event->tag == StreamEvent::ARENA_CHUNK) {
-    unprocessed_output_chunks_++;
-  }
   if (!buffered_output_.empty()) {
     // To ensure we send data in order, don't try to send if we've already
     // failed to send something.

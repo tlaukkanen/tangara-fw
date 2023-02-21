@@ -4,11 +4,13 @@
 #include <cstdint>
 #include <memory>
 #include <string_view>
+
+#include "freertos/portmacro.h"
+
 #include "audio_decoder.hpp"
 #include "audio_task.hpp"
 #include "chunk.hpp"
 #include "fatfs_audio_input.hpp"
-#include "freertos/portmacro.h"
 #include "gpio_expander.hpp"
 #include "i2s_audio_output.hpp"
 #include "storage.hpp"
@@ -38,9 +40,9 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
   playback->ConnectElements(codec.get(), sink.get());
 
   // Launch!
-  playback->element_handles_.push_back(StartAudioTask("src", {}, source));
-  playback->element_handles_.push_back(StartAudioTask("dec", {}, codec));
-  playback->element_handles_.push_back(StartAudioTask("sink", 0, sink));
+  StartAudioTask("src", {}, source);
+  StartAudioTask("dec", {}, codec);
+  StartAudioTask("sink", 0, sink);
 
   playback->input_handle_ = source->InputEventQueue();
 
@@ -49,11 +51,7 @@ auto AudioPlayback::create(drivers::GpioExpander* expander,
 
 AudioPlayback::AudioPlayback() {}
 
-AudioPlayback::~AudioPlayback() {
-  for (auto& element : element_handles_) {
-    element->Quit();
-  }
-}
+AudioPlayback::~AudioPlayback() {}
 
 auto AudioPlayback::Play(const std::string& filename) -> void {
   StreamInfo info;

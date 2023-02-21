@@ -40,8 +40,6 @@ I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
                                std::unique_ptr<drivers::AudioDac> dac)
     : expander_(expander),
       dac_(std::move(dac)),
-      volume_(255),
-      is_soft_muted_(false),
       chunk_reader_(),
       latest_chunk_() {}
 
@@ -51,18 +49,21 @@ auto I2SAudioOutput::HasUnprocessedInput() -> bool {
   return latest_chunk_.size() > 0;
 }
 
-auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
-    -> cpp::result<void, AudioProcessingError> {
+auto I2SAudioOutput::IsOverBuffered() -> bool {
+  return false;
+}
+
+auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info) -> void {
   // TODO(jacqueline): probs do something with the channel hey
 
   if (!info.bits_per_sample || !info.sample_rate) {
     ESP_LOGE(kTag, "audio stream missing bits or sample rate");
-    return cpp::fail(UNSUPPORTED_STREAM);
+    return;
   }
 
   if (!info.chunk_size) {
     ESP_LOGE(kTag, "audio stream missing chunk size");
-    return cpp::fail(UNSUPPORTED_STREAM);
+    return;
   }
   chunk_reader_.emplace(*info.chunk_size);
 
@@ -82,7 +83,7 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
       break;
     default:
       ESP_LOGE(kTag, "dropping stream with unknown bps");
-      return cpp::fail(UNSUPPORTED_STREAM);
+      return;
   }
 
   drivers::AudioDac::SampleRate sample_rate;
@@ -95,18 +96,14 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info)
       break;
     default:
       ESP_LOGE(kTag, "dropping stream with unknown rate");
-      return cpp::fail(UNSUPPORTED_STREAM);
+      return;
   }
 
   dac_->Reconfigure(bps, sample_rate);
-
-  return {};
 }
 
-auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk)
-    -> cpp::result<std::size_t, AudioProcessingError> {
+auto I2SAudioOutput::ProcessChunk(const cpp::span<std::byte>& chunk) -> void {
   latest_chunk_ = chunk_reader_->HandleNewData(chunk);
-  return 0;
 }
 
 auto I2SAudioOutput::ProcessEndOfStream() -> void {
@@ -119,8 +116,9 @@ auto I2SAudioOutput::ProcessLogStatus() -> void {
   dac_->LogStatus();
 }
 
-auto I2SAudioOutput::Process() -> cpp::result<void, AudioProcessingError> {
-  // Note: no logging here!
+auto I2SAudioOutput::Process() -> void {
+  // Note: avoid logging here! We need to get bytes from the chunk buffer into
+  // the I2S DMA buffer as fast as possible, to avoid running out of samples.
   std::size_t bytes_written = dac_->WriteData(latest_chunk_);
   if (bytes_written == latest_chunk_.size_bytes()) {
     latest_chunk_ = cpp::span<std::byte>();
@@ -128,26 +126,11 @@ auto I2SAudioOutput::Process() -> cpp::result<void, AudioProcessingError> {
   } else {
     latest_chunk_ = latest_chunk_.subspan(bytes_written);
   }
-  return {};
+  return;
 }
 
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
-  volume_ = volume;
-  if (!is_soft_muted_) {
-    dac_->WriteVolume(volume);
-  }
-}
-
-auto I2SAudioOutput::SetSoftMute(bool enabled) -> void {
-  if (enabled == is_soft_muted_) {
-    return;
-  }
-  is_soft_muted_ = enabled;
-  if (is_soft_muted_) {
-    dac_->WriteVolume(255);
-  } else {
-    dac_->WriteVolume(volume_);
-  }
+  dac_->WriteVolume(volume);
 }
 
 }  // namespace audio

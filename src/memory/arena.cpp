@@ -23,7 +23,8 @@ Arena::Arena(std::size_t block_size,
 }
 
 Arena::~Arena() {
-  // TODO: assert queue is full?
+  // We shouldn't have any blocks in use when destroying an arena.
+  assert(uxQueueSpacesAvailable(free_blocks_) == 0);
   vQueueDelete(free_blocks_);
   free(pool_);
 }
@@ -42,6 +43,10 @@ auto Arena::Acquire() -> std::optional<ArenaPtr> {
 auto Arena::Return(ArenaPtr ptr) -> void {
   assert(ptr.owner == this);
   xQueueSend(free_blocks_, &ptr.start, 0);
+}
+
+auto Arena::BlocksFree() -> std::size_t {
+  return uxQueueMessagesWaiting(free_blocks_);
 }
 
 auto ArenaRef::Acquire(Arena* a) -> std::optional<ArenaRef> {

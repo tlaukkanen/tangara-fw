@@ -23,27 +23,22 @@ class I2SAudioOutput : public IAudioElement {
   ~I2SAudioOutput();
 
   auto HasUnprocessedInput() -> bool override;
+  auto IsOverBuffered() -> bool override;
 
-  auto ProcessStreamInfo(const StreamInfo& info)
-      -> cpp::result<void, AudioProcessingError> override;
-  auto ProcessChunk(const cpp::span<std::byte>& chunk)
-      -> cpp::result<std::size_t, AudioProcessingError> override;
+  auto ProcessStreamInfo(const StreamInfo& info) -> void override;
+  auto ProcessChunk(const cpp::span<std::byte>& chunk) -> void override;
   auto ProcessEndOfStream() -> void override;
   auto ProcessLogStatus() -> void override;
-  auto Process() -> cpp::result<void, AudioProcessingError> override;
+  auto Process() -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
 
  private:
   auto SetVolume(uint8_t volume) -> void;
-  auto SetSoftMute(bool enabled) -> void;
 
   drivers::GpioExpander* expander_;
   std::unique_ptr<drivers::AudioDac> dac_;
-
-  uint8_t volume_;
-  bool is_soft_muted_;
 
   std::optional<ChunkReader> chunk_reader_;
   cpp::span<std::byte> latest_chunk_;

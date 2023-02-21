@@ -121,7 +121,7 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
       uint32_t sample_24 =
           scaleTo24Bits(synth_.pcm.samples[channel][current_sample_]);
       output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
-      output[output_byte++] = static_cast<std::byte>((sample_24) & 0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
     }
     current_sample_++;
   }

@@ -36,22 +36,27 @@ auto FatfsAudioInput::HasUnprocessedInput() -> bool {
   return is_file_open_;
 }
 
-auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
-    -> cpp::result<void, AudioProcessingError> {
+auto FatfsAudioInput::IsOverBuffered() -> bool {
+  return arena_.BlocksFree() == 0;
+}
+
+auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info) -> void {
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
   }
 
   if (!info.path) {
-    return cpp::fail(UNSUPPORTED_STREAM);
+    // TODO(jacqueline): Handle errors.
+    return;
   }
   ESP_LOGI(kTag, "opening file %s", info.path->c_str());
   std::string path = *info.path;
   FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
   if (res != FR_OK) {
     ESP_LOGE(kTag, "failed to open file! res: %i", res);
-    return cpp::fail(IO_ERROR);
+    // TODO(jacqueline): Handle errors.
+    return;
   }
 
   is_file_open_ = true;
@@ -62,14 +67,9 @@ auto FatfsAudioInput::ProcessStreamInfo(const StreamInfo& info)
 
   auto event = StreamEvent::CreateStreamInfo(input_events_, new_info);
   SendOrBufferEvent(std::unique_ptr<StreamEvent>(event));
-
-  return {};
 }
 
-auto FatfsAudioInput::ProcessChunk(const cpp::span<std::byte>& chunk)
-    -> cpp::result<size_t, AudioProcessingError> {
-  return cpp::fail(UNSUPPORTED_STREAM);
-}
+auto FatfsAudioInput::ProcessChunk(const cpp::span<std::byte>& chunk) -> void {}
 
 auto FatfsAudioInput::ProcessEndOfStream() -> void {
   if (is_file_open_) {
@@ -80,18 +80,19 @@ auto FatfsAudioInput::ProcessEndOfStream() -> void {
   }
 }
 
-auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
+auto FatfsAudioInput::Process() -> void {
   if (is_file_open_) {
     auto dest_block = memory::ArenaRef::Acquire(&arena_);
     if (!dest_block) {
-      return {};
+      return;
     }
 
     FRESULT result = f_read(&current_file_, dest_block->ptr.start,
                             dest_block->ptr.size, &dest_block->ptr.used_size);
     if (result != FR_OK) {
       ESP_LOGE(kTag, "file I/O error %d", result);
-      return cpp::fail(IO_ERROR);
+      // TODO(jacqueline): Handle errors.
+      return;
     }
 
     if (dest_block->ptr.used_size < dest_block->ptr.size ||
@@ -105,7 +106,6 @@ auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
 
     SendOrBufferEvent(std::move(dest_event));
   }
-  return {};
 }
 
 }  // namespace audio

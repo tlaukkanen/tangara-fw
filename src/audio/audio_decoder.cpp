@@ -37,15 +37,18 @@ auto AudioDecoder::HasUnprocessedInput() -> bool {
   return !needs_more_input_ || has_samples_to_send_;
 }
 
-auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
-    -> cpp::result<void, AudioProcessingError> {
+auto AudioDecoder::IsOverBuffered() -> bool {
+  return arena_.BlocksFree() == 0;
+}
+
+auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> void {
   stream_info_ = info;
 
   if (info.chunk_size) {
     chunk_reader_.emplace(info.chunk_size.value());
   } else {
     ESP_LOGE(kTag, "no chunk size given");
-    return cpp::fail(UNSUPPORTED_STREAM);
+    return;
   }
 
   // Reuse the existing codec if we can. This will help with gapless playback,
@@ -54,7 +57,7 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
   if (current_codec_ != nullptr &&
       current_codec_->CanHandleFile(info.path.value_or(""))) {
     current_codec_->ResetForNewStream();
-    return {};
+    return;
   }
 
   auto result = codecs::CreateCodecForFile(info.path.value_or(""));
@@ -62,28 +65,23 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info)
     current_codec_ = std::move(result.value());
   } else {
     ESP_LOGE(kTag, "no codec for this file");
-    return cpp::fail(UNSUPPORTED_STREAM);
+    return;
   }
 
   stream_info_ = info;
   has_sent_stream_info_ = false;
-
-  return {};
 }
 
-auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk)
-    -> cpp::result<size_t, AudioProcessingError> {
+auto AudioDecoder::ProcessChunk(const cpp::span<std::byte>& chunk) -> void {
   if (current_codec_ == nullptr || !chunk_reader_) {
     // Should never happen, but fail explicitly anyway.
     ESP_LOGW(kTag, "received chunk without chunk size or codec");
-    return cpp::fail(UNSUPPORTED_STREAM);
+    return;
   }
 
   ESP_LOGI(kTag, "received new chunk (size %u)", chunk.size());
   current_codec_->SetInput(chunk_reader_->HandleNewData(chunk));
   needs_more_input_ = false;
-
-  return {};
 }
 
 auto AudioDecoder::ProcessEndOfStream() -> void {
@@ -95,7 +93,7 @@ auto AudioDecoder::ProcessEndOfStream() -> void {
       StreamEvent::CreateEndOfStream(input_events_)));
 }
 
-auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
+auto AudioDecoder::Process() -> void {
   if (has_samples_to_send_) {
     // Writing samples is relatively quick (it's just a bunch of memcopy's), so
     // do them all at once.
@@ -115,7 +113,7 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
 
       auto block = arena_.Acquire();
       if (!block) {
-        return {};
+        return;
       }
 
       auto write_res =
@@ -126,18 +124,17 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
       auto chunk = std::unique_ptr<StreamEvent>(
           StreamEvent::CreateArenaChunk(input_events_, *block));
       if (!SendOrBufferEvent(std::move(chunk))) {
-        return {};
+        return;
       }
     }
     // We will process the next frame during the next call to this method.
-    return {};
   }
 
   if (!needs_more_input_) {
     auto res = current_codec_->ProcessNextFrame();
     if (res.has_error()) {
-      // todo
-      return {};
+      // TODO(jacqueline): Handle errors.
+      return;
     }
     needs_more_input_ = res.value();
     has_samples_to_send_ = true;
@@ -146,8 +143,6 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
       chunk_reader_->HandleBytesUsed(current_codec_->GetInputPosition());
     }
   }
-
-  return {};
 }
 
 }  // namespace audio

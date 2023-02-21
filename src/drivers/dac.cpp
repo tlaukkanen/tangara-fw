@@ -50,19 +50,19 @@ auto AudioDac::create(GpioExpander* expander)
   i2s_std_config_t i2s_config = {
       .clk_cfg = dac->clock_config_,
       .slot_cfg = dac->slot_config_,
-      .gpio_cfg = {
-        // TODO: investigate running in three wire mode for less noise
-        .mclk = GPIO_NUM_0,
-                   .bclk = GPIO_NUM_26,
-                   .ws = GPIO_NUM_27,
-                   .dout = GPIO_NUM_5,
-                   .din = I2S_GPIO_UNUSED,
-                   .invert_flags =
-                       {
-                           .mclk_inv = false,
-                           .bclk_inv = false,
-                           .ws_inv = false,
-                       }},
+      .gpio_cfg =
+          {// TODO: investigate running in three wire mode for less noise
+           .mclk = GPIO_NUM_0,
+           .bclk = GPIO_NUM_26,
+           .ws = GPIO_NUM_27,
+           .dout = GPIO_NUM_5,
+           .din = I2S_GPIO_UNUSED,
+           .invert_flags =
+               {
+                   .mclk_inv = false,
+                   .bclk_inv = false,
+                   .ws_inv = false,
+               }},
   };
 
   if (esp_err_t err =
@@ -89,11 +89,12 @@ auto AudioDac::create(GpioExpander* expander)
   dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b11 << 5);
 
   // Enable auto clocking, and do your best to carry on despite errors.
-  //dac->WriteRegister(Register::CLOCK_ERRORS, 0b1111101);
+  // dac->WriteRegister(Register::CLOCK_ERRORS, 0b1111101);
 
   i2s_channel_enable(dac->i2s_handle_);
 
-  dac->WaitForPowerState([](bool booted, PowerState state) { return state == STANDBY; });
+  dac->WaitForPowerState(
+      [](bool booted, PowerState state) { return state == STANDBY; });
 
   return dac;
 }
@@ -208,16 +209,11 @@ auto AudioDac::Stop() -> void {
 }
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
-#define BYTE_TO_BINARY(byte)  \
-  (byte & 0x80 ? '1' : '0'), \
-  (byte & 0x40 ? '1' : '0'), \
-  (byte & 0x20 ? '1' : '0'), \
-  (byte & 0x10 ? '1' : '0'), \
-  (byte & 0x08 ? '1' : '0'), \
-  (byte & 0x04 ? '1' : '0'), \
-  (byte & 0x02 ? '1' : '0'), \
-  (byte & 0x01 ? '1' : '0') 
-
+#define BYTE_TO_BINARY(byte)                                \
+  (byte & 0x80 ? '1' : '0'), (byte & 0x40 ? '1' : '0'),     \
+      (byte & 0x20 ? '1' : '0'), (byte & 0x10 ? '1' : '0'), \
+      (byte & 0x08 ? '1' : '0'), (byte & 0x04 ? '1' : '0'), \
+      (byte & 0x02 ? '1' : '0'), (byte & 0x01 ? '1' : '0')
 
 auto AudioDac::LogStatus() -> void {
   uint8_t res;
