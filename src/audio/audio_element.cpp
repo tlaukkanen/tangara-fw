@@ -28,7 +28,7 @@ IAudioElement::~IAudioElement() {
 
 auto IAudioElement::SendOrBufferEvent(std::unique_ptr<StreamEvent> event)
     -> bool {
-  if (event->tag == StreamEvent::CHUNK_DATA) {
+  if (event->tag == StreamEvent::ARENA_CHUNK) {
     unprocessed_output_chunks_++;
   }
   if (!buffered_output_.empty()) {

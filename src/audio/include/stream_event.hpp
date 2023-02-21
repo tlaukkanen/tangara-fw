@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "arena.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
@@ -13,7 +14,7 @@ namespace audio {
 struct StreamEvent {
   static auto CreateStreamInfo(QueueHandle_t source, const StreamInfo& payload)
       -> StreamEvent*;
-  static auto CreateChunkData(QueueHandle_t source, std::size_t chunk_size)
+  static auto CreateArenaChunk(QueueHandle_t source, memory::ArenaPtr ptr)
       -> StreamEvent*;
   static auto CreateChunkNotification(QueueHandle_t source) -> StreamEvent*;
   static auto CreateEndOfStream(QueueHandle_t source) -> StreamEvent*;
@@ -28,7 +29,7 @@ struct StreamEvent {
   enum {
     UNINITIALISED,
     STREAM_INFO,
-    CHUNK_DATA,
+    ARENA_CHUNK,
     CHUNK_NOTIFICATION,
     END_OF_STREAM,
     LOG_STATUS,
@@ -37,10 +38,7 @@ struct StreamEvent {
   union {
     StreamInfo* stream_info;
 
-    struct {
-      std::byte* raw_bytes;
-      cpp::span<std::byte> bytes;
-    } chunk_data;
+    memory::ArenaPtr arena_chunk;
 
     // FIXME: It would be nice to also support a pointer to himem data here, to
     // save a little ordinary heap space.

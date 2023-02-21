@@ -4,6 +4,6 @@ idf_component_register(
   "audio_playback.cpp" "audio_element_handle.cpp" "stream_event.cpp"
   "audio_element.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span")
+  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

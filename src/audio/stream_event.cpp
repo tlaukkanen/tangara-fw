@@ -1,6 +1,7 @@
 #include "stream_event.hpp"
 #include <cstddef>
 #include <memory>
+#include "arena.hpp"
 #include "stream_info.hpp"
 
 namespace audio {
@@ -14,17 +15,12 @@ auto StreamEvent::CreateStreamInfo(QueueHandle_t source,
   return event;
 }
 
-auto StreamEvent::CreateChunkData(QueueHandle_t source, std::size_t chunk_size)
+auto StreamEvent::CreateArenaChunk(QueueHandle_t source, memory::ArenaPtr ptr)
     -> StreamEvent* {
   auto event = new StreamEvent;
-  event->tag = StreamEvent::CHUNK_DATA;
+  event->tag = StreamEvent::ARENA_CHUNK;
   event->source = source;
-
-  auto raw_bytes =
-      static_cast<std::byte*>(heap_caps_malloc(chunk_size, MALLOC_CAP_SPIRAM));
-
-  event->chunk_data.raw_bytes = raw_bytes;
-  event->chunk_data.bytes = cpp::span<std::byte>(raw_bytes, chunk_size);
+  event->arena_chunk = ptr;
 
   return event;
 }
@@ -59,8 +55,8 @@ StreamEvent::~StreamEvent() {
     case STREAM_INFO:
       delete stream_info;
       break;
-    case CHUNK_DATA:
-      free(chunk_data.raw_bytes);
+    case ARENA_CHUNK:
+      arena_chunk.owner->Return(arena_chunk);
       break;
     case CHUNK_NOTIFICATION:
       break;
@@ -81,9 +77,10 @@ StreamEvent::StreamEvent(StreamEvent&& other) {
       stream_info = other.stream_info;
       other.stream_info = nullptr;
       break;
-    case CHUNK_DATA:
-      chunk_data = other.chunk_data;
-      other.chunk_data = {};
+    case ARENA_CHUNK:
+      arena_chunk = other.arena_chunk;
+      other.arena_chunk = {
+          .owner = nullptr, .start = nullptr, .size = 0, .used_size = 0};
       break;
     case CHUNK_NOTIFICATION:
       break;

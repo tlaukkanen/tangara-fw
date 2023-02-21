@@ -6,6 +6,7 @@
 #include <deque>
 #include <memory>
 
+#include "arena.hpp"
 #include "audio_element_handle.hpp"
 #include "cbor.h"
 #include "esp_heap_caps.h"
@@ -96,7 +97,7 @@ void AudioTaskMain(void* args) {
         } else if (new_event->tag == StreamEvent::LOG_STATUS) {
           element->ProcessLogStatus();
           if (element->OutputEventQueue() != nullptr) {
-          xQueueSendToFront(element->OutputEventQueue(), &new_event, 0);
+            xQueueSendToFront(element->OutputEventQueue(), &new_event, 0);
           } else {
             delete new_event;
           }
@@ -150,8 +151,9 @@ void AudioTaskMain(void* args) {
             // TODO(jacqueline)
             ESP_LOGE(kTag, "failed to process stream info");
           }
-        } else if (event->tag == StreamEvent::CHUNK_DATA) {
-          ESP_LOGD(kTag, "processing chunk data");
+        } else if (event->tag == StreamEvent::ARENA_CHUNK) {
+          ESP_LOGD(kTag, "processing arena data");
+          memory::ArenaRef ref(event->arena_chunk);
           auto callback =
               StreamEvent::CreateChunkNotification(element->InputEventQueue());
           if (!xQueueSend(event->source, &callback, 0)) {
@@ -159,8 +161,10 @@ void AudioTaskMain(void* args) {
             continue;
           }
 
+          // TODO(jacqueline): Consider giving the element a full ArenaRef here,
+          // so that it can hang on to it and potentially save an alloc+copy.
           auto process_chunk_res =
-              element->ProcessChunk(event->chunk_data.bytes);
+              element->ProcessChunk({ref.ptr.start, ref.ptr.used_size});
           if (process_chunk_res.has_error()) {
             // TODO(jacqueline)
             ESP_LOGE(kTag, "failed to process chunk");

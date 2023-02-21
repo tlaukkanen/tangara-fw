@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "arena.hpp"
 #include "chunk.hpp"
 #include "freertos/FreeRTOS.h"
 
@@ -35,6 +36,7 @@ class FatfsAudioInput : public IAudioElement {
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
+  memory::Arena arena_;
   std::shared_ptr<drivers::SdStorage> storage_;
 
   FIL current_file_;

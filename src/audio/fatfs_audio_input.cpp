@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include "arena.hpp"
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 
@@ -19,11 +20,12 @@ static const char* kTag = "SRC";
 
 namespace audio {
 
-// 32KiB to match the minimum himen region size.
 static const std::size_t kChunkSize = 24 * 1024;
+static const std::size_t kChunkReadahead = 2;
 
 FatfsAudioInput::FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage)
     : IAudioElement(),
+      arena_(kChunkSize, kChunkReadahead, MALLOC_CAP_SPIRAM),
       storage_(storage),
       current_file_(),
       is_file_open_(false) {}
@@ -80,25 +82,28 @@ auto FatfsAudioInput::ProcessEndOfStream() -> void {
 
 auto FatfsAudioInput::Process() -> cpp::result<void, AudioProcessingError> {
   if (is_file_open_) {
-    auto dest_event = std::unique_ptr<StreamEvent>(
-        StreamEvent::CreateChunkData(input_events_, kChunkSize));
-    UINT bytes_read = 0;
+    auto dest_block = memory::ArenaRef::Acquire(&arena_);
+    if (!dest_block) {
+      return {};
+    }
 
-    FRESULT result = f_read(&current_file_, dest_event->chunk_data.raw_bytes,
-                            kChunkSize, &bytes_read);
+    FRESULT result = f_read(&current_file_, dest_block->ptr.start,
+                            dest_block->ptr.size, &dest_block->ptr.used_size);
     if (result != FR_OK) {
       ESP_LOGE(kTag, "file I/O error %d", result);
       return cpp::fail(IO_ERROR);
     }
 
-    dest_event->chunk_data.bytes =
-        dest_event->chunk_data.bytes.first(bytes_read);
-    SendOrBufferEvent(std::move(dest_event));
-
-    if (bytes_read < kChunkSize || f_eof(&current_file_)) {
+    if (dest_block->ptr.used_size < dest_block->ptr.size ||
+        f_eof(&current_file_)) {
       f_close(&current_file_);
       is_file_open_ = false;
     }
+
+    auto dest_event = std::unique_ptr<StreamEvent>(
+        StreamEvent::CreateArenaChunk(input_events_, dest_block->Release()));
+
+    SendOrBufferEvent(std::move(dest_event));
   }
   return {};
 }

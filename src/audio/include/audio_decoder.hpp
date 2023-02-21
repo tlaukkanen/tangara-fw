@@ -44,6 +44,7 @@ class AudioDecoder : public IAudioElement {
   AudioDecoder& operator=(const AudioDecoder&) = delete;
 
  private:
+  memory::Arena arena_;
   std::unique_ptr<codecs::ICodec> current_codec_;
   std::optional<StreamInfo> stream_info_;
   std::optional<ChunkReader> chunk_reader_;

@@ -21,10 +21,12 @@ namespace audio {
 
 static const char* kTag = "DEC";
 
-static const std::size_t kSamplesPerChunk = 1024;
+static const std::size_t kChunkSize = 1024;
+static const std::size_t kReadahead = 8;
 
 AudioDecoder::AudioDecoder()
     : IAudioElement(),
+      arena_(kChunkSize, kReadahead, MALLOC_CAP_SPIRAM),
       stream_info_({}),
       has_samples_to_send_(false),
       needs_more_input_(true) {}
@@ -104,23 +106,25 @@ auto AudioDecoder::Process() -> cpp::result<void, AudioProcessingError> {
         stream_info_->bits_per_sample = format.bits_per_sample;
         stream_info_->sample_rate = format.sample_rate_hz;
         stream_info_->channels = format.num_channels;
-
-        chunk_size_ = kSamplesPerChunk * (*stream_info_->bits_per_sample);
-        stream_info_->chunk_size = chunk_size_;
-        ESP_LOGI(kTag, "pcm stream chunk size: %u bytes", chunk_size_);
+        stream_info_->chunk_size = kChunkSize;
 
         auto event =
             StreamEvent::CreateStreamInfo(input_events_, *stream_info_);
         SendOrBufferEvent(std::unique_ptr<StreamEvent>(event));
       }
 
-      auto chunk = std::unique_ptr<StreamEvent>(
-          StreamEvent::CreateChunkData(input_events_, chunk_size_));
+      auto block = arena_.Acquire();
+      if (!block) {
+        return {};
+      }
+
       auto write_res =
-          current_codec_->WriteOutputSamples(chunk->chunk_data.bytes);
-      chunk->chunk_data.bytes = chunk->chunk_data.bytes.first(write_res.first);
+          current_codec_->WriteOutputSamples({block->start, block->size});
+      block->used_size = write_res.first;
       has_samples_to_send_ = !write_res.second;
 
+      auto chunk = std::unique_ptr<StreamEvent>(
+          StreamEvent::CreateArenaChunk(input_events_, *block));
       if (!SendOrBufferEvent(std::move(chunk))) {
         return {};
       }
