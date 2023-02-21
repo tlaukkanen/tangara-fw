@@ -15,11 +15,13 @@
 #include "esp_freertos_hooks.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
+#include "font/lv_font.h"
 #include "freertos/portmacro.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
 #include "misc/lv_color.h"
+#include "misc/lv_style.h"
 #include "misc/lv_timer.h"
 #include "widgets/lv_label.h"
 
@@ -63,22 +65,24 @@ extern "C" void lvgl_main(void* voidArgs) {
   esp_register_freertos_tick_hook(&tick_hook);
 
   ESP_LOGI(TAG, "init display");
-  auto display_res =
+  std::unique_ptr<drivers::Display> display =
       drivers::Display::create(gpio_expander, drivers::displays::kST7735R);
-  if (display_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", display_res.error());
-    return;
-  }
-  std::unique_ptr<drivers::Display> display = std::move(display_res.value());
+
+  lv_style_t style;
+  lv_style_init(&style);
+  lv_style_set_text_color(&style, LV_COLOR_MAKE(0xFF, 0, 0));
+  // TODO: find a nice bitmap font for this display size and density.
+  // lv_style_set_text_font(&style, &lv_font_montserrat_24);
 
   auto label = lv_label_create(NULL);
-  lv_label_set_text(label, "g'day, cunts!");
+  lv_label_set_text(label, "COLOURS!!");
+  lv_obj_add_style(label, &style, 0);
+
   lv_obj_center(label);
   lv_scr_load(label);
 
   while (1) {
     lv_timer_handler();
-    // display->ServiceTransactions();
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "driver/spi_master.h"
 #include "lvgl/lvgl.h"
@@ -8,32 +9,30 @@
 
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
-#include "sys/_stdint.h"
 
 namespace drivers {
 
 /*
- * Display driver for LVGL.
+ * LVGL display driver for ST77XX family displays.
  */
 class Display {
  public:
-  enum Error {};
+  /*
+   * Creates the display driver, and resets and reinitialises the display
+   * over SPI. This never fails, since unfortunately these display don't give
+   * us back any kind of signal to tell us we're actually using them correctly.
+   */
   static auto create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
-      -> cpp::result<std::unique_ptr<Display>, Error>;
+      -> std::unique_ptr<Display>;
 
   Display(GpioExpander* gpio, spi_device_handle_t handle);
   ~Display();
 
-  void WriteData();
-
-  void Flush(lv_disp_drv_t* disp_drv,
-             const lv_area_t* area,
-             lv_color_t* color_map);
-
-  void IRAM_ATTR PostTransaction(const spi_transaction_t& transaction);
-
-  void ServiceTransactions();
+  /* Driver callback invoked by LVGL when there is new data to display. */
+  void OnLvglFlush(lv_disp_drv_t* disp_drv,
+                   const lv_area_t* area,
+                   lv_color_t* color_map);
 
  private:
   GpioExpander* gpio_;
@@ -48,23 +47,15 @@ class Display {
     DATA = 1,
   };
 
-  enum TransactionFlags {
-    LVGL_FLUSH = 1,
-  };
-
   void SendInitialisationSequence(const uint8_t* data);
 
-  void SendCommandWithData(uint8_t command,
-                           const uint8_t* data,
-                           size_t length,
-                           uintptr_t flags = 0);
+  void SendCommandWithData(uint8_t command, const uint8_t* data, size_t length);
+  void SendCmd(const uint8_t* data, size_t length);
+  void SendData(const uint8_t* data, size_t length);
 
-  void SendCmd(const uint8_t* data, size_t length, uintptr_t flags = 0);
-  void SendData(const uint8_t* data, size_t length, uintptr_t flags = 0);
   void SendTransaction(TransactionType type,
                        const uint8_t* data,
-                       size_t length,
-                       uint32_t flags = 0);
+                       size_t length);
 };
 
 }  // namespace drivers
