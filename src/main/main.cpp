@@ -114,11 +114,12 @@ extern "C" void app_main(void) {
 
   ESP_LOGI(TAG, "Init SD card");
   auto storage_res = drivers::SdStorage::create(expander);
+  std::shared_ptr<drivers::SdStorage> storage;
   if (storage_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", storage_res.error());
-    return;
+    ESP_LOGE(TAG, "Failed! Do you have an SD card?");
+  } else {
+    storage = std::move(storage_res.value());
   }
-  std::shared_ptr<drivers::SdStorage> storage = std::move(storage_res.value());
 
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
@@ -126,14 +127,16 @@ extern "C" void app_main(void) {
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
-  ESP_LOGI(TAG, "Init audio pipeline");
-  auto playback_res = audio::AudioPlayback::create(expander, storage);
-  if (playback_res.has_error()) {
-    ESP_LOGE(TAG, "Failed: %d", playback_res.error());
-    return;
+  std::shared_ptr<audio::AudioPlayback> playback;
+  if (storage) {
+    ESP_LOGI(TAG, "Init audio pipeline");
+    auto playback_res = audio::AudioPlayback::create(expander, storage);
+    if (playback_res.has_error()) {
+      ESP_LOGE(TAG, "Failed! Playback will not work.");
+    } else {
+      playback = std::move(playback_res.value());
+    }
   }
-  std::shared_ptr<audio::AudioPlayback> playback =
-      std::move(playback_res.value());
 
   ESP_LOGI(TAG, "Waiting for background tasks before launching console...");
   vTaskDelay(pdMS_TO_TICKS(1000));

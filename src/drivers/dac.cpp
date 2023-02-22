@@ -253,7 +253,7 @@ void AudioDac::WriteRegister(Register reg, uint8_t val) {
       .write_ack(reg, val)
       .stop();
   // TODO: Retry once?
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
 }
 
 uint8_t AudioDac::ReadRegister(Register reg) {
@@ -267,7 +267,7 @@ uint8_t AudioDac::ReadRegister(Register reg) {
       .read(&result, I2C_MASTER_NACK)
       .stop();
 
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
   return result;
 }
 
