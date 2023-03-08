@@ -60,7 +60,7 @@ auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> std::unique_ptr<Display> {
   // First, turn on the LED backlight.
-  expander->set_pin(GpioExpander::DISPLAY_LED, 0);
+  expander->set_pin(GpioExpander::DISPLAY_LED, 1);
   expander->set_pin(GpioExpander::DISPLAY_POWER_ENABLE, 1);
   expander->Write();
 
@@ -118,6 +118,14 @@ Display::Display(GpioExpander* gpio, spi_device_handle_t handle)
 Display::~Display() {}
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
+  // Reset the display manually to get it into a predictable state.
+  gpio_->set_pin(GpioExpander::DISPLAY_RESET, false);
+  gpio_->Write();
+  vTaskDelay(pdMS_TO_TICKS(10));
+  gpio_->set_pin(GpioExpander::DISPLAY_RESET, false);
+  gpio_->Write();
+  vTaskDelay(pdMS_TO_TICKS(10));
+
   // Hold onto the bus for the entire sequence so that we're not interrupted
   // part way through.
   spi_device_acquire_bus(handle_, portMAX_DELAY);

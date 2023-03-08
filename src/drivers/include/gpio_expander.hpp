@@ -49,8 +49,8 @@ class GpioExpander {
   // Port B:
   // 0 - 3.5mm jack detect (active low)
   // 1 - unused
-  // 2 - volume up
-  // 3 - volume down
+  // 2 - trackpad int
+  // 3 - display reset (active low)
   // 4 - lock switch
   // 5 - touchpad interupt
   // 6 - display DR
@@ -111,10 +111,10 @@ class GpioExpander {
     // Port B
     PHONE_DETECT = 8,  // Active-high input
     // UNUSED = 9,
-    VOL_UP = 10,
-    VOL_DOWN = 11,
-    LOCK = 12,
-    TOUCHPAD_INT = 13,
+    TOUCHPAD_INT = 10,
+    DISPLAY_RESET = 11,
+    // UNUSED = 12,
+    // UNUSED = 13,
     DISPLAY_DR = 14,
     DISPLAY_LED = 15,
   };
