@@ -103,6 +103,9 @@ auto Display::create(GpioExpander* expander,
   display->driver_.draw_buf = &display->buffers_;
   display->driver_.hor_res = kDisplayWidth;
   display->driver_.ver_res = kDisplayHeight;
+  display->driver_.sw_rotate = 1;
+  display->driver_.rotated = LV_DISP_ROT_270;
+  display->driver_.antialiasing = 0;
   display->driver_.flush_cb = &FlushDataCallback;
   display->driver_.user_data = display.get();
 
