@@ -13,6 +13,7 @@
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "esp_freertos_hooks.h"
+#include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "font/lv_font.h"
@@ -29,6 +30,7 @@
 #include "audio_playback.hpp"
 #include "battery.hpp"
 #include "dac.hpp"
+#include "database.hpp"
 #include "display.hpp"
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
@@ -90,6 +92,20 @@ extern "C" void lvgl_main(void* voidArgs) {
   // cleanup, unregister our tick callback and so on.
 }
 
+extern "C" void db_main(void *whatever) {
+  ESP_LOGI(TAG, "Init database");
+  auto db_res = database::Database::Open();
+  if (db_res.has_error()) {
+    ESP_LOGE(TAG, "Failed!");
+  }
+  std::unique_ptr<database::Database> db(db_res.value());
+
+  ESP_LOGI(TAG, "database good :)");
+  vTaskDelay(pdMS_TO_TICKS(10000));
+
+  vTaskDelete(NULL);
+}
+
 extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Initialising peripherals");
 
@@ -121,6 +137,14 @@ extern "C" void app_main(void) {
     storage = std::move(storage_res.value());
   }
 
+  ESP_LOGI(TAG, "Launch database task");
+  std::size_t db_stack_size = 256 * 1024;
+  StaticTask_t database_task_buffer = {};
+  StackType_t *database_stack =
+    reinterpret_cast<StackType_t*>(heap_caps_malloc(db_stack_size, MALLOC_CAP_SPIRAM));
+  xTaskCreateStatic(&db_main, "LEVELDB", db_stack_size, NULL, 1, database_stack, &database_task_buffer);
+
+  ESP_LOGI(TAG, "Launch LVGL task");
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
   xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize,

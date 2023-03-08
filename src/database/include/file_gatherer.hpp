@@ -1,0 +1,58 @@
+#pragma once
+
+#include <deque>
+#include <functional>
+#include <sstream>
+#include <string>
+
+#include "ff.h"
+
+namespace database {
+
+static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
+
+template <typename Callback>
+auto FindFiles(FATFS* fs, const std::string& root, Callback cb) -> void {
+  std::deque<std::string> to_explore;
+  to_explore.push_back(root);
+
+  while (!to_explore.empty()) {
+    std::string next_path_str = to_explore.front();
+    const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
+
+    DIR dir;
+    FRESULT res = f_opendir(&dir, next_path);
+    if (res != FR_OK) {
+      // TODO: log.
+      continue;
+    }
+
+    for (;;) {
+      FILINFO info;
+      res = f_readdir(&dir, &info);
+      if (info.fname == NULL) {
+        // No more files in the directory.
+        break;
+      } else if (info.fattrib & (AM_HID | AM_SYS)) {
+        // System or hidden file. Ignore it and move on.
+        continue;
+      } else {
+        std::stringstream full_path;
+        full_path << next_path_str << "/" << info.fname;
+
+        if (info.fattrib & AM_DIR) {
+          // This is a directory. Add it to the explore queue.
+          to_explore.push_back(full_path.str());
+        } else {
+          // This is a file! Let the callback know about it.
+          std::invoke(cb, full_path.str(), info);
+        }
+      }
+    }
+
+    f_closedir(&dir);
+    to_explore.pop_front();
+  }
+}
+
+}  // namespace database
