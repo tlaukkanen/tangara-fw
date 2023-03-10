@@ -44,7 +44,7 @@ class GpioExpander {
   // 6 - LDO enable
   // 7 - charge power ok (active low)
   // All power switches low, sd mux pointing away from us, inputs high.
-  static const uint8_t kPortADefault = 0b10000010;
+  static const uint8_t kPortADefault = 0b11000010;
 
   // Port B:
   // 0 - 3.5mm jack detect (active low)
