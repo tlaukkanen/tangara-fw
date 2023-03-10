@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
@@ -9,6 +10,7 @@
 
 #include "dac.hpp"
 #include "gpio_expander.hpp"
+#include "stream_info.hpp"
 
 namespace audio {
 
@@ -22,14 +24,8 @@ class I2SAudioOutput : public IAudioElement {
                  std::unique_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
-  auto HasUnprocessedInput() -> bool override;
-  auto IsOverBuffered() -> bool override;
-
-  auto ProcessStreamInfo(const StreamInfo& info) -> void override;
-  auto ProcessChunk(const cpp::span<std::byte>& chunk) -> void override;
-  auto ProcessEndOfStream() -> void override;
-  auto ProcessLogStatus() -> void override;
-  auto Process() -> void override;
+  auto Process(std::vector<Stream>* inputs, MutableStream* output)
+      -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
@@ -40,8 +36,9 @@ class I2SAudioOutput : public IAudioElement {
   drivers::GpioExpander* expander_;
   std::unique_ptr<drivers::AudioDac> dac_;
 
-  std::optional<ChunkReader> chunk_reader_;
-  cpp::span<std::byte> latest_chunk_;
+  std::optional<StreamInfo::Pcm> current_config_;
+
+  auto ProcessStreamInfo(const StreamInfo& info) -> bool;
 };
 
 }  // namespace audio

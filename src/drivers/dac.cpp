@@ -192,7 +192,8 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   WriteRegister(Register::POWER_MODE, 0);
 }
 
-auto AudioDac::WriteData(cpp::span<std::byte> data) -> std::size_t {
+auto AudioDac::WriteData(const cpp::span<const std::byte>& data)
+    -> std::size_t {
   std::size_t bytes_written = 0;
   esp_err_t err = i2s_channel_write(i2s_handle_, data.data(), data.size_bytes(),
                                     &bytes_written, 0);

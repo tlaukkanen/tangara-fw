@@ -71,7 +71,7 @@ class AudioDac {
   // TODO(jacqueline): worth supporting channels here as well?
   auto Reconfigure(BitsPerSample bps, SampleRate rate) -> void;
 
-  auto WriteData(cpp::span<std::byte> data) -> std::size_t;
+  auto WriteData(const cpp::span<const std::byte>& data) -> std::size_t;
 
   auto Stop() -> void;
   auto LogStatus() -> void;

@@ -6,17 +6,38 @@
 
 #include "audio_element.hpp"
 #include "freertos/portmacro.h"
+#include "pipeline.hpp"
 
 namespace audio {
 
+namespace task {
 struct AudioTaskArgs {
-  std::shared_ptr<IAudioElement>& element;
+  Pipeline* pipeline;
+  QueueHandle_t input;
 };
 
-auto StartAudioTask(const std::string& name,
-                    std::optional<BaseType_t> core_id,
-                    std::shared_ptr<IAudioElement> element) -> void;
+extern "C" void AudioTaskMain(void* args);
 
-void AudioTaskMain(void* args);
+enum Command { PLAY, PAUSE, QUIT };
+
+class Handle {
+ public:
+  explicit Handle(QueueHandle_t input);
+  ~Handle();
+
+  auto SetStreamInfo() -> void;
+  auto Play() -> void;
+  auto Pause() -> void;
+  auto Quit() -> void;
+
+  auto OutputBuffer() -> StreamBufferHandle_t;
+
+ private:
+  QueueHandle_t input;
+};
+
+auto Start(Pipeline* pipeline) -> Handle*;
+
+}  // namespace task
 
 }  // namespace audio

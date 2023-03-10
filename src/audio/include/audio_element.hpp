@@ -40,62 +40,8 @@ class IAudioElement {
   IAudioElement();
   virtual ~IAudioElement();
 
-  /*
-   * Returns the stack size in bytes that this element requires. This should
-   * be tuned according to the observed stack size of each element, as different
-   * elements have fairly different stack requirements (particular decoders).
-   */
-  virtual auto StackSizeBytes() const -> std::size_t { return 4096; };
-
-  /* Returns this element's input buffer. */
-  auto InputEventQueue() const -> QueueHandle_t { return input_events_; }
-  /* Returns this element's output buffer. */
-  auto OutputEventQueue() const -> QueueHandle_t { return output_events_; }
-  auto OutputEventQueue(const QueueHandle_t q) -> void { output_events_ = q; }
-
-  virtual auto HasUnprocessedInput() -> bool = 0;
-
-  virtual auto IsOverBuffered() -> bool { return false; }
-
-  auto HasUnflushedOutput() -> bool { return !buffered_output_.empty(); }
-  auto FlushBufferedOutput() -> bool;
-
-  /*
-   * Called when a StreamInfo message is received. Used to configure this
-   * element in preperation for incoming chunks.
-   */
-  virtual auto ProcessStreamInfo(const StreamInfo& info) -> void = 0;
-
-  /*
-   * Called when a ChunkHeader message is received. Includes the data associated
-   * with this chunk of stream data. This method should return the number of
-   * bytes in this chunk that were actually used; leftover bytes will be
-   * prepended to the next call.
-   */
-  virtual auto ProcessChunk(const cpp::span<std::byte>& chunk) -> void = 0;
-
-  virtual auto ProcessEndOfStream() -> void = 0;
-
-  virtual auto ProcessLogStatus() -> void {}
-
-  /*
-   * Called when there has been no data received over the input buffer for some
-   * time. This could be used to synthesize output, or to save memory by
-   * releasing unused resources.
-   */
-  virtual auto Process() -> void = 0;
-
- protected:
-  auto SendOrBufferEvent(std::unique_ptr<StreamEvent> event) -> bool;
-
-  // Queue for events coming into this element. Owned by us.
-  QueueHandle_t input_events_;
-  // Queue for events going into the next element. Not owned by us, may be null
-  // if we're not yet in a pipeline.
-  // FIXME: it would be nicer if this was non-nullable.
-  QueueHandle_t output_events_;
-  // Output events that have been generated, but are yet to be sent downstream.
-  std::deque<std::unique_ptr<StreamEvent>> buffered_output_;
+  virtual auto Process(std::vector<Stream>* inputs, MutableStream* output)
+      -> void = 0;
 };
 
 }  // namespace audio
