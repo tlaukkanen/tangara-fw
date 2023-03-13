@@ -36,6 +36,10 @@ esp_err_t init_i2c(void) {
   if (esp_err_t err = i2c_driver_install(kI2CPort, config.mode, 0, 0, 0)) {
     return err;
   }
+  if (esp_err_t err = i2c_set_timeout(kI2CPort, 400000)) {
+    return err;
+  }
+
 
   // TODO: INT line
 
@@ -57,8 +61,8 @@ I2CTransaction::~I2CTransaction() {
   free(buffer_);
 }
 
-esp_err_t I2CTransaction::Execute() {
-  return i2c_master_cmd_begin(I2C_NUM_0, handle_, kI2CTimeout);
+esp_err_t I2CTransaction::Execute(uint8_t port) {
+  return i2c_master_cmd_begin(port, handle_, kI2CTimeout);
 }
 
 I2CTransaction& I2CTransaction::start() {

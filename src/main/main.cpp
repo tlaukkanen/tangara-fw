@@ -35,6 +35,7 @@
 #include "i2c.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
+#include "touchwheel.hpp"
 
 static const char* TAG = "MAIN";
 
@@ -102,6 +103,7 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Enable power rails for development");
   expander->with([&](auto& gpio) {
     gpio.set_pin(drivers::GpioExpander::AUDIO_POWER_ENABLE, 1);
+    gpio.set_pin(drivers::GpioExpander::DISPLAY_LED, 0);
     gpio.set_pin(drivers::GpioExpander::USB_INTERFACE_POWER_ENABLE, 0);
     gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 1);
     gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH,
@@ -119,6 +121,15 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Failed! Do you have an SD card?");
   } else {
     storage = std::move(storage_res.value());
+  }
+
+  ESP_LOGI(TAG, "Init touch wheel");
+  auto touchwheel_res = drivers::TouchWheel::create(expander);
+  std::shared_ptr<drivers::TouchWheel> touchwheel;
+  if (touchwheel_res.has_error()) {
+    ESP_LOGE(TAG, "Failed!");
+  } else {
+    touchwheel = std::move(touchwheel_res.value());
   }
 
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
@@ -146,6 +157,8 @@ extern "C" void app_main(void) {
   console.Launch();
 
   while (1) {
+    touchwheel->Update();
+    ESP_LOGI(TAG, "Touch wheel pos: %d", touchwheel->GetTouchWheelData().wheel_position);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
