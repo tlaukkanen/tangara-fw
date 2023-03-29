@@ -105,14 +105,14 @@ AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
       slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                    I2S_SLOT_MODE_STEREO)) {
-  gpio_->set_pin(GpioExpander::AUDIO_POWER_ENABLE, true);
+  gpio_->set_pin(GpioExpander::AMP_EN, true);
   gpio_->Write();
 }
 
 AudioDac::~AudioDac() {
   i2s_channel_disable(i2s_handle_);
   i2s_del_channel(i2s_handle_);
-  gpio_->set_pin(GpioExpander::AUDIO_POWER_ENABLE, false);
+  gpio_->set_pin(GpioExpander::AMP_EN, false);
   gpio_->Write();
 }
 

@@ -28,6 +28,9 @@ static const uint8_t kDisplayWidth = 128 + 2;
 static const uint8_t kDisplayHeight = 160 + 1;
 static const uint8_t kTransactionQueueSize = 10;
 
+static const gpio_num_t kDisplayDr = GPIO_NUM_33;
+static const gpio_num_t kDisplayLedEn = GPIO_NUM_32;
+
 /*
  * The size of each of our two display buffers. This is fundamentally a balance
  * between performance and memory usage. LVGL docs recommend a buffer 1/10th the
@@ -59,10 +62,13 @@ extern "C" void FlushDataCallback(lv_disp_drv_t* disp_drv,
 auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> std::unique_ptr<Display> {
-  // First, turn on the LED backlight.
-  expander->set_pin(GpioExpander::DISPLAY_LED, 1);
-  expander->set_pin(GpioExpander::DISPLAY_POWER_ENABLE, 1);
-  expander->Write();
+  ESP_LOGI(kTag, "Init I/O pins");
+  gpio_set_direction(kDisplayDr, GPIO_MODE_OUTPUT);
+  gpio_set_level(kDisplayDr, 0);
+
+  // TODO: use pwm for the backlight.
+  gpio_set_direction(kDisplayLedEn, GPIO_MODE_OUTPUT);
+  gpio_set_level(kDisplayLedEn, 1);
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -122,7 +128,7 @@ Display::~Display() {}
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
   // Reset the display manually to get it into a predictable state.
-  gpio_->set_pin(GpioExpander::DISPLAY_RESET, false);
+  gpio_->set_pin(GpioExpander::DISPLAY_RESET, true);
   gpio_->Write();
   vTaskDelay(pdMS_TO_TICKS(10));
   gpio_->set_pin(GpioExpander::DISPLAY_RESET, false);
@@ -201,9 +207,7 @@ void Display::SendTransaction(TransactionType type,
     transaction.tx_buffer = data;
   }
 
-  // TODO(jacqueline): Move this to an on-board GPIO for speed.
-  gpio_->set_pin(GpioExpander::DISPLAY_DR, type);
-  gpio_->Write();
+  gpio_set_level(kDisplayDr, type);
 
   // TODO(jacqueline): Handle these errors.
   esp_err_t ret = spi_device_polling_transmit(handle_, &transaction);

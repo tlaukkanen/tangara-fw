@@ -9,8 +9,8 @@
 namespace drivers {
 
 static const i2c_port_t kI2CPort = I2C_NUM_0;
-static const gpio_num_t kI2CSdaPin = GPIO_NUM_2;
-static const gpio_num_t kI2CSclPin = GPIO_NUM_4;
+static const gpio_num_t kI2CSdaPin = GPIO_NUM_4;
+static const gpio_num_t kI2CSclPin = GPIO_NUM_2;
 static const uint32_t kI2CClkSpeed = 400'000;
 
 static constexpr int kCmdLinkSize = I2C_LINK_RECOMMENDED_SIZE(12);
