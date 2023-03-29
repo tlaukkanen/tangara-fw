@@ -42,9 +42,9 @@ class GpioExpander {
   // 4 - key lock
   // 5 - display reset
   // 6 - NC
-  // 7 - sd card power
+  // 7 - sd card power (active low)
   // Default to SD card off, inputs high.
-  static const uint8_t kPortADefault = 0b00011110;
+  static const uint8_t kPortADefault = 0b10011110;
 
   // Port B:
   // 0 - trs output enable
@@ -121,8 +121,8 @@ class GpioExpander {
 
   /* Nicer value names for use with the SD_MUX_SWITCH pin. */
   enum SdController {
-    SD_MUX_ESP = 1,
-    SD_MUX_SAMD = 0,
+    SD_MUX_ESP = 0,
+    SD_MUX_SAMD = 1,
   };
 
   /**
