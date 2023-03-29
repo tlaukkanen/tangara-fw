@@ -107,6 +107,7 @@ extern "C" void app_main(void) {
     gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH,
                  drivers::GpioExpander::SD_MUX_ESP);
     gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 0);
+    gpio.set_pin(drivers::GpioExpander::AMP_EN, 1);
   });
 
   ESP_LOGI(TAG, "Init battery measurement");
