@@ -63,7 +63,7 @@ class MappableRegion {
     return {bytes_, size};
   }
 
-  auto Map(const HimemAlloc<size> &alloc) -> cpp::span<std::byte> {
+  auto Map(const HimemAlloc<size>& alloc) -> cpp::span<std::byte> {
     if (bytes_ != nullptr) {
       ESP_ERROR_CHECK(esp_himem_unmap(range_handle, bytes_, size));
     }

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "audio_element.hpp"
+#include "audio_sink.hpp"
 #include "chunk.hpp"
 #include "result.hpp"
 
@@ -14,18 +15,18 @@
 
 namespace audio {
 
-class I2SAudioOutput : public IAudioElement {
+class I2SAudioOutput : public IAudioSink {
  public:
   enum Error { DAC_CONFIG, I2S_CONFIG, STREAM_INIT };
   static auto create(drivers::GpioExpander* expander)
-      -> cpp::result<std::shared_ptr<I2SAudioOutput>, Error>;
+      -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error>;
 
   I2SAudioOutput(drivers::GpioExpander* expander,
                  std::unique_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
-  auto Process(std::vector<Stream>* inputs, MutableStream* output)
-      -> void override;
+  auto Configure(const StreamInfo::Format& format) -> bool override;
+  auto Send(const cpp::span<std::byte>& data) -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
@@ -37,8 +38,6 @@ class I2SAudioOutput : public IAudioElement {
   std::unique_ptr<drivers::AudioDac> dac_;
 
   std::optional<StreamInfo::Pcm> current_config_;
-
-  auto ProcessStreamInfo(const StreamInfo& info) -> bool;
 };
 
 }  // namespace audio

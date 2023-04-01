@@ -8,6 +8,7 @@
 #include "audio_task.hpp"
 #include "esp_err.h"
 #include "fatfs_audio_input.hpp"
+#include "i2s_audio_output.hpp"
 #include "result.hpp"
 #include "span.hpp"
 
@@ -28,7 +29,7 @@ class AudioPlayback {
   static auto create(drivers::GpioExpander* expander)
       -> cpp::result<std::unique_ptr<AudioPlayback>, Error>;
 
-  AudioPlayback(FatfsAudioInput *file_input);
+  explicit AudioPlayback(std::unique_ptr<I2SAudioOutput> output);
   ~AudioPlayback();
 
   /*
@@ -44,10 +45,9 @@ class AudioPlayback {
   AudioPlayback& operator=(const AudioPlayback&) = delete;
 
  private:
-  FatfsAudioInput *file_source;
-
-  std::vector<std::unique_ptr<IAudioElement>> all_elements_;
-  std::unique_ptr<task::Handle> pipeline_;
+  std::unique_ptr<FatfsAudioInput> file_source_;
+  std::unique_ptr<I2SAudioOutput> i2s_output_;
+  std::vector<std::unique_ptr<IAudioElement>> elements_;
 };
 
 }  // namespace audio

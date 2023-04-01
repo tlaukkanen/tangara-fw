@@ -1,4 +1,5 @@
 #include "pipeline.hpp"
+#include <memory>
 #include "stream_info.hpp"
 
 namespace audio {
@@ -7,7 +8,7 @@ Pipeline::Pipeline(IAudioElement* output) : root_(output), subtrees_() {}
 Pipeline::~Pipeline() {}
 
 auto Pipeline::AddInput(IAudioElement* input) -> Pipeline* {
-  subtrees_.emplace_back(input);
+  subtrees_.push_back(std::make_unique<Pipeline>(input));
   return subtrees_.back().get();
 }
 
@@ -21,15 +22,15 @@ auto Pipeline::NumInputs() const -> std::size_t {
 
 auto Pipeline::InStreams(
     std::vector<MappableRegion<kPipelineBufferSize>>* regions,
-    std::vector<MutableStream>* out) -> void {
+    std::vector<RawStream>* out) -> void {
   for (int i = 0; i < subtrees_.size(); i++) {
-    MutableStream s = subtrees_[i]->OutStream(&regions->at(i));
+    RawStream s = subtrees_[i]->OutStream(&regions->at(i));
     out->push_back(s);
   }
 }
 
 auto Pipeline::OutStream(MappableRegion<kPipelineBufferSize>* region)
-    -> MutableStream {
+    -> RawStream {
   return {&output_info_, region->Map(output_buffer_)};
 }
 
@@ -42,8 +43,9 @@ auto Pipeline::GetIterationOrder() -> std::vector<Pipeline*> {
     to_search.pop_back();
     found.push_back(current);
 
-    to_search.insert(to_search.end(), current->subtrees_.begin(),
-                     current->subtrees_.end());
+    for (const auto& i : current->subtrees_) {
+      to_search.push_back(i.get());
+    }
   }
 
   return found;

@@ -5,38 +5,32 @@
 #include <string>
 
 #include "audio_element.hpp"
+#include "audio_sink.hpp"
+#include "dac.hpp"
 #include "freertos/portmacro.h"
 #include "pipeline.hpp"
+#include "stream_buffer.hpp"
 
 namespace audio {
 
 namespace task {
-struct AudioTaskArgs {
-  Pipeline* pipeline;
-  QueueHandle_t input;
-};
-
-extern "C" void AudioTaskMain(void* args);
 
 enum Command { PLAY, PAUSE, QUIT };
 
-class Handle {
- public:
-  explicit Handle(QueueHandle_t input);
-  ~Handle();
-
-  auto SetStreamInfo() -> void;
-  auto Play() -> void;
-  auto Pause() -> void;
-  auto Quit() -> void;
-
-  auto OutputBuffer() -> StreamBufferHandle_t;
-
- private:
-  QueueHandle_t input;
+struct AudioTaskArgs {
+  Pipeline* pipeline;
+  IAudioSink* sink;
+};
+struct AudioDrainArgs {
+  IAudioSink* sink;
+  std::atomic<Command>* command;
 };
 
-auto Start(Pipeline* pipeline) -> Handle*;
+extern "C" void AudioTaskMain(void* args);
+extern "C" void AudioDrainMain(void* args);
+
+auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void;
+auto StartDrain(IAudioSink* sink) -> void;
 
 }  // namespace task
 

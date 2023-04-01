@@ -133,10 +133,10 @@ extern "C" void app_main(void) {
                                 (void*)lvglArgs, 1, sLvglStack,
                                 &sLvglTaskBuffer, 1);
 
-  std::shared_ptr<audio::AudioPlayback> playback;
+  std::unique_ptr<audio::AudioPlayback> playback;
   if (storage) {
     ESP_LOGI(TAG, "Init audio pipeline");
-    auto playback_res = audio::AudioPlayback::create(expander, storage);
+    auto playback_res = audio::AudioPlayback::create(expander);
     if (playback_res.has_error()) {
       ESP_LOGE(TAG, "Failed! Playback will not work.");
     } else {

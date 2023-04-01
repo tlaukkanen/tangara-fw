@@ -26,22 +26,22 @@ static const char* kTag = "DEC";
 
 AudioDecoder::AudioDecoder()
     : IAudioElement(),
-      stream_info_({}),
-      has_samples_to_send_(false),
-      needs_more_input_(true) {}
+      current_codec_(),
+      current_input_format_(),
+      current_output_format_(),
+      has_samples_to_send_(false) {}
 
 AudioDecoder::~AudioDecoder() {}
 
 auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
-  if (!std::holds_alternative<StreamInfo::Encoded>(info.data)) {
+  if (!std::holds_alternative<StreamInfo::Encoded>(info.format)) {
     return false;
   }
-  const auto& encoded = std::get<StreamInfo::Encoded>(info.data);
+  const auto& encoded = std::get<StreamInfo::Encoded>(info.format);
 
   // Reuse the existing codec if we can. This will help with gapless playback,
   // since we can potentially just continue to decode as we were before,
   // without any setup overhead.
-  // TODO: use audio type from stream
   if (current_codec_ != nullptr &&
       current_codec_->CanHandleType(encoded.type)) {
     current_codec_->ResetForNewStream();
@@ -60,43 +60,47 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
   return true;
 }
 
-auto AudioDecoder::Process(std::vector<Stream>* inputs, MutableStream* output)
-    -> void {
+auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
+                           OutputStream* output) -> void {
   // We don't really expect multiple inputs, so just pick the first that
   // contains data. If none of them contain data, then we can still flush
   // pending samples.
-  auto input =
-      std::find_if(inputs->begin(), inputs->end(),
-                   [](const Stream& s) { return s.data.size_bytes() > 0; });
-
-  if (input != inputs->end()) {
-    const StreamInfo* info = input->info;
-    if (!stream_info_ || *stream_info_ != *info) {
-      // The input stream has changed! Immediately throw everything away and
-      // start from scratch.
-      // TODO: special case gapless playback? needs thought.
-      stream_info_ = *info;
-      has_samples_to_send_ = false;
-      has_set_stream_info_ = false;
-
-      ProcessStreamInfo(*info);
-    }
-
-    current_codec_->SetInput(input->data);
+  auto input = std::find_if(
+      inputs.begin(), inputs.end(),
+      [](const InputStream& s) { return s.data().size_bytes() > 0; });
+  if (input == inputs.end()) {
+    input = inputs.begin();
   }
+
+  const StreamInfo& info = input->info();
+  if (!current_input_format_ || *current_input_format_ != info.format) {
+    // The input stream has changed! Immediately throw everything away and
+    // start from scratch.
+    current_input_format_ = info.format;
+    has_samples_to_send_ = false;
+
+    ProcessStreamInfo(info);
+  }
+
+  current_codec_->SetInput(input->data());
 
   while (true) {
     if (has_samples_to_send_) {
-      if (!has_set_stream_info_) {
-        has_set_stream_info_ = true;
+      if (!current_output_format_) {
         auto format = current_codec_->GetOutputFormat();
-        output->info->data.emplace<StreamInfo::Pcm>(
-            format.bits_per_sample, format.sample_rate_hz, format.num_channels);
+        current_output_format_ = StreamInfo::Pcm{
+            .channels = format.num_channels,
+            .bits_per_sample = format.bits_per_sample,
+            .sample_rate = format.sample_rate_hz,
+        };
       }
 
-      auto write_res = current_codec_->WriteOutputSamples(
-          output->data.subspan(output->info->bytes_in_stream));
-      output->info->bytes_in_stream += write_res.first;
+      if (!output->prepare(*current_output_format_)) {
+        break;
+      }
+
+      auto write_res = current_codec_->WriteOutputSamples(output->data());
+      output->add(write_res.first);
       has_samples_to_send_ = !write_res.second;
 
       if (has_samples_to_send_) {
@@ -106,26 +110,23 @@ auto AudioDecoder::Process(std::vector<Stream>* inputs, MutableStream* output)
       }
     }
 
-    if (input != inputs->end()) {
-      auto res = current_codec_->ProcessNextFrame();
-      if (res.has_error()) {
-        // TODO(jacqueline): Handle errors.
-        return;
-      }
-      input->data = input->data.subspan(current_codec_->GetInputPosition());
+    auto res = current_codec_->ProcessNextFrame();
+    if (res.has_error()) {
+      // TODO(jacqueline): Handle errors.
+      return;
+    }
 
-      if (res.value()) {
-        // We're out of data in this buffer. Finish immediately; there's nothing
-        // to send.
-        break;
-      } else {
-        has_samples_to_send_ = true;
-      }
-    } else {
-      // No input; nothing to do.
+    if (res.value()) {
+      // We're out of useable data in this buffer. Finish immediately; there's
+      // nothing to send.
+      input->mark_incomplete();
       break;
+    } else {
+      has_samples_to_send_ = true;
     }
   }
+
+  input->consume(current_codec_->GetInputPosition());
 }
 
 }  // namespace audio

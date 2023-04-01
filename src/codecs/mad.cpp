@@ -5,6 +5,7 @@
 #include "mad.h"
 
 #include "codec.hpp"
+#include "types.hpp"
 
 namespace codecs {
 
@@ -35,8 +36,8 @@ MadMp3Decoder::~MadMp3Decoder() {
   mad_header_finish(&header_);
 }
 
-auto MadMp3Decoder::CanHandleFile(const std::string& path) -> bool {
-  return true;  // TODO.
+auto MadMp3Decoder::CanHandleType(StreamType type) -> bool {
+  return type == STREAM_MP3;
 }
 
 auto MadMp3Decoder::GetOutputFormat() -> OutputFormat {
@@ -52,7 +53,7 @@ auto MadMp3Decoder::ResetForNewStream() -> void {
   has_decoded_header_ = false;
 }
 
-auto MadMp3Decoder::SetInput(cpp::span<std::byte> input) -> void {
+auto MadMp3Decoder::SetInput(cpp::span<const std::byte> input) -> void {
   mad_stream_buffer(&stream_,
                     reinterpret_cast<const unsigned char*>(input.data()),
                     input.size());

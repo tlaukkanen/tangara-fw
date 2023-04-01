@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "freertos/portmacro.h"
 
@@ -16,7 +17,7 @@ static const std::size_t kPipelineBufferSize = 32 * 1024;
 
 class Pipeline {
  public:
-  Pipeline(IAudioElement* output);
+  explicit Pipeline(IAudioElement* output);
   ~Pipeline();
   auto AddInput(IAudioElement* input) -> Pipeline*;
 
@@ -25,9 +26,9 @@ class Pipeline {
   auto NumInputs() const -> std::size_t;
 
   auto InStreams(std::vector<MappableRegion<kPipelineBufferSize>>*,
-                 std::vector<MutableStream>*) -> void;
+                 std::vector<RawStream>*) -> void;
 
-  auto OutStream(MappableRegion<kPipelineBufferSize>*) -> MutableStream;
+  auto OutStream(MappableRegion<kPipelineBufferSize>*) -> RawStream;
 
   auto GetIterationOrder() -> std::vector<Pipeline*>;
 

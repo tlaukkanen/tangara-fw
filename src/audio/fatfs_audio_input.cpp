@@ -44,26 +44,30 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
   is_file_open_ = true;
 }
 
-auto FatfsAudioInput::Process(std::vector<Stream>* inputs,
-                              MutableStream* output) -> void {
+auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
+                              OutputStream* output) -> void {
   if (!is_file_open_) {
     return;
   }
 
+  StreamInfo::Format format = StreamInfo::Encoded{codecs::STREAM_MP3};
+  if (!output->prepare(format)) {
+    return;
+  }
+
+  std::size_t max_size = output->data().size_bytes();
+  std::size_t size = 0;
   FRESULT result =
-      f_read(&current_file_, output->data.data(), output->data.size_bytes(),
-             &output->info->bytes_in_stream);
+      f_read(&current_file_, output->data().data(), max_size, &size);
   if (result != FR_OK) {
     ESP_LOGE(kTag, "file I/O error %d", result);
     // TODO(jacqueline): Handle errors.
     return;
   }
 
-  // TODO: read from filename?
-  output->info->data = StreamInfo::Encoded{codecs::STREAM_MP3};
+  output->add(size);
 
-  if (output->info->bytes_in_stream < output->data.size_bytes() ||
-      f_eof(&current_file_)) {
+  if (size < max_size || f_eof(&current_file_)) {
     f_close(&current_file_);
     is_file_open_ = false;
   }

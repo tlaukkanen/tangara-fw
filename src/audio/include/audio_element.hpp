@@ -37,11 +37,11 @@ static const size_t kEventQueueSize = 8;
  */
 class IAudioElement {
  public:
-  IAudioElement();
-  virtual ~IAudioElement();
+  IAudioElement() {}
+  virtual ~IAudioElement() {}
 
-  virtual auto Process(std::vector<Stream>* inputs, MutableStream* output)
-      -> void = 0;
+  virtual auto Process(const std::vector<InputStream>& inputs,
+                       OutputStream* output) -> void = 0;
 };
 
 }  // namespace audio

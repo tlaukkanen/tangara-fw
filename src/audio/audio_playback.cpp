@@ -8,6 +8,7 @@
 #include "freertos/portmacro.h"
 
 #include "audio_decoder.hpp"
+#include "audio_element.hpp"
 #include "audio_task.hpp"
 #include "chunk.hpp"
 #include "fatfs_audio_input.hpp"
@@ -23,55 +24,30 @@ namespace audio {
 
 auto AudioPlayback::create(drivers::GpioExpander* expander)
     -> cpp::result<std::unique_ptr<AudioPlayback>, Error> {
-  // Create everything
-  auto source = std::make_shared<FatfsAudioInput>();
-  auto codec = std::make_shared<AudioDecoder>();
-
   auto sink_res = I2SAudioOutput::create(expander);
   if (sink_res.has_error()) {
     return cpp::fail(ERR_INIT_ELEMENT);
   }
-  auto sink = sink_res.value();
-
-  auto playback = std::make_unique<AudioPlayback>();
-
-  Pipeline *pipeline = new Pipeline(sink.get());
-  pipeline->AddInput(codec.get())->AddInput(source.get());
-
-  task::Start(pipeline);
-
-  return playback;
+  return std::make_unique<AudioPlayback>(std::move(sink_res.value()));
 }
 
-AudioPlayback::AudioPlayback() {
-  // Create everything
-  auto source = std::make_shared<FatfsAudioInput>();
-  auto codec = std::make_shared<AudioDecoder>();
+AudioPlayback::AudioPlayback(std::unique_ptr<I2SAudioOutput> output)
+    : file_source_(), i2s_output_(std::move(output)) {
+  AudioDecoder* codec = new AudioDecoder();
+  elements_.emplace_back(codec);
 
-  auto sink_res = I2SAudioOutput::create(expander);
-  if (sink_res.has_error()) {
-    return cpp::fail(ERR_INIT_ELEMENT);
-  }
-  auto sink = sink_res.value();
+  Pipeline* pipeline = new Pipeline(elements_.front().get());
+  pipeline->AddInput(file_source_.get());
 
-  auto playback = std::make_unique<AudioPlayback>();
-
-  Pipeline *pipeline = new Pipeline(sink.get());
-  pipeline->AddInput(codec.get())->AddInput(source.get());
-
-  task::Start(pipeline);
-
-  return playback;
+  task::StartPipeline(pipeline, i2s_output_.get());
+  task::StartDrain(i2s_output_.get());
 }
 
-AudioPlayback::~AudioPlayback() {
-  pipeline_->Quit();
-}
+AudioPlayback::~AudioPlayback() {}
 
 auto AudioPlayback::Play(const std::string& filename) -> void {
   // TODO: concurrency, yo!
-  file_source->OpenFile(filename);
-  pipeline_->Play();
+  file_source_->OpenFile(filename);
 }
 
 auto AudioPlayback::LogStatus() -> void {

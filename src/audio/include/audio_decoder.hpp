@@ -24,7 +24,7 @@ class AudioDecoder : public IAudioElement {
   AudioDecoder();
   ~AudioDecoder();
 
-  auto Process(std::vector<Stream>* inputs, MutableStream* output)
+  auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
       -> void override;
 
   AudioDecoder(const AudioDecoder&) = delete;
@@ -32,11 +32,9 @@ class AudioDecoder : public IAudioElement {
 
  private:
   std::unique_ptr<codecs::ICodec> current_codec_;
-  std::optional<StreamInfo> stream_info_;
-
-  bool has_set_stream_info_;
+  std::optional<StreamInfo::Format> current_input_format_;
+  std::optional<StreamInfo::Format> current_output_format_;
   bool has_samples_to_send_;
-  bool needs_more_input_;
 
   auto ProcessStreamInfo(const StreamInfo& info) -> bool;
 };

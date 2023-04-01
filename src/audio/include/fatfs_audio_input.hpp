@@ -16,6 +16,7 @@
 
 #include "audio_element.hpp"
 #include "stream_buffer.hpp"
+#include "stream_info.hpp"
 
 namespace audio {
 
@@ -26,7 +27,7 @@ class FatfsAudioInput : public IAudioElement {
 
   auto OpenFile(const std::string& path) -> void;
 
-  auto Process(std::vector<Stream>* inputs, MutableStream* output)
+  auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
       -> void override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;

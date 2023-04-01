@@ -1,6 +1,7 @@
 #include "i2s_audio_output.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <variant>
 
 #include "esp_err.h"
@@ -18,7 +19,7 @@ static const char* kTag = "I2SOUT";
 namespace audio {
 
 auto I2SAudioOutput::create(drivers::GpioExpander* expander)
-    -> cpp::result<std::shared_ptr<I2SAudioOutput>, Error> {
+    -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error> {
   // First, we need to perform initial configuration of the DAC chip.
   auto dac_result = drivers::AudioDac::create(expander);
   if (dac_result.has_error()) {
@@ -32,7 +33,7 @@ auto I2SAudioOutput::create(drivers::GpioExpander* expander)
   // dac->WriteVolume(255);
   dac->WriteVolume(120);  // for testing
 
-  return std::make_shared<I2SAudioOutput>(expander, std::move(dac));
+  return std::make_unique<I2SAudioOutput>(expander, std::move(dac));
 }
 
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
@@ -41,18 +42,18 @@ I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
 
 I2SAudioOutput::~I2SAudioOutput() {}
 
-auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info) -> bool {
-  if (!std::holds_alternative<StreamInfo::Pcm>(info.data)) {
+auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
+  if (!std::holds_alternative<StreamInfo::Pcm>(format)) {
     return false;
   }
 
-  StreamInfo::Pcm pcm = std::get<StreamInfo::Pcm>(info.data);
+  StreamInfo::Pcm pcm = std::get<StreamInfo::Pcm>(format);
 
   if (current_config_ && pcm == *current_config_) {
     return true;
   }
 
-  ESP_LOGI(kTag, "incoming audio stream: %u bpp @ %u Hz", pcm.bits_per_sample,
+  ESP_LOGI(kTag, "incoming audio stream: %u bpp @ %lu Hz", pcm.bits_per_sample,
            pcm.sample_rate);
 
   drivers::AudioDac::BitsPerSample bps;
@@ -92,14 +93,8 @@ auto I2SAudioOutput::ProcessStreamInfo(const StreamInfo& info) -> bool {
   return true;
 }
 
-auto I2SAudioOutput::Process(std::vector<Stream>* inputs, MutableStream* output)
-    -> void {
-  std::for_each(inputs->begin(), inputs->end(), [&](Stream& s) {
-    if (ProcessStreamInfo(s.info)) {
-      std::size_t bytes_written = dac_->WriteData(s.data);
-      s.data = s.data.subspan(bytes_written);
-    }
-  });
+auto I2SAudioOutput::Send(const cpp::span<std::byte>& data) -> void {
+  dac_->WriteData(data);
 }
 
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
