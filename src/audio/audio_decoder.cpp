@@ -107,9 +107,6 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
       }
 
       auto write_res = current_codec_->WriteOutputSamples(output->data());
-      if (write_res.first > 0) {
-        ESP_LOGI(kTag, "wrote %u bytes of samples", write_res.first);
-      }
       output->add(write_res.first);
       has_samples_to_send_ = !write_res.second;
 

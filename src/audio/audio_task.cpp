@@ -162,6 +162,8 @@ void AudioTaskMain(void* args) {
   vTaskDelete(NULL);
 }
 
+static std::byte sDrainBuf[1024];
+
 void AudioDrainMain(void* args) {
   {
     AudioDrainArgs* real_args = reinterpret_cast<AudioDrainArgs*>(args);
@@ -171,11 +173,10 @@ void AudioDrainMain(void* args) {
 
     // TODO(jacqueline): implement PAUSE without busy-waiting.
     while (*command != QUIT) {
-      std::byte buf[64];
-      std::size_t len =
-          xStreamBufferReceive(sink->buffer(), buf, sizeof(buf), portMAX_DELAY);
+      std::size_t len = xStreamBufferReceive(sink->buffer(), sDrainBuf,
+                                             sizeof(sDrainBuf), portMAX_DELAY);
       if (len > 0) {
-        sink->Send({buf, len});
+        sink->Send({sDrainBuf, len});
       }
     }
   }

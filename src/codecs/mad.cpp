@@ -114,7 +114,7 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
   }
 
   while (current_sample_ < synth_.pcm.length) {
-    if (output_byte + (3 * synth_.pcm.channels) >= output.size()) {
+    if (output_byte + (2 * synth_.pcm.channels) >= output.size()) {
       return std::make_pair(output_byte, false);
     }
 
