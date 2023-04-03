@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
+#include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
 #include "gpio_expander.hpp"
@@ -50,20 +51,22 @@ auto AudioDac::create(GpioExpander* expander)
   i2s_std_config_t i2s_config = {
       .clk_cfg = dac->clock_config_,
       .slot_cfg = dac->slot_config_,
-      .gpio_cfg =
-          {// TODO: investigate running in three wire mode for less noise
-           .mclk = GPIO_NUM_0,
-           .bclk = GPIO_NUM_26,
-           .ws = GPIO_NUM_27,
-           .dout = GPIO_NUM_5,
-           .din = I2S_GPIO_UNUSED,
-           .invert_flags =
-               {
-                   .mclk_inv = false,
-                   .bclk_inv = false,
-                   .ws_inv = false,
-               }},
+      .gpio_cfg = {.mclk = GPIO_NUM_0,
+                   //.mclk = I2S_GPIO_UNUSED,
+                   .bclk = GPIO_NUM_26,
+                   .ws = GPIO_NUM_27,
+                   .dout = GPIO_NUM_5,
+                   .din = I2S_GPIO_UNUSED,
+                   .invert_flags =
+                       {
+                           .mclk_inv = false,
+                           .bclk_inv = false,
+                           .ws_inv = false,
+                       }},
   };
+
+  // gpio_set_direction(GPIO_NUM_0, GPIO_MODE_OUTPUT);
+  // gpio_set_level(GPIO_NUM_0, 0);
 
   if (esp_err_t err =
           i2s_channel_init_std_mode(i2s_handle, &i2s_config) != ESP_OK) {
@@ -81,20 +84,29 @@ auto AudioDac::create(GpioExpander* expander)
 
   // The DAC should be booted but in power down mode, but it might not be if we
   // didn't shut down cleanly. Reset it to ensure it is in a consistent state.
-  dac->WriteRegister(Register::POWER_MODE, 0b10001);
   dac->WriteRegister(Register::POWER_MODE, 1 << 4);
   dac->WriteRegister(Register::RESET, 0b10001);
 
+  // Use BCK for the internal PLL.
+  // dac->WriteRegister(Register::PLL_CLOCK_SOURCE, 1 << 4);
+
+  // dac->WriteRegister(Register::PLL_ENABLE, 0);
+  dac->WriteRegister(Register::INTERPOLATION, 1 << 4);
+
+  dac->Reconfigure(BPS_16, SAMPLE_RATE_44_1);
+  dac->WriteRegister(Register::POWER_MODE, 0);
+
   // Now configure the DAC for standard auto-clock SCK mode.
-  dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b11 << 5);
+  // dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b11 << 5);
 
   // Enable auto clocking, and do your best to carry on despite errors.
   // dac->WriteRegister(Register::CLOCK_ERRORS, 0b1111101);
 
-  i2s_channel_enable(dac->i2s_handle_);
+  // i2s_channel_enable(dac->i2s_handle_);
 
-  dac->WaitForPowerState(
-      [](bool booted, PowerState state) { return state == STANDBY; });
+  dac->WaitForPowerState([](bool booted, PowerState state) {
+    return state == RUN || state == STANDBY;
+  });
 
   return dac;
 }
@@ -102,6 +114,7 @@ auto AudioDac::create(GpioExpander* expander)
 AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
     : gpio_(gpio),
       i2s_handle_(i2s_handle),
+      i2s_active_(false),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
       slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                    I2S_SLOT_MODE_STEREO)) {
@@ -163,9 +176,10 @@ bool AudioDac::WaitForPowerState(
 }
 
 auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
-  // Disable the current output, if it isn't already stopped.
-  WriteRegister(Register::POWER_MODE, 1 << 4);
-  i2s_channel_disable(i2s_handle_);
+  WriteRegister(Register::RESYNC_REQUEST, 1);
+  if (i2s_active_) {
+    i2s_channel_disable(i2s_handle_);
+  }
 
   // I2S reconfiguration.
 
@@ -181,15 +195,21 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
   // DAC reconfiguration.
+  if (rate == SAMPLE_RATE_44_1) {
+    WriteRegister(Register::DE_EMPHASIS, 1 << 4);
+  } else {
+    WriteRegister(Register::DE_EMPHASIS, 0);
+  }
 
   // TODO: base on BPS
-  WriteRegister(Register::I2S_FORMAT, 0);
+  WriteRegister(Register::I2S_FORMAT, 0b00);
 
   // Configuration is all done, so we can now bring the DAC and I2S stream back
   // up. I2S first, since otherwise the DAC will see that there's no clocks and
   // shut itself down.
+  WriteRegister(Register::RESYNC_REQUEST, 0);
   ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
-  WriteRegister(Register::POWER_MODE, 0);
+  i2s_active_ = true;
 }
 
 auto AudioDac::WriteData(const cpp::span<const std::byte>& data) -> void {

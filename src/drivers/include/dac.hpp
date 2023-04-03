@@ -83,6 +83,7 @@ class AudioDac {
  private:
   GpioExpander* gpio_;
   i2s_chan_handle_t i2s_handle_;
+  bool i2s_active_;
 
   i2s_std_clk_config_t clock_config_;
   i2s_std_slot_config_t slot_config_;
@@ -97,9 +98,13 @@ class AudioDac {
     PAGE_SELECT = 0,
     RESET = 1,
     POWER_MODE = 2,
+    PLL_ENABLE = 4,
     DE_EMPHASIS = 7,
+    PLL_CLOCK_SOURCE = 13,
     DAC_CLOCK_SOURCE = 14,
+    RESYNC_REQUEST = 19,
     CLOCK_ERRORS = 37,
+    INTERPOLATION = 34,
     I2S_FORMAT = 40,
     DIGITAL_VOLUME_L = 61,
     DIGITAL_VOLUME_R = 62,

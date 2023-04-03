@@ -44,12 +44,14 @@ I2SAudioOutput::~I2SAudioOutput() {}
 
 auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
   if (!std::holds_alternative<StreamInfo::Pcm>(format)) {
+    ESP_LOGI(kTag, "ignoring non-pcm stream (%d)", format.index());
     return false;
   }
 
   StreamInfo::Pcm pcm = std::get<StreamInfo::Pcm>(format);
 
   if (current_config_ && pcm == *current_config_) {
+    ESP_LOGI(kTag, "ignoring unchanged format");
     return true;
   }
 
@@ -95,6 +97,10 @@ auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
 
 auto I2SAudioOutput::Send(const cpp::span<std::byte>& data) -> void {
   dac_->WriteData(data);
+}
+
+auto I2SAudioOutput::Log() -> void {
+  dac_->LogStatus();
 }
 
 auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {

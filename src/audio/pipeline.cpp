@@ -4,7 +4,10 @@
 
 namespace audio {
 
-Pipeline::Pipeline(IAudioElement* output) : root_(output), subtrees_() {}
+Pipeline::Pipeline(IAudioElement* output) : root_(output), subtrees_() {
+  assert(output != nullptr);
+}
+
 Pipeline::~Pipeline() {}
 
 auto Pipeline::AddInput(IAudioElement* input) -> Pipeline* {

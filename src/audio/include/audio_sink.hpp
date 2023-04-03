@@ -15,6 +15,7 @@ class IAudioSink {
 
   virtual auto Configure(const StreamInfo::Format& format) -> bool = 0;
   virtual auto Send(const cpp::span<std::byte>& data) -> void = 0;
+  virtual auto Log() -> void {}
 
   auto buffer() const -> StreamBufferHandle_t { return buffer_; }
 };

@@ -17,12 +17,12 @@ namespace audio {
 struct StreamInfo {
   // The number of bytes that are available for consumption within this
   // stream's buffer.
-  std::size_t bytes_in_stream;
+  std::size_t bytes_in_stream{0};
 
   // The total length of this stream, in case its source is finite (e.g. a
   // file on disk). May be absent for endless streams (internet streams,
   // generated audio, etc.)
-  std::optional<std::size_t> length_bytes;
+  std::optional<std::size_t> length_bytes{};
 
   struct Encoded {
     // The codec that this stream is associated with.
@@ -42,8 +42,8 @@ struct StreamInfo {
     bool operator==(const Pcm&) const = default;
   };
 
-  typedef std::variant<Encoded, Pcm> Format;
-  Format format;
+  typedef std::variant<std::monostate, Encoded, Pcm> Format;
+  Format format{};
 
   bool operator==(const StreamInfo&) const = default;
 };
@@ -91,8 +91,11 @@ class OutputStream {
   void add(std::size_t bytes) const { raw_->info->bytes_in_stream += bytes; }
 
   bool prepare(const StreamInfo::Format& new_format) {
-    if (new_format == raw_->info->format) {
+    if (std::holds_alternative<std::monostate>(raw_->info->format)) {
       raw_->info->format = new_format;
+      raw_->info->bytes_in_stream = 0;
+    }
+    if (new_format == raw_->info->format) {
       return true;
     }
     if (raw_->is_incomplete) {

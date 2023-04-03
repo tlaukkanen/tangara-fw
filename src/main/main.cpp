@@ -41,7 +41,7 @@
 static const char* TAG = "MAIN";
 
 void IRAM_ATTR tick_hook(void) {
-  lv_tick_inc(1);
+  // lv_tick_inc(1);
 }
 
 static const size_t kLvglStackSize = 8 * 1024;

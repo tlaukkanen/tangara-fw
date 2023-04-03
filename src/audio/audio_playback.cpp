@@ -32,7 +32,8 @@ auto AudioPlayback::create(drivers::GpioExpander* expander)
 }
 
 AudioPlayback::AudioPlayback(std::unique_ptr<I2SAudioOutput> output)
-    : file_source_(), i2s_output_(std::move(output)) {
+    : file_source_(std::make_unique<FatfsAudioInput>()),
+      i2s_output_(std::move(output)) {
   AudioDecoder* codec = new AudioDecoder();
   elements_.emplace_back(codec);
 
@@ -51,7 +52,7 @@ auto AudioPlayback::Play(const std::string& filename) -> void {
 }
 
 auto AudioPlayback::LogStatus() -> void {
-  // TODO.
+  i2s_output_->Log();
 }
 
 }  // namespace audio

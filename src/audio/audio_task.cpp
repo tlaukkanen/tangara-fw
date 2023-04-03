@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <variant>
 
 #include "audio_sink.hpp"
 #include "cbor.h"
@@ -114,16 +115,29 @@ void AudioTaskMain(void* args) {
           OutputStream out_stream(&raw_out_stream);
 
           elements.at(i)->OutputElement()->Process(in_streams, &out_stream);
+
+          std::for_each(in_regions.begin(), in_regions.end(),
+                        [](auto&& r) { r.Unmap(); });
+          out_region.Unmap();
         }
 
-        RawStream raw_sink_stream = elements.back()->OutStream(&out_region);
+        RawStream raw_sink_stream = elements.front()->OutStream(&out_region);
         InputStream sink_stream(&raw_sink_stream);
 
-        if (!output_format || output_format != sink_stream.info().format) {
+        if (sink_stream.data().size_bytes() == 0) {
+          out_region.Unmap();
+          vTaskDelay(pdMS_TO_TICKS(100));
+          continue;
+        }
+
+        if ((!output_format || output_format != sink_stream.info().format) &&
+            !std::holds_alternative<std::monostate>(
+                sink_stream.info().format)) {
           // The format of the stream within the sink stream has changed. We
           // need to reconfigure the sink, but shouldn't do so until we've fully
           // drained the current buffer.
           if (xStreamBufferIsEmpty(sink->buffer())) {
+            ESP_LOGI(kTag, "reconfiguring dac");
             output_format = sink_stream.info().format;
             sink->Configure(*output_format);
           }
@@ -140,6 +154,8 @@ void AudioTaskMain(void* args) {
               sink_stream.data().size_bytes(), pdMS_TO_TICKS(10));
           sink_stream.consume(sent);
         }
+
+        out_region.Unmap();
       }
     }
   }

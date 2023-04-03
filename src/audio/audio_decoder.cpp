@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <variant>
 
 #include "cbor/tinycbor/src/cborinternal_p.h"
 #include "freertos/FreeRTOS.h"
@@ -37,6 +38,7 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
   if (!std::holds_alternative<StreamInfo::Encoded>(info.format)) {
     return false;
   }
+  ESP_LOGI(kTag, "got new stream");
   const auto& encoded = std::get<StreamInfo::Encoded>(info.format);
 
   // Reuse the existing codec if we can. This will help with gapless playback,
@@ -45,12 +47,14 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
   if (current_codec_ != nullptr &&
       current_codec_->CanHandleType(encoded.type)) {
     current_codec_->ResetForNewStream();
+    ESP_LOGI(kTag, "reusing existing decoder");
     return true;
   }
 
   // TODO: use audio type from stream
   auto result = codecs::CreateCodecForType(encoded.type);
   if (result.has_value()) {
+    ESP_LOGI(kTag, "creating new decoder");
     current_codec_ = std::move(result.value());
   } else {
     ESP_LOGE(kTag, "no codec for this file");
@@ -73,6 +77,9 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
   }
 
   const StreamInfo& info = input->info();
+  if (std::holds_alternative<std::monostate>(info.format)) {
+    return;
+  }
   if (!current_input_format_ || *current_input_format_ != info.format) {
     // The input stream has changed! Immediately throw everything away and
     // start from scratch.
@@ -100,6 +107,9 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
       }
 
       auto write_res = current_codec_->WriteOutputSamples(output->data());
+      if (write_res.first > 0) {
+        ESP_LOGI(kTag, "wrote %u bytes of samples", write_res.first);
+      }
       output->add(write_res.first);
       has_samples_to_send_ = !write_res.second;
 

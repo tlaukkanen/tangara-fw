@@ -65,6 +65,9 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
     return;
   }
 
+  if (size > 0) {
+    ESP_LOGI(kTag, "read %u bytes", size);
+  }
   output->add(size);
 
   if (size < max_size || f_eof(&current_file_)) {

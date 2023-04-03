@@ -57,19 +57,24 @@ class MappableRegion {
   }
 
   auto Get() -> cpp::span<std::byte> {
-    if (bytes_ != nullptr) {
+    if (bytes_ == nullptr) {
       return {};
     }
     return {bytes_, size};
   }
 
   auto Map(const HimemAlloc<size>& alloc) -> cpp::span<std::byte> {
-    if (bytes_ != nullptr) {
-      ESP_ERROR_CHECK(esp_himem_unmap(range_handle, bytes_, size));
-    }
+    assert(bytes_ == nullptr);
     ESP_ERROR_CHECK(esp_himem_map(alloc.handle, range_handle, 0, 0, size, 0,
                                   reinterpret_cast<void**>(&bytes_)));
     return Get();
+  }
+
+  auto Unmap() -> void {
+    if (bytes_ != nullptr) {
+      ESP_ERROR_CHECK(esp_himem_unmap(range_handle, bytes_, size));
+      bytes_ = nullptr;
+    }
   }
 
   // Not copyable or movable.

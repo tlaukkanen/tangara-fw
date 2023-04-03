@@ -27,6 +27,7 @@ class I2SAudioOutput : public IAudioSink {
 
   auto Configure(const StreamInfo::Format& format) -> bool override;
   auto Send(const cpp::span<std::byte>& data) -> void override;
+  auto Log() -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
