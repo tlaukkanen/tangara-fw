@@ -40,7 +40,6 @@ esp_err_t init_i2c(void) {
     return err;
   }
 
-
   // TODO: INT line
 
   return ESP_OK;

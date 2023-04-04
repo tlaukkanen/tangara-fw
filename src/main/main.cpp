@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include <cstddef>
@@ -121,16 +122,9 @@ extern "C" void app_main(void) {
     storage = std::move(storage_res.value());
   }
 
-  /*
   ESP_LOGI(TAG, "Init touch wheel");
-  auto touchwheel_res = drivers::TouchWheel::create(expander);
-  std::shared_ptr<drivers::TouchWheel> touchwheel;
-  if (touchwheel_res.has_error()) {
-    ESP_LOGE(TAG, "Failed!");
-  } else {
-    touchwheel = std::move(touchwheel_res.value());
-  }
-  */
+  std::unique_ptr<drivers::TouchWheel> touchwheel =
+      std::make_unique<drivers::TouchWheel>();
 
   LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
   lvglArgs->gpio_expander = expander;
@@ -156,9 +150,14 @@ extern "C" void app_main(void) {
   console::AppConsole console(playback.get());
   console.Launch();
 
+  uint8_t prev_position = 0;
   while (1) {
-    //touchwheel->Update();
-    //ESP_LOGI(TAG, "Touch wheel pos: %d", touchwheel->GetTouchWheelData().wheel_position);
+    touchwheel->Update();
+    auto wheel_data = touchwheel->GetTouchWheelData();
+    if (wheel_data.wheel_position != prev_position) {
+      prev_position = wheel_data.wheel_position;
+      ESP_LOGI(TAG, "Touch wheel pos: %u", prev_position);
+    }
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }

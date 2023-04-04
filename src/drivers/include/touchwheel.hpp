@@ -1,8 +1,7 @@
 #pragma once
 
-
-#include <functional>
 #include <stdint.h>
+#include <functional>
 
 #include "esp_err.h"
 #include "result.hpp"
@@ -18,14 +17,7 @@ struct TouchWheelData {
 
 class TouchWheel {
  public:
-  enum Error {
-    FAILED_TO_BOOT,
-    FAILED_TO_CONFIGURE,
-  };
-  static auto create(GpioExpander* expander)
-      -> cpp::result<std::unique_ptr<TouchWheel>, Error>;
-
-  TouchWheel(GpioExpander* gpio);
+  TouchWheel();
   ~TouchWheel();
 
   // Not copyable or movable.
@@ -36,25 +28,22 @@ class TouchWheel {
   auto GetTouchWheelData() const -> TouchWheelData;
 
  private:
-  GpioExpander* gpio_;
   TouchWheelData data_;
-  
+
   enum Register {
     FIRMWARE_VERSION = 0x1,
     DETECTION_STATUS = 0x2,
-    KEY_STATUS_A     = 0x3,
-    KEY_STATUS_B     = 0x4,
-    SLIDER_POSITION  = 0x5,
-    CALIBRATE        = 0x6,
-    RESET            = 0x7,
-    LOW_POWER        = 0x8,
-    SLIDER_OPTIONS   = 0x14,
+    KEY_STATUS_A = 0x3,
+    KEY_STATUS_B = 0x4,
+    SLIDER_POSITION = 0x5,
+    CALIBRATE = 0x6,
+    RESET = 0x7,
+    LOW_POWER = 0x8,
+    SLIDER_OPTIONS = 0x14,
   };
 
-
   void WriteRegister(uint8_t reg, uint8_t val);
-  void ReadRegister(uint8_t reg, uint8_t* data, uint8_t count);
-
+  uint8_t ReadRegister(uint8_t reg);
 };
 
 }  // namespace drivers
