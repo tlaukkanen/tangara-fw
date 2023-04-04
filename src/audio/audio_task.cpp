@@ -130,9 +130,7 @@ void AudioTaskMain(void* args) {
           continue;
         }
 
-        if ((!output_format || output_format != sink_stream.info().format) &&
-            !std::holds_alternative<std::monostate>(
-                sink_stream.info().format)) {
+        if (!output_format || output_format != sink_stream.info().format) {
           // The format of the stream within the sink stream has changed. We
           // need to reconfigure the sink, but shouldn't do so until we've fully
           // drained the current buffer.
@@ -145,7 +143,7 @@ void AudioTaskMain(void* args) {
 
         // We've reconfigured the sink, or it was already configured correctly.
         // Send through some data.
-        if (output_format == sink_stream.info().format) {
+        if (output_format == sink_stream.info().format && !std::holds_alternative<std::monostate>(*output_format)) {
           // TODO: tune the delay on this, as it's currently the only way to
           // throttle this task's CPU time. Maybe also hold off on the pipeline
           // if the buffer is already close to full?

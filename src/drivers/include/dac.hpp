@@ -26,7 +26,7 @@ class Register {
   uint8_t page;
   uint8_t reg;
 
-  constexpr Register(uint8_t page, uint8_t reg) : page(page), reg(reg) {}
+  constexpr Register(uint8_t p, uint8_t r) : page(p), reg(r) {}
 };
 
 constexpr Register RESET(0, 1);

@@ -66,20 +66,13 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
 
 auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
                            OutputStream* output) -> void {
-  // We don't really expect multiple inputs, so just pick the first that
-  // contains data. If none of them contain data, then we can still flush
-  // pending samples.
-  auto input = std::find_if(
-      inputs.begin(), inputs.end(),
-      [](const InputStream& s) { return s.data().size_bytes() > 0; });
-  if (input == inputs.end()) {
-    input = inputs.begin();
-  }
-
+  auto input = inputs.begin();
   const StreamInfo& info = input->info();
-  if (std::holds_alternative<std::monostate>(info.format)) {
+  if (std::holds_alternative<std::monostate>(info.format) || info.bytes_in_stream == 0) {
+    output->prepare({});
     return;
   }
+
   if (!current_input_format_ || *current_input_format_ != info.format) {
     // The input stream has changed! Immediately throw everything away and
     // start from scratch.
@@ -133,7 +126,8 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
     }
   }
 
-  input->consume(current_codec_->GetInputPosition());
+  ESP_LOGI(kTag, "decoded %u bytes", current_codec_->GetInputPosition() - 1);
+  input->consume(current_codec_->GetInputPosition() - 1);
 }
 
 }  // namespace audio

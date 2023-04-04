@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <variant>
 
 #include "arena.hpp"
 #include "esp_heap_caps.h"
@@ -47,6 +48,7 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
 auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
                               OutputStream* output) -> void {
   if (!is_file_open_) {
+    output->prepare({});
     return;
   }
 
