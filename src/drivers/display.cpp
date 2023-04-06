@@ -30,6 +30,7 @@ static const uint8_t kTransactionQueueSize = 10;
 
 static const gpio_num_t kDisplayDr = GPIO_NUM_33;
 static const gpio_num_t kDisplayLedEn = GPIO_NUM_32;
+static const gpio_num_t kDisplayCs = GPIO_NUM_22;
 
 /*
  * The size of each of our two display buffers. This is fundamentally a balance
@@ -63,11 +64,37 @@ auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> std::unique_ptr<Display> {
   ESP_LOGI(kTag, "Init I/O pins");
-  gpio_set_direction(kDisplayDr, GPIO_MODE_OUTPUT);
+  gpio_config_t dr_config{
+      .pin_bit_mask = 1ULL << kDisplayDr,
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_DISABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&dr_config);
   gpio_set_level(kDisplayDr, 0);
 
+  /*
+  gpio_config_t cs_config{
+    .pin_bit_mask = 1ULL << kDisplayCs,
+    .mode = GPIO_MODE_OUTPUT,
+    .pull_up_en = GPIO_PULLUP_DISABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&cs_config);
+  gpio_set_level(kDisplayCs, 1);
+  */
+
   // TODO: use pwm for the backlight.
-  gpio_set_direction(kDisplayLedEn, GPIO_MODE_OUTPUT);
+  gpio_config_t led_config{
+      .pin_bit_mask = 1ULL << kDisplayLedEn,
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_ENABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&led_config);
   gpio_set_level(kDisplayLedEn, 1);
 
   // Next, init the SPI device
@@ -82,7 +109,7 @@ auto Display::create(GpioExpander* expander,
       .cs_ena_posttrans = 0,
       .clock_speed_hz = SPI_MASTER_FREQ_40M,
       .input_delay_ns = 0,
-      .spics_io_num = GPIO_NUM_22,
+      .spics_io_num = kDisplayCs,
       .flags = 0,
       .queue_size = kTransactionQueueSize,
       .pre_cb = NULL,
@@ -128,16 +155,17 @@ Display::~Display() {}
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
   // Reset the display manually to get it into a predictable state.
-  gpio_->set_pin(GpioExpander::DISPLAY_RESET, true);
-  gpio_->Write();
-  vTaskDelay(pdMS_TO_TICKS(10));
   gpio_->set_pin(GpioExpander::DISPLAY_RESET, false);
   gpio_->Write();
-  vTaskDelay(pdMS_TO_TICKS(10));
+  vTaskDelay(pdMS_TO_TICKS(1));
+  gpio_->set_pin(GpioExpander::DISPLAY_RESET, true);
+  gpio_->Write();
+  vTaskDelay(pdMS_TO_TICKS(1));
 
   // Hold onto the bus for the entire sequence so that we're not interrupted
   // part way through.
   spi_device_acquire_bus(handle_, portMAX_DELAY);
+  // gpio_set_level(kDisplayCs, 0);
 
   // First byte of the data is the number of commands.
   for (int i = *(data++); i > 0; i--) {
@@ -156,12 +184,15 @@ void Display::SendInitialisationSequence(const uint8_t* data) {
       }
 
       // Avoid hanging on to the bus whilst delaying.
+      // gpio_set_level(kDisplayCs, 1);
       spi_device_release_bus(handle_);
       vTaskDelay(pdMS_TO_TICKS(sleep_duration_ms));
       spi_device_acquire_bus(handle_, portMAX_DELAY);
+      // gpio_set_level(kDisplayCs, 0);
     }
   }
 
+  // gpio_set_level(kDisplayCs, 1);
   spi_device_release_bus(handle_);
 }
 
@@ -220,6 +251,7 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   // Ideally we want to complete a single flush as quickly as possible, so grab
   // the bus for this entire transaction sequence.
   spi_device_acquire_bus(handle_, portMAX_DELAY);
+  // gpio_set_level(kDisplayCs, 0);
 
   // First we need to specify the rectangle of the display we're writing into.
   uint16_t data[2] = {0, 0};
@@ -239,6 +271,7 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   SendCommandWithData(displays::ST77XX_RAMWR,
                       reinterpret_cast<uint8_t*>(color_map), size * 2);
 
+  // gpio_set_level(kDisplayCs, 1);
   spi_device_release_bus(handle_);
 
   lv_disp_flush_ready(&driver_);
