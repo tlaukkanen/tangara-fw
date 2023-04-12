@@ -44,7 +44,7 @@ class GpioExpander {
   // 6 - NC
   // 7 - sd card power (active low)
   // Default to SD card off, inputs high.
-  static const uint8_t kPortADefault = 0b10011110;
+  static const uint8_t kPortADefault = 0b10111110;
 
   // Port B:
   // 0 - trs output enable

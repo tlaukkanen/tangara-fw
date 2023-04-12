@@ -18,10 +18,17 @@ namespace drivers {
 
 static const char* kTag = "TOUCHWHEEL";
 static const uint8_t kTouchWheelAddress = 0x1C;
+static const gpio_num_t kIntPin = GPIO_NUM_25;
 
 TouchWheel::TouchWheel() {
-  gpio_set_direction(GPIO_NUM_25, GPIO_MODE_INPUT);
-  gpio_set_pull_mode(GPIO_NUM_25, GPIO_PULLUP_ONLY);
+  gpio_config_t int_config{
+      .pin_bit_mask = 1ULL << kIntPin,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&int_config);
 
   WriteRegister(Register::RESET, 1);
   // TODO(daniel): do we need this? how long does reset take?
