@@ -10,4 +10,4 @@ idf_build_set_property(COMPILE_OPTIONS "-DTCB_SPAN_NO_CONTRACT_CHECKING" APPEND)
 # Include all app components.
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")
 
-project(gay-ipod-fw)
+project(tangara)
