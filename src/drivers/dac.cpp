@@ -91,11 +91,11 @@ auto AudioDac::create(GpioExpander* expander)
   // dac->WriteRegister(Register::PLL_CLOCK_SOURCE, 1 << 4);
   // dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b11 << 5);
 
-  //dac->WriteRegister(Register::PLL_ENABLE, 0);
-  //dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b0110000);
-  //dac->WriteRegister(Register::CLOCK_ERRORS, 0b01000001);
-  //dac->WriteRegister(Register::I2S_FORMAT, 0b110000);
-  // dac->WriteRegister(Register::INTERPOLATION, 1 << 4);
+  // dac->WriteRegister(Register::PLL_ENABLE, 0);
+  // dac->WriteRegister(Register::DAC_CLOCK_SOURCE, 0b0110000);
+  // dac->WriteRegister(Register::CLOCK_ERRORS, 0b01000001);
+  // dac->WriteRegister(Register::I2S_FORMAT, 0b110000);
+  //  dac->WriteRegister(Register::INTERPOLATION, 1 << 4);
 
   dac->Reconfigure(BPS_16, SAMPLE_RATE_44_1);
 

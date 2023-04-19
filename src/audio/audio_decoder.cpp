@@ -68,8 +68,10 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
                            OutputStream* output) -> void {
   auto input = inputs.begin();
   const StreamInfo& info = input->info();
-  if (std::holds_alternative<std::monostate>(info.format) || info.bytes_in_stream == 0) {
-    output->prepare({});
+  if (std::holds_alternative<std::monostate>(info.format) ||
+      info.bytes_in_stream == 0) {
+    // TODO(jacqueline): should we clear the stream format?
+    // output->prepare({});
     return;
   }
 
@@ -126,7 +128,6 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
     }
   }
 
-  ESP_LOGI(kTag, "decoded %u bytes", current_codec_->GetInputPosition() - 1);
   input->consume(current_codec_->GetInputPosition() - 1);
 }
 

@@ -66,20 +66,13 @@ class InputStream {
  public:
   explicit InputStream(RawStream* s) : raw_(s) {}
 
-  void consume(std::size_t bytes) const {
-    assert(raw_->info->bytes_in_stream >= bytes);
-    auto new_data = raw_->data.subspan(bytes);
-    std::move(new_data.begin(), new_data.end(), raw_->data.begin());
-    raw_->info->bytes_in_stream = new_data.size_bytes();
-  }
+  void consume(std::size_t bytes) const;
 
-  void mark_incomplete() const { raw_->is_incomplete = true; }
+  void mark_incomplete() const;
 
-  const StreamInfo& info() const { return *raw_->info; }
+  const StreamInfo& info() const;
 
-  cpp::span<const std::byte> data() const {
-    return raw_->data.first(raw_->info->bytes_in_stream);
-  }
+  cpp::span<const std::byte> data() const;
 
  private:
   RawStream* raw_;
@@ -89,34 +82,15 @@ class OutputStream {
  public:
   explicit OutputStream(RawStream* s) : raw_(s) {}
 
-  void add(std::size_t bytes) const {
-    assert(raw_->info->bytes_in_stream + bytes <= raw_->data.size_bytes());
-    raw_->info->bytes_in_stream += bytes;
-  }
+  void add(std::size_t bytes) const;
 
-  bool prepare(const StreamInfo::Format& new_format) {
-    if (std::holds_alternative<std::monostate>(raw_->info->format)) {
-      raw_->info->format = new_format;
-      raw_->info->bytes_in_stream = 0;
-    }
-    if (new_format == raw_->info->format) {
-      return true;
-    }
-    if (raw_->is_incomplete) {
-      raw_->info->format = new_format;
-      raw_->info->bytes_in_stream = 0;
-      return true;
-    }
-    return false;
-  }
+  bool prepare(const StreamInfo::Format& new_format);
 
-  const StreamInfo& info() const { return *raw_->info; }
+  const StreamInfo& info() const;
 
-  cpp::span<std::byte> data() const {
-    return raw_->data.subspan(raw_->info->bytes_in_stream);
-  }
+  cpp::span<std::byte> data() const;
 
-  bool is_incomplete() const { return raw_->is_incomplete; }
+  bool is_incomplete() const;
 
  private:
   RawStream* raw_;
