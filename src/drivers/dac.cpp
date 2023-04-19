@@ -5,7 +5,8 @@
 
 #include "assert.h"
 #include "driver/i2c.h"
-#include "driver/i2s_types_legacy.h"
+#include "driver/i2s_common.h"
+#include "driver/i2s_std.h"
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -24,12 +25,7 @@ namespace drivers {
 
 static const char* kTag = "AUDIODAC";
 static const uint8_t kPcm5122Address = 0x4C;
-static const uint8_t kPcm5122Timeout = pdMS_TO_TICKS(100);
 static const i2s_port_t kI2SPort = I2S_NUM_0;
-
-static const AudioDac::SampleRate kDefaultSampleRate =
-    AudioDac::SAMPLE_RATE_44_1;
-static const AudioDac::BitsPerSample kDefaultBps = AudioDac::BPS_16;
 
 auto AudioDac::create(GpioExpander* expander)
     -> cpp::result<std::unique_ptr<AudioDac>, Error> {
@@ -119,7 +115,7 @@ AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
       i2s_active_(false),
       active_page_(),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
-      slot_config_(I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
+      slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                        I2S_SLOT_MODE_STEREO)) {
   clock_config_.clk_src = I2S_CLK_SRC_PLL_160M;
   gpio_->set_pin(GpioExpander::AMP_EN, true);
@@ -171,11 +167,24 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   }
 
   // I2S reconfiguration.
-
-  slot_config_.slot_bit_width = I2S_SLOT_BIT_WIDTH_16BIT;
+  uint8_t bps_bits = 0;
+  switch (bps) {
+    case BPS_16:
+      slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_16BIT;
+      bps_bits = 0;
+      break;
+    case BPS_24:
+      slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_24BIT;
+      bps_bits = 0b10;
+      break;
+    case BPS_32:
+      slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_32BIT;
+      bps_bits = 0b11;
+      break;
+  }
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_));
 
-  clock_config_.sample_rate_hz = 44100;
+  clock_config_.sample_rate_hz = rate;
   // If we have an MCLK/SCK, then it must be a multiple of both the sample rate
   // and the bit clock. At 24 BPS, we therefore have to change the MCLK multiple
   // to avoid issues at some sample rates. (e.g. 48KHz)
@@ -183,19 +192,14 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
       bps == BPS_24 ? I2S_MCLK_MULTIPLE_384 : I2S_MCLK_MULTIPLE_256;
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
-  // TODO: base on BPS
-  // WriteRegister(Register::I2S_FORMAT, 0b110000);
+  WriteRegister(pcm512x::I2S_1, (0b11 << 4) | bps_bits);
+  WriteRegister(pcm512x::I2S_2, 0);
 
   // Configuration is all done, so we can now bring the DAC and I2S stream back
   // up. I2S first, since otherwise the DAC will see that there's no clocks and
   // shut itself down.
   ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
   WriteRegister(pcm512x::POWER, 0);
-  WriteRegister(pcm512x::SYNCHRONIZE, 1);
-  vTaskDelay(pdMS_TO_TICKS(10));
-  WriteRegister(pcm512x::SYNCHRONIZE, 0);
-  vTaskDelay(pdMS_TO_TICKS(10));
-  LogStatus();
   i2s_active_ = true;
 }
 
@@ -205,6 +209,41 @@ auto AudioDac::WriteData(const cpp::span<const std::byte>& data) -> void {
                                     &bytes_written, portMAX_DELAY);
   if (err != ESP_ERR_TIMEOUT) {
     ESP_ERROR_CHECK(err);
+  }
+}
+
+IRAM_ATTR auto callback(i2s_chan_handle_t handle, i2s_event_data_t *event, void *user_ctx) -> bool {
+  if (event == nullptr || user_ctx == nullptr) {
+    return false;
+  }
+  if (event->data == nullptr || event->size == 0) {
+    return false;
+  }
+  StreamBufferHandle_t *src = reinterpret_cast<StreamBufferHandle_t*>(user_ctx);
+  BaseType_t ret = false;
+  std::size_t bytes_received = xStreamBufferReceiveFromISR(*src, event->data, event->size, &ret);
+  if (bytes_received < event->size) {
+    // TODO(jacqueline): zero-pad.
+  }
+  return ret;
+}
+
+auto AudioDac::SetSource(StreamBufferHandle_t *buffer) -> void {
+  if (i2s_active_) {
+    ESP_ERROR_CHECK(i2s_channel_disable(i2s_handle_));
+  }
+  i2s_event_callbacks_t callbacks {
+    .on_recv = NULL,
+    .on_recv_q_ovf = NULL,
+    .on_sent = NULL,
+    .on_send_q_ovf = NULL,
+  };
+  if (buffer != nullptr) {
+    callbacks.on_sent = &callback;
+  }
+  i2s_channel_register_event_callback(i2s_handle_, &callbacks, buffer);
+  if (i2s_active_) {
+    ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
   }
 }
 

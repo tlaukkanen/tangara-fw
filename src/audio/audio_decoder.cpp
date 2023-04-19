@@ -128,7 +128,10 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
     }
   }
 
-  input->consume(current_codec_->GetInputPosition() - 1);
+  std::size_t pos = current_codec_->GetInputPosition();
+  if (pos > 0) {
+    input->consume(pos - 1);
+  }
 }
 
 }  // namespace audio

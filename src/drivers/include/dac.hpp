@@ -12,6 +12,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
+#include "freertos/stream_buffer.h"
 #include "result.hpp"
 #include "span.hpp"
 
@@ -157,6 +158,7 @@ class AudioDac {
   auto Reconfigure(BitsPerSample bps, SampleRate rate) -> void;
 
   auto WriteData(const cpp::span<const std::byte>& data) -> void;
+  auto SetSource(StreamBufferHandle_t *buffer) -> void;
 
   auto Stop() -> void;
   auto LogStatus() -> void;
