@@ -47,7 +47,10 @@ void TouchWheel::WriteRegister(uint8_t reg, uint8_t val) {
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
       .write_ack(maskedReg, val)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
+  // TODO(jacqueline): check for errors again when i find where all the ffc
+  // cables went q.q
+  // ESP_ERROR_CHECK(transaction.Execute());
 }
 
 uint8_t TouchWheel::ReadRegister(uint8_t reg) {
