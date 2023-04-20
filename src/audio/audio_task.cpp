@@ -37,15 +37,14 @@ namespace task {
 static const char* kTag = "task";
 static const std::size_t kStackSize = 24 * 1024;
 static const std::size_t kDrainStackSize = 1024;
-static const uint8_t kAudioCore = 0;
 
 auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void {
   // Newly created task will free this.
   AudioTaskArgs* args = new AudioTaskArgs{.pipeline = pipeline, .sink = sink};
 
   ESP_LOGI(kTag, "starting audio pipeline task");
-  xTaskCreatePinnedToCore(&AudioTaskMain, "pipeline", kStackSize, args,
-                          kTaskPriorityAudioPipeline, NULL, kAudioCore);
+  xTaskCreate(&AudioTaskMain, "pipeline", kStackSize, args,
+              kTaskPriorityAudioPipeline, NULL);
 }
 
 auto StartDrain(IAudioSink* sink) -> void {
@@ -151,6 +150,13 @@ void AudioTaskMain(void* args) {
           std::size_t sent = xStreamBufferSend(
               sink->buffer(), sink_stream.data().data(),
               sink_stream.data().size_bytes(), pdMS_TO_TICKS(10));
+          if (sent > 0) {
+            ESP_LOGI(kTag, "sunk %u bytes out of %u (%d %%)", sent,
+                     sink_stream.info().bytes_in_stream,
+                     (int)(((float)sent /
+                            (float)sink_stream.info().bytes_in_stream) *
+                           100));
+          }
           sink_stream.consume(sent);
         }
 

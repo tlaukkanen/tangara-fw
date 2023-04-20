@@ -1,4 +1,5 @@
 #include "mad.hpp"
+#include <stdint.h>
 
 #include <cstdint>
 
@@ -9,9 +10,9 @@
 
 namespace codecs {
 
-static int scaleTo16Bits(mad_fixed_t sample) {
+static uint32_t scaleToBits(mad_fixed_t sample, uint8_t bits) {
   // Round the bottom bits.
-  sample += (1L << (MAD_F_FRACBITS - 16));
+  sample += (1L << (MAD_F_FRACBITS - bits));
 
   // Clip the leftover bits to within range.
   if (sample >= MAD_F_ONE)
@@ -20,7 +21,7 @@ static int scaleTo16Bits(mad_fixed_t sample) {
     sample = -MAD_F_ONE;
 
   // Quantize.
-  return sample >> (MAD_F_FRACBITS + 1 - 16);
+  return sample >> (MAD_F_FRACBITS + 1 - bits);
 }
 
 MadMp3Decoder::MadMp3Decoder() {
@@ -119,8 +120,19 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
     }
 
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
+      // TODO(jacqueline): output 24 bit samples when (if?) we have a downmix
+      // step in the pipeline.
+      /*
+      uint32_t sample_24 =
+          scaleToBits(synth_.pcm.samples[channel][current_sample_], 24);
+      output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
+      // 24 bit samples must still be aligned to 32 bits. The LSB is ignored.
+      output[output_byte++] = static_cast<std::byte>(0);
+      */
       uint16_t sample_16 =
-          scaleTo16Bits(synth_.pcm.samples[channel][current_sample_]);
+          scaleToBits(synth_.pcm.samples[channel][current_sample_], 16);
       output[output_byte++] = static_cast<std::byte>((sample_16 >> 8) & 0xFF);
       output[output_byte++] = static_cast<std::byte>((sample_16)&0xFF);
     }

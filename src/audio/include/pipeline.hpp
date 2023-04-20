@@ -13,7 +13,7 @@
 
 namespace audio {
 
-static const std::size_t kPipelineBufferSize = 32 * 1024;
+static const std::size_t kPipelineBufferSize = 64 * 1024;
 
 class Pipeline {
  public:

@@ -38,7 +38,7 @@ auto AudioDac::create(GpioExpander* expander)
   channel_config.dma_frame_num = 1024;
   // Triple buffering should be enough to keep samples flowing smoothly.
   // TODO(jacqueline): verify this with 192kHz 32bps.
-  channel_config.dma_desc_num = 8;
+  channel_config.dma_desc_num = 4;
   // channel_config.auto_clear = true;
 
   ESP_ERROR_CHECK(i2s_new_channel(&channel_config, &i2s_handle, NULL));
@@ -53,7 +53,7 @@ auto AudioDac::create(GpioExpander* expander)
   i2s_std_config_t i2s_config = {
       .clk_cfg = dac->clock_config_,
       .slot_cfg = dac->slot_config_,
-      .gpio_cfg = {.mclk = I2S_GPIO_UNUSED,
+      .gpio_cfg = {.mclk = GPIO_NUM_0,
                    .bclk = GPIO_NUM_26,
                    .ws = GPIO_NUM_27,
                    .dout = GPIO_NUM_5,
@@ -121,7 +121,7 @@ AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
       active_page_(),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
       slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
-                                                       I2S_SLOT_MODE_STEREO)) {
+                                                   I2S_SLOT_MODE_STEREO)) {
   clock_config_.clk_src = I2S_CLK_SRC_PLL_160M;
   gpio_->set_pin(GpioExpander::AMP_EN, true);
   gpio_->Write();
@@ -167,6 +167,8 @@ bool AudioDac::WaitForPowerState(
 
 auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   if (i2s_active_) {
+    WriteRegister(pcm512x::MUTE, 0b10001);
+    vTaskDelay(1);
     WriteRegister(pcm512x::POWER, 1 << 4);
     i2s_channel_disable(i2s_handle_);
   }
@@ -198,10 +200,10 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
   // DAC reconfiguration.
-  //See here : https://e2e.ti.com/support/data_converters/audio_converters/f/64/t/428281
-  // for a config example
+  // Inspired heavily by https://github.com/tommag/PCM51xx_Arduino (MIT).
 
-  // Check that the bit clock (PLL input) is between 1MHz and 50MHz
+  // Check that the bit clock (PLL input) is between 1MHz and 50MHz. It always
+  // should be.
   uint32_t bckFreq = rate * bps * 2;
   if (bckFreq < 1000000 || bckFreq > 50000000) {
     ESP_LOGE(kTag, "bck freq out of range");
@@ -210,43 +212,45 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
 
   // 24 bits is not supported for 44.1kHz and 48kHz.
   if ((rate == SAMPLE_RATE_44_1 || rate == SAMPLE_RATE_48) && bps == BPS_24) {
-    // TODO(jacqueline): implement
+    // TODO(jacqueline): I think this *can* be implemented, but requires a bunch
+    // of maths.
     ESP_LOGE(kTag, "sample rate and bps mismatch");
     return;
   }
 
-  //Initialize system clock from the I2S BCK input
-  WriteRegister(pcm512x::ERROR_DETECT, 0x1A);  // Disable clock autoset and ignore SCK detection
-  WriteRegister(pcm512x::PLL_REF, 0x10);  // Set PLL clock source to BCK
-  WriteRegister(pcm512x::DAC_REF, 0x10); // Set DAC clock source to PLL output
+  // Initialize system clock from the I2S BCK input
+  //  Disable clock autoset and ignore SCK detection
+  WriteRegister(pcm512x::ERROR_DETECT, 0x1A);
+  // Set PLL clock source to BCK
+  WriteRegister(pcm512x::PLL_REF, 0x10);
+  // Set DAC clock source to PLL output
+  WriteRegister(pcm512x::DAC_REF, 0x10);
 
-  //PLL configuration
+  // PLL configuration
   int p, j, d, r;
 
-  //Clock dividers
+  // Clock dividers
   int nmac, ndac, ncp, dosr, idac;
 
-  if (rate == SAMPLE_RATE_11_025 || rate == SAMPLE_RATE_22_05 || rate == SAMPLE_RATE_44_1)
-  {
-    //44.1kHz and derivatives.
-    //P = 1, R = 2, D = 0 for all supported combinations.
-    //Set J to have PLL clk = 90.3168 MHz
+  if (rate == SAMPLE_RATE_11_025 || rate == SAMPLE_RATE_22_05 ||
+      rate == SAMPLE_RATE_44_1) {
+    // 44.1kHz and derivatives.
+    // P = 1, R = 2, D = 0 for all supported combinations.
+    // Set J to have PLL clk = 90.3168 MHz
     p = 1;
     r = 2;
     j = 90316800 / bckFreq / r;
     d = 0;
 
-    //Derive clocks from the 90.3168MHz PLL
+    // Derive clocks from the 90.3168MHz PLL
     nmac = 2;
     ndac = 16;
     ncp = 4;
     dosr = 8;
-    idac = 1024; // DSP clock / sample rate
-  }
-  else
-  {
-    //8kHz and multiples.
-    //PLL config for a 98.304 MHz PLL clk
+    idac = 1024;  // DSP clock / sample rate
+  } else {
+    // 8kHz and multiples.
+    // PLL config for a 98.304 MHz PLL clk
     if (bps == BPS_24 && bckFreq > 1536000) {
       p = 3;
     } else if (bckFreq > 12288000) {
@@ -259,19 +263,24 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
     j = 98304000 / (bckFreq / p) / r;
     d = 0;
 
-    //Derive clocks from the 98.304MHz PLL
+    // Derive clocks from the 98.304MHz PLL
     switch (rate) {
-      case SAMPLE_RATE_16: nmac = 6; break;
-      case SAMPLE_RATE_32: nmac = 3; break;
-      default:              nmac = 2; break;
+      case SAMPLE_RATE_16:
+        nmac = 6;
+        break;
+      case SAMPLE_RATE_32:
+        nmac = 3;
+        break;
+      default:
+        nmac = 2;
+        break;
     }
 
     ndac = 16;
     ncp = 4;
     dosr = 384000 / rate;
-    idac = 98304000 / nmac / rate; // DSP clock / sample rate
+    idac = 98304000 / nmac / rate;  // DSP clock / sample rate
   }
-
 
   // Configure PLL
   WriteRegister(pcm512x::PLL_COEFF_0, p - 1);
@@ -311,6 +320,11 @@ auto AudioDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
   // shut itself down.
   ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
   WriteRegister(pcm512x::POWER, 0);
+
+  if (i2s_active_) {
+    vTaskDelay(1);
+    WriteRegister(pcm512x::MUTE, 0);
+  }
   i2s_active_ = true;
 }
 
