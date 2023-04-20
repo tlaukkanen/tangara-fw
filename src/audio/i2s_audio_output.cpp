@@ -31,7 +31,7 @@ auto I2SAudioOutput::create(drivers::GpioExpander* expander)
   // Soft mute immediately, in order to minimise any clicks and pops caused by
   // the initial output element and pipeline configuration.
   // dac->WriteVolume(255);
-  dac->WriteVolume(120);  // for testing
+  dac->WriteVolume(127);  // for testing
 
   return std::make_unique<I2SAudioOutput>(expander, std::move(dac));
 }
