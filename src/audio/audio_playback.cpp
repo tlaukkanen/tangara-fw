@@ -41,7 +41,7 @@ AudioPlayback::AudioPlayback(std::unique_ptr<I2SAudioOutput> output)
   pipeline->AddInput(file_source_.get());
 
   task::StartPipeline(pipeline, i2s_output_.get());
-  task::StartDrain(i2s_output_.get());
+  // task::StartDrain(i2s_output_.get());
 }
 
 AudioPlayback::~AudioPlayback() {}

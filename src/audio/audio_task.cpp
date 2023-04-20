@@ -58,7 +58,7 @@ auto StartDrain(IAudioSink* sink) -> void {
 
   ESP_LOGI(kTag, "starting audio drain task");
   xTaskCreate(&AudioDrainMain, "drain", kDrainStackSize, drain_args,
-                          kTaskPriorityAudioDrain, NULL);
+              kTaskPriorityAudioDrain, NULL);
 }
 
 void AudioTaskMain(void* args) {
@@ -134,7 +134,7 @@ void AudioTaskMain(void* args) {
           // The format of the stream within the sink stream has changed. We
           // need to reconfigure the sink, but shouldn't do so until we've fully
           // drained the current buffer.
-          if (xStreamBufferIsEmpty(*sink->buffer())) {
+          if (xStreamBufferIsEmpty(sink->buffer())) {
             ESP_LOGI(kTag, "reconfiguring dac");
             output_format = sink_stream.info().format;
             sink->Configure(*output_format);
@@ -149,7 +149,7 @@ void AudioTaskMain(void* args) {
           // throttle this task's CPU time. Maybe also hold off on the pipeline
           // if the buffer is already close to full?
           std::size_t sent = xStreamBufferSend(
-              *sink->buffer(), sink_stream.data().data(),
+              sink->buffer(), sink_stream.data().data(),
               sink_stream.data().size_bytes(), pdMS_TO_TICKS(10));
           sink_stream.consume(sent);
         }
@@ -172,7 +172,7 @@ void AudioDrainMain(void* args) {
 
     // TODO(jacqueline): implement PAUSE without busy-waiting.
     while (*command != QUIT) {
-      std::size_t len = xStreamBufferReceive(*sink->buffer(), sDrainBuf,
+      std::size_t len = xStreamBufferReceive(sink->buffer(), sDrainBuf,
                                              sizeof(sDrainBuf), portMAX_DELAY);
       if (len > 0) {
         sink->Send({sDrainBuf, len});

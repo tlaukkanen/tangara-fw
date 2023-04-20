@@ -158,7 +158,7 @@ class AudioDac {
   auto Reconfigure(BitsPerSample bps, SampleRate rate) -> void;
 
   auto WriteData(const cpp::span<const std::byte>& data) -> void;
-  auto SetSource(StreamBufferHandle_t *buffer) -> void;
+  auto SetSource(StreamBufferHandle_t buffer) -> void;
 
   auto Stop() -> void;
   auto LogStatus() -> void;

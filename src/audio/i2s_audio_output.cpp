@@ -39,8 +39,8 @@ auto I2SAudioOutput::create(drivers::GpioExpander* expander)
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
                                std::unique_ptr<drivers::AudioDac> dac)
     : expander_(expander), dac_(std::move(dac)), current_config_() {
-      //dac_->SetSource(buffer());
-    }
+  dac_->SetSource(buffer());
+}
 
 I2SAudioOutput::~I2SAudioOutput() {
   dac_->SetSource(nullptr);
