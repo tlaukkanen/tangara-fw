@@ -43,8 +43,8 @@ auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void {
   AudioTaskArgs* args = new AudioTaskArgs{.pipeline = pipeline, .sink = sink};
 
   ESP_LOGI(kTag, "starting audio pipeline task");
-  xTaskCreate(&AudioTaskMain, "pipeline", kStackSize, args,
-              kTaskPriorityAudioPipeline, NULL);
+  xTaskCreatePinnedToCore(&AudioTaskMain, "pipeline", kStackSize, args,
+                          kTaskPriorityAudioPipeline, NULL, 1);
 }
 
 auto StartDrain(IAudioSink* sink) -> void {
