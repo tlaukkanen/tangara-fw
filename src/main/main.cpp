@@ -18,6 +18,8 @@
 #include "esp_log.h"
 #include "font/lv_font.h"
 #include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+#include "freertos/timers.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
@@ -40,8 +42,8 @@
 
 static const char* TAG = "MAIN";
 
-void IRAM_ATTR tick_hook(void) {
-  // lv_tick_inc(1);
+auto tick_hook(TimerHandle_t xTimer) -> void {
+  lv_tick_inc(1);
 }
 
 static const size_t kLvglStackSize = 8 * 1024;
@@ -64,7 +66,7 @@ extern "C" void lvgl_main(void* voidArgs) {
   lv_init();
 
   // LVGL has been initialised, so we can now start reporting ticks to it.
-  esp_register_freertos_tick_hook(&tick_hook);
+  xTimerCreate("lv_tick", pdMS_TO_TICKS(1), pdTRUE, NULL, &tick_hook);
 
   ESP_LOGI(TAG, "init display");
   std::unique_ptr<drivers::Display> display =
