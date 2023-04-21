@@ -117,8 +117,7 @@ class AudioDac {
     FAILED_TO_INSTALL_I2S,
   };
 
-  static auto create(GpioExpander* expander)
-      -> cpp::result<std::unique_ptr<AudioDac>, Error>;
+  static auto create(GpioExpander* expander) -> cpp::result<AudioDac*, Error>;
 
   AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle);
   ~AudioDac();

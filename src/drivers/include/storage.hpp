@@ -25,14 +25,13 @@ class SdStorage {
     FAILED_TO_MOUNT,
   };
 
-  static auto create(GpioExpander* gpio)
-      -> cpp::result<std::shared_ptr<SdStorage>, Error>;
+  static auto create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error>;
 
   SdStorage(GpioExpander* gpio,
             esp_err_t (*do_transaction)(sdspi_dev_handle_t, sdmmc_command_t*),
             sdspi_dev_handle_t handle_,
-            std::unique_ptr<sdmmc_host_t>& host_,
-            std::unique_ptr<sdmmc_card_t>& card_,
+            std::unique_ptr<sdmmc_host_t> host_,
+            std::unique_ptr<sdmmc_card_t> card_,
             FATFS* fs_);
   ~SdStorage();
 

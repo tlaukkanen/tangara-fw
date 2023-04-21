@@ -5,6 +5,7 @@
 #include <memory>
 #include <string_view>
 
+#include "driver_cache.hpp"
 #include "freertos/portmacro.h"
 
 #include "audio_decoder.hpp"
@@ -21,19 +22,10 @@
 #include "stream_message.hpp"
 
 namespace audio {
-
-auto AudioPlayback::create(drivers::GpioExpander* expander)
-    -> cpp::result<std::unique_ptr<AudioPlayback>, Error> {
-  auto sink_res = I2SAudioOutput::create(expander);
-  if (sink_res.has_error()) {
-    return cpp::fail(ERR_INIT_ELEMENT);
-  }
-  return std::make_unique<AudioPlayback>(std::move(sink_res.value()));
-}
-
-AudioPlayback::AudioPlayback(std::unique_ptr<I2SAudioOutput> output)
+AudioPlayback::AudioPlayback(drivers::DriverCache* drivers)
     : file_source_(std::make_unique<FatfsAudioInput>()),
-      i2s_output_(std::move(output)) {
+      i2s_output_(std::make_unique<I2SAudioOutput>(drivers->AcquireGpios(),
+                                                   drivers->AcquireDac())) {
   AudioDecoder* codec = new AudioDecoder();
   elements_.emplace_back(codec);
 

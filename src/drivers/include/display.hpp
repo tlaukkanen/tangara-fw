@@ -23,8 +23,7 @@ class Display {
    * us back any kind of signal to tell us we're actually using them correctly.
    */
   static auto create(GpioExpander* expander,
-                     const displays::InitialisationData& init_data)
-      -> std::unique_ptr<Display>;
+                     const displays::InitialisationData& init_data) -> Display*;
 
   Display(GpioExpander* gpio, spi_device_handle_t handle);
   ~Display();

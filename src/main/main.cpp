@@ -11,6 +11,7 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#include "driver_cache.hpp"
 #include "esp_freertos_hooks.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
@@ -39,50 +40,37 @@ extern "C" void app_main(void) {
 
   ESP_ERROR_CHECK(drivers::init_i2c());
   ESP_ERROR_CHECK(drivers::init_spi());
+  std::unique_ptr<drivers::DriverCache> drivers =
+      std::make_unique<drivers::DriverCache>();
 
   ESP_LOGI(TAG, "Init GPIOs");
-  drivers::GpioExpander* expander = new drivers::GpioExpander();
+  drivers::GpioExpander* expander = drivers->AcquireGpios();
 
   ESP_LOGI(TAG, "Enable power rails for development");
-  expander->with([&](auto& gpio) {
-    gpio.set_pin(drivers::GpioExpander::SD_MUX_EN_ACTIVE_LOW, 0);
-    gpio.set_pin(drivers::GpioExpander::SD_MUX_SWITCH,
-                 drivers::GpioExpander::SD_MUX_ESP);
-    gpio.set_pin(drivers::GpioExpander::SD_CARD_POWER_ENABLE, 0);
-    gpio.set_pin(drivers::GpioExpander::AMP_EN, 1);
-  });
+  expander->with(
+      [&](auto& gpio) { gpio.set_pin(drivers::GpioExpander::AMP_EN, 1); });
 
   ESP_LOGI(TAG, "Init battery measurement");
   drivers::Battery* battery = new drivers::Battery();
   ESP_LOGI(TAG, "it's reading %d mV!", (int)battery->Millivolts());
 
   ESP_LOGI(TAG, "Init SD card");
-  auto storage_res = drivers::SdStorage::create(expander);
-  std::shared_ptr<drivers::SdStorage> storage;
-  if (storage_res.has_error()) {
+  auto storage = drivers->AcquireStorage();
+  if (!storage) {
     ESP_LOGE(TAG, "Failed! Do you have an SD card?");
-  } else {
-    storage = std::move(storage_res.value());
   }
 
   ESP_LOGI(TAG, "Init touch wheel");
-  std::unique_ptr<drivers::TouchWheel> touchwheel =
-      std::make_unique<drivers::TouchWheel>();
+  std::shared_ptr<drivers::TouchWheel> touchwheel =
+      drivers->AcquireTouchWheel();
 
   std::atomic<bool> lvgl_quit;
   TaskHandle_t lvgl_task_handle;
-  ui::StartLvgl(expander, &lvgl_quit, &lvgl_task_handle);
+  ui::StartLvgl(drivers.get(), &lvgl_quit, &lvgl_task_handle);
 
-  std::unique_ptr<audio::AudioPlayback> playback;
-  if (storage) {
-    ESP_LOGI(TAG, "Init audio pipeline");
-    auto playback_res = audio::AudioPlayback::create(expander);
-    if (playback_res.has_error()) {
-      ESP_LOGE(TAG, "Failed! Playback will not work.");
-    } else {
-      playback = std::move(playback_res.value());
-    }
-  }
+  ESP_LOGI(TAG, "Init audio pipeline");
+  std::unique_ptr<audio::AudioPlayback> playback =
+      std::make_unique<audio::AudioPlayback>(drivers.get());
 
   ESP_LOGI(TAG, "Waiting for background tasks before launching console...");
   vTaskDelay(pdMS_TO_TICKS(1000));

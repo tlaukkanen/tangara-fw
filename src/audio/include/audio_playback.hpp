@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "audio_task.hpp"
+#include "driver_cache.hpp"
 #include "esp_err.h"
 #include "fatfs_audio_input.hpp"
 #include "i2s_audio_output.hpp"
@@ -25,11 +26,7 @@ namespace audio {
  */
 class AudioPlayback {
  public:
-  enum Error { ERR_INIT_ELEMENT, ERR_MEM };
-  static auto create(drivers::GpioExpander* expander)
-      -> cpp::result<std::unique_ptr<AudioPlayback>, Error>;
-
-  explicit AudioPlayback(std::unique_ptr<I2SAudioOutput> output);
+  explicit AudioPlayback(drivers::DriverCache* drivers);
   ~AudioPlayback();
 
   /*

@@ -27,8 +27,7 @@ static const char* kTag = "AUDIODAC";
 static const uint8_t kPcm5122Address = 0x4C;
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
-auto AudioDac::create(GpioExpander* expander)
-    -> cpp::result<std::unique_ptr<AudioDac>, Error> {
+auto AudioDac::create(GpioExpander* expander) -> cpp::result<AudioDac*, Error> {
   // TODO: tune.
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config =
@@ -111,7 +110,7 @@ auto AudioDac::create(GpioExpander* expander)
     return state == RUN || state == STANDBY;
   });
 
-  return dac;
+  return dac.release();
 }
 
 AudioDac::AudioDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)

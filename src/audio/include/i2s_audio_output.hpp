@@ -17,12 +17,8 @@ namespace audio {
 
 class I2SAudioOutput : public IAudioSink {
  public:
-  enum Error { DAC_CONFIG, I2S_CONFIG, STREAM_INIT };
-  static auto create(drivers::GpioExpander* expander)
-      -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error>;
-
   I2SAudioOutput(drivers::GpioExpander* expander,
-                 std::unique_ptr<drivers::AudioDac> dac);
+                 std::shared_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
   auto Configure(const StreamInfo::Format& format) -> bool override;
@@ -36,7 +32,7 @@ class I2SAudioOutput : public IAudioSink {
   auto SetVolume(uint8_t volume) -> void;
 
   drivers::GpioExpander* expander_;
-  std::unique_ptr<drivers::AudioDac> dac_;
+  std::shared_ptr<drivers::AudioDac> dac_;
 
   std::optional<StreamInfo::Pcm> current_config_;
 };

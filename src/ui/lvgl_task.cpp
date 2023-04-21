@@ -26,7 +26,7 @@
 #include "widgets/lv_label.h"
 
 #include "display.hpp"
-#include "display_init.hpp"
+#include "driver_cache.hpp"
 #include "gpio_expander.hpp"
 
 namespace ui {
@@ -38,16 +38,14 @@ auto tick_hook(TimerHandle_t xTimer) -> void {
 }
 
 struct LvglArgs {
-  drivers::GpioExpander* gpio_expander;
+  drivers::DriverCache* drivers;
   std::atomic<bool>* quit;
 };
 
 void LvglMain(void* voidArgs) {
-  LvglArgs* args = (LvglArgs*)voidArgs;
-  drivers::GpioExpander* gpio_expander = args->gpio_expander;
+  LvglArgs* args = reinterpret_cast<LvglArgs*>(voidArgs);
+  drivers::DriverCache* drivers = args->drivers;
   std::atomic<bool>* quit = args->quit;
-
-  // Dispose of the args now that we've gotten everything out of them.
   delete args;
 
   {
@@ -59,8 +57,7 @@ void LvglMain(void* voidArgs) {
         xTimerCreate("lv_tick", pdMS_TO_TICKS(1), pdTRUE, NULL, &tick_hook);
 
     ESP_LOGI(kTag, "init display");
-    std::unique_ptr<drivers::Display> display =
-        drivers::Display::create(gpio_expander, drivers::displays::kST7735R);
+    std::shared_ptr<drivers::Display> display = drivers->AcquireDisplay();
 
     lv_style_t style;
     lv_style_init(&style);
@@ -96,11 +93,11 @@ static const size_t kLvglStackSize = 8 * 1024;
 static StaticTask_t sLvglTaskBuffer = {};
 static StackType_t sLvglStack[kLvglStackSize] = {0};
 
-auto StartLvgl(drivers::GpioExpander* gpios,
+auto StartLvgl(drivers::DriverCache* drivers,
                std::atomic<bool>* quit,
                TaskHandle_t* handle) -> bool {
   LvglArgs* args = new LvglArgs();
-  args->gpio_expander = gpios;
+  args->drivers = drivers;
   args->quit = quit;
 
   return xTaskCreateStaticPinnedToCore(&LvglMain, "LVGL", kLvglStackSize,

@@ -63,7 +63,7 @@ extern "C" void FlushDataCallback(lv_disp_drv_t* disp_drv,
 
 auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
-    -> std::unique_ptr<Display> {
+    -> Display* {
   ESP_LOGI(kTag, "Init I/O pins");
   gpio_config_t dr_config{
       .pin_bit_mask = 1ULL << kDisplayDr,
@@ -134,7 +134,7 @@ auto Display::create(GpioExpander* expander,
   ESP_LOGI(kTag, "Registering driver");
   display->display_ = lv_disp_drv_register(&display->driver_);
 
-  return display;
+  return display.release();
 }
 
 Display::Display(GpioExpander* gpio, spi_device_handle_t handle)

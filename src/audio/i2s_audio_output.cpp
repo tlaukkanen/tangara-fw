@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <variant>
 
 #include "esp_err.h"
@@ -18,27 +19,10 @@ static const char* kTag = "I2SOUT";
 
 namespace audio {
 
-auto I2SAudioOutput::create(drivers::GpioExpander* expander)
-    -> cpp::result<std::unique_ptr<I2SAudioOutput>, Error> {
-  // First, we need to perform initial configuration of the DAC chip.
-  auto dac_result = drivers::AudioDac::create(expander);
-  if (dac_result.has_error()) {
-    ESP_LOGE(kTag, "failed to init dac: %d", dac_result.error());
-    return cpp::fail(DAC_CONFIG);
-  }
-  std::unique_ptr<drivers::AudioDac> dac = std::move(dac_result.value());
-
-  // Soft mute immediately, in order to minimise any clicks and pops caused by
-  // the initial output element and pipeline configuration.
-  // dac->WriteVolume(255);
-  dac->WriteVolume(127);  // for testing
-
-  return std::make_unique<I2SAudioOutput>(expander, std::move(dac));
-}
-
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
-                               std::unique_ptr<drivers::AudioDac> dac)
+                               std::shared_ptr<drivers::AudioDac> dac)
     : expander_(expander), dac_(std::move(dac)), current_config_() {
+  dac->WriteVolume(127);  // for testing
   dac_->SetSource(buffer());
 }
 
