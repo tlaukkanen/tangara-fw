@@ -6,8 +6,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "core/lv_disp.h"
-#include "core/lv_obj_pos.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/sdspi_host.h"
@@ -16,17 +14,10 @@
 #include "esp_freertos_hooks.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
-#include "font/lv_font.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
-#include "freertos/timers.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
-#include "lvgl/lvgl.h"
-#include "misc/lv_color.h"
-#include "misc/lv_style.h"
-#include "misc/lv_timer.h"
-#include "widgets/lv_label.h"
 
 #include "app_console.hpp"
 #include "audio_playback.hpp"
@@ -36,63 +27,12 @@
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
 #include "i2c.hpp"
+#include "lvgl_task.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
 #include "touchwheel.hpp"
 
 static const char* TAG = "MAIN";
-
-auto tick_hook(TimerHandle_t xTimer) -> void {
-  lv_tick_inc(1);
-}
-
-static const size_t kLvglStackSize = 8 * 1024;
-static StaticTask_t sLvglTaskBuffer = {};
-static StackType_t sLvglStack[kLvglStackSize] = {0};
-
-struct LvglArgs {
-  drivers::GpioExpander* gpio_expander;
-};
-
-extern "C" void lvgl_main(void* voidArgs) {
-  ESP_LOGI(TAG, "starting LVGL task");
-  LvglArgs* args = (LvglArgs*)voidArgs;
-  drivers::GpioExpander* gpio_expander = args->gpio_expander;
-
-  // Dispose of the args now that we've gotten everything out of them.
-  delete args;
-
-  ESP_LOGI(TAG, "init lvgl");
-  lv_init();
-
-  // LVGL has been initialised, so we can now start reporting ticks to it.
-  xTimerCreate("lv_tick", pdMS_TO_TICKS(1), pdTRUE, NULL, &tick_hook);
-
-  ESP_LOGI(TAG, "init display");
-  std::unique_ptr<drivers::Display> display =
-      drivers::Display::create(gpio_expander, drivers::displays::kST7735R);
-
-  lv_style_t style;
-  lv_style_init(&style);
-  lv_style_set_text_color(&style, LV_COLOR_MAKE(0xFF, 0, 0));
-  // TODO: find a nice bitmap font for this display size and density.
-  // lv_style_set_text_font(&style, &lv_font_montserrat_24);
-
-  auto label = lv_label_create(NULL);
-  lv_label_set_text(label, "COLOURS!!");
-  lv_obj_add_style(label, &style, 0);
-
-  lv_obj_center(label);
-  lv_scr_load(label);
-
-  while (1) {
-    lv_timer_handler();
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
-
-  // TODO: break from the loop to kill this task, so that we can do our RAII
-  // cleanup, unregister our tick callback and so on.
-}
 
 extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Initialising peripherals");
@@ -129,11 +69,9 @@ extern "C" void app_main(void) {
   std::unique_ptr<drivers::TouchWheel> touchwheel =
       std::make_unique<drivers::TouchWheel>();
 
-  LvglArgs* lvglArgs = (LvglArgs*)calloc(1, sizeof(LvglArgs));
-  lvglArgs->gpio_expander = expander;
-  xTaskCreateStaticPinnedToCore(&lvgl_main, "LVGL", kLvglStackSize,
-                                (void*)lvglArgs, 1, sLvglStack,
-                                &sLvglTaskBuffer, 1);
+  std::atomic<bool> lvgl_quit;
+  TaskHandle_t lvgl_task_handle;
+  ui::StartLvgl(expander, &lvgl_quit, &lvgl_task_handle);
 
   std::unique_ptr<audio::AudioPlayback> playback;
   if (storage) {
