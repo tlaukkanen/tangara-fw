@@ -68,9 +68,11 @@ extern "C" void app_main(void) {
   TaskHandle_t lvgl_task_handle;
   ui::StartLvgl(drivers.get(), &lvgl_quit, &lvgl_task_handle);
 
-  ESP_LOGI(TAG, "Init audio pipeline");
-  std::unique_ptr<audio::AudioPlayback> playback =
-      std::make_unique<audio::AudioPlayback>(drivers.get());
+  std::unique_ptr<audio::AudioPlayback> playback;
+  if (storage) {
+    ESP_LOGI(TAG, "Init audio pipeline");
+    playback = std::make_unique<audio::AudioPlayback>(drivers.get());
+  }
 
   ESP_LOGI(TAG, "Waiting for background tasks before launching console...");
   vTaskDelay(pdMS_TO_TICKS(1000));
