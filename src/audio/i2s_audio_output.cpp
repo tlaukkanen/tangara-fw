@@ -22,7 +22,7 @@ namespace audio {
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
                                std::shared_ptr<drivers::AudioDac> dac)
     : expander_(expander), dac_(std::move(dac)), current_config_() {
-  dac->WriteVolume(127);  // for testing
+  dac_->WriteVolume(127);  // for testing
   dac_->SetSource(buffer());
 }
 
