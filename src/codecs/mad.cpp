@@ -1,16 +1,18 @@
 #include "mad.hpp"
+#include <stdint.h>
 
 #include <cstdint>
 
 #include "mad.h"
 
 #include "codec.hpp"
+#include "types.hpp"
 
 namespace codecs {
 
-static int scaleTo24Bits(mad_fixed_t sample) {
+static uint32_t scaleToBits(mad_fixed_t sample, uint8_t bits) {
   // Round the bottom bits.
-  sample += (1L << (MAD_F_FRACBITS - 16));
+  sample += (1L << (MAD_F_FRACBITS - bits));
 
   // Clip the leftover bits to within range.
   if (sample >= MAD_F_ONE)
@@ -18,8 +20,8 @@ static int scaleTo24Bits(mad_fixed_t sample) {
   else if (sample < -MAD_F_ONE)
     sample = -MAD_F_ONE;
 
-  /* quantize */
-  return sample >> (MAD_F_FRACBITS + 1 - 16);
+  // Quantize.
+  return sample >> (MAD_F_FRACBITS + 1 - bits);
 }
 
 MadMp3Decoder::MadMp3Decoder() {
@@ -35,8 +37,8 @@ MadMp3Decoder::~MadMp3Decoder() {
   mad_header_finish(&header_);
 }
 
-auto MadMp3Decoder::CanHandleFile(const std::string& path) -> bool {
-  return true;  // TODO.
+auto MadMp3Decoder::CanHandleType(StreamType type) -> bool {
+  return type == STREAM_MP3;
 }
 
 auto MadMp3Decoder::GetOutputFormat() -> OutputFormat {
@@ -52,7 +54,7 @@ auto MadMp3Decoder::ResetForNewStream() -> void {
   has_decoded_header_ = false;
 }
 
-auto MadMp3Decoder::SetInput(cpp::span<std::byte> input) -> void {
+auto MadMp3Decoder::SetInput(cpp::span<const std::byte> input) -> void {
   mad_stream_buffer(&stream_,
                     reinterpret_cast<const unsigned char*>(input.data()),
                     input.size());
@@ -113,15 +115,26 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
   }
 
   while (current_sample_ < synth_.pcm.length) {
-    if (output_byte + (3 * synth_.pcm.channels) >= output.size()) {
+    if (output_byte + (2 * synth_.pcm.channels) >= output.size()) {
       return std::make_pair(output_byte, false);
     }
 
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
+      // TODO(jacqueline): output 24 bit samples when (if?) we have a downmix
+      // step in the pipeline.
+      /*
       uint32_t sample_24 =
-          scaleTo24Bits(synth_.pcm.samples[channel][current_sample_]);
+          scaleToBits(synth_.pcm.samples[channel][current_sample_], 24);
+      output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);
       output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
       output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
+      // 24 bit samples must still be aligned to 32 bits. The LSB is ignored.
+      output[output_byte++] = static_cast<std::byte>(0);
+      */
+      uint16_t sample_16 =
+          scaleToBits(synth_.pcm.samples[channel][current_sample_], 16);
+      output[output_byte++] = static_cast<std::byte>((sample_16 >> 8) & 0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_16)&0xFF);
     }
     current_sample_++;
   }

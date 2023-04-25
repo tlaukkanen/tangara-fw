@@ -13,8 +13,8 @@ static const adc_unit_t kAdcUnit = ADC_UNIT_1;
 // Max battery voltage should be a little over 2V due to our divider, so we need
 // the max attenuation to properly handle the full range.
 static const adc_atten_t kAdcAttenuation = ADC_ATTEN_DB_11;
-// Corresponds to GPIO 34.
-static const adc_channel_t kAdcChannel = ADC_CHANNEL_6;
+// Corresponds to SENSOR_VP.
+static const adc_channel_t kAdcChannel = ADC_CHANNEL_0;
 
 Battery::Battery() {
   adc_oneshot_unit_init_cfg_t unit_config = {

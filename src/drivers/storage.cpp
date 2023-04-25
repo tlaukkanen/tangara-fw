@@ -49,8 +49,9 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 }
 }  // namespace callback
 
-auto SdStorage::create(GpioExpander* gpio)
-    -> cpp::result<std::shared_ptr<SdStorage>, Error> {
+auto SdStorage::create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error> {
+  gpio->set_pin(GpioExpander::SD_CARD_POWER_ENABLE, 0);
+  gpio->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 0);
   gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
   gpio->Write();
 
@@ -103,16 +104,16 @@ auto SdStorage::create(GpioExpander* gpio)
     return cpp::fail(Error::FAILED_TO_MOUNT);
   }
 
-  return std::make_unique<SdStorage>(gpio, do_transaction, handle, host, card,
-                                     fs);
+  return new SdStorage(gpio, do_transaction, handle, std::move(host),
+                       std::move(card), fs);
 }
 
 SdStorage::SdStorage(GpioExpander* gpio,
                      esp_err_t (*do_transaction)(sdspi_dev_handle_t,
                                                  sdmmc_command_t*),
                      sdspi_dev_handle_t handle,
-                     std::unique_ptr<sdmmc_host_t>& host,
-                     std::unique_ptr<sdmmc_card_t>& card,
+                     std::unique_ptr<sdmmc_host_t> host,
+                     std::unique_ptr<sdmmc_card_t> card,
                      FATFS* fs)
     : gpio_(gpio),
       do_transaction_(do_transaction),
@@ -136,6 +137,10 @@ SdStorage::~SdStorage() {
   // Uninstall the SPI driver
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
+
+  gpio_->set_pin(GpioExpander::SD_CARD_POWER_ENABLE, 0);
+  gpio_->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 1);
+  gpio_->Write();
 }
 
 auto SdStorage::HandleTransaction(sdspi_dev_handle_t handle,

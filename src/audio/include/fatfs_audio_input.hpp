@@ -3,41 +3,37 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "arena.hpp"
 #include "chunk.hpp"
 #include "freertos/FreeRTOS.h"
 
+#include "ff.h"
 #include "freertos/message_buffer.h"
 #include "freertos/queue.h"
 #include "span.hpp"
 
 #include "audio_element.hpp"
-#include "storage.hpp"
 #include "stream_buffer.hpp"
+#include "stream_info.hpp"
 
 namespace audio {
 
 class FatfsAudioInput : public IAudioElement {
  public:
-  explicit FatfsAudioInput(std::shared_ptr<drivers::SdStorage> storage);
+  explicit FatfsAudioInput();
   ~FatfsAudioInput();
 
-  auto HasUnprocessedInput() -> bool override;
-  auto IsOverBuffered() -> bool override;
+  auto OpenFile(const std::string& path) -> void;
 
-  auto ProcessStreamInfo(const StreamInfo& info) -> void override;
-  auto ProcessChunk(const cpp::span<std::byte>& chunk) -> void override;
-  auto ProcessEndOfStream() -> void override;
-  auto Process() -> void override;
+  auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
+      -> void override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
-  memory::Arena arena_;
-  std::shared_ptr<drivers::SdStorage> storage_;
-
   FIL current_file_;
   bool is_file_open_;
 };

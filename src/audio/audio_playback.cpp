@@ -5,71 +5,46 @@
 #include <memory>
 #include <string_view>
 
+#include "driver_cache.hpp"
 #include "freertos/portmacro.h"
 
 #include "audio_decoder.hpp"
+#include "audio_element.hpp"
 #include "audio_task.hpp"
 #include "chunk.hpp"
 #include "fatfs_audio_input.hpp"
 #include "gpio_expander.hpp"
 #include "i2s_audio_output.hpp"
+#include "pipeline.hpp"
 #include "storage.hpp"
 #include "stream_buffer.hpp"
 #include "stream_info.hpp"
 #include "stream_message.hpp"
 
 namespace audio {
+AudioPlayback::AudioPlayback(drivers::DriverCache* drivers)
+    : file_source_(std::make_unique<FatfsAudioInput>()),
+      i2s_output_(std::make_unique<I2SAudioOutput>(drivers->AcquireGpios(),
+                                                   drivers->AcquireDac())) {
+  AudioDecoder* codec = new AudioDecoder();
+  elements_.emplace_back(codec);
 
-auto AudioPlayback::create(drivers::GpioExpander* expander,
-                           std::shared_ptr<drivers::SdStorage> storage)
-    -> cpp::result<std::unique_ptr<AudioPlayback>, Error> {
-  // Create everything
-  auto source = std::make_shared<FatfsAudioInput>(storage);
-  auto codec = std::make_shared<AudioDecoder>();
+  Pipeline* pipeline = new Pipeline(elements_.front().get());
+  pipeline->AddInput(file_source_.get());
 
-  auto sink_res = I2SAudioOutput::create(expander);
-  if (sink_res.has_error()) {
-    return cpp::fail(ERR_INIT_ELEMENT);
-  }
-  auto sink = sink_res.value();
-
-  auto playback = std::make_unique<AudioPlayback>();
-
-  // Configure the pipeline
-  playback->ConnectElements(source.get(), codec.get());
-  playback->ConnectElements(codec.get(), sink.get());
-
-  // Launch!
-  StartAudioTask("src", {}, source);
-  StartAudioTask("dec", {}, codec);
-  StartAudioTask("sink", 0, sink);
-
-  playback->input_handle_ = source->InputEventQueue();
-
-  return playback;
+  task::StartPipeline(pipeline, i2s_output_.get());
+  // task::StartDrain(i2s_output_.get());
 }
-
-AudioPlayback::AudioPlayback() {}
 
 AudioPlayback::~AudioPlayback() {}
 
 auto AudioPlayback::Play(const std::string& filename) -> void {
-  StreamInfo info;
-  info.path = filename;
-  auto event = StreamEvent::CreateStreamInfo(input_handle_, info);
-  xQueueSend(input_handle_, &event, portMAX_DELAY);
-  event = StreamEvent::CreateEndOfStream(input_handle_);
-  xQueueSend(input_handle_, &event, portMAX_DELAY);
+  // TODO: concurrency, yo!
+  file_source_->OpenFile(filename);
 }
 
 auto AudioPlayback::LogStatus() -> void {
-  auto event = StreamEvent::CreateLogStatus();
-  xQueueSendToFront(input_handle_, &event, portMAX_DELAY);
-}
-
-auto AudioPlayback::ConnectElements(IAudioElement* src, IAudioElement* sink)
-    -> void {
-  src->OutputEventQueue(sink->InputEventQueue());
+  i2s_output_->Log();
 }
 
 }  // namespace audio

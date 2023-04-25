@@ -5,7 +5,7 @@
 
 namespace codecs {
 
-auto CreateCodecForFile(const std::string& file)
+auto CreateCodecForType(StreamType type)
     -> cpp::result<std::unique_ptr<ICodec>, CreateCodecError> {
   return std::make_unique<MadMp3Decoder>();  // TODO.
 }

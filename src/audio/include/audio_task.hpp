@@ -5,18 +5,33 @@
 #include <string>
 
 #include "audio_element.hpp"
+#include "audio_sink.hpp"
+#include "dac.hpp"
 #include "freertos/portmacro.h"
+#include "pipeline.hpp"
+#include "stream_buffer.hpp"
 
 namespace audio {
 
+namespace task {
+
+enum Command { PLAY, PAUSE, QUIT };
+
 struct AudioTaskArgs {
-  std::shared_ptr<IAudioElement>& element;
+  Pipeline* pipeline;
+  IAudioSink* sink;
+};
+struct AudioDrainArgs {
+  IAudioSink* sink;
+  std::atomic<Command>* command;
 };
 
-auto StartAudioTask(const std::string& name,
-                    std::optional<BaseType_t> core_id,
-                    std::shared_ptr<IAudioElement> element) -> void;
+extern "C" void AudioTaskMain(void* args);
+extern "C" void AudioDrainMain(void* args);
 
-void AudioTaskMain(void* args);
+auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void;
+auto StartDrain(IAudioSink* sink) -> void;
+
+}  // namespace task
 
 }  // namespace audio

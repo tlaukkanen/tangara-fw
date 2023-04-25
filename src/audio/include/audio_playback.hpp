@@ -5,7 +5,11 @@
 #include <string>
 #include <vector>
 
+#include "audio_task.hpp"
+#include "driver_cache.hpp"
 #include "esp_err.h"
+#include "fatfs_audio_input.hpp"
+#include "i2s_audio_output.hpp"
 #include "result.hpp"
 #include "span.hpp"
 
@@ -22,13 +26,7 @@ namespace audio {
  */
 class AudioPlayback {
  public:
-  enum Error { ERR_INIT_ELEMENT, ERR_MEM };
-  static auto create(drivers::GpioExpander* expander,
-                     std::shared_ptr<drivers::SdStorage> storage)
-      -> cpp::result<std::unique_ptr<AudioPlayback>, Error>;
-
-  // TODO(jacqueline): configure on the fly once we have things to configure.
-  AudioPlayback();
+  explicit AudioPlayback(drivers::DriverCache* drivers);
   ~AudioPlayback();
 
   /*
@@ -44,9 +42,9 @@ class AudioPlayback {
   AudioPlayback& operator=(const AudioPlayback&) = delete;
 
  private:
-  auto ConnectElements(IAudioElement* src, IAudioElement* sink) -> void;
-
-  QueueHandle_t input_handle_;
+  std::unique_ptr<FatfsAudioInput> file_source_;
+  std::unique_ptr<I2SAudioOutput> i2s_output_;
+  std::vector<std::unique_ptr<IAudioElement>> elements_;
 };
 
 }  // namespace audio

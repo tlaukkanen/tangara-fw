@@ -10,6 +10,7 @@
 
 #include "result.hpp"
 #include "span.hpp"
+#include "types.hpp"
 
 namespace codecs {
 
@@ -17,7 +18,7 @@ class ICodec {
  public:
   virtual ~ICodec() {}
 
-  virtual auto CanHandleFile(const std::string& path) -> bool = 0;
+  virtual auto CanHandleType(StreamType type) -> bool = 0;
 
   struct OutputFormat {
     uint8_t num_channels;
@@ -31,7 +32,7 @@ class ICodec {
 
   virtual auto ResetForNewStream() -> void = 0;
 
-  virtual auto SetInput(cpp::span<std::byte> input) -> void = 0;
+  virtual auto SetInput(cpp::span<const std::byte> input) -> void = 0;
 
   /*
    * Returns the codec's next read position within the input buffer. If the
@@ -63,7 +64,7 @@ class ICodec {
 
 enum CreateCodecError { UNKNOWN_EXTENSION };
 
-auto CreateCodecForFile(const std::string& file)
+auto CreateCodecForType(StreamType type)
     -> cpp::result<std::unique_ptr<ICodec>, CreateCodecError>;
 
 }  // namespace codecs

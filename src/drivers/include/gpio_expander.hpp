@@ -35,28 +35,28 @@ class GpioExpander {
   static const uint8_t kPca8575Timeout = pdMS_TO_TICKS(100);
 
   // Port A:
-  // 0 - audio power enable
-  // 1 - usb interface power enable (active low)
-  // 2 - display power enable
-  // 3 - touchpad power enable
-  // 4 - sd card power enable
-  // 5 - sd mux switch
-  // 6 - LDO enable
-  // 7 - charge power ok (active low)
-  // All power switches low, sd mux pointing away from us, inputs high.
-  static const uint8_t kPortADefault = 0b10000010;
+  // 0 - sd card mux switch
+  // 1 - sd card mux enable (active low)
+  // 2 - key up
+  // 3 - key down
+  // 4 - key lock
+  // 5 - display reset
+  // 6 - NC
+  // 7 - sd card power (active low)
+  // Default to SD card off, inputs high.
+  static const uint8_t kPortADefault = 0b10111110;
 
   // Port B:
-  // 0 - 3.5mm jack detect (active low)
-  // 1 - unused
-  // 2 - volume up
-  // 3 - volume down
-  // 4 - lock switch
-  // 5 - touchpad interupt
-  // 6 - display DR
-  // 7 - display LED
-  // Inputs all high, all others low.
-  static const uint8_t kPortBDefault = 0b00111101;
+  // 0 - trs output enable
+  // 1 - 3.5mm jack detect (active low)
+  // 2 - NC
+  // 3 - NC
+  // 4 - NC
+  // 5 - NC
+  // 6 - NC
+  // 7 - NC
+  // Default input high, trs output low
+  static const uint8_t kPortBDefault = 0b00000010;
 
   /*
    * Convenience mehod for packing the port a and b bytes into a single 16 bit
@@ -99,30 +99,30 @@ class GpioExpander {
   /* Maps each pin of the expander to its number in a `pack`ed uint16. */
   enum Pin {
     // Port A
-    AUDIO_POWER_ENABLE = 0,
-    USB_INTERFACE_POWER_ENABLE = 1,
-    DISPLAY_POWER_ENABLE = 2,
-    TOUCHPAD_POWER_ENABLE = 3,
-    SD_CARD_POWER_ENABLE = 4,
-    SD_MUX_SWITCH = 5,
-    LDO_ENABLE = 6,
-    CHARGE_POWER_OK = 7,  // Active-low input
+    SD_MUX_SWITCH = 0,
+    SD_MUX_EN_ACTIVE_LOW = 1,
+    KEY_UP = 2,
+    KEY_DOWN = 3,
+    KEY_LOCK = 4,
+    DISPLAY_RESET = 5,
+    // UNUSED = 6,
+    SD_CARD_POWER_ENABLE = 7,
 
     // Port B
-    PHONE_DETECT = 8,  // Active-high input
-    // UNUSED = 9,
-    VOL_UP = 10,
-    VOL_DOWN = 11,
-    LOCK = 12,
-    TOUCHPAD_INT = 13,
-    DISPLAY_DR = 14,
-    DISPLAY_LED = 15,
+    AMP_EN = 8,
+    PHONE_DETECT = 9,
+    // UNUSED = 10,
+    // UNUSED = 11,
+    // UNUSED = 12,
+    // UNUSED = 13,
+    // UNUSED = 14,
+    // UNUSED = 15,
   };
 
   /* Nicer value names for use with the SD_MUX_SWITCH pin. */
   enum SdController {
-    SD_MUX_ESP = 1,
-    SD_MUX_USB = 0,
+    SD_MUX_ESP = 0,
+    SD_MUX_SAMD = 1,
   };
 
   /**

@@ -20,6 +20,7 @@
 
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
+#include "soc/soc.h"
 
 static const char* kTag = "DISPLAY";
 
@@ -27,6 +28,10 @@ static const char* kTag = "DISPLAY";
 static const uint8_t kDisplayWidth = 128 + 2;
 static const uint8_t kDisplayHeight = 160 + 1;
 static const uint8_t kTransactionQueueSize = 10;
+
+static const gpio_num_t kDisplayDr = GPIO_NUM_33;
+static const gpio_num_t kDisplayLedEn = GPIO_NUM_32;
+static const gpio_num_t kDisplayCs = GPIO_NUM_22;
 
 /*
  * The size of each of our two display buffers. This is fundamentally a balance
@@ -58,11 +63,28 @@ extern "C" void FlushDataCallback(lv_disp_drv_t* disp_drv,
 
 auto Display::create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
-    -> std::unique_ptr<Display> {
-  // First, turn on the LED backlight.
-  expander->set_pin(GpioExpander::DISPLAY_LED, 0);
-  expander->set_pin(GpioExpander::DISPLAY_POWER_ENABLE, 1);
-  expander->Write();
+    -> Display* {
+  ESP_LOGI(kTag, "Init I/O pins");
+  gpio_config_t dr_config{
+      .pin_bit_mask = 1ULL << kDisplayDr,
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&dr_config);
+  gpio_set_level(kDisplayDr, 0);
+
+  // TODO: use pwm for the backlight.
+  gpio_config_t led_config{
+      .pin_bit_mask = 1ULL << kDisplayLedEn,
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&led_config);
+  gpio_set_level(kDisplayLedEn, 1);
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -76,7 +98,7 @@ auto Display::create(GpioExpander* expander,
       .cs_ena_posttrans = 0,
       .clock_speed_hz = SPI_MASTER_FREQ_40M,
       .input_delay_ns = 0,
-      .spics_io_num = GPIO_NUM_22,
+      .spics_io_num = kDisplayCs,
       .flags = 0,
       .queue_size = kTransactionQueueSize,
       .pre_cb = NULL,
@@ -103,13 +125,16 @@ auto Display::create(GpioExpander* expander,
   display->driver_.draw_buf = &display->buffers_;
   display->driver_.hor_res = kDisplayWidth;
   display->driver_.ver_res = kDisplayHeight;
+  display->driver_.sw_rotate = 1;
+  display->driver_.rotated = LV_DISP_ROT_270;
+  display->driver_.antialiasing = 0;
   display->driver_.flush_cb = &FlushDataCallback;
   display->driver_.user_data = display.get();
 
   ESP_LOGI(kTag, "Registering driver");
   display->display_ = lv_disp_drv_register(&display->driver_);
 
-  return display;
+  return display.release();
 }
 
 Display::Display(GpioExpander* gpio, spi_device_handle_t handle)
@@ -190,9 +215,7 @@ void Display::SendTransaction(TransactionType type,
     transaction.tx_buffer = data;
   }
 
-  // TODO(jacqueline): Move this to an on-board GPIO for speed.
-  gpio_->set_pin(GpioExpander::DISPLAY_DR, type);
-  gpio_->Write();
+  gpio_set_level(kDisplayDr, type);
 
   // TODO(jacqueline): Handle these errors.
   esp_err_t ret = spi_device_polling_transmit(handle_, &transaction);

@@ -17,10 +17,10 @@ class MadMp3Decoder : public ICodec {
   MadMp3Decoder();
   ~MadMp3Decoder();
 
-  auto CanHandleFile(const std::string& path) -> bool override;
+  auto CanHandleType(StreamType type) -> bool override;
   auto GetOutputFormat() -> OutputFormat override;
   auto ResetForNewStream() -> void override;
-  auto SetInput(cpp::span<std::byte> input) -> void override;
+  auto SetInput(cpp::span<const std::byte> input) -> void override;
   auto GetInputPosition() -> std::size_t override;
   auto ProcessNextFrame() -> cpp::result<bool, ProcessingError> override;
   auto WriteOutputSamples(cpp::span<std::byte> output)
