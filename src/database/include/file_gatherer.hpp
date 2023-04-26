@@ -12,7 +12,7 @@ namespace database {
 static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
 
 template <typename Callback>
-auto FindFiles(FATFS* fs, const std::string& root, Callback cb) -> void {
+auto FindFiles(const std::string& root, Callback cb) -> void {
   std::deque<std::string> to_explore;
   to_explore.push_back(root);
 
@@ -20,7 +20,7 @@ auto FindFiles(FATFS* fs, const std::string& root, Callback cb) -> void {
     std::string next_path_str = to_explore.front();
     const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
 
-    DIR dir;
+    FF_DIR dir;
     FRESULT res = f_opendir(&dir, next_path);
     if (res != FR_OK) {
       // TODO: log.
@@ -30,10 +30,10 @@ auto FindFiles(FATFS* fs, const std::string& root, Callback cb) -> void {
     for (;;) {
       FILINFO info;
       res = f_readdir(&dir, &info);
-      if (info.fname == NULL) {
+      if (res != FR_OK || info.fname[0] == 0) {
         // No more files in the directory.
         break;
-      } else if (info.fattrib & (AM_HID | AM_SYS)) {
+      } else if (info.fattrib & (AM_HID | AM_SYS) || info.fname[0] == '.') {
         // System or hidden file. Ignore it and move on.
         continue;
       } else {
@@ -45,7 +45,8 @@ auto FindFiles(FATFS* fs, const std::string& root, Callback cb) -> void {
           to_explore.push_back(full_path.str());
         } else {
           // This is a file! Let the callback know about it.
-          std::invoke(cb, full_path.str(), info);
+          //std::invoke(cb, full_path.str(), info);
+          std::invoke(cb, full_path.str());
         }
       }
     }

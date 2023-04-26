@@ -4,6 +4,10 @@
 #include "ff.h"
 #include "leveldb/cache.h"
 
+#include "file_gatherer.hpp"
+#include "leveldb/iterator.h"
+#include "leveldb/slice.h"
+#include "tag_processor.hpp"
 #include "env_esp.hpp"
 #include "leveldb/options.h"
 
@@ -38,38 +42,37 @@ Database::Database(leveldb::DB* db, leveldb::Cache* cache)
 
 Database::~Database() {}
 
-FRESULT scan_files(const std::string &path) {
-    FRESULT res;
-    FF_DIR dir;
-    static FILINFO fno;
-
-    res = f_opendir(&dir, path.c_str());
-    if (res == FR_OK) {
-        for (;;) {
-            res = f_readdir(&dir, &fno);
-            if (res != FR_OK || fno.fname[0] == 0) break;
-            if (fno.fname[0] == '.') continue;
-            if (fno.fattrib & AM_DIR) {
-                std::string new_path = path + "/" + fno.fname;
-                res = scan_files(new_path);
-                if (res != FR_OK) break;
-            } else {
-              ESP_LOGI(kTag, "found %s", fno.fname);
-            }
-        }
-        f_closedir(&dir);
-    }
-
-    return res;
-}
-
 auto Database::Initialise() -> void {
-  // TODO(jacqueline): Abstractions lol
-  scan_files("/");
+  leveldb::WriteOptions opt;
+  opt.sync = true;
+  FindFiles("", [&](const std::string &path) {
+      ESP_LOGI(kTag, "considering %s", path.c_str());
+      FileInfo info;
+      if (GetInfo(path, &info)) {
+        ESP_LOGI(kTag, "added as '%s'", info.title.c_str());
+        db_->Put(opt, "title:" + info.title, path);
+      }
+  });
+  db_->Put(opt, "title:coolkeywithoutval", leveldb::Slice());
 }
 
-auto Database::Update() -> void {
-  // TODO(jacqueline): Incremental updates!
+auto Database::ByTitle() -> Iterator {
+  leveldb::Iterator *it = db_->NewIterator(leveldb::ReadOptions());
+  it->Seek("title:");
+  while (it->Valid()) {
+    ESP_LOGI(kTag, "%s : %s", it->key().ToString().c_str(), it->value().ToString().c_str());
+    it->Next();
+  }
+  return Iterator(it);
+}
+
+auto Iterator::Next() -> std::optional<std::string> {
+  if (!it_->Valid()) {
+    return {};
+  }
+  std::string ret = it_->key().ToString();
+  it_->Next();
+  return ret;
 }
 
 }  // namespace database

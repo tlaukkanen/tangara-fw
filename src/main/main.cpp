@@ -38,6 +38,7 @@
 static const char* TAG = "MAIN";
 
 void db_main(void* whatever) {
+  database::Database **arg_db = reinterpret_cast<database::Database**>(whatever);
   ESP_LOGI(TAG, "Init database");
   std::unique_ptr<database::Database> db;
   auto db_res = database::Database::Open();
@@ -48,13 +49,13 @@ void db_main(void* whatever) {
     ESP_LOGI(TAG, "database good :)");
   }
 
-  vTaskDelay(pdMS_TO_TICKS(2000));
+  *arg_db = db.get();
 
-  db->Initialise();
+  db->ByTitle();
 
-  vTaskDelay(pdMS_TO_TICKS(2000));
-  
-  db.reset();
+  while (1) {
+    vTaskDelay(portMAX_DELAY);
+  }
 
   vTaskDelete(NULL);
 }
@@ -89,7 +90,8 @@ extern "C" void app_main(void) {
   StaticTask_t database_task_buffer = {};
   StackType_t* database_stack = reinterpret_cast<StackType_t*>(
       heap_caps_malloc(db_stack_size, MALLOC_CAP_SPIRAM));
-  xTaskCreateStatic(&db_main, "LEVELDB", db_stack_size, NULL, 1, database_stack,
+  database::Database *db;
+  xTaskCreateStatic(&db_main, "LEVELDB", db_stack_size, &db, 1, database_stack,
                     &database_task_buffer);
 
   ESP_LOGI(TAG, "Init touch wheel");
@@ -110,7 +112,7 @@ extern "C" void app_main(void) {
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console(playback.get());
+  console::AppConsole console(playback.get(), db);
   console.Launch();
 
   uint8_t prev_position = 0;

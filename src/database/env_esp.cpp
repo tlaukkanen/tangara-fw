@@ -465,7 +465,7 @@ void EspEnv::Schedule(
   if (!started_background_thread_) {
     started_background_thread_ = true;
     xTaskCreate(reinterpret_cast<TaskFunction_t>(BackgroundThreadEntryPoint),
-                "LVL_ONEOFF", 2048, reinterpret_cast<void*>(this), 3, NULL);
+                "LVL_ONEOFF", 16 * 1024, reinterpret_cast<void*>(this), 3, NULL);
   }
 
   BackgroundWorkItem item(background_work_function, background_work_arg);
