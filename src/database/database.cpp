@@ -23,7 +23,7 @@ auto Database::Open() -> cpp::result<Database*, DatabaseError> {
   auto status = leveldb::DB::Open(options, "/.db", &db);
   if (!status.ok()) {
     delete cache;
-    ESP_LOGE("DB", "failed to open db");
+    ESP_LOGE("DB", "failed to open db, status %s", status.ToString().c_str());
     return cpp::fail(FAILED_TO_OPEN);
   }
 

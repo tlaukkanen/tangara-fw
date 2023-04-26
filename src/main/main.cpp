@@ -37,15 +37,17 @@
 
 static const char* TAG = "MAIN";
 
-void db_main(void *whatever) {
+void db_main(void* whatever) {
   ESP_LOGI(TAG, "Init database");
+  std::unique_ptr<database::Database> db;
   auto db_res = database::Database::Open();
   if (db_res.has_error()) {
-    ESP_LOGE(TAG, "Failed!");
+    ESP_LOGE(TAG, "database failed :(");
+  } else {
+    db.reset(db_res.value());
+    ESP_LOGI(TAG, "database good :)");
   }
-  std::unique_ptr<database::Database> db(db_res.value());
 
-  ESP_LOGI(TAG, "database good :)");
   vTaskDelay(pdMS_TO_TICKS(10000));
 
   vTaskDelete(NULL);
@@ -79,9 +81,10 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Launch database task");
   std::size_t db_stack_size = 256 * 1024;
   StaticTask_t database_task_buffer = {};
-  StackType_t *database_stack =
-    reinterpret_cast<StackType_t*>(heap_caps_malloc(db_stack_size, MALLOC_CAP_SPIRAM));
-  xTaskCreateStatic(&db_main, "LEVELDB", db_stack_size, NULL, 1, database_stack, &database_task_buffer);
+  StackType_t* database_stack = reinterpret_cast<StackType_t*>(
+      heap_caps_malloc(db_stack_size, MALLOC_CAP_SPIRAM));
+  xTaskCreateStatic(&db_main, "LEVELDB", db_stack_size, NULL, 1, database_stack,
+                    &database_task_buffer);
 
   ESP_LOGI(TAG, "Init touch wheel");
   std::shared_ptr<drivers::TouchWheel> touchwheel =
@@ -115,4 +118,3 @@ extern "C" void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
-

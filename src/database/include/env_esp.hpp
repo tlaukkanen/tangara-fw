@@ -111,7 +111,7 @@ class EspEnv : public leveldb::Env {
   InMemoryLockTable locks_;  // Thread-safe.
 };
 
-} // namespace leveldb
+}  // namespace leveldb
 
 namespace database {
 
@@ -149,4 +149,4 @@ class SingletonEnv {
       env_storage_;
 };
 
-} // namespace database
+}  // namespace database

@@ -230,7 +230,6 @@ class EspFileLock : public FileLock {
   const std::string filename_;
 };
 
-
 class EspLogger final : public Logger {
  public:
   explicit EspLogger(FIL file) : file_(file) {}
@@ -247,8 +246,8 @@ class EspLogger final : public Logger {
     snprintf(output, bytes_needed, format, args_copy);
 #pragma GCC diagnostic pop
     va_end(args_copy);
-    ESP_LOGV("LEVELDB", "%s", output);
-    //f_puts(output, &file_);
+    ESP_LOGI("LEVELDB", "%s", output);
+    // f_puts(output, &file_);
     free(reinterpret_cast<void*>(output));
   }
 
@@ -256,190 +255,197 @@ class EspLogger final : public Logger {
   FIL file_;
 };
 
-  EspEnv::~EspEnv() {
-    ESP_LOGE("LEVELDB", "EspEnv singleton destroyed. Unsupported behavior!");
+EspEnv::~EspEnv() {
+  ESP_LOGE("LEVELDB", "EspEnv singleton destroyed. Unsupported behavior!");
+}
+
+Status EspEnv::NewSequentialFile(const std::string& filename,
+                                 SequentialFile** result) {
+  FIL file;
+  FRESULT res = f_open(&file, filename.c_str(), FA_READ);
+  if (res != FR_OK) {
+    *result = nullptr;
+    return EspError(filename, res);
   }
 
-  Status EspEnv::NewSequentialFile(const std::string& filename,
-                           SequentialFile** result) {
-    FIL file;
-    FRESULT res = f_open(&file, filename.c_str(), FA_READ);
-    if (res != FR_OK) {
-      *result = nullptr;
-      return EspError(filename, res);
-    }
+  *result = new EspSequentialFile(filename, file);
+  return Status::OK();
+}
 
-    *result = new EspSequentialFile(filename, file);
-    return Status::OK();
+Status EspEnv::NewRandomAccessFile(const std::string& filename,
+                                   RandomAccessFile** result) {
+  // EspRandomAccessFile doesn't try to open the file until it's needed, so
+  // we need to first ensure the file exists to handle the NotFound case
+  // correctly.
+  FILINFO info;
+  FRESULT res = f_stat(filename.c_str(), &info);
+  if (res != FR_OK) {
+    *result = nullptr;
+    return EspError(filename, res);
   }
 
-  Status EspEnv::NewRandomAccessFile(const std::string& filename,
-                             RandomAccessFile** result) {
-    // EspRandomAccessFile doesn't try to open the file until it's needed, so
-    // we need to first ensure the file exists to handle the NotFound case
-    // correctly.
-    FILINFO info;
-    FRESULT res = f_stat(filename.c_str(), &info);
-    if (res != FR_OK) {
-      *result = nullptr;
-      return EspError(filename, res);
-    }
+  *result = new EspRandomAccessFile(filename);
+  return Status::OK();
+}
 
-    *result = new EspRandomAccessFile(filename);
-    return Status::OK();
+Status EspEnv::NewWritableFile(const std::string& filename,
+                               WritableFile** result) {
+  FIL file;
+  FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+  if (res != FR_OK) {
+    *result = nullptr;
+    return EspError(filename, res);
   }
 
-  Status EspEnv::NewWritableFile(const std::string& filename,
-                         WritableFile** result) {
-    FIL file;
-    FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
-    if (res != FR_OK) {
-      *result = nullptr;
-      return EspError(filename, res);
-    }
+  *result = new EspWritableFile(filename, file);
+  return Status::OK();
+}
 
-    *result = new EspWritableFile(filename, file);
-    return Status::OK();
+Status EspEnv::NewAppendableFile(const std::string& filename,
+                                 WritableFile** result) {
+  FIL file;
+  FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_OPEN_APPEND);
+  if (res != FR_OK) {
+    *result = nullptr;
+    return EspError(filename, res);
   }
 
-  Status EspEnv::NewAppendableFile(const std::string& filename,
-                           WritableFile** result) {
-    FIL file;
-    FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_OPEN_APPEND);
-    if (res != FR_OK) {
-      *result = nullptr;
-      return EspError(filename, res);
-    }
+  *result = new EspWritableFile(filename, file);
+  return Status::OK();
+}
 
-    *result = new EspWritableFile(filename, file);
-    return Status::OK();
+bool EspEnv::FileExists(const std::string& filename) {
+  FILINFO info;
+  return f_stat(filename.c_str(), &info) == FR_OK;
+}
+
+Status EspEnv::GetChildren(const std::string& directory_path,
+                           std::vector<std::string>* result) {
+  result->clear();
+
+  FF_DIR dir;
+  FRESULT res = f_opendir(&dir, directory_path.c_str());
+  if (res != FR_OK) {
+    return EspError(directory_path, res);
   }
 
-  bool EspEnv::FileExists(const std::string& filename) {
-    FILINFO info;
-    return f_stat(filename.c_str(), &info) == FR_OK;
-  }
-
-  Status EspEnv::GetChildren(const std::string& directory_path,
-                     std::vector<std::string>* result) {
-    result->clear();
-
-    FF_DIR dir;
-    FRESULT res = f_opendir(&dir, directory_path.c_str());
-    if (res != FR_OK) {
-      return EspError(directory_path, res);
-    }
-
-    FILINFO info;
-    for (;;) {
-      res = f_readdir(&dir, &info);
-      if (res != FR_OK) {
-        return EspError(directory_path, res);
-      }
-      if (info.fname[0] == 0) {
-        break;
-      }
-      result->emplace_back(info.fname);
-    }
-
-    res = f_closedir(&dir);
+  FILINFO info;
+  for (;;) {
+    res = f_readdir(&dir, &info);
     if (res != FR_OK) {
       return EspError(directory_path, res);
     }
-
-    return Status::OK();
-  }
-
-  Status EspEnv::RemoveFile(const std::string& filename) {
-    FRESULT res = f_unlink(filename.c_str());
-    if (res != FR_OK) {
-      return EspError(filename, res);
+    if (info.fname[0] == 0) {
+      break;
     }
-    return Status::OK();
+    result->emplace_back(info.fname);
   }
 
-  Status EspEnv::CreateDir(const std::string& dirname) {
-    FRESULT res = f_mkdir(dirname.c_str());
-    if (res != FR_OK) {
-      return EspError(dirname, res);
+  res = f_closedir(&dir);
+  if (res != FR_OK) {
+    return EspError(directory_path, res);
+  }
+
+  return Status::OK();
+}
+
+Status EspEnv::RemoveFile(const std::string& filename) {
+  FRESULT res = f_unlink(filename.c_str());
+  if (res != FR_OK) {
+    return EspError(filename, res);
+  }
+  return Status::OK();
+}
+
+Status EspEnv::CreateDir(const std::string& dirname) {
+  FRESULT res = f_mkdir(dirname.c_str());
+  if (res != FR_OK) {
+    return EspError(dirname, res);
+  }
+  return Status::OK();
+}
+
+Status EspEnv::RemoveDir(const std::string& dirname) {
+  return RemoveFile(dirname);
+}
+
+Status EspEnv::GetFileSize(const std::string& filename, uint64_t* size) {
+  FILINFO info;
+  FRESULT res = f_stat(filename.c_str(), &info);
+  if (res != FR_OK) {
+    *size = 0;
+    return EspError(filename, res);
+  }
+  *size = info.fsize;
+  return Status::OK();
+}
+
+Status EspEnv::RenameFile(const std::string& from, const std::string& to) {
+  // Match the POSIX behaviour of replacing any existing file.
+  if (FileExists(to)) {
+    Status s = RemoveFile(to);
+    if (!s.ok()) {
+      return s;
     }
-    return Status::OK();
+  }
+  FRESULT res = f_rename(from.c_str(), to.c_str());
+  if (res != FR_OK) {
+    return EspError(from, res);
+  }
+  return Status::OK();
+}
+
+Status EspEnv::LockFile(const std::string& filename, FileLock** lock) {
+  *lock = nullptr;
+
+  if (!locks_.Insert(filename)) {
+    return Status::IOError("lock " + filename, "already held by process");
   }
 
-  Status EspEnv::RemoveDir(const std::string& dirname) {
-    return RemoveFile(dirname);
+  *lock = new EspFileLock(filename);
+  return Status::OK();
+}
+
+Status EspEnv::UnlockFile(FileLock* lock) {
+  EspFileLock* posix_file_lock = static_cast<EspFileLock*>(lock);
+  locks_.Remove(posix_file_lock->filename());
+  delete posix_file_lock;
+  return Status::OK();
+}
+
+void EspEnv::StartThread(void (*thread_main)(void* thread_main_arg),
+                         void* thread_main_arg) {
+  std::thread new_thread(thread_main, thread_main_arg);
+  new_thread.detach();
+}
+
+Status EspEnv::GetTestDirectory(std::string* result) {
+  CreateDir("/tmp");
+  *result = "/tmp";
+  return Status::OK();
+}
+
+Status EspEnv::NewLogger(const std::string& filename, Logger** result) {
+  FIL file;
+  FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_OPEN_APPEND);
+  if (res != FR_OK) {
+    *result = nullptr;
+    return EspError(filename, res);
   }
 
-  Status EspEnv::GetFileSize(const std::string& filename, uint64_t* size) {
-    FILINFO info;
-    FRESULT res = f_stat(filename.c_str(), &info);
-    if (res != FR_OK) {
-      *size = 0;
-      return EspError(filename, res);
-    }
-    *size = info.fsize;
-    return Status::OK();
-  }
+  *result = new EspLogger(file);
+  return Status::OK();
+}
 
-  Status EspEnv::RenameFile(const std::string& from, const std::string& to) {
-    FRESULT res = f_rename(from.c_str(), to.c_str());
-    if (res != FR_OK) {
-      return EspError(from, res);
-    }
-    return Status::OK();
-  }
+uint64_t EspEnv::NowMicros() {
+  struct timeval tv_now;
+  gettimeofday(&tv_now, NULL);
+  return (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+}
 
-  Status EspEnv::LockFile(const std::string& filename, FileLock** lock) {
-    *lock = nullptr;
-
-    if (!locks_.Insert(filename)) {
-      return Status::IOError("lock " + filename, "already held by process");
-    }
-
-    *lock = new EspFileLock(filename);
-    return Status::OK();
-  }
-
-  Status EspEnv::UnlockFile(FileLock* lock) {
-    EspFileLock* posix_file_lock = static_cast<EspFileLock*>(lock);
-    locks_.Remove(posix_file_lock->filename());
-    delete posix_file_lock;
-    return Status::OK();
-  }
-
-  void EspEnv::StartThread(void (*thread_main)(void* thread_main_arg),
-                   void* thread_main_arg) {
-    std::thread new_thread(thread_main, thread_main_arg);
-    new_thread.detach();
-  }
-
-  Status EspEnv::GetTestDirectory(std::string* result) {
-    CreateDir("/tmp");
-    *result = "/tmp";
-    return Status::OK();
-  }
-
-  Status EspEnv::NewLogger(const std::string& filename, Logger** result) {
-    FIL file;
-    FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_OPEN_APPEND);
-    if (res != FR_OK) {
-      *result = nullptr;
-      return EspError(filename, res);
-    }
-
-    *result = new EspLogger(file);
-    return Status::OK();
-  }
-
-  uint64_t EspEnv::NowMicros() {
-    struct timeval tv_now;
-    gettimeofday(&tv_now, NULL);
-    return (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-  }
-
-  void EspEnv::SleepForMicroseconds(int micros) {
-    vTaskDelay(pdMS_TO_TICKS(micros / 1000));
-  }
+void EspEnv::SleepForMicroseconds(int micros) {
+  vTaskDelay(pdMS_TO_TICKS(micros / 1000));
+}
 
 extern "C" void BackgroundThreadEntryPoint(EspEnv* env) {
   env->BackgroundThreadMain();
