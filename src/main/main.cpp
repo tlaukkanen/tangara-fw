@@ -48,7 +48,13 @@ void db_main(void* whatever) {
     ESP_LOGI(TAG, "database good :)");
   }
 
-  vTaskDelay(pdMS_TO_TICKS(10000));
+  vTaskDelay(pdMS_TO_TICKS(2000));
+
+  db->Initialise();
+
+  vTaskDelay(pdMS_TO_TICKS(2000));
+  
+  db.reset();
 
   vTaskDelete(NULL);
 }

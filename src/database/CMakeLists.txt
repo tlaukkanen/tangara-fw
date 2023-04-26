@@ -1,5 +1,5 @@
 idf_component_register(
-  SRCS "table.cpp" "env_esp.cpp" "database.cpp"
+  SRCS "env_esp.cpp" "database.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "result" "span" "esp_psram" "fatfs")
 

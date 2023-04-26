@@ -17,6 +17,9 @@ class Database {
 
   ~Database();
 
+  auto Initialise() -> void;
+  auto Update() -> void;
+
  private:
   std::unique_ptr<leveldb::DB> db_;
   std::unique_ptr<leveldb::Cache> cache_;
