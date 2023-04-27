@@ -1,4 +1,5 @@
 #include "database.hpp"
+#include <functional>
 
 #include "esp_log.h"
 #include "ff.h"
@@ -92,34 +93,24 @@ auto Database::Populate() -> std::future<void> {
   });
 }
 
-auto Database::GetSongs(std::size_t page_size) -> std::future<DbResult<Song>> {
-  return RunOnDbTask<DbResult<Song>>([&]() -> DbResult<Song> {
-    std::unique_ptr<leveldb::Iterator> it(
-        db_->NewIterator(leveldb::ReadOptions()));
-    it->Seek("title:");
-    std::vector<Song> results;
-    IterateAndParse(it.get(), page_size,
-                    [&](const leveldb::Slice& key, const leveldb::Slice& val) {
-                      Song s;
-                      s.title = key.ToString();
-                      results.push_back(s);
-                    });
-    return DbResult<Song>(results, std::move(it));
+auto parse_song(const leveldb::Slice& key, const leveldb::Slice& val)
+    -> std::optional<Song> {
+  Song s;
+  s.title = key.ToString();
+  return s;
+}
+
+auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>> {
+  return RunOnDbTask<Result<Song>>([=, this]() -> Result<Song> {
+    return Query<Song>("title:", page_size, &parse_song);
   });
 }
 
-auto Database::GetMoreSongs(std::size_t page_size, DbResult<Song> continuation)
-    -> std::future<DbResult<Song>> {
-  return RunOnDbTask<DbResult<Song>>([&]() -> DbResult<Song> {
-    std::unique_ptr<leveldb::Iterator> it(continuation.it());
-    std::vector<Song> results;
-    IterateAndParse(it.get(), page_size,
-                    [&](const leveldb::Slice& key, const leveldb::Slice& val) {
-                      Song s;
-                      s.title = key.ToString();
-                      results.push_back(s);
-                    });
-    return DbResult<Song>(results, std::move(it));
+auto Database::GetMoreSongs(std::size_t page_size, Continuation c)
+    -> std::future<Result<Song>> {
+  leveldb::Iterator* it = c.release();
+  return RunOnDbTask<Result<Song>>([=, this]() -> Result<Song> {
+    return Query<Song>(it, page_size, &parse_song);
   });
 }
 

@@ -176,10 +176,18 @@ int CmdDbSongs(int argc, char** argv) {
     return 1;
   }
 
-  database::DbResult<database::Song> res =
+  database::Result<database::Song> res =
       sInstance->database_->GetSongs(10).get();
-  for (database::Song s : res.values()) {
-    std::cout << s.title << std::endl;
+  while (true) {
+    std::unique_ptr<std::vector<database::Song>> r = res.values();
+    for (database::Song s : *r) {
+      std::cout << s.title << std::endl;
+    }
+    if (res.HasMore()) {
+      res = sInstance->database_->GetMoreSongs(10, res.continuation()).get();
+    } else {
+      break;
+    }
   }
 
   return 0;
