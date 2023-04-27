@@ -9,6 +9,6 @@ struct FileInfo {
   std::string title;
 };
 
-auto GetInfo(const std::string &path, FileInfo *out) -> bool;
+auto GetInfo(const std::string& path, FileInfo* out) -> bool;
 
 }  // namespace database

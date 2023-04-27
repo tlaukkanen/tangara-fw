@@ -2,9 +2,8 @@
 
 #include <mutex>
 #include <set>
+#include <string>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
 #include "leveldb/env.h"
 #include "leveldb/status.h"
 
@@ -89,25 +88,6 @@ class EspEnv : public leveldb::Env {
   void BackgroundThreadMain();
 
  private:
-  // Stores the work item data in a Schedule() call.
-  //
-  // Instances are constructed on the thread calling Schedule() and used on the
-  // background thread.
-  //
-  // This structure is thread-safe beacuse it is immutable.
-  struct BackgroundWorkItem {
-    explicit BackgroundWorkItem(void (*f)(void*), void* a)
-        : function(f), arg(a) {}
-
-    void (*const function)(void*);
-    void* const arg;
-  };
-
-  std::mutex background_work_mutex_;
-  bool started_background_thread_;
-
-  QueueHandle_t background_work_queue_;
-
   InMemoryLockTable locks_;  // Thread-safe.
 };
 

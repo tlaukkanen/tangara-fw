@@ -154,48 +154,49 @@ int CmdDbInit(int argc, char** argv) {
     return 1;
   }
 
-  sInstance->database_->Initialise();
+  sInstance->database_->Populate().get();
 
   return 0;
 }
 
 void RegisterDbInit() {
-  esp_console_cmd_t cmd{.command = "db_init",
-                        .help = "scans for playable files and adds them to the database",
-                        .hint = NULL,
-                        .func = &CmdDbInit,
-                        .argtable = NULL};
+  esp_console_cmd_t cmd{
+      .command = "db_init",
+      .help = "scans for playable files and adds them to the database",
+      .hint = NULL,
+      .func = &CmdDbInit,
+      .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
 
-int CmdDbTitles(int argc, char** argv) {
-  static const std::string usage = "usage: db_titles";
+int CmdDbSongs(int argc, char** argv) {
+  static const std::string usage = "usage: db_songs";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  database::Iterator it = sInstance->database_->ByTitle();
-  while (true) {
-    std::optional<std::string> title = it.Next();
-    if (!title) {
-      break;
-    }
-    std::cout << *title << std::endl;
+  database::DbResult<database::Song> res =
+      sInstance->database_->GetSongs(10).get();
+  for (database::Song s : res.values()) {
+    std::cout << s.title << std::endl;
   }
+
   return 0;
 }
 
-void RegisterDbTitles() {
-  esp_console_cmd_t cmd{.command = "db_titles",
+void RegisterDbSongs() {
+  esp_console_cmd_t cmd{.command = "db_songs",
                         .help = "lists titles of ALL songs in the database",
                         .hint = NULL,
-                        .func = &CmdDbTitles,
+                        .func = &CmdDbSongs,
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
 
-AppConsole::AppConsole(audio::AudioPlayback* playback, database::Database *database) : playback_(playback), database_(database) {
+AppConsole::AppConsole(audio::AudioPlayback* playback,
+                       database::Database* database)
+    : playback_(playback), database_(database) {
   sInstance = this;
 }
 AppConsole::~AppConsole() {
@@ -209,7 +210,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterVolume();
   RegisterAudioStatus();
   RegisterDbInit();
-  RegisterDbTitles();
+  RegisterDbSongs();
 }
 
 }  // namespace console

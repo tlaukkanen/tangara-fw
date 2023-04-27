@@ -45,7 +45,7 @@ auto FindFiles(const std::string& root, Callback cb) -> void {
           to_explore.push_back(full_path.str());
         } else {
           // This is a file! Let the callback know about it.
-          //std::invoke(cb, full_path.str(), info);
+          // std::invoke(cb, full_path.str(), info);
           std::invoke(cb, full_path.str());
         }
       }

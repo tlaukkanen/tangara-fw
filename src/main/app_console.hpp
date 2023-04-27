@@ -11,11 +11,12 @@ namespace console {
 
 class AppConsole : public Console {
  public:
-  explicit AppConsole(audio::AudioPlayback* playback, database::Database *database);
+  explicit AppConsole(audio::AudioPlayback* playback,
+                      database::Database* database);
   virtual ~AppConsole();
 
   audio::AudioPlayback* playback_;
-  database::Database *database_;
+  database::Database* database_;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

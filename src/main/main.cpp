@@ -37,29 +37,6 @@
 
 static const char* TAG = "MAIN";
 
-void db_main(void* whatever) {
-  database::Database **arg_db = reinterpret_cast<database::Database**>(whatever);
-  ESP_LOGI(TAG, "Init database");
-  std::unique_ptr<database::Database> db;
-  auto db_res = database::Database::Open();
-  if (db_res.has_error()) {
-    ESP_LOGE(TAG, "database failed :(");
-  } else {
-    db.reset(db_res.value());
-    ESP_LOGI(TAG, "database good :)");
-  }
-
-  *arg_db = db.get();
-
-  db->ByTitle();
-
-  while (1) {
-    vTaskDelay(portMAX_DELAY);
-  }
-
-  vTaskDelete(NULL);
-}
-
 extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Initialising peripherals");
 
@@ -85,15 +62,6 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Failed! Do you have an SD card?");
   }
 
-  ESP_LOGI(TAG, "Launch database task");
-  std::size_t db_stack_size = 256 * 1024;
-  StaticTask_t database_task_buffer = {};
-  StackType_t* database_stack = reinterpret_cast<StackType_t*>(
-      heap_caps_malloc(db_stack_size, MALLOC_CAP_SPIRAM));
-  database::Database *db;
-  xTaskCreateStatic(&db_main, "LEVELDB", db_stack_size, &db, 1, database_stack,
-                    &database_task_buffer);
-
   ESP_LOGI(TAG, "Init touch wheel");
   std::shared_ptr<drivers::TouchWheel> touchwheel =
       drivers->AcquireTouchWheel();
@@ -108,11 +76,18 @@ extern "C" void app_main(void) {
     playback = std::make_unique<audio::AudioPlayback>(drivers.get());
   }
 
+  ESP_LOGI(TAG, "Init database");
+  std::unique_ptr<database::Database> db;
+  auto db_res = database::Database::Open();
+  if (db_res.has_value()) {
+    db.reset(db_res.value());
+  }
+
   ESP_LOGI(TAG, "Waiting for background tasks before launching console...");
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   ESP_LOGI(TAG, "Launch console");
-  console::AppConsole console(playback.get(), db);
+  console::AppConsole console(playback.get(), db.get());
   console.Launch();
 
   uint8_t prev_position = 0;

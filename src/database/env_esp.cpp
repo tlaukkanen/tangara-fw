@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <mutex>
 #include <queue>
@@ -27,6 +28,8 @@
 #include "leveldb/env.h"
 #include "leveldb/slice.h"
 #include "leveldb/status.h"
+
+#include "db_task.hpp"
 
 namespace leveldb {
 
@@ -447,43 +450,13 @@ void EspEnv::SleepForMicroseconds(int micros) {
   vTaskDelay(pdMS_TO_TICKS(micros / 1000));
 }
 
-extern "C" void BackgroundThreadEntryPoint(EspEnv* env) {
-  env->BackgroundThreadMain();
-}
-
-EspEnv::EspEnv()
-    : background_work_mutex_(),
-      started_background_thread_(false),
-      background_work_queue_(xQueueCreate(4, sizeof(BackgroundWorkItem))) {}
+EspEnv::EspEnv() {}
 
 void EspEnv::Schedule(
     void (*background_work_function)(void* background_work_arg),
     void* background_work_arg) {
-  background_work_mutex_.lock();
-
-  // Start the background thread, if we haven't done so already.
-  if (!started_background_thread_) {
-    started_background_thread_ = true;
-    xTaskCreate(reinterpret_cast<TaskFunction_t>(BackgroundThreadEntryPoint),
-                "LVL_ONEOFF", 16 * 1024, reinterpret_cast<void*>(this), 3, NULL);
-  }
-
-  BackgroundWorkItem item(background_work_function, background_work_arg);
-  xQueueSend(background_work_queue_, &item, portMAX_DELAY);
-
-  background_work_mutex_.unlock();
-}
-
-void EspEnv::BackgroundThreadMain() {
-  while (true) {
-    uint8_t buf[sizeof(BackgroundWorkItem)];
-    if (xQueueReceive(background_work_queue_, &buf, portMAX_DELAY)) {
-      BackgroundWorkItem* item = reinterpret_cast<BackgroundWorkItem*>(buf);
-      auto background_work_function = item->function;
-      void* background_work_arg = item->arg;
-      background_work_function(background_work_arg);
-    }
-  }
+  database::SendToDbTask(
+      [=]() { std::invoke(background_work_function, background_work_arg); });
 }
 
 }  // namespace leveldb
