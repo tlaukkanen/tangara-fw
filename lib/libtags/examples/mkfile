@@ -1,0 +1,13 @@
+</$objtype/mkfile
+
+TARG=readtags
+
+OFILES=\
+	readtags.$O\
+	
+BIN=/$objtype/bin/audio
+
+HFILES=\
+	/sys/include/tags.h\
+
+</sys/src/cmd/mkone

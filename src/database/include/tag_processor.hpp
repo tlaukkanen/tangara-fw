@@ -6,6 +6,8 @@ namespace database {
 
 struct FileInfo {
   bool is_playable;
+  std::string artist;
+  std::string album;
   std::string title;
 };
 
