@@ -35,6 +35,10 @@ TouchWheel::TouchWheel() {
   vTaskDelay(pdMS_TO_TICKS(1));
   WriteRegister(Register::SLIDER_OPTIONS, 0b11000000);
   WriteRegister(Register::CALIBRATE, 1);
+  // Confusingly-named; this sets to max-power max-response-time.
+  WriteRegister(Register::LOW_POWER, 1);
+  // TODO(jacqueline): Temp to debug touchwheel responsiveness.
+  WriteRegister(Register::CHARGE_TIME, 8);
 }
 
 TouchWheel::~TouchWheel() {}
@@ -78,6 +82,10 @@ void TouchWheel::Update() {
     // Still calibrating.
     return;
   }
+  if (status & 0b01000000) {
+    // Probably okay, but we should keep an eye on this for development.
+    ESP_LOGW(kTag, "touchwheel acquisition >16ms");
+  }
   if (status & 0b10) {
     // Slider detect.
     data_.wheel_position = ReadRegister(Register::SLIDER_POSITION);
@@ -85,6 +93,10 @@ void TouchWheel::Update() {
   if (status & 0b1) {
     // Key detect.
     // TODO(daniel): implement me
+    // Ensure we read all status registers -- even if we're not using them -- to
+    // ensure that INT can float high again.
+    ReadRegister(Register::KEY_STATUS_A);
+    ReadRegister(Register::KEY_STATUS_B);
   }
 }
 

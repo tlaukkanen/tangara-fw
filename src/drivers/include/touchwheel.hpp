@@ -40,6 +40,7 @@ class TouchWheel {
     RESET = 0x7,
     LOW_POWER = 0x8,
     SLIDER_OPTIONS = 0x14,
+    CHARGE_TIME = 0x15,
   };
 
   void WriteRegister(uint8_t reg, uint8_t val);
