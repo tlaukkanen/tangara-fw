@@ -2,6 +2,8 @@
 
 #include <esp_log.h>
 #include <ff.h>
+#include <komihash.h>
+#include <stdint.h>
 #include <tags.h>
 
 namespace database {
@@ -97,6 +99,13 @@ auto GetInfo(const std::string& path, FileInfo* out) -> bool {
     ESP_LOGI(kTag, "artist: %s", aux.artist.c_str());
     ESP_LOGI(kTag, "album: %s", aux.album.c_str());
     ESP_LOGI(kTag, "title: %s", aux.title.c_str());
+    komihash_stream_t hash;
+    komihash_stream_init(&hash, 0);
+    komihash_stream_update(&hash, aux.artist.c_str(), aux.artist.length());
+    komihash_stream_update(&hash, aux.album.c_str(), aux.album.length());
+    komihash_stream_update(&hash, aux.title.c_str(), aux.title.length());
+    uint64_t final_hash = komihash_stream_final(&hash);
+    ESP_LOGI(kTag, "hash: %#llx", final_hash);
     out->is_playable = true;
     out->title = aux.title;
     return true;
