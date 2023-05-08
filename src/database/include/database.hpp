@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -13,46 +14,37 @@
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
+#include "records.hpp"
 #include "result.hpp"
+#include "song.hpp"
 
 namespace database {
 
-struct Artist {
-  std::string name;
-};
-
-struct Album {
-  std::string name;
-};
-
-typedef uint64_t SongId_t;
-
-struct Song {
-  std::string title;
-  uint64_t id;
-};
-
-struct SongMetadata {};
-
 typedef std::unique_ptr<leveldb::Iterator> Continuation;
 
+/*
+ * Wrapper for a set of results from the database. Owns the list of results, as
+ * well as a continuation token that can be used to continue fetching more
+ * results if they were paginated.
+ */
 template <typename T>
 class Result {
  public:
-  auto values() -> std::unique_ptr<std::vector<T>> {
-    return std::move(values_);
-  }
+  auto values() -> std::vector<T>* { return values_.release(); }
   auto continuation() -> Continuation { return std::move(c_); }
   auto HasMore() -> bool { return c_->Valid(); }
+
+  Result(std::vector<T>* values, Continuation c)
+      : values_(values), c_(std::move(c)) {}
 
   Result(std::unique_ptr<std::vector<T>> values, Continuation c)
       : values_(std::move(values)), c_(std::move(c)) {}
 
   Result(Result&& other)
-      : values_(std::move(other.values_)), c_(std::move(other.c_)) {}
+      : values_(move(other.values_)), c_(std::move(other.c_)) {}
 
   Result operator=(Result&& other) {
-    return Result(other.values(), other.continuation());
+    return Result(other.values(), std::move(other.continuation()));
   }
 
   Result(const Result&) = delete;
@@ -73,30 +65,16 @@ class Database {
 
   ~Database();
 
-  auto Populate() -> std::future<void>;
-
-  auto GetArtists(std::size_t page_size) -> std::future<Result<Artist>>;
-  auto GetMoreArtists(std::size_t page_size, Continuation c)
-      -> std::future<Result<Artist>>;
-
-  auto GetAlbums(std::size_t page_size, std::optional<Artist> artist)
-      -> std::future<Result<Album>>;
-  auto GetMoreAlbums(std::size_t page_size, Continuation c)
-      -> std::future<Result<Album>>;
+  auto Update() -> std::future<void>;
+  auto Destroy() -> std::future<void>;
 
   auto GetSongs(std::size_t page_size) -> std::future<Result<Song>>;
-  auto GetSongs(std::size_t page_size, std::optional<Artist> artist)
-      -> std::future<Result<Song>>;
-  auto GetSongs(std::size_t page_size,
-                std::optional<Artist> artist,
-                std::optional<Album> album) -> std::future<Result<Song>>;
   auto GetMoreSongs(std::size_t page_size, Continuation c)
       -> std::future<Result<Song>>;
 
-  auto GetSongIds(std::optional<Artist> artist, std::optional<Album> album)
-      -> std::future<std::vector<SongId_t>>;
-  auto GetSongFilePath(SongId_t id) -> std::future<std::optional<std::string>>;
-  auto GetSongMetadata(SongId_t id) -> std::future<std::optional<SongMetadata>>;
+  auto GetDump(std::size_t page_size) -> std::future<Result<std::string>>;
+  auto GetMoreDump(std::size_t page_size, Continuation c)
+      -> std::future<Result<std::string>>;
 
   Database(const Database&) = delete;
   Database& operator=(const Database&) = delete;
@@ -106,6 +84,16 @@ class Database {
   std::unique_ptr<leveldb::Cache> cache_;
 
   Database(leveldb::DB* db, leveldb::Cache* cache);
+
+  auto dbMintNewSongId() -> SongId;
+  auto dbEntomb(SongId song, uint64_t hash) -> void;
+
+  auto dbPutSongData(const SongData& s) -> void;
+  auto dbGetSongData(SongId id) -> std::optional<SongData>;
+  auto dbPutHash(const uint64_t& hash, SongId i) -> void;
+  auto dbGetHash(const uint64_t& hash) -> std::optional<SongId>;
+  auto dbPutSong(SongId id, const std::string& path, const uint64_t& hash)
+      -> void;
 
   template <typename T>
   using Parser = std::function<std::optional<T>(const leveldb::Slice& key,

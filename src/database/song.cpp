@@ -1,9 +1,8 @@
-#include "tag_processor.hpp"
+#include "song.hpp"
 
 #include <esp_log.h>
 #include <ff.h>
 #include <komihash.h>
-#include <stdint.h>
 #include <tags.h>
 
 namespace database {
@@ -13,9 +12,7 @@ namespace libtags {
 struct Aux {
   FIL file;
   FILINFO info;
-  std::string artist;
-  std::string album;
-  std::string title;
+  SongTags* tags;
 };
 
 static int read(Tagctx* ctx, void* buf, int cnt) {
@@ -54,11 +51,11 @@ static void tag(Tagctx* ctx,
                 Tagread f) {
   Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
   if (t == Ttitle) {
-    aux->title = v;
+    aux->tags->title = v;
   } else if (t == Tartist) {
-    aux->artist = v;
+    aux->tags->artist = v;
   } else if (t == Talbum) {
-    aux->album = v;
+    aux->tags->album = v;
   }
 }
 
@@ -69,11 +66,12 @@ static void toc(Tagctx* ctx, int ms, int offset) {}
 static const std::size_t kBufSize = 1024;
 static const char* kTag = "TAGS";
 
-auto GetInfo(const std::string& path, FileInfo* out) -> bool {
+auto ReadAndParseTags(const std::string& path, SongTags* out) -> bool {
   libtags::Aux aux;
+  aux.tags = out;
   if (f_stat(path.c_str(), &aux.info) != FR_OK ||
       f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
-    ESP_LOGI(kTag, "failed to open file");
+    ESP_LOGW(kTag, "failed to open file %s", path.c_str());
     return false;
   }
   // Fine to have this on the stack; this is only called on the leveldb task.
@@ -90,28 +88,44 @@ auto GetInfo(const std::string& path, FileInfo* out) -> bool {
   f_close(&aux.file);
 
   if (res != 0) {
-    ESP_LOGI(kTag, "failed to parse tags");
+    // Parsing failed.
     return false;
   }
 
-  if (ctx.format == Fmp3) {
-    ESP_LOGI(kTag, "file is mp3");
-    ESP_LOGI(kTag, "artist: %s", aux.artist.c_str());
-    ESP_LOGI(kTag, "album: %s", aux.album.c_str());
-    ESP_LOGI(kTag, "title: %s", aux.title.c_str());
-    komihash_stream_t hash;
-    komihash_stream_init(&hash, 0);
-    komihash_stream_update(&hash, aux.artist.c_str(), aux.artist.length());
-    komihash_stream_update(&hash, aux.album.c_str(), aux.album.length());
-    komihash_stream_update(&hash, aux.title.c_str(), aux.title.length());
-    uint64_t final_hash = komihash_stream_final(&hash);
-    ESP_LOGI(kTag, "hash: %#llx", final_hash);
-    out->is_playable = true;
-    out->title = aux.title;
-    return true;
+  switch (ctx.format) {
+    case Fmp3:
+      out->encoding = ENC_MP3;
+      break;
+    default:
+      out->encoding = ENC_UNSUPPORTED;
   }
 
-  return false;
+  return true;
+}
+
+auto HashString(komihash_stream_t* stream, std::string str) -> void {
+  komihash_stream_update(stream, str.c_str(), str.length());
+}
+
+auto SongTags::Hash() const -> uint64_t {
+  komihash_stream_t stream;
+  komihash_stream_init(&stream, 0);
+  HashString(&stream, title.value_or(""));
+  HashString(&stream, artist.value_or(""));
+  HashString(&stream, album.value_or(""));
+  return komihash_stream_final(&stream);
+}
+
+auto SongData::UpdateHash(uint64_t new_hash) const -> SongData {
+  return SongData(id_, filepath_, new_hash, play_count_, is_tombstoned_);
+}
+
+auto SongData::Entomb() const -> SongData {
+  return SongData(id_, filepath_, tags_hash_, play_count_, true);
+}
+
+auto SongData::Exhume(const std::string& new_path) const -> SongData {
+  return SongData(id_, new_path, tags_hash_, play_count_, false);
 }
 
 }  // namespace database

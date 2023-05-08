@@ -154,7 +154,7 @@ int CmdDbInit(int argc, char** argv) {
     return 1;
   }
 
-  sInstance->database_->Populate().get();
+  sInstance->database_->Update();
 
   return 0;
 }
@@ -177,11 +177,11 @@ int CmdDbSongs(int argc, char** argv) {
   }
 
   database::Result<database::Song> res =
-      sInstance->database_->GetSongs(10).get();
+      sInstance->database_->GetSongs(20).get();
   while (true) {
-    std::unique_ptr<std::vector<database::Song>> r = res.values();
+    std::unique_ptr<std::vector<database::Song>> r(res.values());
     for (database::Song s : *r) {
-      std::cout << s.title << std::endl;
+      std::cout << s.tags().title.value_or("[BLANK]") << std::endl;
     }
     if (res.HasMore()) {
       res = sInstance->database_->GetMoreSongs(10, res.continuation()).get();
@@ -198,6 +198,43 @@ void RegisterDbSongs() {
                         .help = "lists titles of ALL songs in the database",
                         .hint = NULL,
                         .func = &CmdDbSongs,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
+int CmdDbDump(int argc, char** argv) {
+  static const std::string usage = "usage: db_dump";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  std::cout << "=== BEGIN DUMP ===" << std::endl;
+
+  database::Result<std::string> res = sInstance->database_->GetDump(20).get();
+  while (true) {
+    std::unique_ptr<std::vector<std::string>> r(res.values());
+    if (r == nullptr) {
+      break;
+    }
+    for (std::string s : *r) {
+      std::cout << s << std::endl;
+    }
+    if (res.HasMore()) {
+      res = sInstance->database_->GetMoreDump(20, res.continuation()).get();
+    }
+  }
+
+  std::cout << "=== END DUMP ===" << std::endl;
+
+  return 0;
+}
+
+void RegisterDbDump() {
+  esp_console_cmd_t cmd{.command = "db_dump",
+                        .help = "prints every key/value pair in the db",
+                        .hint = NULL,
+                        .func = &CmdDbDump,
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
@@ -219,6 +256,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterAudioStatus();
   RegisterDbInit();
   RegisterDbSongs();
+  RegisterDbDump();
 }
 
 }  // namespace console
