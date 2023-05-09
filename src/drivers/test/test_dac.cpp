@@ -13,7 +13,9 @@ namespace drivers {
 TEST_CASE("dac configuration", "[integration]") {
   I2CFixture i2c;
   GpioExpander expander;
-  std::unique_ptr<AudioDac> dac = AudioDac::create(&expander).value();
+  cpp::result<AudioDac*, AudioDac::Error> dac_res = AudioDac::create(&expander);
+  REQUIRE(dac_res.has_value());
+  std::unique_ptr<AudioDac> dac(dac_res.value());
 
   auto power_state = dac->ReadPowerState();
 

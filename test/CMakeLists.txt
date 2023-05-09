@@ -7,13 +7,17 @@ idf_build_set_property(
   COMPILE_OPTIONS "-DCATCH_CONFIG_NO_POSIX_SIGNALS -DCATCH_CONFIG_FAST_COMPILE" APPEND)
 
 # Treat warnings as errors for test purposes.
-list(APPEND EXTRA_WARNINGS "-Werror")
+# TODO(jacqueline): lvgl warning :(
+#list(APPEND EXTRA_WARNINGS "-Werror")
 
 list(APPEND EXTRA_COMPONENT_DIRS
   "$ENV{PROJ_PATH}/src/audio"
   "$ENV{PROJ_PATH}/src/codecs"
-  "$ENV{PROJ_PATH}/src/tasks"
+  "$ENV{PROJ_PATH}/src/database"
   "$ENV{PROJ_PATH}/src/drivers"
+  "$ENV{PROJ_PATH}/src/memory"
+  "$ENV{PROJ_PATH}/src/tasks"
+  "$ENV{PROJ_PATH}/src/ui"
   "$ENV{PROJ_PATH}/src/dev_console"
   )
 

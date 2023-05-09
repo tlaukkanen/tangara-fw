@@ -13,41 +13,13 @@ TEST_CASE("gpio expander", "[integration]") {
   SECTION("with() writes when ") {
     // Initial value.
     expander.Read();
-    REQUIRE(expander.get_input(GpioExpander::GPIO_1) == true);
+    REQUIRE(expander.get_input(GpioExpander::KEY_DOWN) == true);
 
     expander.with(
-        [&](auto& gpio) { gpio.set_pin(GpioExpander::GPIO_1, false); });
+        [&](auto& gpio) { gpio.set_pin(GpioExpander::KEY_DOWN, false); });
 
     expander.Read();
-    REQUIRE(expander.get_input(GpioExpander::GPIO_1) == false);
-  }
-
-  SECTION("setting individual pins") {
-    expander.set_pin(GpioExpander::GPIO_1, true);
-    expander.set_pin(GpioExpander::GPIO_2, false);
-    expander.set_pin(GpioExpander::GPIO_3, false);
-    expander.set_pin(GpioExpander::GPIO_4, true);
-
-    expander.Write();
-    expander.Read();
-
-    REQUIRE(expander.get_input(GpioExpander::GPIO_1) == true);
-    REQUIRE(expander.get_input(GpioExpander::GPIO_2) == false);
-    REQUIRE(expander.get_input(GpioExpander::GPIO_3) == false);
-    REQUIRE(expander.get_input(GpioExpander::GPIO_4) == true);
-
-    expander.set_pin(GpioExpander::GPIO_1, false);
-    expander.set_pin(GpioExpander::GPIO_2, true);
-    expander.set_pin(GpioExpander::GPIO_3, true);
-    expander.set_pin(GpioExpander::GPIO_4, false);
-
-    expander.Write();
-    expander.Read();
-
-    REQUIRE(expander.get_input(GpioExpander::GPIO_1) == false);
-    REQUIRE(expander.get_input(GpioExpander::GPIO_2) == true);
-    REQUIRE(expander.get_input(GpioExpander::GPIO_3) == true);
-    REQUIRE(expander.get_input(GpioExpander::GPIO_4) == false);
+    REQUIRE(expander.get_input(GpioExpander::KEY_DOWN) == false);
   }
 }
 

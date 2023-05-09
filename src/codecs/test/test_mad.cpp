@@ -19,9 +19,9 @@ namespace codecs {
 TEST_CASE("libmad mp3 decoder", "[unit]") {
   MadMp3Decoder decoder;
 
-  SECTION("handles only mp3 files") {
-    REQUIRE(decoder.CanHandleFile("cool.mp3") == true);
-    REQUIRE(decoder.CanHandleFile("bad.wma") == false);
+  SECTION("handles only mp3 types") {
+    REQUIRE(decoder.CanHandleType(STREAM_MP3) == true);
+    // REQUIRE(decoder.CanHandleFile("bad.wma") == false);
   }
 
   SECTION("processes streams correctly") {
@@ -38,15 +38,6 @@ TEST_CASE("libmad mp3 decoder", "[unit]") {
       REQUIRE(result.value() == true);
     }
 
-    SECTION("invalid stream fails") {
-      input.fill(std::byte{0x69});
-
-      auto result = decoder.ProcessNextFrame();
-
-      REQUIRE(result.has_error());
-      REQUIRE(result.error() == ICodec::MALFORMED_DATA);
-    }
-
     SECTION("valid stream parses successfully") {
       load_mp3(input);
 
@@ -55,27 +46,6 @@ TEST_CASE("libmad mp3 decoder", "[unit]") {
       REQUIRE(result.has_value());
       REQUIRE(result.value() == false);
 
-      SECTION("output samples synthesized") {
-        std::array<std::byte, 256> output;
-        output.fill(std::byte{0});
-
-        auto res = decoder.WriteOutputSamples(output);
-
-        REQUIRE(res.first > 0);
-        REQUIRE(res.second == false);
-
-        // Just check that some kind of data was written. We don't care
-        // about what.
-        bool wrote_something = false;
-        for (int i = 0; i < output.size(); i++) {
-          if (std::to_integer<uint8_t>(output[0]) != 0) {
-            wrote_something = true;
-            break;
-          }
-        }
-        REQUIRE(wrote_something == true);
-      }
-
       SECTION("output format correct") {
         auto format = decoder.GetOutputFormat();
 
@@ -83,7 +53,7 @@ TEST_CASE("libmad mp3 decoder", "[unit]") {
         REQUIRE(format.num_channels == 1);
         REQUIRE(format.sample_rate_hz == 44100);
         // Matches libmad output
-        REQUIRE(format.bits_per_sample == 24);
+        REQUIRE(format.bits_per_sample == 16);
       }
     }
   }

@@ -311,7 +311,8 @@ auto parse_dump(const leveldb::Slice& key, const leveldb::Slice& value)
       } else if (i == 1) {
         stream << " / 0x";
       } else {
-        stream << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(str[i]);
+        stream << std::hex << std::setfill('0') << std::setw(2)
+               << static_cast<int>(str[i]);
       }
     }
     for (std::size_t i = 2; i < str.size(); i++) {
@@ -320,7 +321,8 @@ auto parse_dump(const leveldb::Slice& key, const leveldb::Slice& value)
   stream << "\tval: 0x";
   std::string str = value.ToString();
   for (int i = 0; i < value.size(); i++) {
-    stream << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(str[i]);
+    stream << std::hex << std::setfill('0') << std::setw(2)
+           << static_cast<int>(str[i]);
   }
   return stream.str();
 }

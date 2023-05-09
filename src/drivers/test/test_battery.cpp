@@ -7,12 +7,12 @@
 namespace drivers {
 
 TEST_CASE("battery measurement", "[integration]") {
-  REQUIRE(drivers::init_adc() == ESP_OK);
+  Battery battery;
 
   SECTION("voltage is within range") {
-    uint32_t voltage = read_battery_voltage();
-    REQUIRE(voltage <= 2200);  // Plugged in, no battery.
-    REQUIRE(voltage >= 1000);
+    uint32_t mv = battery.Millivolts();
+    REQUIRE(mv <= 2200);  // Plugged in, no battery.
+    REQUIRE(mv >= 1000);
   }
 }
 

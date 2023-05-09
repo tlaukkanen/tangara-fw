@@ -26,7 +26,7 @@ TEST_CASE("sd card storage", "[integration]") {
   GpioExpander expander;
 
   {
-    std::unique_ptr<SdStorage> result = SdStorage::create(&expander).value();
+    std::unique_ptr<SdStorage> result(SdStorage::create(&expander).value());
 
     SECTION("write to a file") {
       {
@@ -67,32 +67,6 @@ TEST_CASE("sd card storage", "[integration]") {
 
       REQUIRE(remove(kTestFilePath.c_str()) == 0);
     }
-  }
-}
-
-// Failing due to hardware issue. Re-enable in R2.
-TEST_CASE("sd card mux", "[integration][!mayfail]") {
-  I2CFixture i2c;
-  SpiFixture spi;
-  GpioExpander expander;
-
-  SECTION("accessible when switched on") {
-    expander.with([&](auto& gpio) {
-      gpio.set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
-    });
-
-    auto result = SdStorage::create(&expander);
-    REQUIRE(result.has_value());
-  }
-
-  SECTION("inaccessible when switched off") {
-    expander.with([&](auto& gpio) {
-      gpio.set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_USB);
-    });
-
-    auto result = SdStorage::create(&expander);
-    REQUIRE(result.has_error());
-    REQUIRE(result.error() == SdStorage::FAILED_TO_READ);
   }
 }
 
