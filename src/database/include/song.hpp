@@ -59,6 +59,8 @@ class SongData {
   auto UpdateHash(uint64_t new_hash) const -> SongData;
   auto Entomb() const -> SongData;
   auto Exhume(const std::string& new_path) const -> SongData;
+
+  bool operator==(const SongData&) const = default;
 };
 
 class Song {

@@ -22,6 +22,6 @@ list(APPEND EXTRA_COMPONENT_DIRS
   )
 
 # List all components that include tests here.
-set(TEST_COMPONENTS "codecs" "drivers")
+set(TEST_COMPONENTS "codecs" "database" "drivers")
 
 project(device_tests)
