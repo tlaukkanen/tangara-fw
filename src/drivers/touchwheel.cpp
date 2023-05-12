@@ -30,32 +30,36 @@ TouchWheel::TouchWheel() {
   };
   gpio_config(&int_config);
 
-  WriteRegister(Register::RESET, 1);
-  // TODO(daniel): do we need this? how long does reset take?
-  vTaskDelay(pdMS_TO_TICKS(1));
-  ReadRegister(Register::FIRMWARE_VERSION);
-  WriteRegister(Register::SLIDER_OPTIONS, 0b11000000);
-  //WriteRegister(Register::CALIBRATE, 1);
-  // Confusingly-named; this sets to max-power max-response-time.
-  //WriteRegister(Register::LOW_POWER, 1);
-  // TODO(jacqueline): Temp to debug touchwheel responsiveness.
-  //WriteRegister(Register::CHARGE_TIME, 8);
+  // Configure keys 0, 1, and 2 as a wheel.
+  WriteRegister(SLIDER_OPTIONS, 0b11000000);
+
+  // Configure adjacent key suppression.
+  // Wheel keys. Set to channel 1.
+  WriteRegister(Register::KEY_CONTROL_BASE + 0, 0b100);
+  WriteRegister(Register::KEY_CONTROL_BASE + 1, 0b100);
+  WriteRegister(Register::KEY_CONTROL_BASE + 2, 0b100);
+  // Centre button. Set to channel 1.
+  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b100);
+  // Touch guard. Set as a guard, in channel 1.
+  WriteRegister(Register::KEY_CONTROL_BASE + 4, 0b10100);
+
+  // Unused extra keys. All disabled.
+  for (int i = 5; i < 12; i++) {
+    WriteRegister(Register::KEY_CONTROL_BASE + i, 1);
+  }
 }
 
 TouchWheel::~TouchWheel() {}
 
 void TouchWheel::WriteRegister(uint8_t reg, uint8_t val) {
-  // uint8_t maskedReg = reg | kWriteMask;
-  uint8_t maskedReg = reg;
+  // Addresses <= 5 are not writeable. Make sure we don't try.
+  assert(reg > 5);
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
-      .write_ack(maskedReg, val)
+      .write_ack(reg, val)
       .stop();
-  transaction.Execute();
-  // TODO(jacqueline): check for errors again when i find where all the ffc
-  // cables went q.q
-  // ESP_ERROR_CHECK(transaction.Execute());
+  ESP_ERROR_CHECK(transaction.Execute());
 }
 
 uint8_t TouchWheel::ReadRegister(uint8_t reg) {
@@ -64,10 +68,9 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
   transaction.start()
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
       .write_ack(reg)
-      .stop()
       .start()
       .write_addr(kTouchWheelAddress, I2C_MASTER_READ)
-      .read(&res, I2C_MASTER_ACK)
+      .read(&res, I2C_MASTER_NACK)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute());
   return res;
@@ -75,10 +78,10 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
 
 void TouchWheel::Update() {
   // Read data from device into member struct
-  //bool has_data = !gpio_get_level(GPIO_NUM_25);
-  //if (!has_data) {
-  //  return;
-  //}
+  bool has_data = !gpio_get_level(kIntPin);
+  if (!has_data) {
+    return;
+  }
   uint8_t status = ReadRegister(Register::DETECTION_STATUS);
   if (status & 0b10000000) {
     // Still calibrating.
@@ -91,18 +94,13 @@ void TouchWheel::Update() {
   }
   if (status & 0b10) {
     // Slider detect.
-    ESP_LOGW(kTag, "wheel changed");
-    data_.wheel_position = ReadRegister(Register::SLIDER_POSITION);
-    ESP_LOGW(kTag, "new pos: %d", data_.wheel_position);
+    uint8_t pos = ReadRegister(Register::SLIDER_POSITION);
+    data_.wheel_position = pos;
   }
   if (status & 0b1) {
-    // Key detect.
-    // TODO(daniel): implement me
-    // Ensure we read all status registers -- even if we're not using them -- to
-    // ensure that INT can float high again.
-    ESP_LOGW(kTag, "button changed");
-    ReadRegister(Register::KEY_STATUS_A);
-    ReadRegister(Register::KEY_STATUS_B);
+    // Key detect. Note that the touchwheel keys also trigger this.
+    // TODO(daniel): Do something with this.
+    // bool centre_key = ReadRegister(Register::KEY_STATUS_A) & 0b1000;
   }
 }
 

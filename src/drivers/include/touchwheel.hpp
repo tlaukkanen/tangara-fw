@@ -41,6 +41,7 @@ class TouchWheel {
     LOW_POWER = 8,
     SLIDER_OPTIONS = 14,
     CHARGE_TIME = 15,
+    KEY_CONTROL_BASE = 28,
   };
 
   void WriteRegister(uint8_t reg, uint8_t val);
