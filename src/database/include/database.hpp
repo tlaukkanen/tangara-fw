@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "file_gatherer.hpp"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
@@ -17,6 +18,7 @@
 #include "records.hpp"
 #include "result.hpp"
 #include "song.hpp"
+#include "tag_parser.hpp"
 
 namespace database {
 
@@ -61,12 +63,15 @@ class Database {
     ALREADY_OPEN,
     FAILED_TO_OPEN,
   };
+  static auto Open(IFileGatherer* file_gatherer, ITagParser* tag_parser)
+      -> cpp::result<Database*, DatabaseError>;
   static auto Open() -> cpp::result<Database*, DatabaseError>;
+
+  static auto Destroy() -> void;
 
   ~Database();
 
   auto Update() -> std::future<void>;
-  auto Destroy() -> std::future<void>;
 
   auto GetSongs(std::size_t page_size) -> std::future<Result<Song>>;
   auto GetMoreSongs(std::size_t page_size, Continuation c)
@@ -80,10 +85,19 @@ class Database {
   Database& operator=(const Database&) = delete;
 
  private:
-  std::unique_ptr<leveldb::DB> db_;
-  std::unique_ptr<leveldb::Cache> cache_;
+  // Owned. Dumb pointers because destruction needs to be done in an explicit
+  // order.
+  leveldb::DB* db_;
+  leveldb::Cache* cache_;
 
-  Database(leveldb::DB* db, leveldb::Cache* cache);
+  // Not owned.
+  IFileGatherer* file_gatherer_;
+  ITagParser* tag_parser_;
+
+  Database(leveldb::DB* db,
+           leveldb::Cache* cache,
+           IFileGatherer* file_gatherer,
+           ITagParser* tag_parser);
 
   auto dbMintNewSongId() -> SongId;
   auto dbEntomb(SongId song, uint64_t hash) -> void;

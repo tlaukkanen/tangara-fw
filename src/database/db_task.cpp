@@ -46,12 +46,12 @@ void DatabaseTaskMain(void* args) {
   while (true) {
     WorkItem item;
     if (xQueueReceive(sWorkQueue, &item, portMAX_DELAY)) {
-      if (item.quit) {
-        break;
-      }
       if (item.fn != nullptr) {
         std::invoke(*item.fn);
         delete item.fn;
+      }
+      if (item.quit) {
+        break;
       }
     }
   }
@@ -68,7 +68,7 @@ auto StartDbTask() -> bool {
     sDbStack = reinterpret_cast<StackType_t*>(
         heap_caps_malloc(kDbStackSize, MALLOC_CAP_SPIRAM));
   }
-  sWorkQueue = xQueueCreate(8, sizeof(std::function<void(void)>*));
+  sWorkQueue = xQueueCreate(8, sizeof(WorkItem));
   xTaskCreateStatic(&DatabaseTaskMain, "DB", kDbStackSize, NULL, 1, sDbStack,
                     &sDbStaticTask);
   return true;

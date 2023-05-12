@@ -1,5 +1,7 @@
 #include "database.hpp"
+
 #include <stdint.h>
+
 #include <cstdint>
 #include <functional>
 #include <iomanip>
@@ -8,27 +10,31 @@
 #include "esp_log.h"
 #include "ff.h"
 #include "leveldb/cache.h"
-
-#include "db_task.hpp"
-#include "env_esp.hpp"
-#include "file_gatherer.hpp"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
 #include "leveldb/write_batch.h"
+
+#include "db_task.hpp"
+#include "env_esp.hpp"
+#include "file_gatherer.hpp"
 #include "records.hpp"
 #include "result.hpp"
 #include "song.hpp"
+#include "tag_parser.hpp"
 
 namespace database {
 
 static SingletonEnv<leveldb::EspEnv> sEnv;
 static const char* kTag = "DB";
 
-static const std::string kSongIdKey("next_song_id");
+static const char kSongIdKey[] = "next_song_id";
 
 static std::atomic<bool> sIsDbOpen(false);
+
+static FileGathererImpl sFileGatherer;
+static TagParserImpl sTagParser;
 
 template <typename Parser>
 auto IterateAndParse(leveldb::Iterator* it, std::size_t limit, Parser p)
@@ -44,6 +50,11 @@ auto IterateAndParse(leveldb::Iterator* it, std::size_t limit, Parser p)
 }
 
 auto Database::Open() -> cpp::result<Database*, DatabaseError> {
+  return Open(&sFileGatherer, &sTagParser);
+}
+
+auto Database::Open(IFileGatherer* gatherer, ITagParser* parser)
+    -> cpp::result<Database*, DatabaseError> {
   // TODO(jacqueline): Why isn't compare_and_exchange_* available?
   if (sIsDbOpen.exchange(true)) {
     return cpp::fail(DatabaseError::ALREADY_OPEN);
@@ -54,7 +65,7 @@ auto Database::Open() -> cpp::result<Database*, DatabaseError> {
   }
 
   return RunOnDbTask<cpp::result<Database*, DatabaseError>>(
-             []() -> cpp::result<Database*, DatabaseError> {
+             [=]() -> cpp::result<Database*, DatabaseError> {
                leveldb::DB* db;
                leveldb::Cache* cache = leveldb::NewLRUCache(24 * 1024);
                leveldb::Options options;
@@ -74,15 +85,32 @@ auto Database::Open() -> cpp::result<Database*, DatabaseError> {
                }
 
                ESP_LOGI(kTag, "Database opened successfully");
-               return new Database(db, cache);
+               return new Database(db, cache, gatherer, parser);
              })
       .get();
 }
 
-Database::Database(leveldb::DB* db, leveldb::Cache* cache)
-    : db_(db), cache_(cache) {}
+auto Database::Destroy() -> void {
+  leveldb::Options options;
+  options.env = sEnv.env();
+  leveldb::DestroyDB("/.db", options);
+}
+
+Database::Database(leveldb::DB* db,
+                   leveldb::Cache* cache,
+                   IFileGatherer* file_gatherer,
+                   ITagParser* tag_parser)
+    : db_(db),
+      cache_(cache),
+      file_gatherer_(file_gatherer),
+      tag_parser_(tag_parser) {}
 
 Database::~Database() {
+  // Delete db_ first so that any outstanding background work finishes before
+  // the background task is killed.
+  delete db_;
+  delete cache_;
+
   QuitDbTask();
   sIsDbOpen.store(false);
 }
@@ -115,7 +143,8 @@ auto Database::Update() -> std::future<void> {
       }
 
       SongTags tags;
-      if (!ReadAndParseTags(song->filepath(), &tags)) {
+      if (!tag_parser_->ReadAndParseTags(song->filepath(), &tags) ||
+          tags.encoding == Encoding::kUnsupported) {
         // We couldn't read the tags for this song. Either they were
         // malformed, or perhaps the file is missing. Either way, tombstone
         // this record.
@@ -143,9 +172,10 @@ auto Database::Update() -> std::future<void> {
 
     // Stage 2: search for newly added files.
     ESP_LOGI(kTag, "scanning for new songs");
-    FindFiles("", [&](const std::string& path) {
+    file_gatherer_->FindFiles("", [&](const std::string& path) {
       SongTags tags;
-      if (!ReadAndParseTags(path, &tags)) {
+      if (!tag_parser_->ReadAndParseTags(path, &tags) ||
+          tags.encoding == Encoding::kUnsupported) {
         // No parseable tags; skip this fiile.
         return;
       }
@@ -186,29 +216,16 @@ auto Database::Update() -> std::future<void> {
   });
 }
 
-auto Database::Destroy() -> std::future<void> {
-  return RunOnDbTask<void>([&]() -> void {
-    const leveldb::Snapshot* snap = db_->GetSnapshot();
-    leveldb::ReadOptions options;
-    options.snapshot = snap;
-    leveldb::Iterator* it = db_->NewIterator(options);
-    it->SeekToFirst();
-    while (it->Valid()) {
-      db_->Delete(leveldb::WriteOptions(), it->key());
-      it->Next();
-    }
-    db_->ReleaseSnapshot(snap);
-  });
-}
-
 auto Database::dbMintNewSongId() -> SongId {
+  SongId next_id = 1;
   std::string val;
   auto status = db_->Get(leveldb::ReadOptions(), kSongIdKey, &val);
-  if (!status.ok()) {
-    // TODO(jacqueline): check the db is actually empty.
-    ESP_LOGW(kTag, "error getting next id: %s", status.ToString().c_str());
+  if (status.ok()) {
+    next_id = BytesToSongId(val).value_or(next_id);
+  } else if (!status.IsNotFound()) {
+    // TODO(jacqueline): Handle this more.
+    ESP_LOGE(kTag, "failed to get next song id");
   }
-  SongId next_id = BytesToSongId(val);
 
   if (!db_->Put(leveldb::WriteOptions(), kSongIdKey,
                 SongIdToBytes(next_id + 1).slice)
@@ -270,14 +287,15 @@ auto Database::dbPutSong(SongId id,
   dbPutHash(hash, id);
 }
 
-auto parse_song(const leveldb::Slice& key, const leveldb::Slice& value)
-    -> std::optional<Song> {
+auto parse_song(ITagParser* parser,
+                const leveldb::Slice& key,
+                const leveldb::Slice& value) -> std::optional<Song> {
   std::optional<SongData> data = ParseDataValue(value);
   if (!data) {
     return {};
   }
   SongTags tags;
-  if (!ReadAndParseTags(data->filepath(), &tags)) {
+  if (!parser->ReadAndParseTags(data->filepath(), &tags)) {
     return {};
   }
   return Song(*data, tags);
@@ -285,7 +303,8 @@ auto parse_song(const leveldb::Slice& key, const leveldb::Slice& value)
 
 auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>> {
   return RunOnDbTask<Result<Song>>([=, this]() -> Result<Song> {
-    return Query<Song>(CreateDataPrefix().slice, page_size, &parse_song);
+    return Query<Song>(CreateDataPrefix().slice, page_size,
+                       std::bind_front(&parse_song, tag_parser_));
   });
 }
 
@@ -293,7 +312,8 @@ auto Database::GetMoreSongs(std::size_t page_size, Continuation c)
     -> std::future<Result<Song>> {
   leveldb::Iterator* it = c.release();
   return RunOnDbTask<Result<Song>>([=, this]() -> Result<Song> {
-    return Query<Song>(it, page_size, &parse_song);
+    return Query<Song>(it, page_size,
+                       std::bind_front(&parse_song, tag_parser_));
   });
 }
 

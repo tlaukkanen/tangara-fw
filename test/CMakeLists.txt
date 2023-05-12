@@ -19,6 +19,7 @@ list(APPEND EXTRA_COMPONENT_DIRS
   "$ENV{PROJ_PATH}/src/tasks"
   "$ENV{PROJ_PATH}/src/ui"
   "$ENV{PROJ_PATH}/src/dev_console"
+  "fixtures"
   )
 
 # List all components that include tests here.

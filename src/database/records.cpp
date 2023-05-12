@@ -1,11 +1,12 @@
 #include "records.hpp"
 
-#include <cbor.h>
-#include <esp_log.h>
 #include <stdint.h>
 
 #include <sstream>
 #include <vector>
+
+#include "cbor.h"
+#include "esp_log.h"
 
 #include "song.hpp"
 
@@ -17,15 +18,29 @@ static const char kDataPrefix = 'D';
 static const char kHashPrefix = 'H';
 static const char kFieldSeparator = '\0';
 
+/*
+ * Helper function for allocating an appropriately-sized byte buffer, then
+ * encoding data into it.
+ *
+ * 'T' should be a callable that takes a CborEncoder* as
+ * an argument, and stores values within that encoder. 'T' will be called
+ * exactly twice: first to detemine the buffer size, and then second to do the
+ * encoding.
+ *
+ * 'out_buf' will be set to the location of newly allocated memory; it is up to
+ * the caller to free it. Returns the size of 'out_buf'.
+ */
 template <typename T>
 auto cbor_encode(uint8_t** out_buf, T fn) -> std::size_t {
+  // First pass: work out how many bytes we will encode into.
   CborEncoder size_encoder;
   cbor_encoder_init(&size_encoder, NULL, 0, 0);
   std::invoke(fn, &size_encoder);
   std::size_t buf_size = cbor_encoder_get_extra_bytes_needed(&size_encoder);
-  *out_buf = new uint8_t[buf_size];
 
+  // Second pass: do the encoding.
   CborEncoder encoder;
+  *out_buf = new uint8_t[buf_size];
   cbor_encoder_init(&encoder, *out_buf, buf_size, 0);
   std::invoke(fn, &encoder);
 
@@ -99,13 +114,13 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
   CborError err;
   err = cbor_parser_init(reinterpret_cast<const uint8_t*>(slice.data()),
                          slice.size(), 0, &parser, &container);
-  if (err != CborNoError) {
+  if (err != CborNoError || !cbor_value_is_container(&container)) {
     return {};
   }
 
   CborValue val;
   err = cbor_value_enter_container(&container, &val);
-  if (err != CborNoError) {
+  if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
     return {};
   }
 
@@ -116,14 +131,14 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
   }
   SongId id = raw_int;
   err = cbor_value_advance(&val);
-  if (err != CborNoError) {
+  if (err != CborNoError || !cbor_value_is_text_string(&val)) {
     return {};
   }
 
   char* raw_path;
   std::size_t len;
   err = cbor_value_dup_text_string(&val, &raw_path, &len, &val);
-  if (err != CborNoError) {
+  if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
     return {};
   }
   std::string path(raw_path, len);
@@ -135,7 +150,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
   }
   uint64_t hash = raw_int;
   err = cbor_value_advance(&val);
-  if (err != CborNoError) {
+  if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
     return {};
   }
 
@@ -145,7 +160,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
   }
   uint32_t play_count = raw_int;
   err = cbor_value_advance(&val);
-  if (err != CborNoError) {
+  if (err != CborNoError || !cbor_value_is_boolean(&val)) {
     return {};
   }
 
@@ -190,11 +205,14 @@ auto SongIdToBytes(SongId id) -> OwningSlice {
   return OwningSlice(as_str);
 }
 
-auto BytesToSongId(const std::string& bytes) -> SongId {
+auto BytesToSongId(const std::string& bytes) -> std::optional<SongId> {
   CborParser parser;
   CborValue val;
   cbor_parser_init(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),
                    0, &parser, &val);
+  if (!cbor_value_is_unsigned_integer(&val)) {
+    return {};
+  }
   uint64_t raw_id;
   cbor_value_get_uint64(&val, &raw_id);
   return raw_id;

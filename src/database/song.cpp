@@ -1,113 +1,21 @@
 #include "song.hpp"
 
-#include <esp_log.h>
-#include <ff.h>
 #include <komihash.h>
-#include <tags.h>
 
 namespace database {
 
-namespace libtags {
-
-struct Aux {
-  FIL file;
-  FILINFO info;
-  SongTags* tags;
-};
-
-static int read(Tagctx* ctx, void* buf, int cnt) {
-  Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
-  UINT bytes_read;
-  if (f_read(&aux->file, buf, cnt, &bytes_read) != FR_OK) {
-    return -1;
-  }
-  return bytes_read;
-}
-
-static int seek(Tagctx* ctx, int offset, int whence) {
-  Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
-  FRESULT res;
-  if (whence == 0) {
-    // Seek from the start of the file. This is f_lseek's behaviour.
-    res = f_lseek(&aux->file, offset);
-  } else if (whence == 1) {
-    // Seek from current offset.
-    res = f_lseek(&aux->file, aux->file.fptr + offset);
-  } else if (whence == 2) {
-    // Seek from the end of the file
-    res = f_lseek(&aux->file, aux->info.fsize + offset);
-  } else {
-    return -1;
-  }
-  return res;
-}
-
-static void tag(Tagctx* ctx,
-                int t,
-                const char* k,
-                const char* v,
-                int offset,
-                int size,
-                Tagread f) {
-  Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
-  if (t == Ttitle) {
-    aux->tags->title = v;
-  } else if (t == Tartist) {
-    aux->tags->artist = v;
-  } else if (t == Talbum) {
-    aux->tags->album = v;
-  }
-}
-
-static void toc(Tagctx* ctx, int ms, int offset) {}
-
-}  // namespace libtags
-
-static const std::size_t kBufSize = 1024;
-static const char* kTag = "TAGS";
-
-auto ReadAndParseTags(const std::string& path, SongTags* out) -> bool {
-  libtags::Aux aux;
-  aux.tags = out;
-  if (f_stat(path.c_str(), &aux.info) != FR_OK ||
-      f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
-    ESP_LOGW(kTag, "failed to open file %s", path.c_str());
-    return false;
-  }
-  // Fine to have this on the stack; this is only called on the leveldb task.
-  char buf[kBufSize];
-  Tagctx ctx;
-  ctx.read = libtags::read;
-  ctx.seek = libtags::seek;
-  ctx.tag = libtags::tag;
-  ctx.toc = libtags::toc;
-  ctx.aux = &aux;
-  ctx.buf = buf;
-  ctx.bufsz = kBufSize;
-  int res = tagsget(&ctx);
-  f_close(&aux.file);
-
-  if (res != 0) {
-    // Parsing failed.
-    return false;
-  }
-
-  switch (ctx.format) {
-    case Fmp3:
-      out->encoding = ENC_MP3;
-      break;
-    default:
-      out->encoding = ENC_UNSUPPORTED;
-  }
-
-  return true;
-}
-
+/* Helper function to update a komihash stream with a std::string. */
 auto HashString(komihash_stream_t* stream, std::string str) -> void {
   komihash_stream_update(stream, str.c_str(), str.length());
 }
 
+/*
+ * Uses a komihash stream to incrementally hash tags. This lowers the function's
+ * memory footprint a little so that it's safe to call from any stack.
+ */
 auto SongTags::Hash() const -> uint64_t {
+  // TODO(jacqueline): this function doesn't work very well for songs with no
+  // tags at all.
   komihash_stream_t stream;
   komihash_stream_init(&stream, 0);
   HashString(&stream, title.value_or(""));

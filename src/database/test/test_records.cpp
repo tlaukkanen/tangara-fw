@@ -38,7 +38,7 @@ TEST_CASE("database record encoding", "[unit]") {
     }
 
     SECTION("round-trips") {
-      CHECK(BytesToSongId(as_bytes.data) == id);
+      CHECK(*BytesToSongId(as_bytes.data) == id);
     }
 
     SECTION("encodes compactly") {
@@ -46,6 +46,12 @@ TEST_CASE("database record encoding", "[unit]") {
       OwningSlice large_id = SongIdToBytes(999999);
 
       CHECK(small_id.data.size() < large_id.data.size());
+    }
+
+    SECTION("decoding rejects garbage") {
+      std::optional<SongId> res = BytesToSongId("i'm gay");
+
+      CHECK(res.has_value() == false);
     }
   }
 
@@ -95,6 +101,12 @@ TEST_CASE("database record encoding", "[unit]") {
     SECTION("round-trips") {
       CHECK(ParseDataValue(enc.slice) == data);
     }
+
+    SECTION("decoding rejects garbage") {
+      std::optional<SongData> res = ParseDataValue("hi!");
+
+      CHECK(res.has_value() == false);
+    }
   }
 
   SECTION("hash keys") {
@@ -115,6 +127,12 @@ TEST_CASE("database record encoding", "[unit]") {
 
     SECTION("round-trips") {
       CHECK(ParseHashValue(val.slice) == 123456);
+    }
+
+    SECTION("decoding rejects garbage") {
+      std::optional<SongId> res = ParseHashValue("the first song :)");
+
+      CHECK(res.has_value() == false);
     }
   }
 }
