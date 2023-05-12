@@ -33,12 +33,13 @@ TouchWheel::TouchWheel() {
   WriteRegister(Register::RESET, 1);
   // TODO(daniel): do we need this? how long does reset take?
   vTaskDelay(pdMS_TO_TICKS(1));
+  ReadRegister(Register::FIRMWARE_VERSION);
   WriteRegister(Register::SLIDER_OPTIONS, 0b11000000);
-  WriteRegister(Register::CALIBRATE, 1);
+  //WriteRegister(Register::CALIBRATE, 1);
   // Confusingly-named; this sets to max-power max-response-time.
-  WriteRegister(Register::LOW_POWER, 1);
+  //WriteRegister(Register::LOW_POWER, 1);
   // TODO(jacqueline): Temp to debug touchwheel responsiveness.
-  WriteRegister(Register::CHARGE_TIME, 8);
+  //WriteRegister(Register::CHARGE_TIME, 8);
 }
 
 TouchWheel::~TouchWheel() {}
@@ -63,9 +64,10 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
   transaction.start()
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
       .write_ack(reg)
+      .stop()
       .start()
       .write_addr(kTouchWheelAddress, I2C_MASTER_READ)
-      .read(&res, I2C_MASTER_NACK)
+      .read(&res, I2C_MASTER_ACK)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute());
   return res;
@@ -73,13 +75,14 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
 
 void TouchWheel::Update() {
   // Read data from device into member struct
-  bool has_data = !gpio_get_level(GPIO_NUM_25);
-  if (!has_data) {
-    return;
-  }
+  //bool has_data = !gpio_get_level(GPIO_NUM_25);
+  //if (!has_data) {
+  //  return;
+  //}
   uint8_t status = ReadRegister(Register::DETECTION_STATUS);
   if (status & 0b10000000) {
     // Still calibrating.
+    ESP_LOGW(kTag, "awaiting calibration");
     return;
   }
   if (status & 0b01000000) {
@@ -88,13 +91,16 @@ void TouchWheel::Update() {
   }
   if (status & 0b10) {
     // Slider detect.
+    ESP_LOGW(kTag, "wheel changed");
     data_.wheel_position = ReadRegister(Register::SLIDER_POSITION);
+    ESP_LOGW(kTag, "new pos: %d", data_.wheel_position);
   }
   if (status & 0b1) {
     // Key detect.
     // TODO(daniel): implement me
     // Ensure we read all status registers -- even if we're not using them -- to
     // ensure that INT can float high again.
+    ESP_LOGW(kTag, "button changed");
     ReadRegister(Register::KEY_STATUS_A);
     ReadRegister(Register::KEY_STATUS_B);
   }

@@ -31,16 +31,16 @@ class TouchWheel {
   TouchWheelData data_;
 
   enum Register {
-    FIRMWARE_VERSION = 0x1,
-    DETECTION_STATUS = 0x2,
-    KEY_STATUS_A = 0x3,
-    KEY_STATUS_B = 0x4,
-    SLIDER_POSITION = 0x5,
-    CALIBRATE = 0x6,
-    RESET = 0x7,
-    LOW_POWER = 0x8,
-    SLIDER_OPTIONS = 0x14,
-    CHARGE_TIME = 0x15,
+    FIRMWARE_VERSION = 1,
+    DETECTION_STATUS = 2,
+    KEY_STATUS_A = 3,
+    KEY_STATUS_B = 4,
+    SLIDER_POSITION = 5,
+    CALIBRATE = 6,
+    RESET = 7,
+    LOW_POWER = 8,
+    SLIDER_OPTIONS = 14,
+    CHARGE_TIME = 15,
   };
 
   void WriteRegister(uint8_t reg, uint8_t val);
