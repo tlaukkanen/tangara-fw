@@ -2,9 +2,11 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 
 #include "esp_log.h"
@@ -216,6 +218,43 @@ auto Database::Update() -> std::future<void> {
   });
 }
 
+auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>*> {
+  return RunOnDbTask<Result<Song>*>([=, this]() -> Result<Song>* {
+    Continuation<Song> c{.iterator = nullptr,
+                         .prefix = CreateDataPrefix().data,
+                         .start_key = CreateDataPrefix().data,
+                         .forward = true,
+                         .was_prev_forward = true,
+                         .page_size = page_size};
+    return dbGetPage(c);
+  });
+}
+
+auto Database::GetDump(std::size_t page_size)
+    -> std::future<Result<std::string>*> {
+  return RunOnDbTask<Result<std::string>*>([=, this]() -> Result<std::string>* {
+    Continuation<std::string> c{.iterator = nullptr,
+                                .prefix = "",
+                                .start_key = "",
+                                .forward = true,
+                                .was_prev_forward = true,
+                                .page_size = page_size};
+    return dbGetPage(c);
+  });
+}
+
+template <typename T>
+auto Database::GetPage(Continuation<T>* c) -> std::future<Result<T>*> {
+  Continuation<T> copy = *c;
+  return RunOnDbTask<Result<T>*>(
+      [=, this]() -> Result<T>* { return dbGetPage(copy); });
+}
+
+template auto Database::GetPage<Song>(Continuation<Song>* c)
+    -> std::future<Result<Song>*>;
+template auto Database::GetPage<std::string>(Continuation<std::string>* c)
+    -> std::future<Result<std::string>*>;
+
 auto Database::dbMintNewSongId() -> SongId {
   SongId next_id = 1;
   std::string val;
@@ -287,37 +326,148 @@ auto Database::dbPutSong(SongId id,
   dbPutHash(hash, id);
 }
 
-auto parse_song(ITagParser* parser,
-                const leveldb::Slice& key,
-                const leveldb::Slice& value) -> std::optional<Song> {
-  std::optional<SongData> data = ParseDataValue(value);
-  if (!data) {
+template <typename T>
+auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
+  // Work out our starting point. Sometimes this will already done.
+  leveldb::Iterator* it = nullptr;
+  if (c.iterator != nullptr) {
+    it = c.iterator->release();
+  }
+  if (it == nullptr) {
+    it = db_->NewIterator(leveldb::ReadOptions());
+    it->Seek(c.start_key);
+  }
+
+  // Fix off-by-one if we just changed direction.
+  if (c.forward != c.was_prev_forward) {
+    if (c.forward) {
+      it->Next();
+    } else {
+      it->Prev();
+    }
+  }
+
+  // Grab results.
+  std::optional<std::string> first_key;
+  std::vector<T> records;
+  while (records.size() < c.page_size && it->Valid()) {
+    if (!it->key().starts_with(c.prefix)) {
+      break;
+    }
+    if (!first_key) {
+      first_key = it->key().ToString();
+    }
+    std::optional<T> parsed = ParseRecord<T>(it->key(), it->value());
+    if (parsed) {
+      records.push_back(*parsed);
+    }
+    if (c.forward) {
+      it->Next();
+    } else {
+      it->Prev();
+    }
+  }
+
+  std::unique_ptr<leveldb::Iterator> iterator(it);
+  if (iterator != nullptr) {
+    if (!iterator->Valid() || !it->key().starts_with(c.prefix)) {
+      iterator.reset();
+    }
+  }
+
+  // Put results into canonical order if we were iterating backwards.
+  if (!c.forward) {
+    std::reverse(records.begin(), records.end());
+  }
+
+  // Work out the new continuations.
+  std::optional<Continuation<T>> next_page;
+  if (c.forward) {
+    if (iterator != nullptr) {
+      // We were going forward, and now we want the next page. Re-use the
+      // existing iterator, and point the start key at it.
+      std::string key = iterator->key().ToString();
+      next_page = Continuation<T>{
+          .iterator = std::make_shared<std::unique_ptr<leveldb::Iterator>>(
+              std::move(iterator)),
+          .prefix = c.prefix,
+          .start_key = key,
+          .forward = true,
+          .was_prev_forward = true,
+          .page_size = c.page_size,
+      };
+    }
+    // No iterator means we ran out of results in this direction.
+  } else {
+    // We were going backwards, and now we want the next page. This is a
+    // reversal, to set the start key to the first record we saw and mark that
+    // it's off by one.
+    next_page = Continuation<T>{
+        .iterator = nullptr,
+        .prefix = c.prefix,
+        .start_key = *first_key,
+        .forward = true,
+        .was_prev_forward = false,
+        .page_size = c.page_size,
+    };
+  }
+
+  std::optional<Continuation<T>> prev_page;
+  if (c.forward) {
+    // We were going forwards, and now we want the previous page. Set the search
+    // key to the first result we saw, and mark that it's off by one.
+    prev_page = Continuation<T>{
+        .iterator = nullptr,
+        .prefix = c.prefix,
+        .start_key = *first_key,
+        .forward = false,
+        .was_prev_forward = true,
+        .page_size = c.page_size,
+    };
+  } else {
+    if (iterator != nullptr) {
+      // We were going backwards, and we still want to go backwards. The
+      // iterator is still valid.
+      std::string key = iterator->key().ToString();
+      prev_page = Continuation<T>{
+          .iterator = std::make_shared<std::unique_ptr<leveldb::Iterator>>(
+              std::move(iterator)),
+          .prefix = c.prefix,
+          .start_key = key,
+          .forward = false,
+          .was_prev_forward = false,
+          .page_size = c.page_size,
+      };
+    }
+    // No iterator means we ran out of results in this direction.
+  }
+
+  return new Result<T>(std::move(records), next_page, prev_page);
+}
+
+template auto Database::dbGetPage<Song>(const Continuation<Song>& c)
+    -> Result<Song>*;
+template auto Database::dbGetPage<std::string>(
+    const Continuation<std::string>& c) -> Result<std::string>*;
+
+template <>
+auto Database::ParseRecord<Song>(const leveldb::Slice& key,
+                                 const leveldb::Slice& val)
+    -> std::optional<Song> {
+  std::optional<SongData> data = ParseDataValue(val);
+  if (!data || data->is_tombstoned()) {
     return {};
   }
   SongTags tags;
-  if (!parser->ReadAndParseTags(data->filepath(), &tags)) {
+  if (!tag_parser_->ReadAndParseTags(data->filepath(), &tags)) {
     return {};
   }
   return Song(*data, tags);
 }
 
-auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>> {
-  return RunOnDbTask<Result<Song>>([=, this]() -> Result<Song> {
-    return Query<Song>(CreateDataPrefix().slice, page_size,
-                       std::bind_front(&parse_song, tag_parser_));
-  });
-}
-
-auto Database::GetMoreSongs(std::size_t page_size, Continuation c)
-    -> std::future<Result<Song>> {
-  leveldb::Iterator* it = c.release();
-  return RunOnDbTask<Result<Song>>([=, this]() -> Result<Song> {
-    return Query<Song>(it, page_size,
-                       std::bind_front(&parse_song, tag_parser_));
-  });
-}
-
-auto parse_dump(const leveldb::Slice& key, const leveldb::Slice& value)
+template <>
+auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
+                                        const leveldb::Slice& val)
     -> std::optional<std::string> {
   std::ostringstream stream;
   stream << "key: ";
@@ -335,33 +485,14 @@ auto parse_dump(const leveldb::Slice& key, const leveldb::Slice& value)
                << static_cast<int>(str[i]);
       }
     }
-    for (std::size_t i = 2; i < str.size(); i++) {
-    }
   }
   stream << "\tval: 0x";
-  std::string str = value.ToString();
-  for (int i = 0; i < value.size(); i++) {
+  std::string str = val.ToString();
+  for (int i = 0; i < val.size(); i++) {
     stream << std::hex << std::setfill('0') << std::setw(2)
            << static_cast<int>(str[i]);
   }
   return stream.str();
-}
-
-auto Database::GetDump(std::size_t page_size)
-    -> std::future<Result<std::string>> {
-  leveldb::Iterator* it = db_->NewIterator(leveldb::ReadOptions());
-  it->SeekToFirst();
-  return RunOnDbTask<Result<std::string>>([=, this]() -> Result<std::string> {
-    return Query<std::string>(it, page_size, &parse_dump);
-  });
-}
-
-auto Database::GetMoreDump(std::size_t page_size, Continuation c)
-    -> std::future<Result<std::string>> {
-  leveldb::Iterator* it = c.release();
-  return RunOnDbTask<Result<std::string>>([=, this]() -> Result<std::string> {
-    return Query<std::string>(it, page_size, &parse_dump);
-  });
 }
 
 }  // namespace database

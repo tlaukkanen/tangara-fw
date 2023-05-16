@@ -176,15 +176,15 @@ int CmdDbSongs(int argc, char** argv) {
     return 1;
   }
 
-  database::Result<database::Song> res =
-      sInstance->database_->GetSongs(20).get();
+  std::unique_ptr<database::Result<database::Song>> res(
+      sInstance->database_->GetSongs(5).get());
   while (true) {
-    std::unique_ptr<std::vector<database::Song>> r(res.values());
-    for (database::Song s : *r) {
+    for (database::Song s : res->values()) {
       std::cout << s.tags().title.value_or("[BLANK]") << std::endl;
     }
-    if (res.HasMore()) {
-      res = sInstance->database_->GetMoreSongs(10, res.continuation()).get();
+    if (res->next_page()) {
+      auto continuation = res->next_page().value();
+      res.reset(sInstance->database_->GetPage(&continuation).get());
     } else {
       break;
     }
@@ -211,17 +211,18 @@ int CmdDbDump(int argc, char** argv) {
 
   std::cout << "=== BEGIN DUMP ===" << std::endl;
 
-  database::Result<std::string> res = sInstance->database_->GetDump(20).get();
+  std::unique_ptr<database::Result<std::string>> res(
+      sInstance->database_->GetDump(5).get());
   while (true) {
-    std::unique_ptr<std::vector<std::string>> r(res.values());
-    if (r == nullptr) {
-      break;
-    }
-    for (std::string s : *r) {
+    for (std::string s : res->values()) {
       std::cout << s << std::endl;
     }
-    if (res.HasMore()) {
-      res = sInstance->database_->GetMoreDump(20, res.continuation()).get();
+    if (res->next_page()) {
+      auto continuation = res->next_page().value();
+      res.reset(
+          sInstance->database_->GetPage<std::string>(&continuation).get());
+    } else {
+      break;
     }
   }
 

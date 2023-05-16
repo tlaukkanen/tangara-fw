@@ -36,4 +36,10 @@ auto SongData::Exhume(const std::string& new_path) const -> SongData {
   return SongData(id_, new_path, tags_hash_, play_count_, false);
 }
 
+void swap(Song& first, Song& second) {
+  Song temp = first;
+  first = second;
+  second = temp;
+}
+
 }  // namespace database

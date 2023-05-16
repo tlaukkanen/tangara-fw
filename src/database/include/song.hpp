@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "leveldb/db.h"
 #include "span.hpp"
@@ -133,16 +134,20 @@ class SongData {
  */
 class Song {
  public:
-  Song(SongData data, SongTags tags) : data_(data), tags_(tags) {}
+  Song(const SongData& data, const SongTags& tags) : data_(data), tags_(tags) {}
+  Song(const Song& other) = default;
 
-  auto data() -> const SongData& { return data_; }
-  auto tags() -> const SongTags& { return tags_; }
+  auto data() const -> const SongData& { return data_; }
+  auto tags() const -> const SongTags& { return tags_; }
 
   bool operator==(const Song&) const = default;
+  Song operator=(const Song& other) const { return Song(other); }
 
  private:
   const SongData data_;
   const SongTags tags_;
 };
+
+void swap(Song& first, Song& second);
 
 }  // namespace database

@@ -22,7 +22,15 @@
 
 namespace database {
 
-typedef std::unique_ptr<leveldb::Iterator> Continuation;
+template <typename T>
+struct Continuation {
+  std::shared_ptr<std::unique_ptr<leveldb::Iterator>> iterator;
+  std::string prefix;
+  std::string start_key;
+  bool forward;
+  bool was_prev_forward;
+  size_t page_size;
+};
 
 /*
  * Wrapper for a set of results from the database. Owns the list of results, as
@@ -32,29 +40,23 @@ typedef std::unique_ptr<leveldb::Iterator> Continuation;
 template <typename T>
 class Result {
  public:
-  auto values() -> std::vector<T>* { return values_.release(); }
-  auto continuation() -> Continuation { return std::move(c_); }
-  auto HasMore() -> bool { return c_->Valid(); }
+  auto values() const -> const std::vector<T>& { return values_; }
 
-  Result(std::vector<T>* values, Continuation c)
-      : values_(values), c_(std::move(c)) {}
+  auto next_page() -> std::optional<Continuation<T>>& { return next_page_; }
+  auto prev_page() -> std::optional<Continuation<T>>& { return prev_page_; }
 
-  Result(std::unique_ptr<std::vector<T>> values, Continuation c)
-      : values_(std::move(values)), c_(std::move(c)) {}
-
-  Result(Result&& other)
-      : values_(move(other.values_)), c_(std::move(other.c_)) {}
-
-  Result operator=(Result&& other) {
-    return Result(other.values(), std::move(other.continuation()));
-  }
+  Result(const std::vector<T>&& values,
+         std::optional<Continuation<T>> next,
+         std::optional<Continuation<T>> prev)
+      : values_(values), next_page_(next), prev_page_(prev) {}
 
   Result(const Result&) = delete;
   Result& operator=(const Result&) = delete;
 
  private:
-  std::unique_ptr<std::vector<T>> values_;
-  Continuation c_;
+  std::vector<T> values_;
+  std::optional<Continuation<T>> next_page_;
+  std::optional<Continuation<T>> prev_page_;
 };
 
 class Database {
@@ -73,13 +75,11 @@ class Database {
 
   auto Update() -> std::future<void>;
 
-  auto GetSongs(std::size_t page_size) -> std::future<Result<Song>>;
-  auto GetMoreSongs(std::size_t page_size, Continuation c)
-      -> std::future<Result<Song>>;
+  auto GetSongs(std::size_t page_size) -> std::future<Result<Song>*>;
+  auto GetDump(std::size_t page_size) -> std::future<Result<std::string>*>;
 
-  auto GetDump(std::size_t page_size) -> std::future<Result<std::string>>;
-  auto GetMoreDump(std::size_t page_size, Continuation c)
-      -> std::future<Result<std::string>>;
+  template <typename T>
+  auto GetPage(Continuation<T>* c) -> std::future<Result<T>*>;
 
   Database(const Database&) = delete;
   Database& operator=(const Database&) = delete;
@@ -110,31 +110,20 @@ class Database {
       -> void;
 
   template <typename T>
-  using Parser = std::function<std::optional<T>(const leveldb::Slice& key,
-                                                const leveldb::Slice& value)>;
+  auto dbGetPage(const Continuation<T>& c) -> Result<T>*;
 
   template <typename T>
-  auto Query(const leveldb::Slice& prefix,
-             std::size_t max_results,
-             Parser<T> parser) -> Result<T> {
-    leveldb::Iterator* it = db_->NewIterator(leveldb::ReadOptions());
-    it->Seek(prefix);
-    return Query(it, max_results, parser);
-  }
-
-  template <typename T>
-  auto Query(leveldb::Iterator* it, std::size_t max_results, Parser<T> parser)
-      -> Result<T> {
-    auto results = std::make_unique<std::vector<T>>();
-    for (std::size_t i = 0; i < max_results && it->Valid(); i++) {
-      std::optional<T> r = std::invoke(parser, it->key(), it->value());
-      if (r) {
-        results->push_back(*r);
-      }
-      it->Next();
-    }
-    return {std::move(results), std::unique_ptr<leveldb::Iterator>(it)};
-  }
+  auto ParseRecord(const leveldb::Slice& key, const leveldb::Slice& val)
+      -> std::optional<T>;
 };
+
+template <>
+auto Database::ParseRecord<Song>(const leveldb::Slice& key,
+                                 const leveldb::Slice& val)
+    -> std::optional<Song>;
+template <>
+auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
+                                        const leveldb::Slice& val)
+    -> std::optional<std::string>;
 
 }  // namespace database

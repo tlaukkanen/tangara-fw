@@ -60,8 +60,8 @@ TEST_CASE("song database", "[integration]") {
   std::unique_ptr<Database> db(open_res.value());
 
   SECTION("empty database") {
-    std::unique_ptr<std::vector<Song>> res(db->GetSongs(10).get().values());
-    REQUIRE(res->size() == 0);
+    std::unique_ptr<Result<Song>> res(db->GetSongs(10).get());
+    REQUIRE(res->values().size() == 0);
   }
 
   SECTION("add new songs") {
@@ -71,24 +71,23 @@ TEST_CASE("song database", "[integration]") {
 
     db->Update();
 
-    std::unique_ptr<std::vector<Song>> res(db->GetSongs(10).get().values());
-    REQUIRE(res->size() == 3);
-    CHECK(*res->at(0).tags().title == "Song 1");
-    CHECK(res->at(0).data().id() == 1);
-    CHECK(*res->at(1).tags().title == "Song 2");
-    CHECK(res->at(1).data().id() == 2);
-    CHECK(*res->at(2).tags().title == "Song 3");
-    CHECK(res->at(2).data().id() == 3);
+    std::unique_ptr<Result<Song>> res(db->GetSongs(10).get());
+    REQUIRE(res->values().size() == 3);
+    CHECK(*res->values().at(0).tags().title == "Song 1");
+    CHECK(res->values().at(0).data().id() == 1);
+    CHECK(*res->values().at(1).tags().title == "Song 2");
+    CHECK(res->values().at(1).data().id() == 2);
+    CHECK(*res->values().at(2).tags().title == "Song 3");
+    CHECK(res->values().at(2).data().id() == 3);
 
     SECTION("update with no filesystem changes") {
       db->Update();
 
-      std::unique_ptr<std::vector<Song>> new_res(
-          db->GetSongs(10).get().values());
-      REQUIRE(new_res->size() == 3);
-      CHECK(res->at(0) == new_res->at(0));
-      CHECK(res->at(1) == new_res->at(1));
-      CHECK(res->at(2) == new_res->at(2));
+      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      REQUIRE(new_res->values().size() == 3);
+      CHECK(res->values().at(0) == new_res->values().at(0));
+      CHECK(res->values().at(1) == new_res->values().at(1));
+      CHECK(res->values().at(2) == new_res->values().at(2));
     }
 
     SECTION("update with all songs gone") {
@@ -96,19 +95,17 @@ TEST_CASE("song database", "[integration]") {
 
       db->Update();
 
-      std::unique_ptr<std::vector<Song>> new_res(
-          db->GetSongs(10).get().values());
-      CHECK(new_res->size() == 0);
+      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      CHECK(new_res->values().size() == 0);
 
       SECTION("update with one song returned") {
         songs.MakeSong("song2.wav", "Song 2");
 
         db->Update();
 
-        std::unique_ptr<std::vector<Song>> new_res(
-            db->GetSongs(10).get().values());
-        REQUIRE(new_res->size() == 1);
-        CHECK(res->at(1) == new_res->at(0));
+        std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+        REQUIRE(new_res->values().size() == 1);
+        CHECK(res->values().at(1) == new_res->values().at(0));
       }
     }
 
@@ -117,11 +114,10 @@ TEST_CASE("song database", "[integration]") {
 
       db->Update();
 
-      std::unique_ptr<std::vector<Song>> new_res(
-          db->GetSongs(10).get().values());
-      REQUIRE(new_res->size() == 2);
-      CHECK(res->at(0) == new_res->at(0));
-      CHECK(res->at(2) == new_res->at(1));
+      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      REQUIRE(new_res->values().size() == 2);
+      CHECK(res->values().at(0) == new_res->values().at(0));
+      CHECK(res->values().at(2) == new_res->values().at(1));
     }
 
     SECTION("update with tags changed") {
@@ -129,14 +125,14 @@ TEST_CASE("song database", "[integration]") {
 
       db->Update();
 
-      std::unique_ptr<std::vector<Song>> new_res(
-          db->GetSongs(10).get().values());
-      REQUIRE(new_res->size() == 3);
-      CHECK(res->at(0) == new_res->at(0));
-      CHECK(res->at(1) == new_res->at(1));
-      CHECK(*new_res->at(2).tags().title == "The Song 3");
+      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      REQUIRE(new_res->values().size() == 3);
+      CHECK(res->values().at(0) == new_res->values().at(0));
+      CHECK(res->values().at(1) == new_res->values().at(1));
+      CHECK(*new_res->values().at(2).tags().title == "The Song 3");
       // The id should not have changed, since this was just a tag update.
-      CHECK(res->at(2).data().id() == new_res->at(2).data().id());
+      CHECK(res->values().at(2).data().id() ==
+            new_res->values().at(2).data().id());
     }
 
     SECTION("update with one new song") {
@@ -144,14 +140,61 @@ TEST_CASE("song database", "[integration]") {
 
       db->Update();
 
-      std::unique_ptr<std::vector<Song>> new_res(
-          db->GetSongs(10).get().values());
-      REQUIRE(new_res->size() == 4);
-      CHECK(res->at(0) == new_res->at(0));
-      CHECK(res->at(1) == new_res->at(1));
-      CHECK(res->at(2) == new_res->at(2));
-      CHECK(*new_res->at(3).tags().title == "Song 1 (nightcore remix)");
-      CHECK(new_res->at(3).data().id() == 4);
+      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      REQUIRE(new_res->values().size() == 4);
+      CHECK(res->values().at(0) == new_res->values().at(0));
+      CHECK(res->values().at(1) == new_res->values().at(1));
+      CHECK(res->values().at(2) == new_res->values().at(2));
+      CHECK(*new_res->values().at(3).tags().title ==
+            "Song 1 (nightcore remix)");
+      CHECK(new_res->values().at(3).data().id() == 4);
+    }
+
+    SECTION("get songs with pagination") {
+      std::unique_ptr<Result<Song>> res(db->GetSongs(1).get());
+
+      REQUIRE(res->values().size() == 1);
+      CHECK(res->values().at(0).data().id() == 1);
+      REQUIRE(res->next_page());
+
+      res.reset(db->GetPage(&res->next_page().value()).get());
+
+      REQUIRE(res->values().size() == 1);
+      CHECK(res->values().at(0).data().id() == 2);
+      REQUIRE(res->next_page());
+
+      res.reset(db->GetPage(&res->next_page().value()).get());
+
+      REQUIRE(res->values().size() == 1);
+      CHECK(res->values().at(0).data().id() == 3);
+      REQUIRE(!res->next_page());
+
+      SECTION("page backwards") {
+        REQUIRE(res->prev_page());
+
+        res.reset(db->GetPage(&res->prev_page().value()).get());
+
+        REQUIRE(res->values().size() == 1);
+        CHECK(res->values().at(0).data().id() == 2);
+        REQUIRE(res->prev_page());
+
+        res.reset(db->GetPage(&res->prev_page().value()).get());
+
+        REQUIRE(res->values().size() == 1);
+        CHECK(res->values().at(0).data().id() == 1);
+        REQUIRE(!res->prev_page());
+
+        SECTION("page forwards again") {
+          REQUIRE(res->next_page());
+
+          res.reset(db->GetPage(&res->next_page().value()).get());
+
+          REQUIRE(res->values().size() == 1);
+          CHECK(res->values().at(0).data().id() == 2);
+          CHECK(res->next_page());
+          CHECK(res->prev_page());
+        }
+      }
     }
   }
 }
