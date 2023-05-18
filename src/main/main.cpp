@@ -31,6 +31,7 @@
 #include "gpio_expander.hpp"
 #include "i2c.hpp"
 #include "lvgl_task.hpp"
+#include "samd.hpp"
 #include "spi.hpp"
 #include "storage.hpp"
 #include "touchwheel.hpp"
@@ -47,6 +48,16 @@ extern "C" void app_main(void) {
 
   ESP_LOGI(TAG, "Init GPIOs");
   drivers::GpioExpander* expander = drivers->AcquireGpios();
+
+  ESP_LOGI(TAG, "Init SAMD comms");
+  drivers::Samd samd;
+  ESP_LOGI(TAG, "It might have worked? Let's read something!");
+  auto res = samd.ReadChargeStatus();
+  if (res) {
+    ESP_LOGI(TAG, "Charge status is %d", static_cast<uint8_t>(*res));
+  } else {
+    ESP_LOGI(TAG, "no charge status?");
+  }
 
   ESP_LOGI(TAG, "Enable power rails for development");
   expander->with(

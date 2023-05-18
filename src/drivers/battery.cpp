@@ -42,6 +42,7 @@ Battery::Battery() {
 
 Battery::~Battery() {
   adc_cali_delete_scheme_line_fitting(adc_calibration_handle_);
+  ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle_));
 }
 
 auto Battery::Millivolts() -> uint32_t {
