@@ -49,7 +49,7 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 }
 }  // namespace callback
 
-auto SdStorage::create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error> {
+auto SdStorage::Create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error> {
   gpio->set_pin(GpioExpander::SD_CARD_POWER_ENABLE, 0);
   gpio->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 0);
   gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);

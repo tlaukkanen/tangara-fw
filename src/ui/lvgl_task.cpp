@@ -23,10 +23,10 @@
 #include "misc/lv_color.h"
 #include "misc/lv_style.h"
 #include "misc/lv_timer.h"
+#include "touchwheel.hpp"
 #include "widgets/lv_label.h"
 
 #include "display.hpp"
-#include "driver_cache.hpp"
 #include "gpio_expander.hpp"
 
 namespace ui {
@@ -38,26 +38,22 @@ auto tick_hook(TimerHandle_t xTimer) -> void {
 }
 
 struct LvglArgs {
-  drivers::DriverCache* drivers;
+  std::weak_ptr<drivers::TouchWheel> touch_wheel;
+  std::weak_ptr<drivers::Display> display;
   std::atomic<bool>* quit;
 };
 
 void LvglMain(void* voidArgs) {
   LvglArgs* args = reinterpret_cast<LvglArgs*>(voidArgs);
-  drivers::DriverCache* drivers = args->drivers;
+  std::weak_ptr<drivers::TouchWheel> weak_touch_wheel = args->touch_wheel;
+  std::weak_ptr<drivers::Display> weak_display = args->display;
+
   std::atomic<bool>* quit = args->quit;
   delete args;
 
   {
-    ESP_LOGI(kTag, "init lvgl");
-    lv_init();
-
-    // LVGL has been initialised, so we can now start reporting ticks to it.
     TimerHandle_t tick_timer =
         xTimerCreate("lv_tick", pdMS_TO_TICKS(1), pdTRUE, NULL, &tick_hook);
-
-    ESP_LOGI(kTag, "init display");
-    std::shared_ptr<drivers::Display> display = drivers->AcquireDisplay();
 
     lv_style_t style;
     lv_style_init(&style);
@@ -74,7 +70,9 @@ void LvglMain(void* voidArgs) {
 
     while (!quit->load()) {
       lv_timer_handler();
-      vTaskDelay(pdMS_TO_TICKS(10));
+      // 30 FPS
+      // TODO(jacqueline): make this dynamic
+      vTaskDelay(pdMS_TO_TICKS(33));
     }
 
     // TODO(robin? daniel?): De-init the UI stack here.
@@ -82,8 +80,6 @@ void LvglMain(void* voidArgs) {
     lv_style_reset(&style);
 
     xTimerDelete(tick_timer, portMAX_DELAY);
-
-    lv_deinit();
   }
 
   vTaskDelete(NULL);
@@ -93,11 +89,12 @@ static const size_t kLvglStackSize = 8 * 1024;
 static StaticTask_t sLvglTaskBuffer = {};
 static StackType_t sLvglStack[kLvglStackSize] = {0};
 
-auto StartLvgl(drivers::DriverCache* drivers,
-               std::atomic<bool>* quit,
-               TaskHandle_t* handle) -> bool {
+auto StartLvgl(std::weak_ptr<drivers::TouchWheel> touch_wheel,
+               std::weak_ptr<drivers::Display> display,
+               std::atomic<bool>* quit) -> bool {
   LvglArgs* args = new LvglArgs();
-  args->drivers = drivers;
+  args->touch_wheel = touch_wheel;
+  args->display = display;
   args->quit = quit;
 
   return xTaskCreateStaticPinnedToCore(&LvglMain, "LVGL", kLvglStackSize,

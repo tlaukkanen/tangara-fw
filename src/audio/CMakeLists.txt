@@ -1,8 +1,8 @@
 idf_component_register(
   SRCS "audio_decoder.cpp" "audio_task.cpp" "chunk.cpp" "fatfs_audio_input.cpp"
   "stream_message.cpp" "i2s_audio_output.cpp" "stream_buffer.cpp"
-  "audio_playback.cpp" "stream_event.cpp" "pipeline.cpp" "stream_info.cpp"
+  "stream_event.cpp" "pipeline.cpp" "stream_info.cpp" "audio_fsm.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory")
+  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory" "tinyfsm" "database" "system_fsm")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

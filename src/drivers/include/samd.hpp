@@ -6,6 +6,8 @@ namespace drivers {
 
 class Samd {
  public:
+  static auto Create() -> Samd* { return new Samd(); }
+
   Samd();
   ~Samd();
 

@@ -25,7 +25,7 @@ class SdStorage {
     FAILED_TO_MOUNT,
   };
 
-  static auto create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error>;
+  static auto Create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error>;
 
   SdStorage(GpioExpander* gpio,
             esp_err_t (*do_transaction)(sdspi_dev_handle_t, sdmmc_command_t*),

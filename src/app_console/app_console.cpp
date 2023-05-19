@@ -8,7 +8,6 @@
 #include <iostream>
 #include <string>
 
-#include "audio_playback.hpp"
 #include "database.hpp"
 #include "esp_console.h"
 #include "esp_log.h"
@@ -18,7 +17,7 @@ namespace console {
 static AppConsole* sInstance = nullptr;
 
 std::string toSdPath(const std::string& filepath) {
-  return std::string(drivers::kStoragePath) + "/" + filepath;
+  return std::string("/") + filepath;
 }
 
 int CmdListDir(int argc, char** argv) {
@@ -55,6 +54,7 @@ void RegisterListDir() {
   esp_console_cmd_register(&cmd);
 }
 
+/*
 int CmdPlayFile(int argc, char** argv) {
   static const std::string usage = "usage: play [file]";
   if (argc != 2) {
@@ -146,6 +146,7 @@ void RegisterAudioStatus() {
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
+*/
 
 int CmdDbInit(int argc, char** argv) {
   static const std::string usage = "usage: db_init";
@@ -154,7 +155,12 @@ int CmdDbInit(int argc, char** argv) {
     return 1;
   }
 
-  sInstance->database_->Update();
+  auto db = sInstance->database_.lock();
+  if (!db) {
+    std::cout << "no database open" << std::endl;
+    return 1;
+  }
+  db->Update();
 
   return 0;
 }
@@ -176,15 +182,19 @@ int CmdDbSongs(int argc, char** argv) {
     return 1;
   }
 
-  std::unique_ptr<database::Result<database::Song>> res(
-      sInstance->database_->GetSongs(5).get());
+  auto db = sInstance->database_.lock();
+  if (!db) {
+    std::cout << "no database open" << std::endl;
+    return 1;
+  }
+  std::unique_ptr<database::Result<database::Song>> res(db->GetSongs(5).get());
   while (true) {
     for (database::Song s : res->values()) {
       std::cout << s.tags().title.value_or("[BLANK]") << std::endl;
     }
     if (res->next_page()) {
       auto continuation = res->next_page().value();
-      res.reset(sInstance->database_->GetPage(&continuation).get());
+      res.reset(db->GetPage(&continuation).get());
     } else {
       break;
     }
@@ -209,18 +219,22 @@ int CmdDbDump(int argc, char** argv) {
     return 1;
   }
 
+  auto db = sInstance->database_.lock();
+  if (!db) {
+    std::cout << "no database open" << std::endl;
+    return 1;
+  }
+
   std::cout << "=== BEGIN DUMP ===" << std::endl;
 
-  std::unique_ptr<database::Result<std::string>> res(
-      sInstance->database_->GetDump(5).get());
+  std::unique_ptr<database::Result<std::string>> res(db->GetDump(5).get());
   while (true) {
     for (std::string s : res->values()) {
       std::cout << s << std::endl;
     }
     if (res->next_page()) {
       auto continuation = res->next_page().value();
-      res.reset(
-          sInstance->database_->GetPage<std::string>(&continuation).get());
+      res.reset(db->GetPage<std::string>(&continuation).get());
     } else {
       break;
     }
@@ -240,9 +254,8 @@ void RegisterDbDump() {
   esp_console_cmd_register(&cmd);
 }
 
-AppConsole::AppConsole(audio::AudioPlayback* playback,
-                       database::Database* database)
-    : playback_(playback), database_(database) {
+AppConsole::AppConsole(std::weak_ptr<database::Database> database)
+    : database_(database) {
   sInstance = this;
 }
 AppConsole::~AppConsole() {
@@ -251,10 +264,12 @@ AppConsole::~AppConsole() {
 
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
+  /*
   RegisterPlayFile();
   RegisterToggle();
   RegisterVolume();
   RegisterAudioStatus();
+  */
   RegisterDbInit();
   RegisterDbSongs();
   RegisterDbDump();

@@ -18,7 +18,7 @@ namespace audio {
 class I2SAudioOutput : public IAudioSink {
  public:
   I2SAudioOutput(drivers::GpioExpander* expander,
-                 std::shared_ptr<drivers::AudioDac> dac);
+                 std::weak_ptr<drivers::AudioDac> dac);
   ~I2SAudioOutput();
 
   auto Configure(const StreamInfo::Format& format) -> bool override;

@@ -17,6 +17,7 @@ struct TouchWheelData {
 
 class TouchWheel {
  public:
+  static auto Create() -> TouchWheel* { return new TouchWheel(); }
   TouchWheel();
   ~TouchWheel();
 

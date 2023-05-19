@@ -20,8 +20,8 @@ static const char* kTag = "I2SOUT";
 namespace audio {
 
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
-                               std::shared_ptr<drivers::AudioDac> dac)
-    : expander_(expander), dac_(std::move(dac)), current_config_() {
+                               std::weak_ptr<drivers::AudioDac> dac)
+    : expander_(expander), dac_(dac.lock()), current_config_() {
   dac_->WriteVolume(127);  // for testing
   dac_->SetSource(buffer());
 }

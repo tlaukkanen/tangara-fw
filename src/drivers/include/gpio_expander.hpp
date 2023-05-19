@@ -5,6 +5,7 @@
 #include <atomic>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <tuple>
 #include <utility>
 
@@ -28,6 +29,8 @@ namespace drivers {
  */
 class GpioExpander {
  public:
+  static auto Create() -> GpioExpander* { return new GpioExpander(); }
+
   GpioExpander();
   ~GpioExpander();
 

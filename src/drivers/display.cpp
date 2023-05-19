@@ -61,7 +61,7 @@ extern "C" void FlushDataCallback(lv_disp_drv_t* disp_drv,
   instance->OnLvglFlush(disp_drv, area, color_map);
 }
 
-auto Display::create(GpioExpander* expander,
+auto Display::Create(GpioExpander* expander,
                      const displays::InitialisationData& init_data)
     -> Display* {
   ESP_LOGI(kTag, "Init I/O pins");

@@ -11,6 +11,7 @@ namespace drivers {
 
 class Battery {
  public:
+  static auto Create() -> Battery* { return new Battery(); }
   Battery();
   ~Battery();
 

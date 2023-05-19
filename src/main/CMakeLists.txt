@@ -1,5 +1,5 @@
 idf_component_register(
-  SRCS "main.cpp" "app_console.cpp"
+  SRCS "main.cpp"
   INCLUDE_DIRS "."
-  REQUIRES "audio" "drivers" "dev_console" "drivers" "database" "ui")
+  REQUIRES "audio" "ui" "system_fsm" "events")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

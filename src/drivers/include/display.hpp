@@ -22,7 +22,7 @@ class Display {
    * over SPI. This never fails, since unfortunately these display don't give
    * us back any kind of signal to tell us we're actually using them correctly.
    */
-  static auto create(GpioExpander* expander,
+  static auto Create(GpioExpander* expander,
                      const displays::InitialisationData& init_data) -> Display*;
 
   Display(GpioExpander* gpio, spi_device_handle_t handle);
