@@ -8,7 +8,6 @@
 #include "freertos/portmacro.h"
 
 #include "audio_element.hpp"
-#include "himem.hpp"
 #include "stream_info.hpp"
 
 namespace audio {
@@ -25,10 +24,9 @@ class Pipeline {
 
   auto NumInputs() const -> std::size_t;
 
-  auto InStreams(std::vector<MappableRegion<kPipelineBufferSize>>*,
-                 std::vector<RawStream>*) -> void;
+  auto InStreams(std::vector<RawStream>*) -> void;
 
-  auto OutStream(MappableRegion<kPipelineBufferSize>*) -> RawStream;
+  auto OutStream() -> RawStream;
 
   auto GetIterationOrder() -> std::vector<Pipeline*>;
 
@@ -36,7 +34,7 @@ class Pipeline {
   IAudioElement* root_;
   std::vector<std::unique_ptr<Pipeline>> subtrees_;
 
-  HimemAlloc<kPipelineBufferSize> output_buffer_;
+  std::array<std::byte, kPipelineBufferSize> output_buffer_;
   StreamInfo output_info_;
 };
 

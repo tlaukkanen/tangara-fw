@@ -23,18 +23,14 @@ auto Pipeline::NumInputs() const -> std::size_t {
   return subtrees_.size();
 }
 
-auto Pipeline::InStreams(
-    std::vector<MappableRegion<kPipelineBufferSize>>* regions,
-    std::vector<RawStream>* out) -> void {
+auto Pipeline::InStreams(std::vector<RawStream>* out) -> void {
   for (int i = 0; i < subtrees_.size(); i++) {
-    RawStream s = subtrees_[i]->OutStream(&regions->at(i));
-    out->push_back(s);
+    out->push_back(subtrees_[i]->OutStream());
   }
 }
 
-auto Pipeline::OutStream(MappableRegion<kPipelineBufferSize>* region)
-    -> RawStream {
-  return {&output_info_, region->Map(output_buffer_)};
+auto Pipeline::OutStream() -> RawStream {
+  return {&output_info_, output_buffer_};
 }
 
 auto Pipeline::GetIterationOrder() -> std::vector<Pipeline*> {
