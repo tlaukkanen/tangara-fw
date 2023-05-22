@@ -15,20 +15,6 @@ namespace audio {
 
 namespace task {
 
-enum Command { PLAY, PAUSE, QUIT };
-
-struct AudioTaskArgs {
-  Pipeline* pipeline;
-  IAudioSink* sink;
-};
-struct AudioDrainArgs {
-  IAudioSink* sink;
-  std::atomic<Command>* command;
-};
-
-extern "C" void AudioTaskMain(void* args);
-extern "C" void AudioDrainMain(void* args);
-
 auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void;
 auto StartDrain(IAudioSink* sink) -> void;
 

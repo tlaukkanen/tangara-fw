@@ -1,7 +1,7 @@
 idf_component_register(
-  SRCS "env_esp.cpp" "database.cpp" "song.cpp" "db_task.cpp" "records.cpp" "file_gatherer.cpp" "tag_parser.cpp"
+  SRCS "env_esp.cpp" "database.cpp" "song.cpp" "records.cpp" "file_gatherer.cpp" "tag_parser.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "result" "span" "esp_psram" "fatfs" "libtags" "komihash" "cbor")
+  REQUIRES "result" "span" "esp_psram" "fatfs" "libtags" "komihash" "cbor" "tasks")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
 

@@ -77,9 +77,7 @@ extern "C" void app_main(void) {
   std::shared_ptr<drivers::TouchWheel> touchwheel =
       drivers->AcquireTouchWheel();
 
-  std::atomic<bool> lvgl_quit;
-  TaskHandle_t lvgl_task_handle;
-  ui::StartLvgl(drivers.get(), &lvgl_quit, &lvgl_task_handle);
+  ui::StartLvgl(drivers.get());
 
   std::unique_ptr<audio::AudioPlayback> playback;
   if (storage) {

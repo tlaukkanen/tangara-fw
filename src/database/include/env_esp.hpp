@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
@@ -7,7 +8,11 @@
 #include "leveldb/env.h"
 #include "leveldb/status.h"
 
+#include "tasks.hpp"
+
 namespace leveldb {
+
+extern std::weak_ptr<tasks::Worker> sBackgroundThread;
 
 // Tracks the files locked by EspEnv::LockFile().
 //

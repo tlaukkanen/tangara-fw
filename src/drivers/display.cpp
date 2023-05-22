@@ -21,6 +21,7 @@
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
 #include "soc/soc.h"
+#include "tasks.hpp"
 
 static const char* kTag = "DISPLAY";
 
@@ -48,6 +49,19 @@ static const int kDisplayBufferSize = (kDisplayWidth * kDisplayHeight) / 10;
 // Note: 128 * 160 / 10 * 2 bpp * 2 buffers = 8 KiB
 DMA_ATTR static lv_color_t sBuffer1[kDisplayBufferSize];
 DMA_ATTR static lv_color_t sBuffer2[kDisplayBufferSize];
+
+struct RenderTaskArgs {
+  std::atomic<bool>* quit;
+  QueueHandle_t work_queue;
+};
+
+struct FlushArgs {
+  lv_disp_drv_t* driver;
+  const lv_area_t* area;
+  lv_color_t* color_map;
+};
+
+void RenderMain(void* raw_args);
 
 namespace drivers {
 
@@ -138,7 +152,9 @@ auto Display::create(GpioExpander* expander,
 }
 
 Display::Display(GpioExpander* gpio, spi_device_handle_t handle)
-    : gpio_(gpio), handle_(handle) {}
+    : gpio_(gpio),
+      handle_(handle),
+      worker_task_(tasks::Worker::Start<tasks::Type::kUiFlush>()) {}
 
 Display::~Display() {}
 
@@ -225,31 +241,51 @@ void Display::SendTransaction(TransactionType type,
 void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
                           const lv_area_t* area,
                           lv_color_t* color_map) {
-  // Ideally we want to complete a single flush as quickly as possible, so grab
-  // the bus for this entire transaction sequence.
-  spi_device_acquire_bus(handle_, portMAX_DELAY);
+  // area is stack-allocated, so it isn't safe to reference from the flush
+  // thread.
+  lv_area_t area_copy = *area;
+  worker_task_->Dispatch<void>([=, this]() {
+    // Ideally we want to complete a single flush as quickly as possible, so
+    // grab the bus for this entire transaction sequence.
+    spi_device_acquire_bus(handle_, portMAX_DELAY);
 
-  // First we need to specify the rectangle of the display we're writing into.
-  uint16_t data[2] = {0, 0};
+    // First we need to specify the rectangle of the display we're writing into.
+    uint16_t data[2] = {0, 0};
 
-  data[0] = SPI_SWAP_DATA_TX(area->x1, 16);
-  data[1] = SPI_SWAP_DATA_TX(area->x2, 16);
-  SendCommandWithData(displays::ST77XX_CASET, reinterpret_cast<uint8_t*>(data),
-                      4);
+    data[0] = SPI_SWAP_DATA_TX(area_copy.x1, 16);
+    data[1] = SPI_SWAP_DATA_TX(area_copy.x2, 16);
+    SendCommandWithData(displays::ST77XX_CASET,
+                        reinterpret_cast<uint8_t*>(data), 4);
 
-  data[0] = SPI_SWAP_DATA_TX(area->y1, 16);
-  data[1] = SPI_SWAP_DATA_TX(area->y2, 16);
-  SendCommandWithData(displays::ST77XX_RASET, reinterpret_cast<uint8_t*>(data),
-                      4);
+    data[0] = SPI_SWAP_DATA_TX(area_copy.y1, 16);
+    data[1] = SPI_SWAP_DATA_TX(area_copy.y2, 16);
+    SendCommandWithData(displays::ST77XX_RASET,
+                        reinterpret_cast<uint8_t*>(data), 4);
 
-  // Now send the pixels for this region.
-  uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
-  SendCommandWithData(displays::ST77XX_RAMWR,
-                      reinterpret_cast<uint8_t*>(color_map), size * 2);
+    // Now send the pixels for this region.
+    uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
+    SendCommandWithData(displays::ST77XX_RAMWR,
+                        reinterpret_cast<uint8_t*>(color_map), size * 2);
 
-  spi_device_release_bus(handle_);
+    spi_device_release_bus(handle_);
 
-  lv_disp_flush_ready(&driver_);
+    lv_disp_flush_ready(&driver_);
+  });
+}
+
+void RenderMain(void* raw_args) {
+  RenderTaskArgs* args = reinterpret_cast<RenderTaskArgs*>(raw_args);
+  QueueHandle_t queue = args->work_queue;
+  std::atomic<bool>* quit = args->quit;
+  delete args;
+
+  while (!quit->load()) {
+    // TODO: flush data here! Yay speed.
+  }
+
+  vQueueDelete(queue);
+  delete quit;
+  vTaskDelete(NULL);
 }
 
 }  // namespace drivers

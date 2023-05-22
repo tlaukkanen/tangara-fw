@@ -10,8 +10,6 @@
 
 namespace ui {
 
-auto StartLvgl(drivers::DriverCache* drivers,
-               std::atomic<bool>* quit,
-               TaskHandle_t* handle) -> bool;
+auto StartLvgl(drivers::DriverCache* drivers) -> void;
 
 }  // namespace ui
