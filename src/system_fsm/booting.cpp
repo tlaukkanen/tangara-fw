@@ -74,7 +74,7 @@ auto Booting::entry() -> void {
 }
 
 auto Booting::react(const BootComplete& ev) -> void {
-  ESP_LOGE(kTag, "bootup completely successfully");
+  ESP_LOGI(kTag, "bootup completely successfully");
   // It's possible that the SAMD is currently exposing the SD card as a USB
   // device. Make sure we don't immediately try to claim it.
   if (sSamd && sSamd->ReadUsbMscStatus() ==

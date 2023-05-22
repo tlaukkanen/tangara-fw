@@ -11,11 +11,14 @@
 namespace system_fsm {
 namespace states {
 
+static const char kTag[] = "RUN";
+
 /*
  * Ensure the storage and database are both available. If either of these fails
  * to open, then we assume it's an issue with the underlying SD card.
  */
 void Running::entry() {
+  ESP_LOGI(kTag, "mounting sd card");
   auto storage_res = drivers::SdStorage::Create(sGpioExpander.get());
   if (storage_res.has_error()) {
     events::Dispatch<StorageError, SystemState, audio::AudioState, ui::UiState>(
@@ -24,6 +27,7 @@ void Running::entry() {
   }
   sStorage.reset(storage_res.value());
 
+  ESP_LOGI(kTag, "opening database");
   auto database_res = database::Database::Open();
   if (database_res.has_error()) {
     events::Dispatch<StorageError, SystemState, audio::AudioState, ui::UiState>(
@@ -32,6 +36,7 @@ void Running::entry() {
   }
   sDatabase.reset(database_res.value());
 
+  ESP_LOGI(kTag, "storage loaded okay");
   events::Dispatch<StorageMounted, SystemState, audio::AudioState, ui::UiState>(
       StorageMounted());
 }
@@ -47,6 +52,11 @@ void Running::react(const StorageUnmountRequested& ev) {
 }
 
 void Running::react(const internal::ReadyToUnmount& ev) {
+  transit<Unmounted>();
+}
+
+void Running::react(const StorageError& ev) {
+  ESP_LOGW(kTag, "error loading storage");
   transit<Unmounted>();
 }
 

@@ -37,6 +37,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const StorageUnmountRequested&) {}
   virtual void react(const internal::ReadyToUnmount&) {}
   virtual void react(const StorageMounted&) {}
+  virtual void react(const StorageError&) {}
 
  protected:
   static std::shared_ptr<drivers::GpioExpander> sGpioExpander;
@@ -74,6 +75,7 @@ class Running : public SystemState {
 
   void react(const StorageUnmountRequested&) override;
   void react(const internal::ReadyToUnmount&) override;
+  void react(const StorageError&) override;
   using SystemState::react;
 };
 
