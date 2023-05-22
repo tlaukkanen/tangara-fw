@@ -35,7 +35,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::weak_ptr<drivers::TouchWheel> sTouchWheel;
   static std::weak_ptr<drivers::Display> sDisplay;
   static std::weak_ptr<database::Database> sDatabase;
-  static std::atomic<bool> sTaskQuit;
 };
 
 namespace states {

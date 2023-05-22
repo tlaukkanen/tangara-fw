@@ -18,13 +18,13 @@
 #include "leveldb/slice.h"
 #include "leveldb/write_batch.h"
 
-#include "db_task.hpp"
 #include "env_esp.hpp"
 #include "file_gatherer.hpp"
 #include "records.hpp"
 #include "result.hpp"
 #include "song.hpp"
 #include "tag_parser.hpp"
+#include "tasks.hpp"
 
 namespace database {
 
@@ -62,33 +62,33 @@ auto Database::Open(IFileGatherer* gatherer, ITagParser* parser)
     return cpp::fail(DatabaseError::ALREADY_OPEN);
   }
 
-  if (!StartDbTask()) {
-    return cpp::fail(DatabaseError::ALREADY_OPEN);
-  }
+  std::shared_ptr<tasks::Worker> worker(
+      tasks::Worker::Start<tasks::Type::kDatabase>());
+  leveldb::sBackgroundThread = std::weak_ptr<tasks::Worker>(worker);
+  return worker
+      ->Dispatch<cpp::result<Database*, DatabaseError>>(
+          [&]() -> cpp::result<Database*, DatabaseError> {
+            leveldb::DB* db;
+            leveldb::Cache* cache = leveldb::NewLRUCache(24 * 1024);
+            leveldb::Options options;
+            options.env = sEnv.env();
+            options.create_if_missing = true;
+            options.write_buffer_size = 48 * 1024;
+            options.max_file_size = 32;
+            options.block_cache = cache;
+            options.block_size = 512;
 
-  return RunOnDbTask<cpp::result<Database*, DatabaseError>>(
-             [=]() -> cpp::result<Database*, DatabaseError> {
-               leveldb::DB* db;
-               leveldb::Cache* cache = leveldb::NewLRUCache(24 * 1024);
-               leveldb::Options options;
-               options.env = sEnv.env();
-               options.create_if_missing = true;
-               options.write_buffer_size = 48 * 1024;
-               options.max_file_size = 32;
-               options.block_cache = cache;
-               options.block_size = 512;
+            auto status = leveldb::DB::Open(options, "/.db", &db);
+            if (!status.ok()) {
+              delete cache;
+              ESP_LOGE(kTag, "failed to open db, status %s",
+                       status.ToString().c_str());
+              return cpp::fail(FAILED_TO_OPEN);
+            }
 
-               auto status = leveldb::DB::Open(options, "/.db", &db);
-               if (!status.ok()) {
-                 delete cache;
-                 ESP_LOGE(kTag, "failed to open db, status %s",
-                          status.ToString().c_str());
-                 return cpp::fail(FAILED_TO_OPEN);
-               }
-
-               ESP_LOGI(kTag, "Database opened successfully");
-               return new Database(db, cache, gatherer, parser);
-             })
+            ESP_LOGI(kTag, "Database opened successfully");
+            return new Database(db, cache, gatherer, parser, worker);
+          })
       .get();
 }
 
@@ -101,9 +101,11 @@ auto Database::Destroy() -> void {
 Database::Database(leveldb::DB* db,
                    leveldb::Cache* cache,
                    IFileGatherer* file_gatherer,
-                   ITagParser* tag_parser)
+                   ITagParser* tag_parser,
+                   std::shared_ptr<tasks::Worker> worker)
     : db_(db),
       cache_(cache),
+      worker_task_(worker),
       file_gatherer_(file_gatherer),
       tag_parser_(tag_parser) {}
 
@@ -113,12 +115,13 @@ Database::~Database() {
   delete db_;
   delete cache_;
 
-  QuitDbTask();
+  leveldb::sBackgroundThread = std::weak_ptr<tasks::Worker>();
+
   sIsDbOpen.store(false);
 }
 
 auto Database::Update() -> std::future<void> {
-  return RunOnDbTask<void>([&]() -> void {
+  return worker_task_->Dispatch<void>([&]() -> void {
     // Stage 1: verify all existing songs are still valid.
     ESP_LOGI(kTag, "verifying existing songs");
     const leveldb::Snapshot* snapshot = db_->GetSnapshot();
@@ -219,7 +222,7 @@ auto Database::Update() -> std::future<void> {
 }
 
 auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>*> {
-  return RunOnDbTask<Result<Song>*>([=, this]() -> Result<Song>* {
+  return worker_task_->Dispatch<Result<Song>*>([=, this]() -> Result<Song>* {
     Continuation<Song> c{.iterator = nullptr,
                          .prefix = CreateDataPrefix().data,
                          .start_key = CreateDataPrefix().data,
@@ -232,21 +235,22 @@ auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>*> {
 
 auto Database::GetDump(std::size_t page_size)
     -> std::future<Result<std::string>*> {
-  return RunOnDbTask<Result<std::string>*>([=, this]() -> Result<std::string>* {
-    Continuation<std::string> c{.iterator = nullptr,
-                                .prefix = "",
-                                .start_key = "",
-                                .forward = true,
-                                .was_prev_forward = true,
-                                .page_size = page_size};
-    return dbGetPage(c);
-  });
+  return worker_task_->Dispatch<Result<std::string>*>(
+      [=, this]() -> Result<std::string>* {
+        Continuation<std::string> c{.iterator = nullptr,
+                                    .prefix = "",
+                                    .start_key = "",
+                                    .forward = true,
+                                    .was_prev_forward = true,
+                                    .page_size = page_size};
+        return dbGetPage(c);
+      });
 }
 
 template <typename T>
 auto Database::GetPage(Continuation<T>* c) -> std::future<Result<T>*> {
   Continuation<T> copy = *c;
-  return RunOnDbTask<Result<T>*>(
+  return worker_task_->Dispatch<Result<T>*>(
       [=, this]() -> Result<T>* { return dbGetPage(copy); });
 }
 

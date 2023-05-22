@@ -13,7 +13,6 @@
 namespace ui {
 
 auto StartLvgl(std::weak_ptr<drivers::TouchWheel> touch_wheel,
-               std::weak_ptr<drivers::Display> display,
-               std::atomic<bool>* quit) -> bool;
+               std::weak_ptr<drivers::Display> display) -> void;
 
 }  // namespace ui

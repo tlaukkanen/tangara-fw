@@ -29,9 +29,11 @@
 #include "leveldb/slice.h"
 #include "leveldb/status.h"
 
-#include "db_task.hpp"
+#include "tasks.hpp"
 
 namespace leveldb {
+
+std::weak_ptr<tasks::Worker> sBackgroundThread;
 
 std::string ErrToStr(FRESULT err) {
   switch (err) {
@@ -455,8 +457,11 @@ EspEnv::EspEnv() {}
 void EspEnv::Schedule(
     void (*background_work_function)(void* background_work_arg),
     void* background_work_arg) {
-  database::SendToDbTask(
-      [=]() { std::invoke(background_work_function, background_work_arg); });
+  auto worker = sBackgroundThread.lock();
+  if (worker) {
+    worker->Dispatch<void>(
+        [=]() { std::invoke(background_work_function, background_work_arg); });
+  }
 }
 
 }  // namespace leveldb

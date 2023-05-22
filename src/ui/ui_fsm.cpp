@@ -10,7 +10,6 @@ drivers::GpioExpander* UiState::sGpioExpander;
 std::weak_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::weak_ptr<drivers::Display> UiState::sDisplay;
 std::weak_ptr<database::Database> UiState::sDatabase;
-std::atomic<bool> UiState::sTaskQuit;
 
 auto UiState::Init(drivers::GpioExpander* gpio_expander,
                    std::weak_ptr<drivers::TouchWheel> touchwheel,
@@ -25,7 +24,7 @@ auto UiState::Init(drivers::GpioExpander* gpio_expander,
 namespace states {
 
 void PreBoot::react(const system_fsm::DisplayReady& ev) {
-  transit<Splash>([&]() { StartLvgl(sTouchWheel, sDisplay, &sTaskQuit); });
+  transit<Splash>([&]() { StartLvgl(sTouchWheel, sDisplay); });
 }
 
 void Splash::react(const system_fsm::BootComplete& ev) {

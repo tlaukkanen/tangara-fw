@@ -6,6 +6,7 @@
 #include "driver/spi_master.h"
 #include "lvgl/lvgl.h"
 #include "result.hpp"
+#include "tasks.hpp"
 
 #include "display_init.hpp"
 #include "gpio_expander.hpp"
@@ -36,6 +37,8 @@ class Display {
  private:
   GpioExpander* gpio_;
   spi_device_handle_t handle_;
+
+  std::unique_ptr<tasks::Worker> worker_task_;
 
   lv_disp_draw_buf_t buffers_;
   lv_disp_drv_t driver_;

@@ -19,6 +19,7 @@
 #include "result.hpp"
 #include "song.hpp"
 #include "tag_parser.hpp"
+#include "tasks.hpp"
 
 namespace database {
 
@@ -90,6 +91,8 @@ class Database {
   leveldb::DB* db_;
   leveldb::Cache* cache_;
 
+  std::shared_ptr<tasks::Worker> worker_task_;
+
   // Not owned.
   IFileGatherer* file_gatherer_;
   ITagParser* tag_parser_;
@@ -97,7 +100,8 @@ class Database {
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
            IFileGatherer* file_gatherer,
-           ITagParser* tag_parser);
+           ITagParser* tag_parser,
+           std::shared_ptr<tasks::Worker> worker);
 
   auto dbMintNewSongId() -> SongId;
   auto dbEntomb(SongId song, uint64_t hash) -> void;
