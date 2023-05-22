@@ -20,6 +20,8 @@ namespace states {
 
 static const char kTag[] = "BOOT";
 
+console::AppConsole *Booting::sAppConsole;
+
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
   ESP_LOGI(kTag, "installing bare minimum drivers");
@@ -73,8 +75,15 @@ auto Booting::entry() -> void {
       BootComplete());
 }
 
+auto Booting::exit() -> void {
+  // TODO(jacqueline): Gate this on something. Debug flag? Flashing mode?
+  sAppConsole = new console::AppConsole(sDatabase);
+  sAppConsole->Launch();
+}
+
 auto Booting::react(const BootComplete& ev) -> void {
   ESP_LOGI(kTag, "bootup completely successfully");
+
   // It's possible that the SAMD is currently exposing the SD card as a USB
   // device. Make sure we don't immediately try to claim it.
   if (sSamd && sSamd->ReadUsbMscStatus() ==

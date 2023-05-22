@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "app_console.hpp"
 #include "battery.hpp"
 #include "dac.hpp"
 #include "database.hpp"
@@ -58,8 +59,11 @@ namespace states {
  * looks good.
  */
 class Booting : public SystemState {
+  private:
+    static console::AppConsole *sAppConsole;
  public:
   void entry() override;
+  void exit() override;
 
   void react(const BootComplete&) override;
   using SystemState::react;
