@@ -126,28 +126,10 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
   }
 }
 
-static std::byte sDrainBuf[8 * 1024];
-
-void AudioDrainMain(IAudioSink* sink) {
-  while (1) {
-    std::size_t len = xStreamBufferReceive(sink->buffer(), sDrainBuf,
-                                           sizeof(sDrainBuf), portMAX_DELAY);
-    if (len > 0) {
-      sink->Send({sDrainBuf, len});
-    }
-  }
-}
-
 auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void {
   ESP_LOGI(kTag, "starting audio pipeline task");
   tasks::StartPersistent<tasks::Type::kAudio>(
       [=]() { AudioTaskMain(std::unique_ptr<Pipeline>(pipeline), sink); });
-}
-
-auto StartDrain(IAudioSink* sink) -> void {
-  ESP_LOGI(kTag, "starting audio drain task");
-  tasks::StartPersistent<tasks::Type::kAudioDrain>(
-      [=]() { AudioDrainMain(sink); });
 }
 
 }  // namespace task

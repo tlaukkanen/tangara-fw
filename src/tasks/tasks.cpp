@@ -22,10 +22,6 @@ auto Name<Type::kAudio>() -> std::string {
   return "AUDIO";
 }
 template <>
-auto Name<Type::kAudioDrain>() -> std::string {
-  return "DRAIN";
-}
-template <>
 auto Name<Type::kDatabase>() -> std::string {
   return "DB";
 }
@@ -38,12 +34,6 @@ auto AllocateStack() -> cpp::span<StackType_t>;
 template <>
 auto AllocateStack<Type::kAudio>() -> cpp::span<StackType_t> {
   std::size_t size = 32 * 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
-          size};
-}
-template <>
-auto AllocateStack<Type::kAudioDrain>() -> cpp::span<StackType_t> {
-  std::size_t size = 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
           size};
 }
@@ -86,10 +76,6 @@ auto Priority() -> UBaseType_t;
 // highest priority.
 template <>
 auto Priority<Type::kAudio>() -> UBaseType_t {
-  return 10;
-}
-template <>
-auto Priority<Type::kAudioDrain>() -> UBaseType_t {
   return 10;
 }
 // After audio issues, UI jank is the most noticeable kind of scheduling-induced

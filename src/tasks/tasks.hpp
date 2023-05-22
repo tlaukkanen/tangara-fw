@@ -28,8 +28,6 @@ enum class Type {
   kUiFlush,
   // The main audio pipeline task.
   kAudio,
-  // Task for flushing PCM samples to the current output.
-  kAudioDrain,
   // Task for running database queries.
   kDatabase,
 };

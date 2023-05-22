@@ -16,7 +16,6 @@ namespace audio {
 namespace task {
 
 auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void;
-auto StartDrain(IAudioSink* sink) -> void;
 
 }  // namespace task
 
