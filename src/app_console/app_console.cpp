@@ -27,6 +27,12 @@ int CmdListDir(int argc, char** argv) {
     return 1;
   }
 
+  auto lock = sInstance->database_.lock();
+  if (lock == nullptr) {
+    std::cout << "storage is not available" << std::endl;
+    return 1;
+  }
+
   std::string path;
   if (argc == 2) {
     path = toSdPath(argv[1]);
