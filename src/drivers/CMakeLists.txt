@@ -1,3 +1,7 @@
+# Copyright 2023 jacqueline <me@jacqueline.id.au>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+
 idf_component_register(
   SRCS "touchwheel.cpp" "dac.cpp" "gpio_expander.cpp" "battery.cpp" "storage.cpp" "i2c.cpp"
   "spi.cpp" "display.cpp" "display_init.cpp" "driver_cache.cpp"

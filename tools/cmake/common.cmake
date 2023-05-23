@@ -1,3 +1,7 @@
+# Copyright 2023 jacqueline <me@jacqueline.id.au>
+#
+# SPDX-License-Identifier: CC0-1.0
+
 # For more information about build system see
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
 

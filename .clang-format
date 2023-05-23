@@ -1,3 +1,7 @@
+# Copyright 2023 jacqueline <me@jacqueline.id.au>
+#
+# SPDX-License-Identifier: CC0-1.0
+
 ---
 BasedOnStyle: Chromium
 UseTab: Never

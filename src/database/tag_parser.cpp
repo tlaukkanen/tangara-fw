@@ -1,3 +1,9 @@
+/*
+ * Copyright 2023 jacqueline <me@jacqueline.id.au>
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "tag_parser.hpp"
 
 #include <esp_log.h>

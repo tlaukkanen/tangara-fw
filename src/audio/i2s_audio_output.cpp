@@ -1,3 +1,9 @@
+/*
+ * Copyright 2023 jacqueline <me@jacqueline.id.au>
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "i2s_audio_output.hpp"
 
 #include <algorithm>
