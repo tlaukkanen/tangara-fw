@@ -1,3 +1,7 @@
+# Copyright 2023 jacqueline <me@jacqueline.id.au>
+#
+# SPDX-License-Identifier: CC0-1.0
+
 CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y
 CONFIG_BOOTLOADER_LOG_LEVEL=3
 CONFIG_COMPILER_CXX_EXCEPTIONS=y

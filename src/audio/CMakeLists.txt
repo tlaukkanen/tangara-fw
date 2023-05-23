@@ -1,3 +1,7 @@
+# Copyright 2023 jacqueline <me@jacqueline.id.au>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+
 idf_component_register(
   SRCS "audio_decoder.cpp" "audio_task.cpp" "chunk.cpp" "fatfs_audio_input.cpp"
   "stream_message.cpp" "i2s_audio_output.cpp" "stream_buffer.cpp"

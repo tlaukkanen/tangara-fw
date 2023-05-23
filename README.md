@@ -1,3 +1,9 @@
+<!--
+Copyright 2023 jacqueline <me@jacqueline.id.au>
+
+SPDX-License-Identifier: CC0-1.0
+-->
+
 # Building and flashing
 
 1. Make sure you've got all of the submodules in this repo correctly initialised;

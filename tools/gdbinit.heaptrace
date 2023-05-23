@@ -1,3 +1,7 @@
+# Copyright 2023 jacqueline <me@jacqueline.id.au>
+#
+# SPDX-License-Identifier: CC0-1.0
+
 target extended-remote :3333
 
 mon reset halt

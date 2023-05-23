@@ -1,0 +1,41 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Tangara
+Upstream-Contact: jacqueline <me@jacqueline.id.au>
+Source: cooltech.zone
+
+Files: lib/catch2/include/*
+Copyright: 2022 Two Blue Cubes Ltd.
+License: BSL-1.0
+
+Files: lib/cbor/*
+Copyright: 2017 Intel Corporation
+License: MIT
+
+Files: lib/komihash/include/*
+Copyright: 2021-2022 Aleksey Vaneev
+License: MIT
+
+Files: lib/leveldb/*
+Copyright: 2011 The LevelDB Authors
+License: LicenseRef-LevelDB
+
+Files: lib/libmad/*
+Copyright: 2000-2004 Underbit Technologies, Inc.
+License: GPL-2.0-or-later
+
+Files: lib/libtags/*
+Copyright: 2013-2020 Sigrid Solveig Haflínudóttir
+License: LicenseRef-libtags
+
+Files: lib/lvgl/*
+Copyright: 2021 LVGL Kft
+License: MIT
+
+Files: lib/result/include/*
+Copyright: 2017-2021 Matthew Rodusek
+License: MIT
+
+Files: lib/span/include/*
+Copyright: 2018 Tristan Brindle
+License: BSL-1.0
+
