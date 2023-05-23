@@ -1,3 +1,9 @@
+/*
+ * Copyright 2023 jacqueline <me@jacqueline.id.au>
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "system_fsm.hpp"
 #include "system_events.hpp"
 

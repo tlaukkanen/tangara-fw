@@ -39,3 +39,6 @@ Files: lib/span/include/*
 Copyright: 2018 Tristan Brindle
 License: BSL-1.0
 
+Files: lib/tinyfsm/*
+Copyright: 2012-2022 Axel Burri
+License: MIT
