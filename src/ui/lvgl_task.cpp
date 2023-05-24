@@ -19,18 +19,21 @@
 #include "core/lv_obj_pos.h"
 #include "core/lv_obj_tree.h"
 #include "esp_log.h"
+#include "event_queue.hpp"
 #include "font/lv_font.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
 #include "hal/gpio_types.h"
 #include "hal/spi_types.h"
+#include "lv_api_map.h"
 #include "lvgl/lvgl.h"
 #include "misc/lv_color.h"
 #include "misc/lv_style.h"
 #include "misc/lv_timer.h"
 #include "tasks.hpp"
 #include "touchwheel.hpp"
+#include "ui_fsm.hpp"
 #include "widgets/lv_label.h"
 
 #include "display.hpp"
@@ -40,33 +43,25 @@ namespace ui {
 
 static const char* kTag = "lv_task";
 
-auto tick_hook(TimerHandle_t xTimer) -> void {
-  lv_tick_inc(1);
-}
-
 void LvglMain(std::weak_ptr<drivers::TouchWheel> weak_touch_wheel,
               std::weak_ptr<drivers::Display> weak_display) {
   ESP_LOGI(kTag, "init lvgl");
   lv_init();
 
-  // LVGL has been initialised, so we can now start reporting ticks to it.
-  xTimerCreate("lv_tick", pdMS_TO_TICKS(1), pdTRUE, NULL, &tick_hook);
-
-  lv_style_t style;
-  lv_style_init(&style);
-  lv_style_set_text_color(&style, LV_COLOR_MAKE(0xFF, 0, 0));
-  // TODO: find a nice bitmap font for this display size and density.
-  // lv_style_set_text_font(&style, &lv_font_montserrat_24);
-
-  auto label = lv_label_create(NULL);
-  lv_label_set_text(label, "COLOURS!!");
-  lv_obj_add_style(label, &style, 0);
-
-  lv_obj_center(label);
-  lv_scr_load(label);
-
+  std::shared_ptr<Screen> current_screen;
+  auto& events = events::EventQueue::GetInstance();
   while (1) {
-    lv_timer_handler();
+    while (events.ServiceUi(0)) {
+    }
+
+    std::shared_ptr<Screen> screen = UiState::current_screen();
+    if (screen != current_screen && screen != nullptr) {
+      current_screen = screen;
+      // TODO(jacqueline): animate this sometimes
+      lv_scr_load(screen->root());
+    }
+
+    lv_task_handler();
     // 30 FPS
     // TODO(jacqueline): make this dynamic
     vTaskDelay(pdMS_TO_TICKS(33));

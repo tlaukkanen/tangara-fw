@@ -19,6 +19,6 @@ extern "C" void app_main(void) {
 
   auto& queue = events::EventQueue::GetInstance();
   while (1) {
-    queue.Service(portMAX_DELAY);
+    queue.ServiceSystem(portMAX_DELAY);
   }
 }

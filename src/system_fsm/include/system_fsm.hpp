@@ -65,8 +65,9 @@ namespace states {
  * looks good.
  */
 class Booting : public SystemState {
-  private:
-    static console::AppConsole *sAppConsole;
+ private:
+  static console::AppConsole* sAppConsole;
+
  public:
   void entry() override;
   void exit() override;

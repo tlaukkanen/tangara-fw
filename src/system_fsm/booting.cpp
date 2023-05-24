@@ -26,7 +26,7 @@ namespace states {
 
 static const char kTag[] = "BOOT";
 
-console::AppConsole *Booting::sAppConsole;
+console::AppConsole* Booting::sAppConsole;
 
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
