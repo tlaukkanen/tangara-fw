@@ -37,6 +37,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   virtual void react(const system_fsm::BootComplete&) {}
   virtual void react(const PlaySong&) {}
+  virtual void react(const PlayFile&) {}
 
  protected:
   static drivers::GpioExpander* sGpioExpander;
@@ -59,6 +60,12 @@ class Uninitialised : public AudioState {
 class Standby : public AudioState {
  public:
   void react(const PlaySong&) override {}
+  void react(const PlayFile&) override;
+  using AudioState::react;
+};
+
+class Playback : public AudioState {
+ public:
   using AudioState::react;
 };
 

@@ -6,6 +6,7 @@
 
 #include "audio_fsm.hpp"
 #include "audio_decoder.hpp"
+#include "audio_events.hpp"
 #include "audio_task.hpp"
 #include "dac.hpp"
 #include "fatfs_audio_input.hpp"
@@ -48,6 +49,12 @@ void Uninitialised::react(const system_fsm::BootComplete&) {
 
     task::StartPipeline(pipeline, sI2SOutput.get());
   });
+}
+
+void Standby::react(const PlayFile &ev) {
+  if (sFileSource->OpenFile(ev.filename)) {
+    transit<Playback>();
+  }
 }
 
 }  // namespace states

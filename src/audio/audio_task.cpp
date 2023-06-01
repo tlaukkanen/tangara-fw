@@ -21,6 +21,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "event_queue.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/queue.h"
@@ -44,10 +45,14 @@ static const char* kTag = "task";
 
 void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
   std::optional<StreamInfo::Format> output_format;
+  uint_fast16_t delay_ticks = pdMS_TO_TICKS(5);
 
   std::vector<Pipeline*> elements = pipeline->GetIterationOrder();
 
+  events::EventQueue &event_queue = events::EventQueue::GetInstance();
   while (1) {
+    event_queue.ServiceAudio(delay_ticks);
+
     for (int i = 0; i < elements.size(); i++) {
       std::vector<RawStream> raw_in_streams;
       elements.at(i)->InStreams(&raw_in_streams);

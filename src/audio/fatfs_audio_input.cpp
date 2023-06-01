@@ -35,7 +35,7 @@ FatfsAudioInput::FatfsAudioInput()
 
 FatfsAudioInput::~FatfsAudioInput() {}
 
-auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
+auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
@@ -44,11 +44,11 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
   FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
   if (res != FR_OK) {
     ESP_LOGE(kTag, "failed to open file! res: %i", res);
-    // TODO(jacqueline): Handle errors.
-    return;
+    return false;
   }
 
   is_file_open_ = true;
+  return true;
 }
 
 auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,

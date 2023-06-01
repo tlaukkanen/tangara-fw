@@ -28,10 +28,10 @@ namespace audio {
 
 class FatfsAudioInput : public IAudioElement {
  public:
-  explicit FatfsAudioInput();
+  FatfsAudioInput();
   ~FatfsAudioInput();
 
-  auto OpenFile(const std::string& path) -> void;
+  auto OpenFile(const std::string& path) -> bool;
 
   auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
       -> void override;
