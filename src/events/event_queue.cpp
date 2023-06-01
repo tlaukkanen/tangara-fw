@@ -7,6 +7,7 @@
 #include "event_queue.hpp"
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
 #include "freertos/queue.h"
 
 namespace events {
@@ -18,9 +19,9 @@ EventQueue::EventQueue()
       ui_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))),
       audio_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))) {}
 
-auto EventQueue::ServiceSystem(TickType_t max_wait_time) -> bool {
+auto ServiceQueue(QueueHandle_t queue, TickType_t max_wait_time) -> bool {
   WorkItem* item;
-  if (xQueueReceive(system_handle_, &item, max_wait_time)) {
+  if (xQueueReceive(queue, &item, max_wait_time)) {
     (*item)();
     delete item;
     return true;
@@ -28,14 +29,16 @@ auto EventQueue::ServiceSystem(TickType_t max_wait_time) -> bool {
   return false;
 }
 
+auto EventQueue::ServiceSystem(TickType_t max_wait_time) -> bool {
+  return ServiceQueue(system_handle_, max_wait_time);
+}
+
 auto EventQueue::ServiceUi(TickType_t max_wait_time) -> bool {
-  WorkItem* item;
-  if (xQueueReceive(ui_handle_, &item, max_wait_time)) {
-    (*item)();
-    delete item;
-    return true;
-  }
-  return false;
+  return ServiceQueue(ui_handle_, max_wait_time);
+}
+
+auto EventQueue::ServiceAudio(TickType_t max_wait_time) -> bool {
+  return ServiceQueue(audio_handle_, max_wait_time);
 }
 
 }  // namespace events
