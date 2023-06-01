@@ -8,9 +8,9 @@
 
 #include <memory>
 
+#include "relative_wheel.hpp"
 #include "tinyfsm.hpp"
 
-#include "database.hpp"
 #include "display.hpp"
 #include "screen.hpp"
 #include "storage.hpp"
@@ -22,9 +22,8 @@ namespace ui {
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
   static auto Init(drivers::GpioExpander* gpio_expander,
-                   std::weak_ptr<drivers::TouchWheel> touchwheel,
-                   std::weak_ptr<drivers::Display> display,
-                   std::weak_ptr<database::Database> database) -> void;
+                   std::weak_ptr<drivers::RelativeWheel> touchwheel,
+                   std::weak_ptr<drivers::Display> display) -> void;
 
   virtual ~UiState() {}
 
@@ -43,9 +42,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
  protected:
   static drivers::GpioExpander* sGpioExpander;
-  static std::weak_ptr<drivers::TouchWheel> sTouchWheel;
+  static std::weak_ptr<drivers::RelativeWheel> sTouchWheel;
   static std::weak_ptr<drivers::Display> sDisplay;
-  static std::weak_ptr<database::Database> sDatabase;
 
   static std::shared_ptr<Screen> sCurrentScreen;
 };

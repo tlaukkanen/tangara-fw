@@ -9,6 +9,7 @@
 #include <functional>
 #include <type_traits>
 
+#include "audio_fsm.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
@@ -20,6 +21,11 @@ namespace events {
 
 typedef std::function<void(void)> WorkItem;
 
+/*
+ * Handles communication of events between the system's state machines. Each
+ * event will be dispatched separately to each FSM, on the correct task for
+ * that FSM.
+ */
 class EventQueue {
  public:
   static EventQueue& GetInstance() {
@@ -32,9 +38,11 @@ class EventQueue {
     WorkItem* item = new WorkItem(
         [=]() { tinyfsm::FsmList<Machine>::template dispatch<Event>(ev); });
     if (std::is_same<Machine, ui::UiState>()) {
-      xQueueSend(system_handle_, &item, portMAX_DELAY);
-    } else {
       xQueueSend(ui_handle_, &item, portMAX_DELAY);
+    } else if (std::is_same<Machine, audio::AudioState>()) {
+      xQueueSend(audio_handle_, &item, portMAX_DELAY);
+    } else {
+      xQueueSend(system_handle_, &item, portMAX_DELAY);
     }
     Dispatch<Event, Machines...>(ev);
   }
@@ -44,6 +52,7 @@ class EventQueue {
 
   auto ServiceSystem(TickType_t max_wait_time) -> bool;
   auto ServiceUi(TickType_t max_wait_time) -> bool;
+  auto ServiceAudio(TickType_t max_wait_time) -> bool;
 
   EventQueue(EventQueue const&) = delete;
   void operator=(EventQueue const&) = delete;
@@ -53,6 +62,7 @@ class EventQueue {
 
   QueueHandle_t system_handle_;
   QueueHandle_t ui_handle_;
+  QueueHandle_t audio_handle_;
 };
 
 template <typename Event, typename... Machines>

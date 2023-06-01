@@ -47,7 +47,7 @@ auto AllocateStack<Type::kAudio>() -> cpp::span<StackType_t> {
 // PSRAM so we give it a bit of headroom for safety.
 template <>
 auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
-  std::size_t size = 16 * 1024;
+  std::size_t size = 32 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
           size};
 }

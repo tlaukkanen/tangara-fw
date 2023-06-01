@@ -14,11 +14,12 @@
 #include "freertos/task.h"
 
 #include "display.hpp"
+#include "relative_wheel.hpp"
 #include "touchwheel.hpp"
 
 namespace ui {
 
-auto StartLvgl(std::weak_ptr<drivers::TouchWheel> touch_wheel,
+auto StartLvgl(std::weak_ptr<drivers::RelativeWheel> touch_wheel,
                std::weak_ptr<drivers::Display> display) -> void;
 
 }  // namespace ui

@@ -14,9 +14,12 @@
 #include <iostream>
 #include <string>
 
+#include "audio_events.hpp"
+#include "audio_fsm.hpp"
 #include "database.hpp"
 #include "esp_console.h"
 #include "esp_log.h"
+#include "event_queue.hpp"
 
 namespace console {
 
@@ -66,7 +69,7 @@ void RegisterListDir() {
   esp_console_cmd_register(&cmd);
 }
 
-/*
+  //sInstance->playback_->Play(path + argv[1]);
 int CmdPlayFile(int argc, char** argv) {
   static const std::string usage = "usage: play [file]";
   if (argc != 2) {
@@ -75,7 +78,9 @@ int CmdPlayFile(int argc, char** argv) {
   }
 
   std::string path = "/";
-  sInstance->playback_->Play(path + argv[1]);
+
+  events::Dispatch<audio::PlayFile, audio::AudioState>(
+      audio::PlayFile{ .filename = path + argv[1] });
 
   return 0;
 }
@@ -88,77 +93,6 @@ void RegisterPlayFile() {
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
-
-int CmdToggle(int argc, char** argv) {
-  static const std::string usage = "usage: toggle";
-  if (argc != 1) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
-  // sInstance->playback_->Toggle();
-
-  return 0;
-}
-
-void RegisterToggle() {
-  esp_console_cmd_t cmd{.command = "toggle",
-                        .help = "Toggles between play and pause",
-                        .hint = NULL,
-                        .func = &CmdToggle,
-                        .argtable = NULL};
-  esp_console_cmd_register(&cmd);
-}
-
-int CmdVolume(int argc, char** argv) {
-  static const std::string usage = "usage: volume [0-255]";
-  if (argc != 2) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
-  long int raw_vol = strtol(argv[1], NULL, 10);
-  if (raw_vol < 0 || raw_vol > 255) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
-  // sInstance->playback_->SetVolume((uint8_t)raw_vol);
-
-  return 0;
-}
-
-void RegisterVolume() {
-  esp_console_cmd_t cmd{
-      .command = "vol",
-      .help = "Changes the volume (between 0 and 254. 255 is mute.)",
-      .hint = NULL,
-      .func = &CmdVolume,
-      .argtable = NULL};
-  esp_console_cmd_register(&cmd);
-}
-
-int CmdAudioStatus(int argc, char** argv) {
-  static const std::string usage = "usage: audio";
-  if (argc != 1) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
-  sInstance->playback_->LogStatus();
-
-  return 0;
-}
-
-void RegisterAudioStatus() {
-  esp_console_cmd_t cmd{.command = "audio",
-                        .help = "logs the current status of the audio pipeline",
-                        .hint = NULL,
-                        .func = &CmdAudioStatus,
-                        .argtable = NULL};
-  esp_console_cmd_register(&cmd);
-}
-*/
 
 int CmdDbInit(int argc, char** argv) {
   static const std::string usage = "usage: db_init";

@@ -14,6 +14,7 @@
 #include "database.hpp"
 #include "display.hpp"
 #include "gpio_expander.hpp"
+#include "relative_wheel.hpp"
 #include "samd.hpp"
 #include "storage.hpp"
 #include "tinyfsm.hpp"
@@ -51,6 +52,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   static std::shared_ptr<drivers::Samd> sSamd;
 
   static std::shared_ptr<drivers::TouchWheel> sTouch;
+  static std::shared_ptr<drivers::RelativeWheel> sRelativeTouch;
   static std::shared_ptr<drivers::Battery> sBattery;
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;

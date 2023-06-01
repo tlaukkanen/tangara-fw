@@ -13,6 +13,7 @@
 #include "event_queue.hpp"
 #include "gpio_expander.hpp"
 #include "lvgl/lvgl.h"
+#include "relative_wheel.hpp"
 #include "spi.hpp"
 #include "system_events.hpp"
 #include "system_fsm.hpp"
@@ -43,25 +44,28 @@ auto Booting::entry() -> void {
   assert(sGpioExpander != nullptr);
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
-  ESP_LOGI(kTag, "starting ui");
+  ESP_LOGI(kTag, "installing ui drivers");
   lv_init();
   sDisplay.reset(drivers::Display::Create(sGpioExpander.get(),
                                           drivers::displays::kST7735R));
   assert(sDisplay != nullptr);
+  sTouch.reset(drivers::TouchWheel::Create());
+  if (sTouch != nullptr) {
+    sRelativeTouch.reset(new drivers::RelativeWheel(sTouch.get()));
+  }
 
   // The UI FSM now has everything it needs to start setting up. Do this now,
   // so that we can properly show the user any errors that appear later.
-  ui::UiState::Init(sGpioExpander.get(), sTouch, sDisplay, sDatabase);
+  ui::UiState::Init(sGpioExpander.get(), sRelativeTouch, sDisplay);
   events::Dispatch<DisplayReady, ui::UiState>(DisplayReady());
 
   // These drivers are required for normal operation, but aren't critical for
   // booting. We will transition to the error state if these aren't present.
   ESP_LOGI(kTag, "installing required drivers");
   sSamd.reset(drivers::Samd::Create());
-  sTouch.reset(drivers::TouchWheel::Create());
-
   auto dac_res = drivers::AudioDac::create(sGpioExpander.get());
-  if (dac_res.has_error() || !sSamd || !sTouch) {
+
+  if (dac_res.has_error() || !sSamd || !sRelativeTouch) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
@@ -70,7 +74,7 @@ auto Booting::entry() -> void {
 
   // These drivers are initialised on boot, but are recoverable (if weird) if
   // they fail.
-  ESP_LOGI(kTag, "installing extra drivers");
+  ESP_LOGI(kTag, "installing optional drivers");
   sBattery.reset(drivers::Battery::Create());
 
   // All drivers are now loaded, so we can finish initing the other state

@@ -12,6 +12,7 @@
 
 #include "assert.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "driver/spi_master.h"
 #include "esp_attr.h"
 #include "esp_err.h"
@@ -20,6 +21,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "hal/gpio_types.h"
+#include "hal/ledc_types.h"
 #include "hal/lv_hal_disp.h"
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
@@ -95,16 +97,24 @@ auto Display::Create(GpioExpander* expander,
   gpio_config(&dr_config);
   gpio_set_level(kDisplayDr, 0);
 
-  // TODO: use pwm for the backlight.
-  gpio_config_t led_config{
-      .pin_bit_mask = 1ULL << kDisplayLedEn,
-      .mode = GPIO_MODE_OUTPUT,
-      .pull_up_en = GPIO_PULLUP_ENABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_DISABLE,
+  ledc_timer_config_t led_config {
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+      .duty_resolution = LEDC_TIMER_13_BIT,
+      .timer_num = LEDC_TIMER_0,
+      .freq_hz = 5000,
+      .clk_cfg = LEDC_AUTO_CLK,
   };
-  gpio_config(&led_config);
-  gpio_set_level(kDisplayLedEn, 1);
+  ledc_timer_config(&led_config);
+
+  ledc_channel_config_t led_channel {
+      .gpio_num = kDisplayLedEn,
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+      .channel = LEDC_CHANNEL_0,
+      .timer_sel = LEDC_TIMER_0,
+      .duty = 4095,
+      .hpoint = 0
+  };
+  ledc_channel_config(&led_channel);
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -250,7 +260,7 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   // area is stack-allocated, so it isn't safe to reference from the flush
   // thread.
   lv_area_t area_copy = *area;
-  worker_task_->Dispatch<void>([=, this]() {
+  //worker_task_->Dispatch<void>([=, this]() {
     // Ideally we want to complete a single flush as quickly as possible, so
     // grab the bus for this entire transaction sequence.
     spi_device_acquire_bus(handle_, portMAX_DELAY);
@@ -276,7 +286,7 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
     spi_device_release_bus(handle_);
 
     lv_disp_flush_ready(&driver_);
-  });
+  //});
 }
 
 void RenderMain(void* raw_args) {

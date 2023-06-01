@@ -15,7 +15,8 @@ static const std::size_t kMaxPendingEvents = 16;
 
 EventQueue::EventQueue()
     : system_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))),
-      ui_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))) {}
+      ui_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))),
+      audio_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))) {}
 
 auto EventQueue::ServiceSystem(TickType_t max_wait_time) -> bool {
   WorkItem* item;
