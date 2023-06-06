@@ -40,9 +40,14 @@ class IAudioSink {
     free(metadata_);
   }
 
+  virtual auto SetVolumeImbalance(int_fast8_t balance) -> void = 0;
+  virtual auto SetVolume(uint_fast8_t percent) -> void = 0;
+  virtual auto GetVolume() -> uint_fast8_t = 0;
+  virtual auto AdjustVolumeUp() -> void = 0;
+  virtual auto AdjustVolumeDown() -> void = 0;
+
   virtual auto Configure(const StreamInfo::Format& format) -> bool = 0;
   virtual auto Send(const cpp::span<std::byte>& data) -> void = 0;
-  virtual auto Log() -> void {}
 
   auto buffer() -> StreamBufferHandle_t { return handle_; }
 };

@@ -5,18 +5,20 @@
  */
 
 #include "audio_fsm.hpp"
+#include <memory>
 #include "audio_decoder.hpp"
 #include "audio_events.hpp"
 #include "audio_task.hpp"
-#include "dac.hpp"
 #include "fatfs_audio_input.hpp"
 #include "i2s_audio_output.hpp"
+#include "i2s_dac.hpp"
 #include "pipeline.hpp"
 
 namespace audio {
 
 drivers::GpioExpander* AudioState::sGpioExpander;
-std::weak_ptr<drivers::AudioDac> AudioState::sDac;
+std::shared_ptr<drivers::I2SDac> AudioState::sDac;
+std::shared_ptr<drivers::DigitalPot> AudioState::sPots;
 std::weak_ptr<database::Database> AudioState::sDatabase;
 
 std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
@@ -24,14 +26,19 @@ std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::vector<std::unique_ptr<IAudioElement>> AudioState::sPipeline;
 
 auto AudioState::Init(drivers::GpioExpander* gpio_expander,
-                      std::weak_ptr<drivers::AudioDac> dac,
-                      std::weak_ptr<database::Database> database) -> void {
+                      std::weak_ptr<database::Database> database) -> bool {
   sGpioExpander = gpio_expander;
-  sDac = dac;
+
+  auto dac = drivers::I2SDac::create(gpio_expander);
+  if (!dac) {
+    return false;
+  }
+  sDac.reset(dac.value());
+  sPots.reset(new drivers::DigitalPot(gpio_expander));
   sDatabase = database;
 
   sFileSource.reset(new FatfsAudioInput());
-  sI2SOutput.reset(new I2SAudioOutput(sGpioExpander, sDac));
+  sI2SOutput.reset(new I2SAudioOutput(sGpioExpander, sDac, sPots));
 
   // Perform initial pipeline configuration.
   // TODO(jacqueline): Factor this out once we have any kind of dynamic
@@ -43,6 +50,8 @@ auto AudioState::Init(drivers::GpioExpander* gpio_expander,
   pipeline->AddInput(sFileSource.get());
 
   task::StartPipeline(pipeline, sI2SOutput.get());
+
+  return true;
 }
 
 namespace states {

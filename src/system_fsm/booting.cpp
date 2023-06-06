@@ -63,14 +63,12 @@ auto Booting::entry() -> void {
   // booting. We will transition to the error state if these aren't present.
   ESP_LOGI(kTag, "installing required drivers");
   sSamd.reset(drivers::Samd::Create());
-  auto dac_res = drivers::AudioDac::create(sGpioExpander.get());
 
-  if (dac_res.has_error() || !sSamd || !sRelativeTouch) {
+  if (!sSamd || !sRelativeTouch) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
   }
-  sDac.reset(dac_res.value());
 
   // These drivers are initialised on boot, but are recoverable (if weird) if
   // they fail.
@@ -79,7 +77,11 @@ auto Booting::entry() -> void {
 
   // All drivers are now loaded, so we can finish initing the other state
   // machines.
-  audio::AudioState::Init(sGpioExpander.get(), sDac, sDatabase);
+  if (!audio::AudioState::Init(sGpioExpander.get(), sDatabase)) {
+    events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
+        FatalError());
+    return;
+  }
 
   events::Dispatch<BootComplete, SystemState, ui::UiState, audio::AudioState>(
       BootComplete());

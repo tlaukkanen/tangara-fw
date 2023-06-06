@@ -10,7 +10,6 @@
 
 #include "app_console.hpp"
 #include "battery.hpp"
-#include "dac.hpp"
 #include "database.hpp"
 #include "display.hpp"
 #include "gpio_expander.hpp"
@@ -56,7 +55,6 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   static std::shared_ptr<drivers::Battery> sBattery;
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;
-  static std::shared_ptr<drivers::AudioDac> sDac;
   static std::shared_ptr<database::Database> sDatabase;
 };
 

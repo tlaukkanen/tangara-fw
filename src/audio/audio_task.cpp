@@ -17,7 +17,6 @@
 
 #include "audio_sink.hpp"
 #include "cbor.h"
-#include "dac.hpp"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"

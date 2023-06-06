@@ -5,15 +5,17 @@
  */
 
 #pragma once
+
 #include <memory>
+#include <vector>
 
 #include "audio_events.hpp"
-#include "dac.hpp"
 #include "database.hpp"
 #include "display.hpp"
 #include "fatfs_audio_input.hpp"
 #include "gpio_expander.hpp"
 #include "i2s_audio_output.hpp"
+#include "i2s_dac.hpp"
 #include "storage.hpp"
 #include "tinyfsm.hpp"
 
@@ -24,8 +26,7 @@ namespace audio {
 class AudioState : public tinyfsm::Fsm<AudioState> {
  public:
   static auto Init(drivers::GpioExpander* gpio_expander,
-                   std::weak_ptr<drivers::AudioDac>,
-                   std::weak_ptr<database::Database>) -> void;
+                   std::weak_ptr<database::Database>) -> bool;
 
   virtual ~AudioState() {}
 
@@ -41,7 +42,8 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
  protected:
   static drivers::GpioExpander* sGpioExpander;
-  static std::weak_ptr<drivers::AudioDac> sDac;
+  static std::shared_ptr<drivers::I2SDac> sDac;
+  static std::shared_ptr<drivers::DigitalPot> sPots;
   static std::weak_ptr<database::Database> sDatabase;
 
   static std::unique_ptr<FatfsAudioInput> sFileSource;

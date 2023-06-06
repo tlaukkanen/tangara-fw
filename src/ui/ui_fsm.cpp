@@ -42,8 +42,7 @@ void PreBoot::react(const system_fsm::DisplayReady& ev) {
   transit<Splash>();
 }
 
-void Splash::entry() {
-}
+void Splash::entry() {}
 
 void Splash::react(const system_fsm::BootComplete& ev) {
   transit<Interactive>();

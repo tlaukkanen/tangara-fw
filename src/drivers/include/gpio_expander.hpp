@@ -56,12 +56,12 @@ class GpioExpander {
   static const uint8_t kPortADefault = 0b10111110;
 
   // Port B:
-  // 0 - trs output enable
-  // 1 - 3.5mm jack detect (active low)
-  // 2 - NC
-  // 3 - NC
-  // 4 - NC
-  // 5 - NC
+  // 0 - 3.5mm jack detect (active low)
+  // 1 - trs output enable
+  // 2 - volume zero-cross detection
+  // 3 - volume direction
+  // 4 - volume left channel
+  // 5 - volume right channel
   // 6 - NC
   // 7 - NC
   // Default input high, trs output low
@@ -118,12 +118,12 @@ class GpioExpander {
     SD_CARD_POWER_ENABLE = 7,
 
     // Port B
-    AMP_EN = 8,
-    PHONE_DETECT = 9,
-    // UNUSED = 10,
-    // UNUSED = 11,
-    // UNUSED = 12,
-    // UNUSED = 13,
+    PHONE_DETECT = 8,
+    AMP_EN = 9,
+    VOL_Z_CROSS = 10,
+    VOL_UP_DOWN = 11,
+    VOL_LEFT = 12,
+    VOL_RIGHT = 13,
     // UNUSED = 14,
     // UNUSED = 15,
   };

@@ -5,19 +5,21 @@
  */
 
 #include "i2s_audio_output.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <variant>
 
+#include "digital_pot.hpp"
 #include "esp_err.h"
 #include "freertos/portmacro.h"
 
 #include "audio_element.hpp"
-#include "dac.hpp"
 #include "freertos/projdefs.h"
 #include "gpio_expander.hpp"
+#include "i2s_dac.hpp"
 #include "result.hpp"
 #include "stream_info.hpp"
 
@@ -26,14 +28,84 @@ static const char* kTag = "I2SOUT";
 namespace audio {
 
 I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
-                               std::weak_ptr<drivers::AudioDac> dac)
-    : expander_(expander), dac_(dac.lock()), current_config_() {
-  dac_->WriteVolume(127);  // for testing
+                               std::weak_ptr<drivers::I2SDac> dac,
+                               std::weak_ptr<drivers::DigitalPot> pots)
+    : expander_(expander),
+      dac_(dac.lock()),
+      pots_(pots.lock()),
+      current_config_(),
+      left_difference_(0),
+      attenuation_(pots_->GetMaxAttenuation()) {
+  SetVolume(25);  // For testing
   dac_->SetSource(buffer());
+  dac_->Start();
 }
 
 I2SAudioOutput::~I2SAudioOutput() {
+  dac_->Stop();
   dac_->SetSource(nullptr);
+}
+
+auto I2SAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
+  int_fast8_t new_difference = balance - left_difference_;
+  left_difference_ = balance;
+  if (attenuation_ + new_difference <= pots_->GetMinAttenuation()) {
+    // Volume is currently very high, so shift the left channel down.
+    pots_->SetRelative(drivers::DigitalPot::Channel::kLeft, -new_difference);
+  } else if (attenuation_ - new_difference >= pots_->GetMaxAttenuation()) {
+    // Volume is currently very low, so shift the left channel up.
+    pots_->SetRelative(drivers::DigitalPot::Channel::kLeft, new_difference);
+  } else {
+    ESP_LOGE(kTag, "volume imbalance higher than attenuation range");
+  }
+}
+
+auto I2SAudioOutput::SetVolume(uint_fast8_t percent) -> void {
+  percent = 100 - percent;
+  int_fast8_t target_attenuation =
+      static_cast<int_fast8_t>(static_cast<float>(GetAdjustedMaxAttenuation()) /
+                               100.0f * static_cast<float>(percent));
+  target_attenuation -= pots_->GetMinAttenuation();
+  int_fast8_t difference = target_attenuation - attenuation_;
+  pots_->SetRelative(difference);
+  attenuation_ = target_attenuation;
+  ESP_LOGI(kTag, "adjusting attenuation by %idB to %idB", difference,
+           attenuation_);
+}
+
+auto I2SAudioOutput::GetVolume() -> uint_fast8_t {
+  // Convert to percentage.
+  uint_fast8_t percent = static_cast<uint_fast8_t>(
+      static_cast<float>(attenuation_) /
+      static_cast<float>(GetAdjustedMaxAttenuation()) * 100.0f);
+  // Invert to get from attenuation to volume.
+  return 100 - percent;
+}
+
+auto I2SAudioOutput::GetAdjustedMaxAttenuation() -> int_fast8_t {
+  // Clip to account for imbalance.
+  int_fast8_t adjusted_max =
+      pots_->GetMaxAttenuation() - std::abs(left_difference_);
+  // Shift to be zero minimum.
+  adjusted_max -= pots_->GetMinAttenuation();
+
+  return adjusted_max;
+}
+
+auto I2SAudioOutput::AdjustVolumeUp() -> void {
+  if (attenuation_ + left_difference_ <= pots_->GetMinAttenuation()) {
+    return;
+  }
+  attenuation_--;
+  pots_->SetRelative(-1);
+}
+
+auto I2SAudioOutput::AdjustVolumeDown() -> void {
+  if (attenuation_ - left_difference_ >= pots_->GetMaxAttenuation()) {
+    return;
+  }
+  attenuation_++;
+  pots_->SetRelative(1);
 }
 
 auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
@@ -52,29 +124,29 @@ auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
   ESP_LOGI(kTag, "incoming audio stream: %u bpp @ %lu Hz", pcm.bits_per_sample,
            pcm.sample_rate);
 
-  drivers::AudioDac::BitsPerSample bps;
+  drivers::I2SDac::BitsPerSample bps;
   switch (pcm.bits_per_sample) {
     case 16:
-      bps = drivers::AudioDac::BPS_16;
+      bps = drivers::I2SDac::BPS_16;
       break;
     case 24:
-      bps = drivers::AudioDac::BPS_24;
+      bps = drivers::I2SDac::BPS_24;
       break;
     case 32:
-      bps = drivers::AudioDac::BPS_32;
+      bps = drivers::I2SDac::BPS_32;
       break;
     default:
       ESP_LOGE(kTag, "dropping stream with unknown bps");
       return false;
   }
 
-  drivers::AudioDac::SampleRate sample_rate;
+  drivers::I2SDac::SampleRate sample_rate;
   switch (pcm.sample_rate) {
     case 44100:
-      sample_rate = drivers::AudioDac::SAMPLE_RATE_44_1;
+      sample_rate = drivers::I2SDac::SAMPLE_RATE_44_1;
       break;
     case 48000:
-      sample_rate = drivers::AudioDac::SAMPLE_RATE_48;
+      sample_rate = drivers::I2SDac::SAMPLE_RATE_48;
       break;
     default:
       ESP_LOGE(kTag, "dropping stream with unknown rate");
@@ -91,14 +163,6 @@ auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
 
 auto I2SAudioOutput::Send(const cpp::span<std::byte>& data) -> void {
   dac_->WriteData(data);
-}
-
-auto I2SAudioOutput::Log() -> void {
-  dac_->LogStatus();
-}
-
-auto I2SAudioOutput::SetVolume(uint8_t volume) -> void {
-  dac_->WriteVolume(volume);
 }
 
 }  // namespace audio
