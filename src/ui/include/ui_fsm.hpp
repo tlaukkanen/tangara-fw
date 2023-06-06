@@ -22,8 +22,8 @@ namespace ui {
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
   static auto Init(drivers::GpioExpander* gpio_expander,
-                   std::weak_ptr<drivers::RelativeWheel> touchwheel,
-                   std::weak_ptr<drivers::Display> display) -> void;
+                   const std::weak_ptr<drivers::RelativeWheel> &touchwheel,
+                   const std::weak_ptr<drivers::Display> &display) -> void;
 
   virtual ~UiState() {}
 

@@ -23,11 +23,15 @@ std::weak_ptr<drivers::Display> UiState::sDisplay;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 
 auto UiState::Init(drivers::GpioExpander* gpio_expander,
-                   std::weak_ptr<drivers::RelativeWheel> touchwheel,
-                   std::weak_ptr<drivers::Display> display) -> void {
+                   const std::weak_ptr<drivers::RelativeWheel>& touchwheel,
+                   const std::weak_ptr<drivers::Display>& display) -> void {
+  assert(!touchwheel.expired());
+  assert(!display.expired());
   sGpioExpander = gpio_expander;
   sTouchWheel = touchwheel;
   sDisplay = display;
+
+  sCurrentScreen.reset(new screens::Splash());
 
   StartLvgl(sTouchWheel, sDisplay);
 }
@@ -39,7 +43,6 @@ void PreBoot::react(const system_fsm::DisplayReady& ev) {
 }
 
 void Splash::entry() {
-  sCurrentScreen.reset(new screens::Splash());
 }
 
 void Splash::react(const system_fsm::BootComplete& ev) {
@@ -47,7 +50,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
 }
 
 void Interactive::entry() {
-  // sCurrentScreen.reset(new screens::Menu());
+  sCurrentScreen.reset(new screens::Menu());
 }
 
 }  // namespace states

@@ -66,9 +66,9 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
 
     std::shared_ptr<Screen> screen = UiState::current_screen();
     if (screen != current_screen && screen != nullptr) {
-      current_screen = screen;
       // TODO(jacqueline): animate this sometimes
       lv_scr_load(screen->root());
+      current_screen = screen;
     }
 
     lv_task_handler();

@@ -104,15 +104,27 @@ auto Display::Create(GpioExpander* expander,
       .freq_hz = 5000,
       .clk_cfg = LEDC_AUTO_CLK,
   };
-  ledc_timer_config(&led_config);
+  ESP_ERROR_CHECK(ledc_timer_config(&led_config));
+
+  gpio_config_t led_pin_config{
+      .pin_bit_mask = 1ULL << kDisplayLedEn,
+      .mode = GPIO_MODE_OUTPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_DISABLE,
+  };
+  gpio_config(&led_pin_config);
 
   ledc_channel_config_t led_channel{.gpio_num = kDisplayLedEn,
                                     .speed_mode = LEDC_LOW_SPEED_MODE,
                                     .channel = LEDC_CHANNEL_0,
                                     .timer_sel = LEDC_TIMER_0,
-                                    .duty = 4095,
+                                    .duty = 0,
                                     .hpoint = 0};
-  ledc_channel_config(&led_channel);
+  ESP_ERROR_CHECK(ledc_channel_config(&led_channel));
+
+  ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 4096));
+  ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
