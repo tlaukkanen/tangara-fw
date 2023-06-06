@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <vector>
 
 #include "freertos/FreeRTOS.h"
 
@@ -45,6 +46,8 @@ class IAudioElement {
  public:
   IAudioElement() {}
   virtual ~IAudioElement() {}
+
+  virtual auto NeedsToProcess() const -> bool = 0;
 
   virtual auto Process(const std::vector<InputStream>& inputs,
                        OutputStream* output) -> void = 0;

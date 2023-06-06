@@ -54,7 +54,7 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
   lv_init();
 
   TouchWheelEncoder encoder(weak_touch_wheel);
-  lv_group_t *nav_group = lv_group_create();
+  lv_group_t* nav_group = lv_group_create();
   lv_group_set_default(nav_group);
   lv_indev_set_group(encoder.registration(), nav_group);
 

@@ -14,7 +14,6 @@
 #include <memory>
 #include <variant>
 
-#include "cbor/tinycbor/src/cborinternal_p.h"
 #include "freertos/FreeRTOS.h"
 
 #include "esp_heap_caps.h"
@@ -36,7 +35,8 @@ AudioDecoder::AudioDecoder()
       current_codec_(),
       current_input_format_(),
       current_output_format_(),
-      has_samples_to_send_(false) {}
+      has_samples_to_send_(false),
+      has_input_remaining_(false) {}
 
 AudioDecoder::~AudioDecoder() {}
 
@@ -68,6 +68,10 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
   }
 
   return true;
+}
+
+auto AudioDecoder::NeedsToProcess() const -> bool {
+  return has_samples_to_send_ || has_input_remaining_;
 }
 
 auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
@@ -124,7 +128,8 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
       return;
     }
 
-    if (res.value()) {
+    has_input_remaining_ = !res.value();
+    if (!has_input_remaining_) {
       // We're out of useable data in this buffer. Finish immediately; there's
       // nothing to send.
       input->mark_incomplete();

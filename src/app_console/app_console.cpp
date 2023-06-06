@@ -69,7 +69,7 @@ void RegisterListDir() {
   esp_console_cmd_register(&cmd);
 }
 
-  //sInstance->playback_->Play(path + argv[1]);
+// sInstance->playback_->Play(path + argv[1]);
 int CmdPlayFile(int argc, char** argv) {
   static const std::string usage = "usage: play [file]";
   if (argc != 2) {
@@ -80,7 +80,7 @@ int CmdPlayFile(int argc, char** argv) {
   std::string path = "/";
 
   events::Dispatch<audio::PlayFile, audio::AudioState>(
-      audio::PlayFile{ .filename = path + argv[1] });
+      audio::PlayFile{.filename = path + argv[1]});
 
   return 0;
 }
@@ -200,7 +200,7 @@ void RegisterDbDump() {
   esp_console_cmd_register(&cmd);
 }
 
-AppConsole::AppConsole(std::weak_ptr<database::Database> database)
+AppConsole::AppConsole(const std::weak_ptr<database::Database>& database)
     : database_(database) {
   sInstance = this;
 }
@@ -210,8 +210,8 @@ AppConsole::~AppConsole() {
 
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
-  /*
   RegisterPlayFile();
+  /*
   RegisterToggle();
   RegisterVolume();
   RegisterAudioStatus();

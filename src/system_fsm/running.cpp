@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "freertos/projdefs.h"
 #include "result.hpp"
 
 #include "audio_fsm.hpp"
@@ -24,6 +25,7 @@ static const char kTag[] = "RUN";
  */
 void Running::entry() {
   ESP_LOGI(kTag, "mounting sd card");
+  vTaskDelay(pdMS_TO_TICKS(250));
   auto storage_res = drivers::SdStorage::Create(sGpioExpander.get());
   if (storage_res.has_error()) {
     events::Dispatch<StorageError, SystemState, audio::AudioState, ui::UiState>(
@@ -31,6 +33,7 @@ void Running::entry() {
     return;
   }
   sStorage.reset(storage_res.value());
+  vTaskDelay(pdMS_TO_TICKS(250));
 
   ESP_LOGI(kTag, "opening database");
   auto database_res = database::Database::Open();

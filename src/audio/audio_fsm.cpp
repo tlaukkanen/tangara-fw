@@ -29,29 +29,29 @@ auto AudioState::Init(drivers::GpioExpander* gpio_expander,
   sGpioExpander = gpio_expander;
   sDac = dac;
   sDatabase = database;
+
+  sFileSource.reset(new FatfsAudioInput());
+  sI2SOutput.reset(new I2SAudioOutput(sGpioExpander, sDac));
+
+  // Perform initial pipeline configuration.
+  // TODO(jacqueline): Factor this out once we have any kind of dynamic
+  // reconfiguration.
+  AudioDecoder* codec = new AudioDecoder();
+  sPipeline.emplace_back(codec);
+
+  Pipeline* pipeline = new Pipeline(sPipeline.front().get());
+  pipeline->AddInput(sFileSource.get());
+
+  task::StartPipeline(pipeline, sI2SOutput.get());
 }
 
 namespace states {
 
 void Uninitialised::react(const system_fsm::BootComplete&) {
-  transit<Standby>([&]() {
-    sFileSource.reset(new FatfsAudioInput());
-    sI2SOutput.reset(new I2SAudioOutput(sGpioExpander, sDac));
-
-    // Perform initial pipeline configuration.
-    // TODO(jacqueline): Factor this out once we have any kind of dynamic
-    // reconfiguration.
-    AudioDecoder* codec = new AudioDecoder();
-    sPipeline.emplace_back(codec);
-
-    Pipeline* pipeline = new Pipeline(sPipeline.front().get());
-    pipeline->AddInput(sFileSource.get());
-
-    task::StartPipeline(pipeline, sI2SOutput.get());
-  });
+  transit<Standby>();
 }
 
-void Standby::react(const PlayFile &ev) {
+void Standby::react(const PlayFile& ev) {
   if (sFileSource->OpenFile(ev.filename)) {
     transit<Playback>();
   }

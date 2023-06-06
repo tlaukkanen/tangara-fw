@@ -30,6 +30,8 @@ class AudioDecoder : public IAudioElement {
   AudioDecoder();
   ~AudioDecoder();
 
+  auto NeedsToProcess() const -> bool override;
+
   auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
       -> void override;
 
@@ -41,6 +43,7 @@ class AudioDecoder : public IAudioElement {
   std::optional<StreamInfo::Format> current_input_format_;
   std::optional<StreamInfo::Format> current_output_format_;
   bool has_samples_to_send_;
+  bool has_input_remaining_;
 
   auto ProcessStreamInfo(const StreamInfo& info) -> bool;
 };

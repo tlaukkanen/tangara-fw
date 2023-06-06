@@ -5,6 +5,7 @@
  */
 
 #include "pipeline.hpp"
+#include <algorithm>
 #include <memory>
 #include "stream_info.hpp"
 
@@ -53,6 +54,7 @@ auto Pipeline::GetIterationOrder() -> std::vector<Pipeline*> {
     }
   }
 
+  std::reverse(found.begin(), found.end());
   return found;
 }
 

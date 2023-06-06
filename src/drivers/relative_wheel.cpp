@@ -13,12 +13,12 @@
 
 namespace drivers {
 
-RelativeWheel::RelativeWheel(TouchWheel *touch) 
-  :touch_(touch),
-  is_pressed_(false),
-  is_first_read_(true),
-  ticks_(0),
-  last_angle_(0) {}
+RelativeWheel::RelativeWheel(TouchWheel* touch)
+    : touch_(touch),
+      is_pressed_(false),
+      is_first_read_(true),
+      ticks_(0),
+      last_angle_(0) {}
 
 auto RelativeWheel::Update() -> void {
   touch_->Update();
@@ -68,11 +68,10 @@ auto RelativeWheel::is_pressed() -> bool {
 auto RelativeWheel::ticks() -> std::int_fast16_t {
   int_fast16_t t = ticks_;
   if (t != 0) {
-  ESP_LOGI("teeks", "ticks %d", t);
+    ESP_LOGI("teeks", "ticks %d", t);
   }
   ticks_ = 0;
   return t;
 }
-
 
 }  // namespace drivers

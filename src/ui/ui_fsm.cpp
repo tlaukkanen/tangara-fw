@@ -28,12 +28,14 @@ auto UiState::Init(drivers::GpioExpander* gpio_expander,
   sGpioExpander = gpio_expander;
   sTouchWheel = touchwheel;
   sDisplay = display;
+
+  StartLvgl(sTouchWheel, sDisplay);
 }
 
 namespace states {
 
 void PreBoot::react(const system_fsm::DisplayReady& ev) {
-  transit<Splash>([&]() { StartLvgl(sTouchWheel, sDisplay); });
+  transit<Splash>();
 }
 
 void Splash::entry() {
@@ -45,7 +47,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
 }
 
 void Interactive::entry() {
-  //sCurrentScreen.reset(new screens::Menu());
+  // sCurrentScreen.reset(new screens::Menu());
 }
 
 }  // namespace states

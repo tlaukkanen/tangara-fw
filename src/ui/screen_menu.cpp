@@ -18,14 +18,14 @@ namespace ui {
 namespace screens {
 
 Menu::Menu() {
-  lv_obj_t *menu = lv_menu_create(root_);
+  lv_obj_t* menu = lv_menu_create(root_);
   lv_obj_set_size(menu, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
   lv_obj_center(menu);
 
-  lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
+  lv_obj_t* main_page = lv_menu_page_create(menu, NULL);
 
-  lv_obj_t *container;
-  lv_obj_t *label;
+  lv_obj_t* container;
+  lv_obj_t* label;
 
   container = lv_menu_cont_create(main_page);
   label = lv_label_create(container);

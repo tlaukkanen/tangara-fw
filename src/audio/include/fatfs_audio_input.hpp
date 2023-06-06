@@ -33,6 +33,8 @@ class FatfsAudioInput : public IAudioElement {
 
   auto OpenFile(const std::string& path) -> bool;
 
+  auto NeedsToProcess() const -> bool override;
+
   auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
       -> void override;
 

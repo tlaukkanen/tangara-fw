@@ -97,8 +97,8 @@ auto Display::Create(GpioExpander* expander,
   gpio_config(&dr_config);
   gpio_set_level(kDisplayDr, 0);
 
-  ledc_timer_config_t led_config {
-    .speed_mode = LEDC_LOW_SPEED_MODE,
+  ledc_timer_config_t led_config{
+      .speed_mode = LEDC_LOW_SPEED_MODE,
       .duty_resolution = LEDC_TIMER_13_BIT,
       .timer_num = LEDC_TIMER_0,
       .freq_hz = 5000,
@@ -106,14 +106,12 @@ auto Display::Create(GpioExpander* expander,
   };
   ledc_timer_config(&led_config);
 
-  ledc_channel_config_t led_channel {
-      .gpio_num = kDisplayLedEn,
-    .speed_mode = LEDC_LOW_SPEED_MODE,
-      .channel = LEDC_CHANNEL_0,
-      .timer_sel = LEDC_TIMER_0,
-      .duty = 4095,
-      .hpoint = 0
-  };
+  ledc_channel_config_t led_channel{.gpio_num = kDisplayLedEn,
+                                    .speed_mode = LEDC_LOW_SPEED_MODE,
+                                    .channel = LEDC_CHANNEL_0,
+                                    .timer_sel = LEDC_TIMER_0,
+                                    .duty = 4095,
+                                    .hpoint = 0};
   ledc_channel_config(&led_channel);
 
   // Next, init the SPI device
@@ -260,32 +258,32 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   // area is stack-allocated, so it isn't safe to reference from the flush
   // thread.
   lv_area_t area_copy = *area;
-  //worker_task_->Dispatch<void>([=, this]() {
-    // Ideally we want to complete a single flush as quickly as possible, so
-    // grab the bus for this entire transaction sequence.
-    spi_device_acquire_bus(handle_, portMAX_DELAY);
+  // worker_task_->Dispatch<void>([=, this]() {
+  //  Ideally we want to complete a single flush as quickly as possible, so
+  //  grab the bus for this entire transaction sequence.
+  spi_device_acquire_bus(handle_, portMAX_DELAY);
 
-    // First we need to specify the rectangle of the display we're writing into.
-    uint16_t data[2] = {0, 0};
+  // First we need to specify the rectangle of the display we're writing into.
+  uint16_t data[2] = {0, 0};
 
-    data[0] = SPI_SWAP_DATA_TX(area_copy.x1, 16);
-    data[1] = SPI_SWAP_DATA_TX(area_copy.x2, 16);
-    SendCommandWithData(displays::ST77XX_CASET,
-                        reinterpret_cast<uint8_t*>(data), 4);
+  data[0] = SPI_SWAP_DATA_TX(area_copy.x1, 16);
+  data[1] = SPI_SWAP_DATA_TX(area_copy.x2, 16);
+  SendCommandWithData(displays::ST77XX_CASET, reinterpret_cast<uint8_t*>(data),
+                      4);
 
-    data[0] = SPI_SWAP_DATA_TX(area_copy.y1, 16);
-    data[1] = SPI_SWAP_DATA_TX(area_copy.y2, 16);
-    SendCommandWithData(displays::ST77XX_RASET,
-                        reinterpret_cast<uint8_t*>(data), 4);
+  data[0] = SPI_SWAP_DATA_TX(area_copy.y1, 16);
+  data[1] = SPI_SWAP_DATA_TX(area_copy.y2, 16);
+  SendCommandWithData(displays::ST77XX_RASET, reinterpret_cast<uint8_t*>(data),
+                      4);
 
-    // Now send the pixels for this region.
-    uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
-    SendCommandWithData(displays::ST77XX_RAMWR,
-                        reinterpret_cast<uint8_t*>(color_map), size * 2);
+  // Now send the pixels for this region.
+  uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
+  SendCommandWithData(displays::ST77XX_RAMWR,
+                      reinterpret_cast<uint8_t*>(color_map), size * 2);
 
-    spi_device_release_bus(handle_);
+  spi_device_release_bus(handle_);
 
-    lv_disp_flush_ready(&driver_);
+  lv_disp_flush_ready(&driver_);
   //});
 }
 

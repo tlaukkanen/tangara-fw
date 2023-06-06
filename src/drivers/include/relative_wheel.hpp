@@ -20,9 +20,11 @@ namespace drivers {
 
 class RelativeWheel {
  public:
-  static auto Create(TouchWheel *touch) -> RelativeWheel* { return new RelativeWheel(touch); }
+  static auto Create(TouchWheel* touch) -> RelativeWheel* {
+    return new RelativeWheel(touch);
+  }
 
-  explicit RelativeWheel(TouchWheel *touch);
+  explicit RelativeWheel(TouchWheel* touch);
 
   // Not copyable or movable.
   RelativeWheel(const RelativeWheel&) = delete;
@@ -34,7 +36,7 @@ class RelativeWheel {
   auto ticks() -> std::int_fast16_t;
 
  private:
-  TouchWheel *touch_;
+  TouchWheel* touch_;
   bool is_pressed_;
   bool is_first_read_;
   std::int_fast16_t ticks_;

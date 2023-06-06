@@ -43,20 +43,64 @@ namespace task {
 
 static const char* kTag = "task";
 
+// The default amount of time to wait between pipeline iterations for a single
+// song.
+static constexpr uint_fast16_t kDefaultDelayTicks = pdMS_TO_TICKS(5);
+static constexpr uint_fast16_t kMaxDelayTicks = pdMS_TO_TICKS(10);
+static constexpr uint_fast16_t kMinDelayTicks = pdMS_TO_TICKS(1);
+
 void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
+  // The stream format for bytes currently in the sink buffer.
   std::optional<StreamInfo::Format> output_format;
-  uint_fast16_t delay_ticks = pdMS_TO_TICKS(5);
 
-  std::vector<Pipeline*> elements = pipeline->GetIterationOrder();
+  // How long to wait between pipeline iterations. This is reset for each song,
+  // and readjusted on the fly to maintain a reasonable amount playback buffer.
+  // Buffering too much will mean we process samples inefficiently, wasting CPU
+  // time, whilst buffering too little will affect the quality of the output.
+  uint_fast16_t delay_ticks = kDefaultDelayTicks;
 
-  events::EventQueue &event_queue = events::EventQueue::GetInstance();
+  std::vector<Pipeline*> all_elements = pipeline->GetIterationOrder();
+
+  events::EventQueue& event_queue = events::EventQueue::GetInstance();
   while (1) {
-    event_queue.ServiceAudio(delay_ticks);
+    // First, see if we actually have any pipeline work to do in this iteration.
+    bool has_work = false;
+    // We always have work to do if there's still bytes to be sunk.
+    has_work = all_elements.back()->OutStream().info->bytes_in_stream > 0;
+    if (!has_work) {
+      for (Pipeline* p : all_elements) {
+        has_work = p->OutputElement()->NeedsToProcess();
+        if (has_work) {
+          break;
+        }
+      }
+    }
 
-    for (int i = 0; i < elements.size(); i++) {
+    // See if there's any new events.
+    event_queue.ServiceAudio(has_work ? delay_ticks : portMAX_DELAY);
+
+    if (!has_work) {
+      // See if we've been given work by this event.
+      for (Pipeline* p : all_elements) {
+        has_work = p->OutputElement()->NeedsToProcess();
+        if (has_work) {
+          delay_ticks = kDefaultDelayTicks;
+          break;
+        }
+      }
+      if (!has_work) {
+        continue;
+      }
+    }
+
+    // We have work to do! Allow each element in the pipeline to process one
+    // chunk. We iterate from input nodes first, so this should result in
+    // samples in the output buffer.
+
+    for (int i = 0; i < all_elements.size(); i++) {
       std::vector<RawStream> raw_in_streams;
-      elements.at(i)->InStreams(&raw_in_streams);
-      RawStream raw_out_stream = elements.at(i)->OutStream();
+      all_elements.at(i)->InStreams(&raw_in_streams);
+      RawStream raw_out_stream = all_elements.at(i)->OutStream();
 
       // Crop the input and output streams to the ranges that are safe to
       // touch. For the input streams, this is the region that contains
@@ -67,14 +111,14 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
                     [&](RawStream& s) { in_streams.emplace_back(&s); });
       OutputStream out_stream(&raw_out_stream);
 
-      elements.at(i)->OutputElement()->Process(in_streams, &out_stream);
+      all_elements.at(i)->OutputElement()->Process(in_streams, &out_stream);
     }
 
-    RawStream raw_sink_stream = elements.front()->OutStream();
+    RawStream raw_sink_stream = all_elements.back()->OutStream();
     InputStream sink_stream(&raw_sink_stream);
 
     if (sink_stream.info().bytes_in_stream == 0) {
-      vTaskDelay(pdMS_TO_TICKS(100));
+      // No new bytes to sink, so skip sinking completely.
       continue;
     }
 
@@ -86,24 +130,36 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
         ESP_LOGI(kTag, "reconfiguring dac");
         output_format = sink_stream.info().format;
         sink->Configure(*output_format);
+      } else {
+        continue;
       }
     }
 
     // We've reconfigured the sink, or it was already configured correctly.
     // Send through some data.
-    if (output_format == sink_stream.info().format &&
-        !std::holds_alternative<std::monostate>(*output_format)) {
-      std::size_t sent =
-          xStreamBufferSend(sink->buffer(), sink_stream.data().data(),
-                            sink_stream.data().size_bytes(), 0);
-      if (sent > 0) {
-        ESP_LOGI(
-            kTag, "sunk %u bytes out of %u (%d %%)", sent,
-            sink_stream.info().bytes_in_stream,
-            (int)(((float)sent / (float)sink_stream.info().bytes_in_stream) *
-                  100));
-      }
-      sink_stream.consume(sent);
+    std::size_t bytes_sunk =
+        xStreamBufferSend(sink->buffer(), sink_stream.data().data(),
+                          sink_stream.data().size_bytes(), 0);
+
+    // Adjust how long we wait for the next iteration if we're getting too far
+    // ahead or behind.
+    float sunk_percent = static_cast<float>(bytes_sunk) /
+                         static_cast<float>(sink_stream.info().bytes_in_stream);
+
+    if (sunk_percent > 0.66f) {
+      // We're sinking a lot of the output buffer per iteration, so we need to
+      // be running faster.
+      delay_ticks--;
+    } else if (sunk_percent < 0.33f) {
+      // We're not sinking much of the output buffer per iteration, so we can
+      // slow down to save some cycles.
+      delay_ticks++;
+    }
+    delay_ticks = std::clamp(delay_ticks, kMinDelayTicks, kMaxDelayTicks);
+
+    // Finally, actually mark the bytes we sunk as consumed.
+    if (bytes_sunk > 0) {
+      sink_stream.consume(bytes_sunk);
     }
   }
 }
