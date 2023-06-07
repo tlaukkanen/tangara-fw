@@ -10,6 +10,7 @@
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "esp_err.h"
+#include "esp_intr_alloc.h"
 #include "hal/spi_types.h"
 
 namespace drivers {
@@ -37,7 +38,8 @@ esp_err_t init_spi(void) {
       // manages its down use of DMA-capable memory.
       .max_transfer_sz = 128 * 16 * 2,  // TODO: hmm
       .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_IOMUX_PINS,
-      .intr_flags = 0,
+      .intr_flags =
+          ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_SHARED | ESP_INTR_FLAG_IRAM,
   };
 
   if (esp_err_t err = spi_bus_initialize(kSpiHost, &config, SPI_DMA_CH_AUTO)) {

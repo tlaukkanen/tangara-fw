@@ -17,6 +17,7 @@
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
+#include "esp_intr_alloc.h"
 #include "freertos/portable.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -126,7 +127,8 @@ auto Display::Create(GpioExpander* expander,
   ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0));
   ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 
-  // ledc_fade_func_install(0);
+  ledc_fade_func_install(ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_SHARED |
+                         ESP_INTR_FLAG_IRAM);
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -194,9 +196,8 @@ auto Display::SetDisplayOn(bool enabled) -> void {
   display_on_ = enabled;
 
   int new_duty = display_on_ ? brightness_ : 0;
-  // ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty,
-  // 250); ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0,
-  // LEDC_FADE_NO_WAIT);
+  ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 250);
+  ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
 }
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
