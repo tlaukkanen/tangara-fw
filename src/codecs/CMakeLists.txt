@@ -5,6 +5,6 @@
 idf_component_register(
   SRCS "codec.cpp" "mad.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "result" "span" "libmad")
+  REQUIRES "result" "span" "libmad" "libfoxenflac" "stb_vorbis")
 
 target_compile_options("${COMPONENT_LIB}" PRIVATE ${EXTRA_WARNINGS})
