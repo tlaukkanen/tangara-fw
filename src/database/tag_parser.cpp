@@ -107,6 +107,16 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, SongTags* out)
       out->encoding = Encoding::kUnsupported;
   }
 
+  if (ctx.channels > 0) {
+    out->channels = ctx.channels;
+  }
+  if (ctx.samplerate > 0) {
+    out->sample_rate = ctx.samplerate;
+  }
+  if (ctx.bitrate > 0) {
+    out->bits_per_sample = ctx.bitrate;
+  }
+
   return true;
 }
 

@@ -50,18 +50,20 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
   // Reuse the existing codec if we can. This will help with gapless playback,
   // since we can potentially just continue to decode as we were before,
   // without any setup overhead.
-  if (current_codec_ != nullptr &&
-      current_codec_->CanHandleType(encoded.type)) {
-    current_codec_->ResetForNewStream();
-    ESP_LOGI(kTag, "reusing existing decoder");
-    return true;
+  if (current_codec_ != nullptr && current_input_format_) {
+    auto cur_encoding = std::get<StreamInfo::Encoded>(*current_input_format_);
+    if (cur_encoding.type == encoded.type) {
+      ESP_LOGI(kTag, "reusing existing decoder");
+      current_input_format_ = info.format;
+      return true;
+    }
   }
+  current_input_format_ = info.format;
 
-  // TODO: use audio type from stream
+  ESP_LOGI(kTag, "creating new decoder");
   auto result = codecs::CreateCodecForType(encoded.type);
   if (result.has_value()) {
-    ESP_LOGI(kTag, "creating new decoder");
-    current_codec_ = std::move(result.value());
+    current_codec_.reset(result.value());
   } else {
     ESP_LOGE(kTag, "no codec for this file");
     return false;
@@ -88,9 +90,7 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
   if (!current_input_format_ || *current_input_format_ != info.format) {
     // The input stream has changed! Immediately throw everything away and
     // start from scratch.
-    current_input_format_ = info.format;
     has_samples_to_send_ = false;
-
     ProcessStreamInfo(info);
   }
 

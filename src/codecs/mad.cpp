@@ -42,10 +42,6 @@ MadMp3Decoder::~MadMp3Decoder() {
   mad_synth_finish(&synth_);
 }
 
-auto MadMp3Decoder::CanHandleType(StreamType type) -> bool {
-  return type == STREAM_MP3;
-}
-
 auto MadMp3Decoder::GetOutputFormat() -> std::optional<OutputFormat> {
   if (synth_.pcm.channels == 0 || synth_.pcm.samplerate == 0) {
     return {};
@@ -56,8 +52,6 @@ auto MadMp3Decoder::GetOutputFormat() -> std::optional<OutputFormat> {
       .sample_rate_hz = synth_.pcm.samplerate,
   });
 }
-
-auto MadMp3Decoder::ResetForNewStream() -> void {}
 
 auto MadMp3Decoder::SetInput(cpp::span<const std::byte> input) -> void {
   mad_stream_buffer(&stream_,
@@ -115,8 +109,6 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
     }
 
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
-      // TODO(jacqueline): output 24 bit samples when (if?) we have a downmix
-      // step in the pipeline.
       uint32_t sample_24 =
           scaleToBits(synth_.pcm.samples[channel][current_sample_], 24);
       output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);

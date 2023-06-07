@@ -25,8 +25,6 @@ class ICodec {
  public:
   virtual ~ICodec() {}
 
-  virtual auto CanHandleType(StreamType type) -> bool = 0;
-
   struct OutputFormat {
     uint8_t num_channels;
     uint8_t bits_per_sample;
@@ -36,8 +34,6 @@ class ICodec {
   virtual auto GetOutputFormat() -> std::optional<OutputFormat> = 0;
 
   enum ProcessingError { MALFORMED_DATA };
-
-  virtual auto ResetForNewStream() -> void = 0;
 
   virtual auto SetInput(cpp::span<const std::byte> input) -> void = 0;
 
@@ -69,9 +65,6 @@ class ICodec {
       -> std::pair<std::size_t, bool> = 0;
 };
 
-enum CreateCodecError { UNKNOWN_EXTENSION };
-
-auto CreateCodecForType(StreamType type)
-    -> cpp::result<std::unique_ptr<ICodec>, CreateCodecError>;
+auto CreateCodecForType(StreamType type) -> std::optional<ICodec*>;
 
 }  // namespace codecs

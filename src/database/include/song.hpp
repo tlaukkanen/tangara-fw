@@ -36,6 +36,9 @@ typedef uint32_t SongId;
 enum class Encoding {
   kUnsupported = 0,
   kMp3 = 1,
+  kWav = 2,
+  kOgg = 3,
+  kFlac = 4,
 };
 
 /*
@@ -52,6 +55,10 @@ struct SongTags {
 
   std::optional<std::string> artist;
   std::optional<std::string> album;
+
+  std::optional<int> channels;
+  std::optional<int> sample_rate;
+  std::optional<int> bits_per_sample;
 
   /*
    * Returns a hash of the 'identifying' tags of this song. That is, a hash that

@@ -7,13 +7,19 @@
 #include "codec.hpp"
 
 #include <memory>
+#include <optional>
 #include "mad.hpp"
+#include "types.hpp"
 
 namespace codecs {
 
-auto CreateCodecForType(StreamType type)
-    -> cpp::result<std::unique_ptr<ICodec>, CreateCodecError> {
-  return std::make_unique<MadMp3Decoder>();  // TODO.
+auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
+  switch (type) {
+    case StreamType::kMp3:
+      return new MadMp3Decoder();
+    default:
+      return {};
+  }
 }
 
 }  // namespace codecs

@@ -10,9 +10,11 @@
 
 namespace codecs {
 
-enum StreamType {
-  STREAM_MP3,
+enum class StreamType {
+  kMp3,
+  kPcm,
+  kOgg,
+  kFlac,
 };
 
-auto GetStreamTypeFromFilename(std::string filename);
 }  // namespace codecs

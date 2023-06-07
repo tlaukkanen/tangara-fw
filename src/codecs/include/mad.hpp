@@ -24,9 +24,7 @@ class MadMp3Decoder : public ICodec {
   MadMp3Decoder();
   ~MadMp3Decoder();
 
-  auto CanHandleType(StreamType type) -> bool override;
   auto GetOutputFormat() -> std::optional<OutputFormat> override;
-  auto ResetForNewStream() -> void override;
   auto SetInput(cpp::span<const std::byte> input) -> void override;
   auto GetInputPosition() -> std::size_t override;
   auto ProcessNextFrame() -> cpp::result<bool, ProcessingError> override;
