@@ -6,6 +6,7 @@
 
 #include "audio_fsm.hpp"
 #include <memory>
+#include <variant>
 #include "audio_decoder.hpp"
 #include "audio_events.hpp"
 #include "audio_task.hpp"
@@ -16,6 +17,8 @@
 
 namespace audio {
 
+static const char kTag[] = "audio_fsm";
+
 drivers::GpioExpander* AudioState::sGpioExpander;
 std::shared_ptr<drivers::I2SDac> AudioState::sDac;
 std::shared_ptr<drivers::DigitalPot> AudioState::sPots;
@@ -24,6 +27,8 @@ std::weak_ptr<database::Database> AudioState::sDatabase;
 std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::vector<std::unique_ptr<IAudioElement>> AudioState::sPipeline;
+
+std::deque<AudioState::EnqueuedItem> AudioState::sSongQueue;
 
 auto AudioState::Init(drivers::GpioExpander* gpio_expander,
                       std::weak_ptr<database::Database> database) -> bool {
@@ -64,6 +69,33 @@ void Standby::react(const PlayFile& ev) {
   if (sFileSource->OpenFile(ev.filename)) {
     transit<Playback>();
   }
+}
+
+void Playback::entry() {
+  ESP_LOGI(kTag, "beginning playback");
+  sI2SOutput->SetInUse(true);
+}
+
+void Playback::exit() {
+  ESP_LOGI(kTag, "finishing playback");
+  sI2SOutput->SetInUse(false);
+}
+
+void Playback::react(const InputFileFinished& ev) {
+  ESP_LOGI(kTag, "finished file");
+  if (sSongQueue.empty()) {
+    return;
+  }
+  EnqueuedItem next_item = sSongQueue.front();
+  sSongQueue.pop_front();
+
+  if (std::holds_alternative<std::string>(next_item)) {
+    sFileSource->OpenFile(std::get<std::string>(next_item));
+  }
+}
+
+void Playback::react(const AudioPipelineIdle& ev) {
+  transit<Standby>();
 }
 
 }  // namespace states

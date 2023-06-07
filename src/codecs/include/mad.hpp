@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -24,7 +25,7 @@ class MadMp3Decoder : public ICodec {
   ~MadMp3Decoder();
 
   auto CanHandleType(StreamType type) -> bool override;
-  auto GetOutputFormat() -> OutputFormat override;
+  auto GetOutputFormat() -> std::optional<OutputFormat> override;
   auto ResetForNewStream() -> void override;
   auto SetInput(cpp::span<const std::byte> input) -> void override;
   auto GetInputPosition() -> std::size_t override;
@@ -36,9 +37,6 @@ class MadMp3Decoder : public ICodec {
   mad_stream stream_;
   mad_frame frame_;
   mad_synth synth_;
-
-  mad_header header_;
-  bool has_decoded_header_;
 
   int current_sample_;
 };

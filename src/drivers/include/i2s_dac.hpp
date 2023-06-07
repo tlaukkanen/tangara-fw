@@ -40,6 +40,10 @@ class I2SDac {
   auto Start() -> void;
   auto Stop() -> void;
 
+  enum Channels {
+    CHANNELS_MONO,
+    CHANNELS_STEREO,
+  };
   enum BitsPerSample {
     BPS_16 = I2S_DATA_BIT_WIDTH_16BIT,
     BPS_24 = I2S_DATA_BIT_WIDTH_24BIT,
@@ -56,7 +60,7 @@ class I2SDac {
     SAMPLE_RATE_192 = 192000,
   };
 
-  auto Reconfigure(BitsPerSample bps, SampleRate rate) -> void;
+  auto Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate) -> void;
 
   auto WriteData(const cpp::span<const std::byte>& data) -> void;
   auto SetSource(StreamBufferHandle_t buffer) -> void;

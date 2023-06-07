@@ -29,6 +29,8 @@ class I2SAudioOutput : public IAudioSink {
                  std::weak_ptr<drivers::DigitalPot> pots);
   ~I2SAudioOutput();
 
+  auto SetInUse(bool) -> void override;
+
   auto SetVolumeImbalance(int_fast8_t balance) -> void override;
   auto SetVolume(uint_fast8_t percent) -> void override;
   auto GetVolume() -> uint_fast8_t override;

@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <cstdint>
+#include <optional>
 
 #include "mad.h"
 
@@ -34,31 +35,29 @@ MadMp3Decoder::MadMp3Decoder() {
   mad_stream_init(&stream_);
   mad_frame_init(&frame_);
   mad_synth_init(&synth_);
-  mad_header_init(&header_);
 }
 MadMp3Decoder::~MadMp3Decoder() {
   mad_stream_finish(&stream_);
   mad_frame_finish(&frame_);
   mad_synth_finish(&synth_);
-  mad_header_finish(&header_);
 }
 
 auto MadMp3Decoder::CanHandleType(StreamType type) -> bool {
   return type == STREAM_MP3;
 }
 
-auto MadMp3Decoder::GetOutputFormat() -> OutputFormat {
-  return OutputFormat{
+auto MadMp3Decoder::GetOutputFormat() -> std::optional<OutputFormat> {
+  if (synth_.pcm.channels == 0 || synth_.pcm.samplerate == 0) {
+    return {};
+  }
+  return std::optional<OutputFormat>({
       .num_channels = static_cast<uint8_t>(synth_.pcm.channels),
-      .bits_per_sample = 16,
-      .sample_rate_hz =
-          synth_.pcm.samplerate == 0 ? 44100 : synth_.pcm.samplerate,
-  };
+      .bits_per_sample = 24,
+      .sample_rate_hz = synth_.pcm.samplerate,
+  });
 }
 
-auto MadMp3Decoder::ResetForNewStream() -> void {
-  has_decoded_header_ = false;
-}
+auto MadMp3Decoder::ResetForNewStream() -> void {}
 
 auto MadMp3Decoder::SetInput(cpp::span<const std::byte> input) -> void {
   mad_stream_buffer(&stream_,
@@ -71,16 +70,6 @@ auto MadMp3Decoder::GetInputPosition() -> std::size_t {
 }
 
 auto MadMp3Decoder::ProcessNextFrame() -> cpp::result<bool, ProcessingError> {
-  if (!has_decoded_header_) {
-    // The header of any given frame should be representative of the
-    // entire stream, so only need to read it once.
-    mad_header_decode(&header_, &stream_);
-    has_decoded_header_ = true;
-
-    // TODO: Use the info in the header for something. I think the
-    // duration will help with seeking?
-  }
-
   // Whatever was last synthesized is now invalid, so ensure we don't try to
   // send it.
   current_sample_ = -1;
@@ -128,7 +117,6 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
       // TODO(jacqueline): output 24 bit samples when (if?) we have a downmix
       // step in the pipeline.
-      /*
       uint32_t sample_24 =
           scaleToBits(synth_.pcm.samples[channel][current_sample_], 24);
       output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);
@@ -136,11 +124,12 @@ auto MadMp3Decoder::WriteOutputSamples(cpp::span<std::byte> output)
       output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
       // 24 bit samples must still be aligned to 32 bits. The LSB is ignored.
       output[output_byte++] = static_cast<std::byte>(0);
-      */
+      /*
       uint16_t sample_16 =
           scaleToBits(synth_.pcm.samples[channel][current_sample_], 16);
       output[output_byte++] = static_cast<std::byte>((sample_16 >> 8) & 0xFF);
       output[output_byte++] = static_cast<std::byte>((sample_16)&0xFF);
+      */
     }
     current_sample_++;
   }

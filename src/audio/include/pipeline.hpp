@@ -36,6 +36,10 @@ class Pipeline {
 
   auto GetIterationOrder() -> std::vector<Pipeline*>;
 
+  // Not copyable or movable.
+  Pipeline(const Pipeline&) = delete;
+  Pipeline& operator=(const Pipeline&) = delete;
+
  private:
   IAudioElement* root_;
   std::vector<std::unique_ptr<Pipeline>> subtrees_;

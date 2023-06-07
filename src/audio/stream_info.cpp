@@ -22,7 +22,8 @@ namespace audio {
 
 void InputStream::consume(std::size_t bytes) const {
   assert(raw_->info->bytes_in_stream >= bytes);
-  auto new_data = raw_->data.subspan(bytes);
+  auto new_data =
+      raw_->data.subspan(bytes, raw_->info->bytes_in_stream - bytes);
   std::move(new_data.begin(), new_data.end(), raw_->data.begin());
   raw_->info->bytes_in_stream = new_data.size_bytes();
 }

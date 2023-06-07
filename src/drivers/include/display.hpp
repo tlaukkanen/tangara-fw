@@ -43,6 +43,10 @@ class Display {
                    const lv_area_t* area,
                    lv_color_t* color_map);
 
+  // Not copyable or movable.
+  Display(const Display&) = delete;
+  Display& operator=(const Display&) = delete;
+
  private:
   GpioExpander* gpio_;
   spi_device_handle_t handle_;

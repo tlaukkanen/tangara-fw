@@ -24,4 +24,7 @@ struct PlaySong : tinyfsm::Event {
   std::optional<database::SongTags> tags;
 };
 
+struct InputFileFinished : tinyfsm::Event {};
+struct AudioPipelineIdle : tinyfsm::Event {};
+
 }  // namespace audio

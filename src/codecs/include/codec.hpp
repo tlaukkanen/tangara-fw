@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -32,7 +33,7 @@ class ICodec {
     uint32_t sample_rate_hz;
   };
 
-  virtual auto GetOutputFormat() -> OutputFormat = 0;
+  virtual auto GetOutputFormat() -> std::optional<OutputFormat> = 0;
 
   enum ProcessingError { MALFORMED_DATA };
 

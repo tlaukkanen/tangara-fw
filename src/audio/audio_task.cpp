@@ -15,6 +15,8 @@
 #include <memory>
 #include <variant>
 
+#include "audio_events.hpp"
+#include "audio_fsm.hpp"
 #include "audio_sink.hpp"
 #include "cbor.h"
 #include "esp_err.h"
@@ -60,6 +62,7 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
 
   std::vector<Pipeline*> all_elements = pipeline->GetIterationOrder();
 
+  bool previously_had_work = false;
   events::EventQueue& event_queue = events::EventQueue::GetInstance();
   while (1) {
     // First, see if we actually have any pipeline work to do in this iteration.
@@ -74,6 +77,11 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
         }
       }
     }
+
+    if (previously_had_work && !has_work) {
+      events::Dispatch<AudioPipelineIdle, AudioState>({});
+    }
+    previously_had_work = has_work;
 
     // See if there's any new events.
     event_queue.ServiceAudio(has_work ? delay_ticks : portMAX_DELAY);
@@ -118,6 +126,7 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
 
     if (sink_stream.info().bytes_in_stream == 0) {
       // No new bytes to sink, so skip sinking completely.
+      ESP_LOGI(kTag, "no bytes to sink");
       continue;
     }
 
@@ -130,6 +139,7 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
         output_format = sink_stream.info().format;
         sink->Configure(*output_format);
       } else {
+        ESP_LOGI(kTag, "waiting to reconfigure");
         continue;
       }
     }

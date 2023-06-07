@@ -40,6 +40,8 @@ class IAudioSink {
     free(metadata_);
   }
 
+  virtual auto SetInUse(bool) -> void {}
+
   virtual auto SetVolumeImbalance(int_fast8_t balance) -> void = 0;
   virtual auto SetVolume(uint_fast8_t percent) -> void = 0;
   virtual auto GetVolume() -> uint_fast8_t = 0;

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "gpio_expander.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
+#include "song.hpp"
 #include "storage.hpp"
 #include "tinyfsm.hpp"
 
@@ -40,6 +42,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const PlaySong&) {}
   virtual void react(const PlayFile&) {}
 
+  virtual void react(const InputFileFinished&) {}
+  virtual void react(const AudioPipelineIdle&) {}
+
  protected:
   static drivers::GpioExpander* sGpioExpander;
   static std::shared_ptr<drivers::I2SDac> sDac;
@@ -49,6 +54,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::unique_ptr<FatfsAudioInput> sFileSource;
   static std::unique_ptr<I2SAudioOutput> sI2SOutput;
   static std::vector<std::unique_ptr<IAudioElement>> sPipeline;
+
+  typedef std::variant<database::SongId, std::string> EnqueuedItem;
+  static std::deque<EnqueuedItem> sSongQueue;
 };
 
 namespace states {
@@ -68,6 +76,12 @@ class Standby : public AudioState {
 
 class Playback : public AudioState {
  public:
+  void entry() override;
+  void exit() override;
+
+  void react(const InputFileFinished&) override;
+  void react(const AudioPipelineIdle&) override;
+
   using AudioState::react;
 };
 

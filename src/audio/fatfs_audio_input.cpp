@@ -13,8 +13,11 @@
 #include <variant>
 
 #include "arena.hpp"
+#include "audio_events.hpp"
+#include "audio_fsm.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "event_queue.hpp"
 #include "ff.h"
 #include "freertos/portmacro.h"
 
@@ -69,6 +72,10 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
   }
 
   std::size_t max_size = output->data().size_bytes();
+  if (max_size < output->data().size_bytes() / 2) {
+    return;
+  }
+
   std::size_t size = 0;
   FRESULT result =
       f_read(&current_file_, output->data().data(), max_size, &size);
@@ -83,6 +90,12 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
   if (size < max_size || f_eof(&current_file_)) {
     f_close(&current_file_);
     is_file_open_ = false;
+
+    // TODO(jacqueline): MP3 only
+    std::fill_n(output->data().begin(), 8, std::byte(0));
+    output->add(8);
+
+    events::Dispatch<InputFileFinished, AudioState>({});
   }
 }
 

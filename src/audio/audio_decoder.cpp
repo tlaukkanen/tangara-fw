@@ -98,27 +98,27 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
 
   while (true) {
     if (has_samples_to_send_) {
-      if (!current_output_format_) {
-        auto format = current_codec_->GetOutputFormat();
+      auto format = current_codec_->GetOutputFormat();
+      if (format.has_value()) {
         current_output_format_ = StreamInfo::Pcm{
-            .channels = format.num_channels,
-            .bits_per_sample = format.bits_per_sample,
-            .sample_rate = format.sample_rate_hz,
+            .channels = format->num_channels,
+            .bits_per_sample = format->bits_per_sample,
+            .sample_rate = format->sample_rate_hz,
         };
-      }
 
-      if (!output->prepare(*current_output_format_)) {
-        break;
-      }
+        if (!output->prepare(*current_output_format_)) {
+          break;
+        }
 
-      auto write_res = current_codec_->WriteOutputSamples(output->data());
-      output->add(write_res.first);
-      has_samples_to_send_ = !write_res.second;
+        auto write_res = current_codec_->WriteOutputSamples(output->data());
+        output->add(write_res.first);
+        has_samples_to_send_ = !write_res.second;
 
-      if (has_samples_to_send_) {
-        // We weren't able to fit all the generated samples into the output
-        // buffer. Stop trying; we'll finish up during the next pass.
-        break;
+        if (has_samples_to_send_) {
+          // We weren't able to fit all the generated samples into the output
+          // buffer. Stop trying; we'll finish up during the next pass.
+          break;
+        }
       }
     }
 

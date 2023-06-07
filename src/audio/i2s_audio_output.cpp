@@ -38,12 +38,20 @@ I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
       attenuation_(pots_->GetMaxAttenuation()) {
   SetVolume(25);  // For testing
   dac_->SetSource(buffer());
-  dac_->Start();
 }
 
 I2SAudioOutput::~I2SAudioOutput() {
   dac_->Stop();
   dac_->SetSource(nullptr);
+}
+
+auto I2SAudioOutput::SetInUse(bool in_use) -> void {
+  if (in_use) {
+    dac_->Start();
+  } else {
+    dac_->Stop();
+  }
+  pots_->SetZeroCrossDetect(in_use);
 }
 
 auto I2SAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
@@ -124,6 +132,19 @@ auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
   ESP_LOGI(kTag, "incoming audio stream: %u bpp @ %lu Hz", pcm.bits_per_sample,
            pcm.sample_rate);
 
+  drivers::I2SDac::Channels ch;
+  switch (pcm.channels) {
+    case 1:
+      ch = drivers::I2SDac::CHANNELS_MONO;
+      break;
+    case 2:
+      ch = drivers::I2SDac::CHANNELS_STEREO;
+      break;
+    default:
+      ESP_LOGE(kTag, "dropping stream with out of bounds channels");
+      return false;
+  }
+
   drivers::I2SDac::BitsPerSample bps;
   switch (pcm.bits_per_sample) {
     case 16:
@@ -153,9 +174,7 @@ auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
       return false;
   }
 
-  // TODO(jacqueline): probs do something with the channel hey
-
-  dac_->Reconfigure(bps, sample_rate);
+  dac_->Reconfigure(ch, bps, sample_rate);
   current_config_ = pcm;
 
   return true;

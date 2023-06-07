@@ -116,24 +116,30 @@ auto I2SDac::Stop() -> void {
   i2s_active_ = false;
 }
 
-auto I2SDac::Reconfigure(BitsPerSample bps, SampleRate rate) -> void {
+auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
+    -> void {
   if (i2s_active_) {
     i2s_channel_disable(i2s_handle_);
   }
 
-  uint8_t bps_bits = 0;
+  switch (ch) {
+    case CHANNELS_MONO:
+      slot_config_.slot_mode = I2S_SLOT_MODE_MONO;
+      break;
+    case CHANNELS_STEREO:
+      slot_config_.slot_mode = I2S_SLOT_MODE_STEREO;
+      break;
+  }
+
   switch (bps) {
     case BPS_16:
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_16BIT;
-      bps_bits = 0;
       break;
     case BPS_24:
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_24BIT;
-      bps_bits = 0b10;
       break;
     case BPS_32:
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_32BIT;
-      bps_bits = 0b11;
       break;
   }
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_));
