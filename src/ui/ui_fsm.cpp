@@ -5,6 +5,8 @@
  */
 
 #include "ui_fsm.hpp"
+#include <memory>
+#include "core/lv_obj.h"
 #include "display.hpp"
 #include "lvgl_task.hpp"
 #include "relative_wheel.hpp"
@@ -17,32 +19,46 @@
 namespace ui {
 
 drivers::GpioExpander* UiState::sGpioExpander;
-std::weak_ptr<drivers::RelativeWheel> UiState::sTouchWheel;
-std::weak_ptr<drivers::Display> UiState::sDisplay;
+std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
+std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
+std::shared_ptr<drivers::Display> UiState::sDisplay;
 
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 
-auto UiState::Init(drivers::GpioExpander* gpio_expander,
-                   const std::weak_ptr<drivers::RelativeWheel>& touchwheel,
-                   const std::weak_ptr<drivers::Display>& display) -> void {
-  assert(!touchwheel.expired());
-  assert(!display.expired());
+auto UiState::Init(drivers::GpioExpander* gpio_expander) -> bool {
   sGpioExpander = gpio_expander;
-  sTouchWheel = touchwheel;
-  sDisplay = display;
+
+  lv_init();
+  sDisplay.reset(
+      drivers::Display::Create(gpio_expander, drivers::displays::kST7735R));
+  if (sDisplay == nullptr) {
+    return false;
+  }
+
+  sTouchWheel.reset(drivers::TouchWheel::Create());
+  if (sTouchWheel != nullptr) {
+    sRelativeWheel.reset(new drivers::RelativeWheel(sTouchWheel.get()));
+  }
 
   sCurrentScreen.reset(new screens::Splash());
 
-  StartLvgl(sTouchWheel, sDisplay);
+  // Start the UI task even if init ultimately failed, so that we can show some
+  // kind of error screen to the user.
+  StartLvgl(sRelativeWheel, sDisplay);
+
+  if (sTouchWheel == nullptr) {
+    return false;
+  }
+  return true;
 }
 
 namespace states {
 
-void PreBoot::react(const system_fsm::DisplayReady& ev) {
-  transit<Splash>();
+void Splash::exit() {
+  if (sDisplay != nullptr) {
+    sDisplay->SetDisplayOn(true);
+  }
 }
-
-void Splash::entry() {}
 
 void Splash::react(const system_fsm::BootComplete& ev) {
   transit<Interactive>();
@@ -55,4 +71,4 @@ void Interactive::entry() {
 }  // namespace states
 }  // namespace ui
 
-FSM_INITIAL_STATE(ui::UiState, ui::states::PreBoot)
+FSM_INITIAL_STATE(ui::UiState, ui::states::Splash)

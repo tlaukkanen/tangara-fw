@@ -21,9 +21,7 @@ namespace ui {
 
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
-  static auto Init(drivers::GpioExpander* gpio_expander,
-                   const std::weak_ptr<drivers::RelativeWheel>& touchwheel,
-                   const std::weak_ptr<drivers::Display>& display) -> void;
+  static auto Init(drivers::GpioExpander* gpio_expander) -> bool;
 
   virtual ~UiState() {}
 
@@ -42,23 +40,18 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
  protected:
   static drivers::GpioExpander* sGpioExpander;
-  static std::weak_ptr<drivers::RelativeWheel> sTouchWheel;
-  static std::weak_ptr<drivers::Display> sDisplay;
+  static std::shared_ptr<drivers::TouchWheel> sTouchWheel;
+  static std::shared_ptr<drivers::RelativeWheel> sRelativeWheel;
+  static std::shared_ptr<drivers::Display> sDisplay;
 
   static std::shared_ptr<Screen> sCurrentScreen;
 };
 
 namespace states {
 
-class PreBoot : public UiState {
- public:
-  void react(const system_fsm::DisplayReady&) override;
-  using UiState::react;
-};
-
 class Splash : public UiState {
  public:
-  void entry() override;
+  void exit() override;
   void react(const system_fsm::BootComplete&) override;
   using UiState::react;
 };

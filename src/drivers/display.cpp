@@ -123,8 +123,10 @@ auto Display::Create(GpioExpander* expander,
                                     .hpoint = 0};
   ESP_ERROR_CHECK(ledc_channel_config(&led_channel));
 
-  ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 4096));
+  ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0));
   ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+
+  ledc_fade_func_install(0);
 
   // Next, init the SPI device
   spi_device_interface_config_t spi_cfg = {
@@ -180,9 +182,21 @@ auto Display::Create(GpioExpander* expander,
 Display::Display(GpioExpander* gpio, spi_device_handle_t handle)
     : gpio_(gpio),
       handle_(handle),
-      worker_task_(tasks::Worker::Start<tasks::Type::kUiFlush>()) {}
+      worker_task_(tasks::Worker::Start<tasks::Type::kUiFlush>()),
+      display_on_(false),
+      brightness_(4096) {}
 
-Display::~Display() {}
+Display::~Display() {
+  ledc_fade_func_uninstall();
+}
+
+auto Display::SetDisplayOn(bool enabled) -> void {
+  display_on_ = enabled;
+
+  int new_duty = display_on_ ? brightness_ : 0;
+  ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 250);
+  ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
+}
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
   // Hold onto the bus for the entire sequence so that we're not interrupted

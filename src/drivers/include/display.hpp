@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <memory>
 
@@ -35,6 +36,8 @@ class Display {
   Display(GpioExpander* gpio, spi_device_handle_t handle);
   ~Display();
 
+  auto SetDisplayOn(bool) -> void;
+
   /* Driver callback invoked by LVGL when there is new data to display. */
   void OnLvglFlush(lv_disp_drv_t* disp_drv,
                    const lv_area_t* area,
@@ -45,6 +48,9 @@ class Display {
   spi_device_handle_t handle_;
 
   std::unique_ptr<tasks::Worker> worker_task_;
+
+  bool display_on_;
+  uint32_t brightness_;
 
   lv_disp_draw_buf_t buffers_;
   lv_disp_drv_t driver_;

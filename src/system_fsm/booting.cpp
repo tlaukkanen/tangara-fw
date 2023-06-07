@@ -31,7 +31,7 @@ console::AppConsole* Booting::sAppConsole;
 
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
-  ESP_LOGI(kTag, "installing bare minimum drivers");
+  ESP_LOGI(kTag, "installing early drivers");
 
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
@@ -44,39 +44,28 @@ auto Booting::entry() -> void {
   assert(sGpioExpander != nullptr);
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
-  ESP_LOGI(kTag, "installing ui drivers");
-  lv_init();
-  sDisplay.reset(drivers::Display::Create(sGpioExpander.get(),
-                                          drivers::displays::kST7735R));
-  assert(sDisplay != nullptr);
-  sTouch.reset(drivers::TouchWheel::Create());
-  if (sTouch != nullptr) {
-    sRelativeTouch.reset(new drivers::RelativeWheel(sTouch.get()));
-  }
-
-  // The UI FSM now has everything it needs to start setting up. Do this now,
-  // so that we can properly show the user any errors that appear later.
-  ui::UiState::Init(sGpioExpander.get(), sRelativeTouch, sDisplay);
-  events::Dispatch<DisplayReady, ui::UiState>(DisplayReady());
-
-  // These drivers are required for normal operation, but aren't critical for
-  // booting. We will transition to the error state if these aren't present.
-  ESP_LOGI(kTag, "installing required drivers");
-  sSamd.reset(drivers::Samd::Create());
-
-  if (!sSamd || !sRelativeTouch) {
+  ESP_LOGI(kTag, "starting ui");
+  if (!ui::UiState::Init(sGpioExpander.get())) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
   }
 
-  // These drivers are initialised on boot, but are recoverable (if weird) if
-  // they fail.
-  ESP_LOGI(kTag, "installing optional drivers");
+  // Install everything else that is certain to be needed.
+  ESP_LOGI(kTag, "installing remaining drivers");
+  sSamd.reset(drivers::Samd::Create());
   sBattery.reset(drivers::Battery::Create());
 
-  // All drivers are now loaded, so we can finish initing the other state
-  // machines.
+  if (!sSamd || !sBattery) {
+    events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
+        FatalError());
+    return;
+  }
+
+  // At this point we've done all of the essential boot tasks. Start remaining
+  // state machines and inform them that the system is ready.
+
+  ESP_LOGI(kTag, "starting audio");
   if (!audio::AudioState::Init(sGpioExpander.get(), sDatabase)) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
