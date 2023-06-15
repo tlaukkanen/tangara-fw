@@ -8,20 +8,20 @@
 
 #include <string>
 
-#include "song.hpp"
+#include "track.hpp"
 
 namespace database {
 
 class ITagParser {
  public:
   virtual ~ITagParser() {}
-  virtual auto ReadAndParseTags(const std::string& path, SongTags* out)
+  virtual auto ReadAndParseTags(const std::string& path, TrackTags* out)
       -> bool = 0;
 };
 
 class TagParserImpl : public ITagParser {
  public:
-  virtual auto ReadAndParseTags(const std::string& path, SongTags* out)
+  virtual auto ReadAndParseTags(const std::string& path, TrackTags* out)
       -> bool override;
 };
 

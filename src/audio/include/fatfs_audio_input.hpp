@@ -18,8 +18,8 @@
 #include "ff.h"
 #include "freertos/message_buffer.h"
 #include "freertos/queue.h"
-#include "song.hpp"
 #include "span.hpp"
+#include "track.hpp"
 
 #include "audio_element.hpp"
 #include "stream_buffer.hpp"

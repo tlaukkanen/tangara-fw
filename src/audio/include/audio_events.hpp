@@ -10,7 +10,7 @@
 
 #include "tinyfsm.hpp"
 
-#include "song.hpp"
+#include "track.hpp"
 
 namespace audio {
 
@@ -18,10 +18,10 @@ struct PlayFile : tinyfsm::Event {
   std::string filename;
 };
 
-struct PlaySong : tinyfsm::Event {
-  database::SongId id;
-  std::optional<database::SongData> data;
-  std::optional<database::SongTags> tags;
+struct PlayTrack : tinyfsm::Event {
+  database::TrackId id;
+  std::optional<database::TrackData> data;
+  std::optional<database::TrackTags> tags;
 };
 
 struct InputFileFinished : tinyfsm::Event {};

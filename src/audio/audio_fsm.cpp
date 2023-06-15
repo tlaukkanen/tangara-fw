@@ -28,7 +28,7 @@ std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::vector<std::unique_ptr<IAudioElement>> AudioState::sPipeline;
 
-std::deque<AudioState::EnqueuedItem> AudioState::sSongQueue;
+std::deque<AudioState::EnqueuedItem> AudioState::sTrackQueue;
 
 auto AudioState::Init(drivers::GpioExpander* gpio_expander,
                       std::weak_ptr<database::Database> database) -> bool {
@@ -83,11 +83,11 @@ void Playback::exit() {
 
 void Playback::react(const InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished file");
-  if (sSongQueue.empty()) {
+  if (sTrackQueue.empty()) {
     return;
   }
-  EnqueuedItem next_item = sSongQueue.front();
-  sSongQueue.pop_front();
+  EnqueuedItem next_item = sTrackQueue.front();
+  sTrackQueue.pop_front();
 
   if (std::holds_alternative<std::string>(next_item)) {
     sFileSource->OpenFile(std::get<std::string>(next_item));

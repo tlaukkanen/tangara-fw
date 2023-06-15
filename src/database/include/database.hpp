@@ -23,9 +23,9 @@
 #include "leveldb/slice.h"
 #include "records.hpp"
 #include "result.hpp"
-#include "song.hpp"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
+#include "track.hpp"
 
 namespace database {
 
@@ -82,7 +82,7 @@ class Database {
 
   auto Update() -> std::future<void>;
 
-  auto GetSongs(std::size_t page_size) -> std::future<Result<Song>*>;
+  auto GetTracks(std::size_t page_size) -> std::future<Result<Track>*>;
   auto GetDump(std::size_t page_size) -> std::future<Result<std::string>*>;
 
   template <typename T>
@@ -109,14 +109,14 @@ class Database {
            ITagParser* tag_parser,
            std::shared_ptr<tasks::Worker> worker);
 
-  auto dbMintNewSongId() -> SongId;
-  auto dbEntomb(SongId song, uint64_t hash) -> void;
+  auto dbMintNewTrackId() -> TrackId;
+  auto dbEntomb(TrackId track, uint64_t hash) -> void;
 
-  auto dbPutSongData(const SongData& s) -> void;
-  auto dbGetSongData(SongId id) -> std::optional<SongData>;
-  auto dbPutHash(const uint64_t& hash, SongId i) -> void;
-  auto dbGetHash(const uint64_t& hash) -> std::optional<SongId>;
-  auto dbPutSong(SongId id, const std::string& path, const uint64_t& hash)
+  auto dbPutTrackData(const TrackData& s) -> void;
+  auto dbGetTrackData(TrackId id) -> std::optional<TrackData>;
+  auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
+  auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
+  auto dbPutTrack(TrackId id, const std::string& path, const uint64_t& hash)
       -> void;
 
   template <typename T>
@@ -128,9 +128,9 @@ class Database {
 };
 
 template <>
-auto Database::ParseRecord<Song>(const leveldb::Slice& key,
-                                 const leveldb::Slice& val)
-    -> std::optional<Song>;
+auto Database::ParseRecord<Track>(const leveldb::Slice& key,
+                                  const leveldb::Slice& val)
+    -> std::optional<Track>;
 template <>
 auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
                                         const leveldb::Slice& val)

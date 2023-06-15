@@ -17,7 +17,7 @@ namespace libtags {
 struct Aux {
   FIL file;
   FILINFO info;
-  SongTags* tags;
+  TrackTags* tags;
 };
 
 static int read(Tagctx* ctx, void* buf, int cnt) {
@@ -71,7 +71,7 @@ static void toc(Tagctx* ctx, int ms, int offset) {}
 static const std::size_t kBufSize = 1024;
 static const char* kTag = "TAGS";
 
-auto TagParserImpl::ReadAndParseTags(const std::string& path, SongTags* out)
+auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     -> bool {
   libtags::Aux aux;
   aux.tags = out;

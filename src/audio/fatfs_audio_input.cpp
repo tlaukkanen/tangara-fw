@@ -24,12 +24,12 @@
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
-#include "song.hpp"
 #include "stream_buffer.hpp"
 #include "stream_event.hpp"
 #include "stream_info.hpp"
 #include "stream_message.hpp"
 #include "tag_parser.hpp"
+#include "track.hpp"
 #include "types.hpp"
 
 static const char* kTag = "SRC";
@@ -53,7 +53,7 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   database::TagParserImpl tag_parser;
-  database::SongTags tags;
+  database::TrackTags tags;
   if (!tag_parser.ReadAndParseTags(path, &tags)) {
     ESP_LOGE(kTag, "failed to read tags");
     tags.encoding = database::Encoding::kFlac;

@@ -14,7 +14,7 @@
 #include "cbor.h"
 #include "esp_log.h"
 
-#include "song.hpp"
+#include "track.hpp"
 
 namespace database {
 
@@ -60,14 +60,14 @@ auto CreateDataPrefix() -> OwningSlice {
   return OwningSlice({data, 2});
 }
 
-auto CreateDataKey(const SongId& id) -> OwningSlice {
+auto CreateDataKey(const TrackId& id) -> OwningSlice {
   std::ostringstream output;
   output.put(kDataPrefix).put(kFieldSeparator);
-  output << SongIdToBytes(id).data;
+  output << TrackIdToBytes(id).data;
   return OwningSlice(output.str());
 }
 
-auto CreateDataValue(const SongData& song) -> OwningSlice {
+auto CreateDataValue(const TrackData& track) -> OwningSlice {
   uint8_t* buf;
   std::size_t buf_len = cbor_encode(&buf, [&](CborEncoder* enc) {
     CborEncoder array_encoder;
@@ -77,28 +77,28 @@ auto CreateDataValue(const SongData& song) -> OwningSlice {
       ESP_LOGE(kTag, "encoding err %u", err);
       return;
     }
-    err = cbor_encode_int(&array_encoder, song.id());
+    err = cbor_encode_int(&array_encoder, track.id());
     if (err != CborNoError && err != CborErrorOutOfMemory) {
       ESP_LOGE(kTag, "encoding err %u", err);
       return;
     }
-    err = cbor_encode_text_string(&array_encoder, song.filepath().c_str(),
-                                  song.filepath().size());
+    err = cbor_encode_text_string(&array_encoder, track.filepath().c_str(),
+                                  track.filepath().size());
     if (err != CborNoError && err != CborErrorOutOfMemory) {
       ESP_LOGE(kTag, "encoding err %u", err);
       return;
     }
-    err = cbor_encode_uint(&array_encoder, song.tags_hash());
+    err = cbor_encode_uint(&array_encoder, track.tags_hash());
     if (err != CborNoError && err != CborErrorOutOfMemory) {
       ESP_LOGE(kTag, "encoding err %u", err);
       return;
     }
-    err = cbor_encode_int(&array_encoder, song.play_count());
+    err = cbor_encode_int(&array_encoder, track.play_count());
     if (err != CborNoError && err != CborErrorOutOfMemory) {
       ESP_LOGE(kTag, "encoding err %u", err);
       return;
     }
-    err = cbor_encode_boolean(&array_encoder, song.is_tombstoned());
+    err = cbor_encode_boolean(&array_encoder, track.is_tombstoned());
     if (err != CborNoError && err != CborErrorOutOfMemory) {
       ESP_LOGE(kTag, "encoding err %u", err);
       return;
@@ -114,7 +114,7 @@ auto CreateDataValue(const SongData& song) -> OwningSlice {
   return OwningSlice(as_str);
 }
 
-auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
+auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData> {
   CborParser parser;
   CborValue container;
   CborError err;
@@ -135,7 +135,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
   if (err != CborNoError) {
     return {};
   }
-  SongId id = raw_int;
+  TrackId id = raw_int;
   err = cbor_value_advance(&val);
   if (err != CborNoError || !cbor_value_is_text_string(&val)) {
     return {};
@@ -176,7 +176,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData> {
     return {};
   }
 
-  return SongData(id, path, hash, play_count, is_tombstoned);
+  return TrackData(id, path, hash, play_count, is_tombstoned);
 }
 
 auto CreateHashKey(const uint64_t& hash) -> OwningSlice {
@@ -193,15 +193,15 @@ auto CreateHashKey(const uint64_t& hash) -> OwningSlice {
   return OwningSlice(output.str());
 }
 
-auto ParseHashValue(const leveldb::Slice& slice) -> std::optional<SongId> {
-  return BytesToSongId(slice.ToString());
+auto ParseHashValue(const leveldb::Slice& slice) -> std::optional<TrackId> {
+  return BytesToTrackId(slice.ToString());
 }
 
-auto CreateHashValue(SongId id) -> OwningSlice {
-  return SongIdToBytes(id);
+auto CreateHashValue(TrackId id) -> OwningSlice {
+  return TrackIdToBytes(id);
 }
 
-auto SongIdToBytes(SongId id) -> OwningSlice {
+auto TrackIdToBytes(TrackId id) -> OwningSlice {
   uint8_t buf[8];
   CborEncoder enc;
   cbor_encoder_init(&enc, buf, sizeof(buf), 0);
@@ -211,7 +211,7 @@ auto SongIdToBytes(SongId id) -> OwningSlice {
   return OwningSlice(as_str);
 }
 
-auto BytesToSongId(const std::string& bytes) -> std::optional<SongId> {
+auto BytesToTrackId(const std::string& bytes) -> std::optional<TrackId> {
   CborParser parser;
   CborValue val;
   cbor_parser_init(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),

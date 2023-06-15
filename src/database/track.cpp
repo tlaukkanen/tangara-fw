@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "song.hpp"
+#include "track.hpp"
 
 #include <komihash.h>
 
@@ -19,8 +19,8 @@ auto HashString(komihash_stream_t* stream, std::string str) -> void {
  * Uses a komihash stream to incrementally hash tags. This lowers the function's
  * memory footprint a little so that it's safe to call from any stack.
  */
-auto SongTags::Hash() const -> uint64_t {
-  // TODO(jacqueline): this function doesn't work very well for songs with no
+auto TrackTags::Hash() const -> uint64_t {
+  // TODO(jacqueline): this function doesn't work very well for tracks with no
   // tags at all.
   komihash_stream_t stream;
   komihash_stream_init(&stream, 0);
@@ -30,20 +30,20 @@ auto SongTags::Hash() const -> uint64_t {
   return komihash_stream_final(&stream);
 }
 
-auto SongData::UpdateHash(uint64_t new_hash) const -> SongData {
-  return SongData(id_, filepath_, new_hash, play_count_, is_tombstoned_);
+auto TrackData::UpdateHash(uint64_t new_hash) const -> TrackData {
+  return TrackData(id_, filepath_, new_hash, play_count_, is_tombstoned_);
 }
 
-auto SongData::Entomb() const -> SongData {
-  return SongData(id_, filepath_, tags_hash_, play_count_, true);
+auto TrackData::Entomb() const -> TrackData {
+  return TrackData(id_, filepath_, tags_hash_, play_count_, true);
 }
 
-auto SongData::Exhume(const std::string& new_path) const -> SongData {
-  return SongData(id_, new_path, tags_hash_, play_count_, false);
+auto TrackData::Exhume(const std::string& new_path) const -> TrackData {
+  return TrackData(id_, new_path, tags_hash_, play_count_, false);
 }
 
-void swap(Song& first, Song& second) {
-  Song temp = first;
+void swap(Track& first, Track& second) {
+  Track temp = first;
   first = second;
   second = temp;
 }

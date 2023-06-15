@@ -28,16 +28,16 @@
 #include "file_gatherer.hpp"
 #include "records.hpp"
 #include "result.hpp"
-#include "song.hpp"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
+#include "track.hpp"
 
 namespace database {
 
 static SingletonEnv<leveldb::EspEnv> sEnv;
 static const char* kTag = "DB";
 
-static const char kSongIdKey[] = "next_song_id";
+static const char kTrackIdKey[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
@@ -128,8 +128,8 @@ Database::~Database() {
 
 auto Database::Update() -> std::future<void> {
   return worker_task_->Dispatch<void>([&]() -> void {
-    // Stage 1: verify all existing songs are still valid.
-    ESP_LOGI(kTag, "verifying existing songs");
+    // Stage 1: verify all existing tracks are still valid.
+    ESP_LOGI(kTag, "verifying existing tracks");
     const leveldb::Snapshot* snapshot = db_->GetSnapshot();
     leveldb::ReadOptions read_options;
     read_options.fill_cache = false;
@@ -138,8 +138,8 @@ auto Database::Update() -> std::future<void> {
     OwningSlice prefix = CreateDataPrefix();
     it->Seek(prefix.slice);
     while (it->Valid() && it->key().starts_with(prefix.slice)) {
-      std::optional<SongData> song = ParseDataValue(it->value());
-      if (!song) {
+      std::optional<TrackData> track = ParseDataValue(it->value());
+      if (!track) {
         // The value was malformed. Drop this record.
         ESP_LOGW(kTag, "dropping malformed metadata");
         db_->Delete(leveldb::WriteOptions(), it->key());
@@ -147,33 +147,33 @@ auto Database::Update() -> std::future<void> {
         continue;
       }
 
-      if (song->is_tombstoned()) {
-        ESP_LOGW(kTag, "skipping tombstoned %lx", song->id());
+      if (track->is_tombstoned()) {
+        ESP_LOGW(kTag, "skipping tombstoned %lx", track->id());
         it->Next();
         continue;
       }
 
-      SongTags tags;
-      if (!tag_parser_->ReadAndParseTags(song->filepath(), &tags) ||
+      TrackTags tags;
+      if (!tag_parser_->ReadAndParseTags(track->filepath(), &tags) ||
           tags.encoding == Encoding::kUnsupported) {
-        // We couldn't read the tags for this song. Either they were
+        // We couldn't read the tags for this track. Either they were
         // malformed, or perhaps the file is missing. Either way, tombstone
         // this record.
-        ESP_LOGW(kTag, "entombing missing #%lx", song->id());
-        dbPutSongData(song->Entomb());
+        ESP_LOGW(kTag, "entombing missing #%lx", track->id());
+        dbPutTrackData(track->Entomb());
         it->Next();
         continue;
       }
 
       uint64_t new_hash = tags.Hash();
-      if (new_hash != song->tags_hash()) {
-        // This song's tags have changed. Since the filepath is exactly the
+      if (new_hash != track->tags_hash()) {
+        // This track's tags have changed. Since the filepath is exactly the
         // same, we assume this is a legitimate correction. Update the
         // database.
-        ESP_LOGI(kTag, "updating hash (%llx -> %llx)", song->tags_hash(),
+        ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash(),
                  new_hash);
-        dbPutSongData(song->UpdateHash(new_hash));
-        dbPutHash(new_hash, song->id());
+        dbPutTrackData(track->UpdateHash(new_hash));
+        dbPutHash(new_hash, track->id());
       }
 
       it->Next();
@@ -182,9 +182,9 @@ auto Database::Update() -> std::future<void> {
     db_->ReleaseSnapshot(snapshot);
 
     // Stage 2: search for newly added files.
-    ESP_LOGI(kTag, "scanning for new songs");
+    ESP_LOGI(kTag, "scanning for new tracks");
     file_gatherer_->FindFiles("", [&](const std::string& path) {
-      SongTags tags;
+      TrackTags tags;
       if (!tag_parser_->ReadAndParseTags(path, &tags) ||
           tags.encoding == Encoding::kUnsupported) {
         // No parseable tags; skip this fiile.
@@ -194,32 +194,32 @@ auto Database::Update() -> std::future<void> {
       // Check for any existing record with the same hash.
       uint64_t hash = tags.Hash();
       OwningSlice key = CreateHashKey(hash);
-      std::optional<SongId> existing_hash;
+      std::optional<TrackId> existing_hash;
       std::string raw_entry;
       if (db_->Get(leveldb::ReadOptions(), key.slice, &raw_entry).ok()) {
         existing_hash = ParseHashValue(raw_entry);
       }
 
       if (!existing_hash) {
-        // We've never met this song before! Or we have, but the entry is
-        // malformed. Either way, record this as a new song.
-        SongId id = dbMintNewSongId();
+        // We've never met this track before! Or we have, but the entry is
+        // malformed. Either way, record this as a new track.
+        TrackId id = dbMintNewTrackId();
         ESP_LOGI(kTag, "recording new 0x%lx", id);
-        dbPutSong(id, path, hash);
+        dbPutTrack(id, path, hash);
         return;
       }
 
-      std::optional<SongData> existing_data = dbGetSongData(*existing_hash);
+      std::optional<TrackData> existing_data = dbGetTrackData(*existing_hash);
       if (!existing_data) {
         // We found a hash that matches, but there's no data record? Weird.
-        SongData new_data(*existing_hash, path, hash);
-        dbPutSongData(new_data);
+        TrackData new_data(*existing_hash, path, hash);
+        dbPutTrackData(new_data);
         return;
       }
 
       if (existing_data->is_tombstoned()) {
-        ESP_LOGI(kTag, "exhuming song %lu", existing_data->id());
-        dbPutSongData(existing_data->Exhume(path));
+        ESP_LOGI(kTag, "exhuming track %lu", existing_data->id());
+        dbPutTrackData(existing_data->Exhume(path));
       } else if (existing_data->filepath() != path) {
         ESP_LOGW(kTag, "tag hash collision");
       }
@@ -227,14 +227,14 @@ auto Database::Update() -> std::future<void> {
   });
 }
 
-auto Database::GetSongs(std::size_t page_size) -> std::future<Result<Song>*> {
-  return worker_task_->Dispatch<Result<Song>*>([=, this]() -> Result<Song>* {
-    Continuation<Song> c{.iterator = nullptr,
-                         .prefix = CreateDataPrefix().data,
-                         .start_key = CreateDataPrefix().data,
-                         .forward = true,
-                         .was_prev_forward = true,
-                         .page_size = page_size};
+auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
+  return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
+    Continuation<Track> c{.iterator = nullptr,
+                          .prefix = CreateDataPrefix().data,
+                          .start_key = CreateDataPrefix().data,
+                          .forward = true,
+                          .was_prev_forward = true,
+                          .page_size = page_size};
     return dbGetPage(c);
   });
 }
@@ -260,32 +260,32 @@ auto Database::GetPage(Continuation<T>* c) -> std::future<Result<T>*> {
       [=, this]() -> Result<T>* { return dbGetPage(copy); });
 }
 
-template auto Database::GetPage<Song>(Continuation<Song>* c)
-    -> std::future<Result<Song>*>;
+template auto Database::GetPage<Track>(Continuation<Track>* c)
+    -> std::future<Result<Track>*>;
 template auto Database::GetPage<std::string>(Continuation<std::string>* c)
     -> std::future<Result<std::string>*>;
 
-auto Database::dbMintNewSongId() -> SongId {
-  SongId next_id = 1;
+auto Database::dbMintNewTrackId() -> TrackId {
+  TrackId next_id = 1;
   std::string val;
-  auto status = db_->Get(leveldb::ReadOptions(), kSongIdKey, &val);
+  auto status = db_->Get(leveldb::ReadOptions(), kTrackIdKey, &val);
   if (status.ok()) {
-    next_id = BytesToSongId(val).value_or(next_id);
+    next_id = BytesToTrackId(val).value_or(next_id);
   } else if (!status.IsNotFound()) {
     // TODO(jacqueline): Handle this more.
-    ESP_LOGE(kTag, "failed to get next song id");
+    ESP_LOGE(kTag, "failed to get next track id");
   }
 
-  if (!db_->Put(leveldb::WriteOptions(), kSongIdKey,
-                SongIdToBytes(next_id + 1).slice)
+  if (!db_->Put(leveldb::WriteOptions(), kTrackIdKey,
+                TrackIdToBytes(next_id + 1).slice)
            .ok()) {
-    ESP_LOGE(kTag, "failed to write next song id");
+    ESP_LOGE(kTag, "failed to write next track id");
   }
 
   return next_id;
 }
 
-auto Database::dbEntomb(SongId id, uint64_t hash) -> void {
+auto Database::dbEntomb(TrackId id, uint64_t hash) -> void {
   OwningSlice key = CreateHashKey(hash);
   OwningSlice val = CreateHashValue(id);
   if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
@@ -293,7 +293,7 @@ auto Database::dbEntomb(SongId id, uint64_t hash) -> void {
   }
 }
 
-auto Database::dbPutSongData(const SongData& s) -> void {
+auto Database::dbPutTrackData(const TrackData& s) -> void {
   OwningSlice key = CreateDataKey(s.id());
   OwningSlice val = CreateDataValue(s);
   if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
@@ -301,7 +301,7 @@ auto Database::dbPutSongData(const SongData& s) -> void {
   }
 }
 
-auto Database::dbGetSongData(SongId id) -> std::optional<SongData> {
+auto Database::dbGetTrackData(TrackId id) -> std::optional<TrackData> {
   OwningSlice key = CreateDataKey(id);
   std::string raw_val;
   if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
@@ -311,7 +311,7 @@ auto Database::dbGetSongData(SongId id) -> std::optional<SongData> {
   return ParseDataValue(raw_val);
 }
 
-auto Database::dbPutHash(const uint64_t& hash, SongId i) -> void {
+auto Database::dbPutHash(const uint64_t& hash, TrackId i) -> void {
   OwningSlice key = CreateHashKey(hash);
   OwningSlice val = CreateHashValue(i);
   if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
@@ -319,7 +319,7 @@ auto Database::dbPutHash(const uint64_t& hash, SongId i) -> void {
   }
 }
 
-auto Database::dbGetHash(const uint64_t& hash) -> std::optional<SongId> {
+auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
   OwningSlice key = CreateHashKey(hash);
   std::string raw_val;
   if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
@@ -329,10 +329,10 @@ auto Database::dbGetHash(const uint64_t& hash) -> std::optional<SongId> {
   return ParseHashValue(raw_val);
 }
 
-auto Database::dbPutSong(SongId id,
-                         const std::string& path,
-                         const uint64_t& hash) -> void {
-  dbPutSongData(SongData(id, path, hash));
+auto Database::dbPutTrack(TrackId id,
+                          const std::string& path,
+                          const uint64_t& hash) -> void {
+  dbPutTrackData(TrackData(id, path, hash));
   dbPutHash(hash, id);
 }
 
@@ -455,24 +455,24 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   return new Result<T>(std::move(records), next_page, prev_page);
 }
 
-template auto Database::dbGetPage<Song>(const Continuation<Song>& c)
-    -> Result<Song>*;
+template auto Database::dbGetPage<Track>(const Continuation<Track>& c)
+    -> Result<Track>*;
 template auto Database::dbGetPage<std::string>(
     const Continuation<std::string>& c) -> Result<std::string>*;
 
 template <>
-auto Database::ParseRecord<Song>(const leveldb::Slice& key,
-                                 const leveldb::Slice& val)
-    -> std::optional<Song> {
-  std::optional<SongData> data = ParseDataValue(val);
+auto Database::ParseRecord<Track>(const leveldb::Slice& key,
+                                  const leveldb::Slice& val)
+    -> std::optional<Track> {
+  std::optional<TrackData> data = ParseDataValue(val);
   if (!data || data->is_tombstoned()) {
     return {};
   }
-  SongTags tags;
+  TrackTags tags;
   if (!tag_parser_->ReadAndParseTags(data->filepath(), &tags)) {
     return {};
   }
-  return Song(*data, tags);
+  return Track(*data, tags);
 }
 
 template <>

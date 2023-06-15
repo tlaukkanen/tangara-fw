@@ -45,7 +45,7 @@ namespace task {
 static const char* kTag = "task";
 
 // The default amount of time to wait between pipeline iterations for a single
-// song.
+// track.
 static constexpr uint_fast16_t kDefaultDelayTicks = pdMS_TO_TICKS(5);
 static constexpr uint_fast16_t kMaxDelayTicks = pdMS_TO_TICKS(10);
 static constexpr uint_fast16_t kMinDelayTicks = pdMS_TO_TICKS(1);
@@ -54,7 +54,7 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
   // The stream format for bytes currently in the sink buffer.
   std::optional<StreamInfo::Format> output_format;
 
-  // How long to wait between pipeline iterations. This is reset for each song,
+  // How long to wait between pipeline iterations. This is reset for each track,
   // and readjusted on the fly to maintain a reasonable amount playback buffer.
   // Buffering too much will mean we process samples inefficiently, wasting CPU
   // time, whilst buffering too little will affect the quality of the output.
