@@ -126,7 +126,7 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
 
     if (sink_stream.info().bytes_in_stream == 0) {
       // No new bytes to sink, so skip sinking completely.
-      ESP_LOGI(kTag, "no bytes to sink");
+      ESP_LOGW(kTag, "no bytes to sink");
       continue;
     }
 

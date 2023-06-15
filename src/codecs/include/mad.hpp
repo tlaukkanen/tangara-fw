@@ -24,12 +24,22 @@ class MadMp3Decoder : public ICodec {
   MadMp3Decoder();
   ~MadMp3Decoder();
 
-  auto GetOutputFormat() -> std::optional<OutputFormat> override;
-  auto SetInput(cpp::span<const std::byte> input) -> void override;
-  auto GetInputPosition() -> std::size_t override;
-  auto ProcessNextFrame() -> cpp::result<bool, ProcessingError> override;
-  auto WriteOutputSamples(cpp::span<std::byte> output)
-      -> std::pair<std::size_t, bool> override;
+  /*
+   * Returns the output format for the next frame in the stream. MP3 streams
+   * may represent multiple distinct tracks, with different bitrates, and so we
+   * handle the stream only on a frame-by-frame basis.
+   */
+  auto BeginStream(cpp::span<const std::byte>) -> Result<OutputFormat> override;
+
+  /*
+   * Writes samples for the current frame.
+   */
+  auto ContinueStream(cpp::span<const std::byte> input,
+                      cpp::span<std::byte> output)
+      -> Result<OutputInfo> override;
+
+  auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
+      -> Result<void> override;
 
  private:
   mad_stream stream_;
@@ -37,6 +47,8 @@ class MadMp3Decoder : public ICodec {
   mad_synth synth_;
 
   int current_sample_;
+
+  auto GetInputPosition() -> std::size_t;
 };
 
 }  // namespace codecs

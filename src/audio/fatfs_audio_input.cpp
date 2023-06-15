@@ -56,11 +56,13 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   database::SongTags tags;
   if (!tag_parser.ReadAndParseTags(path, &tags)) {
     ESP_LOGE(kTag, "failed to read tags");
-    return false;
+    tags.encoding = database::Encoding::kFlac;
+    // return false;
   }
 
   auto stream_type = ContainerToStreamType(tags.encoding);
   if (!stream_type.has_value()) {
+    ESP_LOGE(kTag, "couldn't match container to stream");
     return false;
   }
 
@@ -144,8 +146,8 @@ auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
       return codecs::StreamType::kPcm;
     case database::Encoding::kFlac:
       return codecs::StreamType::kFlac;
-    case database::Encoding::kOgg:
-      return codecs::StreamType::kOgg;
+    case database::Encoding::kOgg:  // Misnamed; this is Ogg Vorbis.
+      return codecs::StreamType::kVorbis;
     case database::Encoding::kUnsupported:
     default:
       return {};

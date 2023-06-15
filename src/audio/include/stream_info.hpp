@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -29,6 +30,9 @@ struct StreamInfo {
   // file on disk). May be absent for endless streams (internet streams,
   // generated audio, etc.)
   std::optional<std::size_t> length_bytes{};
+
+  //
+  std::optional<uint32_t> seek_to_seconds{};
 
   struct Encoded {
     // The codec that this stream is associated with.

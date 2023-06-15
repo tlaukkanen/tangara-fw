@@ -96,12 +96,22 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, SongTags* out)
 
   if (res != 0) {
     // Parsing failed.
+    ESP_LOGE(kTag, "tag parsing failed, reason %d", res);
     return false;
   }
 
   switch (ctx.format) {
     case Fmp3:
       out->encoding = Encoding::kMp3;
+      break;
+    case Fogg:
+      out->encoding = Encoding::kOgg;
+      break;
+    case Fflac:
+      out->encoding = Encoding::kFlac;
+      break;
+    case Fwav:
+      out->encoding = Encoding::kWav;
       break;
     default:
       out->encoding = Encoding::kUnsupported;
