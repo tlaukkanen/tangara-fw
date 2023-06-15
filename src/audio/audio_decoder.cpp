@@ -157,16 +157,9 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
       return;
     }
 
-    ESP_LOGI(kTag, "enc read: %u", res.first);
-
     codecs::ICodec::OutputInfo out_info = res.second.value();
     output->add(out_info.bytes_written);
     has_samples_to_send_ = !out_info.is_finished_writing;
-
-    ESP_LOGI(kTag, "enc wrote: %u", out_info.bytes_written);
-    if (out_info.is_finished_writing) {
-      ESP_LOGI(kTag, "(write finished)");
-    }
 
     if (has_samples_to_send_) {
       // We weren't able to fit all the generated samples into the output
