@@ -73,6 +73,12 @@ static const char* kTag = "TAGS";
 
 auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     -> bool {
+  if (path.ends_with(".m4a")) {
+    // TODO(jacqueline): Re-enabled once libtags is fixed.
+    ESP_LOGW(kTag, "skipping m4a %s", path.c_str());
+    return false;
+  }
+
   libtags::Aux aux;
   aux.tags = out;
   if (f_stat(path.c_str(), &aux.info) != FR_OK ||

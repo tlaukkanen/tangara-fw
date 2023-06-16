@@ -36,6 +36,8 @@ enum class Type {
   kAudio,
   // Task for running database queries.
   kDatabase,
+  // Task for internal database operations
+  kDatabaseBackground,
 };
 
 template <Type t>
@@ -102,6 +104,9 @@ class Worker {
   }
 
   ~Worker();
+
+  Worker(const Worker&) = delete;
+  Worker& operator=(const Worker&) = delete;
 };
 
 /* Specialisation of Evaluate for functions that return nothing. */

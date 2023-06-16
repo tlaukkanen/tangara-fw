@@ -27,8 +27,6 @@ namespace states {
 
 static const char kTag[] = "BOOT";
 
-console::AppConsole* Booting::sAppConsole;
-
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
   ESP_LOGI(kTag, "installing early drivers");
@@ -78,7 +76,7 @@ auto Booting::entry() -> void {
 
 auto Booting::exit() -> void {
   // TODO(jacqueline): Gate this on something. Debug flag? Flashing mode?
-  sAppConsole = new console::AppConsole(sDatabase);
+  sAppConsole = new console::AppConsole();
   sAppConsole->Launch();
 }
 

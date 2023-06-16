@@ -17,6 +17,7 @@
 
 #include "esp_log.h"
 #include "ff.h"
+#include "freertos/projdefs.h"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
@@ -68,12 +69,13 @@ auto Database::Open(IFileGatherer* gatherer, ITagParser* parser)
     return cpp::fail(DatabaseError::ALREADY_OPEN);
   }
 
+  leveldb::sBackgroundThread.reset(
+      tasks::Worker::Start<tasks::Type::kDatabaseBackground>());
   std::shared_ptr<tasks::Worker> worker(
       tasks::Worker::Start<tasks::Type::kDatabase>());
-  leveldb::sBackgroundThread = std::weak_ptr<tasks::Worker>(worker);
   return worker
       ->Dispatch<cpp::result<Database*, DatabaseError>>(
-          [&]() -> cpp::result<Database*, DatabaseError> {
+          [=]() -> cpp::result<Database*, DatabaseError> {
             leveldb::DB* db;
             leveldb::Cache* cache = leveldb::NewLRUCache(24 * 1024);
             leveldb::Options options;
@@ -121,7 +123,7 @@ Database::~Database() {
   delete db_;
   delete cache_;
 
-  leveldb::sBackgroundThread = std::weak_ptr<tasks::Worker>();
+  leveldb::sBackgroundThread.reset();
 
   sIsDbOpen.store(false);
 }

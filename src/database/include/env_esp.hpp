@@ -18,7 +18,7 @@
 
 namespace leveldb {
 
-extern std::weak_ptr<tasks::Worker> sBackgroundThread;
+extern std::shared_ptr<tasks::Worker> sBackgroundThread;
 
 // Tracks the files locked by EspEnv::LockFile().
 //

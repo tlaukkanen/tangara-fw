@@ -56,6 +56,8 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;
   static std::shared_ptr<database::Database> sDatabase;
+
+  static console::AppConsole* sAppConsole;
 };
 
 namespace states {
@@ -65,9 +67,6 @@ namespace states {
  * looks good.
  */
 class Booting : public SystemState {
- private:
-  static console::AppConsole* sAppConsole;
-
  public:
   void entry() override;
   void exit() override;

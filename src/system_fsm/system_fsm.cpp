@@ -20,6 +20,8 @@ std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
 std::shared_ptr<drivers::Display> SystemState::sDisplay;
 std::shared_ptr<database::Database> SystemState::sDatabase;
 
+console::AppConsole* SystemState::sAppConsole;
+
 void SystemState::react(const FatalError& err) {
   if (!is_in_state<states::Error>()) {
     transit<states::Error>();
