@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <memory>
+
+#include "database.hpp"
 #include "tinyfsm.hpp"
 
 namespace system_fsm {
@@ -38,7 +41,9 @@ struct StorageUnmountRequested : tinyfsm::Event {};
 /*
  * Sent by SysState when the system storage has been successfully mounted.
  */
-struct StorageMounted : tinyfsm::Event {};
+struct StorageMounted : tinyfsm::Event {
+  std::weak_ptr<database::Database> db;
+};
 
 struct StorageError : tinyfsm::Event {};
 

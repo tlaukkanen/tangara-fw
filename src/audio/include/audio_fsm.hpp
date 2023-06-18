@@ -38,10 +38,13 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  void react(const system_fsm::StorageMounted&);
+
   virtual void react(const system_fsm::BootComplete&) {}
   virtual void react(const PlayTrack&) {}
   virtual void react(const PlayFile&) {}
 
+  virtual void react(const InputFileOpened&) {}
   virtual void react(const InputFileFinished&) {}
   virtual void react(const AudioPipelineIdle&) {}
 
@@ -69,8 +72,10 @@ class Uninitialised : public AudioState {
 
 class Standby : public AudioState {
  public:
-  void react(const PlayTrack&) override {}
+  void react(const InputFileOpened&) override;
+  void react(const PlayTrack&) override;
   void react(const PlayFile&) override;
+
   using AudioState::react;
 };
 
@@ -79,6 +84,10 @@ class Playback : public AudioState {
   void entry() override;
   void exit() override;
 
+  void react(const PlayTrack&) override;
+  void react(const PlayFile&) override;
+
+  void react(const InputFileOpened&) override;
   void react(const InputFileFinished&) override;
   void react(const AudioPipelineIdle&) override;
 

@@ -82,6 +82,8 @@ class Database {
 
   auto Update() -> std::future<void>;
 
+  auto GetTrackPath(TrackId id) -> std::future<std::optional<std::string>>;
+
   auto GetTracks(std::size_t page_size) -> std::future<Result<Track>*>;
   auto GetDump(std::size_t page_size) -> std::future<Result<std::string>*>;
 

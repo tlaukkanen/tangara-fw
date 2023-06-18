@@ -21,9 +21,9 @@ struct PlayFile : tinyfsm::Event {
 struct PlayTrack : tinyfsm::Event {
   database::TrackId id;
   std::optional<database::TrackData> data;
-  std::optional<database::TrackTags> tags;
 };
 
+struct InputFileOpened : tinyfsm::Event {};
 struct InputFileFinished : tinyfsm::Event {};
 struct AudioPipelineIdle : tinyfsm::Event {};
 

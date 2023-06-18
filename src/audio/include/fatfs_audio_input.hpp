@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@ class FatfsAudioInput : public IAudioElement {
   FatfsAudioInput();
   ~FatfsAudioInput();
 
+  auto OpenFile(std::future<std::optional<std::string>>&& path) -> void;
   auto OpenFile(const std::string& path) -> bool;
 
   auto NeedsToProcess() const -> bool override;
@@ -47,6 +49,7 @@ class FatfsAudioInput : public IAudioElement {
   auto ContainerToStreamType(database::Encoding)
       -> std::optional<codecs::StreamType>;
 
+  std::optional<std::future<std::optional<std::string>>> pending_path_;
   FIL current_file_;
   bool is_file_open_;
 

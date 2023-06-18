@@ -5,6 +5,7 @@
  */
 
 #include "audio_fsm.hpp"
+#include <future>
 #include <memory>
 #include <variant>
 #include "audio_decoder.hpp"
@@ -14,6 +15,7 @@
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
 #include "pipeline.hpp"
+#include "track.hpp"
 
 namespace audio {
 
@@ -59,16 +61,36 @@ auto AudioState::Init(drivers::GpioExpander* gpio_expander,
   return true;
 }
 
+void AudioState::react(const system_fsm::StorageMounted& ev) {
+  sDatabase = ev.db;
+}
+
 namespace states {
 
 void Uninitialised::react(const system_fsm::BootComplete&) {
   transit<Standby>();
 }
 
-void Standby::react(const PlayFile& ev) {
-  if (sFileSource->OpenFile(ev.filename)) {
-    transit<Playback>();
+void Standby::react(const InputFileOpened& ev) {
+  transit<Playback>();
+}
+
+void Standby::react(const PlayTrack& ev) {
+  auto db = sDatabase.lock();
+  if (!db) {
+    ESP_LOGW(kTag, "database not open; ignoring play request");
+    return;
   }
+
+  if (ev.data) {
+    sFileSource->OpenFile(ev.data->filepath());
+  } else {
+    sFileSource->OpenFile(db->GetTrackPath(ev.id));
+  }
+}
+
+void Standby::react(const PlayFile& ev) {
+  sFileSource->OpenFile(ev.filename);
 }
 
 void Playback::entry() {
@@ -81,6 +103,16 @@ void Playback::exit() {
   sI2SOutput->SetInUse(false);
 }
 
+void Playback::react(const PlayTrack& ev) {
+  sTrackQueue.push_back(EnqueuedItem(ev.id));
+}
+
+void Playback::react(const PlayFile& ev) {
+  sTrackQueue.push_back(EnqueuedItem(ev.filename));
+}
+
+void Playback::react(const InputFileOpened& ev) {}
+
 void Playback::react(const InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished file");
   if (sTrackQueue.empty()) {
@@ -91,6 +123,14 @@ void Playback::react(const InputFileFinished& ev) {
 
   if (std::holds_alternative<std::string>(next_item)) {
     sFileSource->OpenFile(std::get<std::string>(next_item));
+  } else if (std::holds_alternative<database::TrackId>(next_item)) {
+    auto db = sDatabase.lock();
+    if (!db) {
+      ESP_LOGW(kTag, "database not open; ignoring play request");
+      return;
+    }
+    sFileSource->OpenFile(
+        db->GetTrackPath(std::get<database::TrackId>(next_item)));
   }
 }
 

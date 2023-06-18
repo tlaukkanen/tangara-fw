@@ -50,7 +50,7 @@ void Running::entry() {
 
   ESP_LOGI(kTag, "storage loaded okay");
   events::Dispatch<StorageMounted, SystemState, audio::AudioState, ui::UiState>(
-      StorageMounted());
+      StorageMounted{.db = sDatabase});
 }
 
 void Running::exit() {

@@ -229,6 +229,18 @@ auto Database::Update() -> std::future<void> {
   });
 }
 
+auto Database::GetTrackPath(TrackId id)
+    -> std::future<std::optional<std::string>> {
+  return worker_task_->Dispatch<std::optional<std::string>>(
+      [=, this]() -> std::optional<std::string> {
+        auto track_data = dbGetTrackData(id);
+        if (track_data) {
+          return track_data->filepath();
+        }
+        return {};
+      });
+}
+
 auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
   return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
     Continuation<Track> c{.iterator = nullptr,

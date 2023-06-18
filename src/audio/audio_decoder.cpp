@@ -89,9 +89,11 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
   // Check the input stream's format has changed (or, by extension, if this is
   // the first stream).
   if (!current_input_format_ || *current_input_format_ != info.format) {
-    ESP_LOGI(kTag, "beginning new stream");
     has_samples_to_send_ = false;
-    ProcessStreamInfo(info);
+    if (!ProcessStreamInfo(info)) {
+      return;
+    }
+    ESP_LOGI(kTag, "beginning new stream");
     auto res = current_codec_->BeginStream(input->data());
     input->consume(res.first);
     if (res.second.has_error()) {
