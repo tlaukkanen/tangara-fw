@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include "audio_events.hpp"
@@ -27,12 +28,6 @@ namespace console {
 std::weak_ptr<database::Database> AppConsole::sDatabase;
 
 int CmdListDir(int argc, char** argv) {
-  static const std::string usage = "usage: ls [directory]";
-  if (argc > 2) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
   auto lock = AppConsole::sDatabase.lock();
   if (lock == nullptr) {
     std::cout << "storage is not available" << std::endl;
@@ -40,8 +35,13 @@ int CmdListDir(int argc, char** argv) {
   }
 
   std::string path;
-  if (argc == 2) {
-    path = argv[1];
+  if (argc > 1) {
+    std::ostringstream builder;
+    builder << argv[1];
+    for (int i = 2; i < argc; i++) {
+      builder << ' ' << argv[i];
+    }
+    path = builder.str();
   } else {
     path = "";
   }
@@ -89,15 +89,19 @@ void RegisterListDir() {
 // sInstance->playback_->Play(path + argv[1]);
 int CmdPlayFile(int argc, char** argv) {
   static const std::string usage = "usage: play [file]";
-  if (argc != 2) {
+  if (argc < 2) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  std::string path = "/";
+  std::ostringstream path;
+  path << '/' << argv[1];
+  for (int i = 2; i < argc; i++) {
+    path << ' ' << argv[i];
+  }
 
   events::Dispatch<audio::PlayFile, audio::AudioState>(
-      audio::PlayFile{.filename = path + argv[1]});
+      audio::PlayFile{.filename = path.str()});
 
   return 0;
 }
