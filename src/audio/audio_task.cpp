@@ -125,8 +125,13 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
     InputStream sink_stream(&raw_sink_stream);
 
     if (sink_stream.info().bytes_in_stream == 0) {
+      if (sink_stream.is_producer_finished()) {
+        sink_stream.mark_consumer_finished();
+      } else {
+        // The user is probably about to hear a skip :(
+        ESP_LOGW(kTag, "!! audio sink is underbuffered !!");
+      }
       // No new bytes to sink, so skip sinking completely.
-      ESP_LOGW(kTag, "no bytes to sink");
       continue;
     }
 

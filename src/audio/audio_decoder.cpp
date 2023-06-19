@@ -36,37 +36,27 @@ AudioDecoder::AudioDecoder()
       current_codec_(),
       current_input_format_(),
       current_output_format_(),
+      has_prepared_output_(false),
       has_samples_to_send_(false),
       has_input_remaining_(false) {}
 
 AudioDecoder::~AudioDecoder() {}
 
 auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
+  has_prepared_output_ = false;
+  current_codec_.reset();
+  current_input_format_.reset();
+  current_output_format_.reset();
+
   if (!std::holds_alternative<StreamInfo::Encoded>(info.format)) {
     return false;
   }
-  ESP_LOGI(kTag, "got new stream");
-  const auto& encoded = std::get<StreamInfo::Encoded>(info.format);
 
-  // Reuse the existing codec if we can. This will help with gapless playback,
-  // since we can potentially just continue to decode as we were before,
-  // without any setup overhead.
-  // TODO(jacqueline): Reconsider this. It makes a lot of things harder to smash
-  // streams together at this layer.
-  /*
-  if (current_codec_ != nullptr && current_input_format_) {
-    auto cur_encoding = std::get<StreamInfo::Encoded>(*current_input_format_);
-    if (cur_encoding.type == encoded.type) {
-      ESP_LOGI(kTag, "reusing existing decoder");
-      current_input_format_ = info.format;
-      return true;
-    }
-  }
-  */
+  const auto& new_format = std::get<StreamInfo::Encoded>(info.format);
   current_input_format_ = info.format;
 
   ESP_LOGI(kTag, "creating new decoder");
-  auto result = codecs::CreateCodecForType(encoded.type);
+  auto result = codecs::CreateCodecForType(new_format.type);
   if (result.has_value()) {
     current_codec_.reset(result.value());
   } else {
@@ -86,18 +76,31 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
   auto input = inputs.begin();
   const StreamInfo& info = input->info();
 
-  // Check the input stream's format has changed (or, by extension, if this is
-  // the first stream).
-  if (!current_input_format_ || *current_input_format_ != info.format) {
-    has_samples_to_send_ = false;
+  // Is this a completely new stream?
+  if (!current_input_format_) {
     if (!ProcessStreamInfo(info)) {
+      // We couldn't handle the new stream. Signal to the producer that we don't
+      // have anything to do.
+      input->mark_consumer_finished();
       return;
     }
-    ESP_LOGI(kTag, "beginning new stream");
+  }
+
+  // Have we determined what kind of samples this stream decodes to?
+  if (!current_output_format_) {
     auto res = current_codec_->BeginStream(input->data());
     input->consume(res.first);
+
     if (res.second.has_error()) {
-      // TODO(jacqueline): Handle errors.
+      auto err = res.second.error();
+      if (err == codecs::ICodec::Error::kOutOfInput) {
+        // We didn't manage to clear whatever front matter is before this
+        // stream's header. We need to call BeginStream again with more data.
+        return;
+      }
+      // Somthing about the stream's header was malformed. Skip it.
+      ESP_LOGE(kTag, "error beginning stream");
+      input->mark_consumer_finished();
       return;
     }
 
@@ -116,59 +119,82 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
     }
   }
 
-  while (seek_to_sample_) {
+  if (seek_to_sample_) {
     ESP_LOGI(kTag, "seeking forwards...");
     auto res = current_codec_->SeekStream(input->data(), *seek_to_sample_);
     input->consume(res.first);
+
     if (res.second.has_error()) {
       auto err = res.second.error();
       if (err == codecs::ICodec::Error::kOutOfInput) {
         return;
       } else {
         // TODO(jacqueline): Handle errors.
-        seek_to_sample_.reset();
       }
-    } else {
-      seek_to_sample_.reset();
     }
+
+    seek_to_sample_.reset();
   }
 
   has_input_remaining_ = true;
   while (true) {
+    // Make sure the output buffer is ready to receive samples in our format
+    // before starting to process data.
     // TODO(jacqueline): Pass through seek info here?
-    if (!output->prepare(*current_output_format_)) {
+    if (!has_prepared_output_ && !output->prepare(*current_output_format_)) {
       ESP_LOGI(kTag, "waiting for buffer to become free");
-      break;
-    }
-
-    auto res = current_codec_->ContinueStream(input->data(), output->data());
-    input->consume(res.first);
-    if (res.second.has_error()) {
-      if (res.second.error() == codecs::ICodec::Error::kOutOfInput) {
-        ESP_LOGW(kTag, "out of input");
-        ESP_LOGW(kTag, "(%u bytes left)", input->data().size_bytes());
-        has_input_remaining_ = false;
-        // We can't be halfway through sending samples if the codec is asking
-        // for more input.
-        has_samples_to_send_ = false;
-        input->mark_incomplete();
-      } else {
-        // TODO(jacqueline): Handle errors.
-        ESP_LOGE(kTag, "codec return fatal error");
-      }
       return;
     }
+    has_prepared_output_ = true;
 
-    codecs::ICodec::OutputInfo out_info = res.second.value();
-    output->add(out_info.bytes_written);
-    has_samples_to_send_ = !out_info.is_finished_writing;
+    // Parse frames and produce samples.
+    auto res = current_codec_->ContinueStream(input->data(), output->data());
+    input->consume(res.first);
 
-    if (has_samples_to_send_) {
-      // We weren't able to fit all the generated samples into the output
-      // buffer. Stop trying; we'll finish up during the next pass.
-      break;
+    // Handle any errors during processing.
+    if (res.second.has_error()) {
+      // The codec ran out of input during processing. This is expected to
+      // happen throughout the stream.
+      if (res.second.error() == codecs::ICodec::Error::kOutOfInput) {
+        ESP_LOGI(kTag, "codec needs more data");
+        has_input_remaining_ = false;
+        has_samples_to_send_ = false;
+        if (input->is_producer_finished()) {
+          ESP_LOGI(kTag, "codec is all done.");
+
+          // We're out of data, and so is the producer. Nothing left to be done
+          // with the input stream.
+          input->mark_consumer_finished();
+
+          // Upstream isn't going to give us any more data. Tell downstream
+          // that they shouldn't expact any more samples from this stream.
+          output->mark_producer_finished();
+          break;
+        }
+      } else {
+        // TODO(jacqueline): Handle errors.
+        ESP_LOGE(kTag, "codec returned fatal error");
+      }
+      // Note that a codec that returns an error is not allowed to write
+      // samples. So it's safe to skip the latter part of the loop.
+      return;
+    } else {
+      // Some samples were written! Ensure the downstream element knows about
+      // them.
+      codecs::ICodec::OutputInfo out_info = res.second.value();
+      output->add(out_info.bytes_written);
+      has_samples_to_send_ = !out_info.is_finished_writing;
+
+      if (has_samples_to_send_) {
+        // The codec wasn't able to finish writing all of its samples into the
+        // output buffer. We need to return so that we can get a new buffer.
+        return;
+      }
     }
   }
+
+  current_codec_.reset();
+  current_input_format_.reset();
 }
 
 }  // namespace audio

@@ -52,6 +52,7 @@ class FatfsAudioInput : public IAudioElement {
   std::optional<std::future<std::optional<std::string>>> pending_path_;
   FIL current_file_;
   bool is_file_open_;
+  bool has_prepared_output_;
 
   std::optional<database::Encoding> current_container_;
   std::optional<StreamInfo::Format> current_format_;

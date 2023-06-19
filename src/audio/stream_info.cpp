@@ -28,8 +28,12 @@ void InputStream::consume(std::size_t bytes) const {
   raw_->info->bytes_in_stream = new_data.size_bytes();
 }
 
-void InputStream::mark_incomplete() const {
-  raw_->is_incomplete = true;
+void InputStream::mark_consumer_finished() const {
+  raw_->info->is_consumer_finished = true;
+}
+
+bool InputStream::is_producer_finished() const {
+  return raw_->info->is_producer_finished;
 }
 
 const StreamInfo& InputStream::info() const {
@@ -46,17 +50,12 @@ void OutputStream::add(std::size_t bytes) const {
 }
 
 bool OutputStream::prepare(const StreamInfo::Format& new_format) {
-  if (std::holds_alternative<std::monostate>(raw_->info->format)) {
+  if (std::holds_alternative<std::monostate>(raw_->info->format) ||
+      raw_->info->is_consumer_finished) {
     raw_->info->format = new_format;
     raw_->info->bytes_in_stream = 0;
-    return true;
-  }
-  if (new_format == raw_->info->format) {
-    return true;
-  }
-  if (raw_->is_incomplete) {
-    raw_->info->format = new_format;
-    raw_->info->bytes_in_stream = 0;
+    raw_->info->is_producer_finished = false;
+    raw_->info->is_consumer_finished = false;
     return true;
   }
   return false;
@@ -70,8 +69,12 @@ cpp::span<std::byte> OutputStream::data() const {
   return raw_->data.subspan(raw_->info->bytes_in_stream);
 }
 
-bool OutputStream::is_incomplete() const {
-  return raw_->is_incomplete;
+void OutputStream::mark_producer_finished() const {
+  raw_->info->is_producer_finished = true;
+}
+
+bool OutputStream::is_consumer_finished() const {
+  return raw_->info->is_consumer_finished;
 }
 
 }  // namespace audio

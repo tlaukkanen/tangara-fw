@@ -43,6 +43,7 @@ FatfsAudioInput::FatfsAudioInput()
       pending_path_(),
       current_file_(),
       is_file_open_(false),
+      has_prepared_output_(false),
       current_container_(),
       current_format_() {}
 
@@ -57,10 +58,13 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
+    has_prepared_output_ = false;
   }
+
   if (pending_path_) {
     pending_path_ = {};
   }
+
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   database::TagParserImpl tag_parser;
@@ -112,13 +116,11 @@ auto FatfsAudioInput::NeedsToProcess() const -> bool {
 auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
                               OutputStream* output) -> void {
   if (pending_path_) {
-    ESP_LOGI(kTag, "waiting for path");
     if (!pending_path_->valid()) {
       pending_path_ = {};
     } else {
       if (pending_path_->wait_for(std::chrono::seconds(0)) ==
           std::future_status::ready) {
-        ESP_LOGI(kTag, "path ready!");
         auto result = pending_path_->get();
         if (result) {
           OpenFile(*result);
@@ -131,9 +133,11 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
     return;
   }
 
-  if (!output->prepare(*current_format_)) {
+  if (!has_prepared_output_ && !output->prepare(*current_format_)) {
+    ESP_LOGI(kTag, "waiting for buffer to free up");
     return;
   }
+  has_prepared_output_ = true;
 
   std::size_t max_size = output->data().size_bytes();
   if (max_size < output->data().size_bytes() / 2) {
@@ -152,14 +156,11 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
   output->add(size);
 
   if (size < max_size || f_eof(&current_file_)) {
+    ESP_LOGI(kTag, "file finished. closing.");
     f_close(&current_file_);
     is_file_open_ = false;
-
-    // HACK: libmad requires an 8 byte padding at the end of each file.
-    if (current_container_ == database::Encoding::kMp3) {
-      std::fill_n(output->data().begin(), 8, std::byte(0));
-      output->add(8);
-    }
+    has_prepared_output_ = false;
+    output->mark_producer_finished();
 
     events::Dispatch<InputFileFinished, AudioState>({});
   }

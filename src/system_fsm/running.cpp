@@ -38,7 +38,6 @@ void Running::entry() {
   vTaskDelay(pdMS_TO_TICKS(250));
 
   ESP_LOGI(kTag, "opening database");
-  database::Database::Destroy();
   auto database_res = database::Database::Open();
   if (database_res.has_error()) {
     ESP_LOGW(kTag, "failed to open!");

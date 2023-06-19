@@ -44,6 +44,7 @@ MadMp3Decoder::~MadMp3Decoder() {
 }
 
 auto MadMp3Decoder::GetInputPosition() -> std::size_t {
+  assert(stream_.next_frame >= stream_.buffer);
   return stream_.next_frame - stream_.buffer;
 }
 
@@ -51,7 +52,7 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
     -> Result<OutputFormat> {
   mad_stream_buffer(&stream_,
                     reinterpret_cast<const unsigned char*>(input.data()),
-                    input.size());
+                    input.size_bytes());
   // Whatever was last synthesized is now invalid, so ensure we don't try to
   // send it.
   current_sample_ = -1;
@@ -65,11 +66,11 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
       // Recoverable errors are usually malformed parts of the stream.
       // We can recover from them by just retrying the decode.
       continue;
-    } else {
-      // Don't bother checking for other errors; if the first part of the stream
-      // doesn't even contain a header then something's gone wrong.
-      return {GetInputPosition(), cpp::fail(Error::kMalformedData)};
     }
+    if (stream_.error == MAD_ERROR_BUFLEN) {
+      return {GetInputPosition(), cpp::fail(Error::kOutOfInput)};
+    }
+    return {GetInputPosition(), cpp::fail(Error::kMalformedData)};
   }
 
   uint8_t channels = MAD_NCHANNELS(&header);

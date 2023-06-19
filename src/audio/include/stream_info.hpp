@@ -26,10 +26,9 @@ struct StreamInfo {
   // stream's buffer.
   std::size_t bytes_in_stream{0};
 
-  // The total length of this stream, in case its source is finite (e.g. a
-  // file on disk). May be absent for endless streams (internet streams,
-  // generated audio, etc.)
-  std::optional<std::size_t> length_bytes{};
+  bool is_producer_finished = true;
+
+  bool is_consumer_finished = true;
 
   //
   std::optional<uint32_t> seek_to_seconds{};
@@ -62,10 +61,8 @@ class RawStream {
  public:
   StreamInfo* info;
   cpp::span<std::byte> data;
-  bool is_incomplete;
 
-  RawStream(StreamInfo* i, cpp::span<std::byte> d)
-      : info(i), data(d), is_incomplete(false) {}
+  RawStream(StreamInfo* i, cpp::span<std::byte> d) : info(i), data(d) {}
 };
 
 /*
@@ -78,7 +75,9 @@ class InputStream {
 
   void consume(std::size_t bytes) const;
 
-  void mark_incomplete() const;
+  bool is_producer_finished() const;
+
+  void mark_consumer_finished() const;
 
   const StreamInfo& info() const;
 
@@ -100,7 +99,9 @@ class OutputStream {
 
   cpp::span<std::byte> data() const;
 
-  bool is_incomplete() const;
+  bool is_consumer_finished() const;
+
+  void mark_producer_finished() const;
 
  private:
   RawStream* raw_;

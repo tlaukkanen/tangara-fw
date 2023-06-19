@@ -43,6 +43,7 @@ class AudioDecoder : public IAudioElement {
   std::optional<StreamInfo::Format> current_input_format_;
   std::optional<StreamInfo::Format> current_output_format_;
   std::optional<std::size_t> seek_to_sample_;
+  bool has_prepared_output_;
   bool has_samples_to_send_;
   bool has_input_remaining_;
 
