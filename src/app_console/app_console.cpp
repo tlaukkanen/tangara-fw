@@ -20,14 +20,11 @@
 #include "esp_console.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
+#include "ff.h"
 
 namespace console {
 
-static AppConsole* sInstance = nullptr;
-
-std::string toSdPath(const std::string& filepath) {
-  return std::string("/") + filepath;
-}
+std::weak_ptr<database::Database> AppConsole::sDatabase;
 
 int CmdListDir(int argc, char** argv) {
   static const std::string usage = "usage: ls [directory]";
@@ -36,7 +33,7 @@ int CmdListDir(int argc, char** argv) {
     return 1;
   }
 
-  auto lock = sInstance->database_.lock();
+  auto lock = AppConsole::sDatabase.lock();
   if (lock == nullptr) {
     std::cout << "storage is not available" << std::endl;
     return 1;
@@ -44,18 +41,38 @@ int CmdListDir(int argc, char** argv) {
 
   std::string path;
   if (argc == 2) {
-    path = toSdPath(argv[1]);
+    path = argv[1];
   } else {
-    path = toSdPath("");
+    path = "";
   }
 
-  DIR* dir;
-  struct dirent* ent;
-  dir = opendir(path.c_str());
-  while ((ent = readdir(dir))) {
-    std::cout << ent->d_name << std::endl;
+  FF_DIR dir;
+  FRESULT res = f_opendir(&dir, path.c_str());
+  if (res != FR_OK) {
+    std::cout << "failed to open directory. does it exist?" << std::endl;
+    return 1;
   }
-  closedir(dir);
+
+  for (;;) {
+    FILINFO info;
+    res = f_readdir(&dir, &info);
+    if (res != FR_OK || info.fname[0] == 0) {
+      // No more files in the directory.
+      break;
+    } else {
+      std::cout << path;
+      if (!path.ends_with('/') && !path.empty()) {
+        std::cout << '/';
+      }
+      std::cout << info.fname;
+      if (info.fattrib & AM_DIR) {
+        std::cout << '/';
+      }
+      std::cout << std::endl;
+    }
+  }
+
+  f_closedir(&dir);
 
   return 0;
 }
@@ -101,7 +118,7 @@ int CmdDbInit(int argc, char** argv) {
     return 1;
   }
 
-  auto db = sInstance->database_.lock();
+  auto db = AppConsole::sDatabase.lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
@@ -121,21 +138,22 @@ void RegisterDbInit() {
   esp_console_cmd_register(&cmd);
 }
 
-int CmdDbSongs(int argc, char** argv) {
-  static const std::string usage = "usage: db_songs";
+int CmdDbTracks(int argc, char** argv) {
+  static const std::string usage = "usage: db_tracks";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  auto db = sInstance->database_.lock();
+  auto db = AppConsole::sDatabase.lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
   }
-  std::unique_ptr<database::Result<database::Song>> res(db->GetSongs(5).get());
+  std::unique_ptr<database::Result<database::Track>> res(
+      db->GetTracks(20).get());
   while (true) {
-    for (database::Song s : res->values()) {
+    for (database::Track s : res->values()) {
       std::cout << s.tags().title.value_or("[BLANK]") << std::endl;
     }
     if (res->next_page()) {
@@ -149,11 +167,11 @@ int CmdDbSongs(int argc, char** argv) {
   return 0;
 }
 
-void RegisterDbSongs() {
-  esp_console_cmd_t cmd{.command = "db_songs",
-                        .help = "lists titles of ALL songs in the database",
+void RegisterDbTracks() {
+  esp_console_cmd_t cmd{.command = "db_tracks",
+                        .help = "lists titles of ALL tracks in the database",
                         .hint = NULL,
-                        .func = &CmdDbSongs,
+                        .func = &CmdDbTracks,
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
@@ -165,7 +183,7 @@ int CmdDbDump(int argc, char** argv) {
     return 1;
   }
 
-  auto db = sInstance->database_.lock();
+  auto db = AppConsole::sDatabase.lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
@@ -200,14 +218,6 @@ void RegisterDbDump() {
   esp_console_cmd_register(&cmd);
 }
 
-AppConsole::AppConsole(const std::weak_ptr<database::Database>& database)
-    : database_(database) {
-  sInstance = this;
-}
-AppConsole::~AppConsole() {
-  sInstance = nullptr;
-}
-
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -217,7 +227,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterAudioStatus();
   */
   RegisterDbInit();
-  RegisterDbSongs();
+  RegisterDbTracks();
   RegisterDbDump();
 }
 

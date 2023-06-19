@@ -25,9 +25,9 @@ std::string ToHex(const std::string& s) {
 namespace database {
 
 TEST_CASE("database record encoding", "[unit]") {
-  SECTION("song id to bytes") {
-    SongId id = 1234678;
-    OwningSlice as_bytes = SongIdToBytes(id);
+  SECTION("track id to bytes") {
+    TrackId id = 1234678;
+    OwningSlice as_bytes = TrackIdToBytes(id);
 
     SECTION("encodes correctly") {
       // Purposefully a brittle test, since we need to be very careful about
@@ -44,18 +44,18 @@ TEST_CASE("database record encoding", "[unit]") {
     }
 
     SECTION("round-trips") {
-      CHECK(*BytesToSongId(as_bytes.data) == id);
+      CHECK(*BytesToTrackId(as_bytes.data) == id);
     }
 
     SECTION("encodes compactly") {
-      OwningSlice small_id = SongIdToBytes(1);
-      OwningSlice large_id = SongIdToBytes(999999);
+      OwningSlice small_id = TrackIdToBytes(1);
+      OwningSlice large_id = TrackIdToBytes(999999);
 
       CHECK(small_id.data.size() < large_id.data.size());
     }
 
     SECTION("decoding rejects garbage") {
-      std::optional<SongId> res = BytesToSongId("i'm gay");
+      std::optional<TrackId> res = BytesToTrackId("i'm gay");
 
       CHECK(res.has_value() == false);
     }
@@ -73,7 +73,7 @@ TEST_CASE("database record encoding", "[unit]") {
   }
 
   SECTION("data values") {
-    SongData data(123, "/some/path.mp3", 0xACAB, 69, true);
+    TrackData data(123, "/some/path.mp3", 0xACAB, 69, true);
 
     OwningSlice enc = CreateDataValue(data);
 
@@ -109,7 +109,7 @@ TEST_CASE("database record encoding", "[unit]") {
     }
 
     SECTION("decoding rejects garbage") {
-      std::optional<SongData> res = ParseDataValue("hi!");
+      std::optional<TrackData> res = ParseDataValue("hi!");
 
       CHECK(res.has_value() == false);
     }
@@ -129,14 +129,14 @@ TEST_CASE("database record encoding", "[unit]") {
   SECTION("hash values") {
     OwningSlice val = CreateHashValue(123456);
 
-    CHECK(val.data == SongIdToBytes(123456).data);
+    CHECK(val.data == TrackIdToBytes(123456).data);
 
     SECTION("round-trips") {
       CHECK(ParseHashValue(val.slice) == 123456);
     }
 
     SECTION("decoding rejects garbage") {
-      std::optional<SongId> res = ParseHashValue("the first song :)");
+      std::optional<TrackId> res = ParseHashValue("the first track :)");
 
       CHECK(res.has_value() == false);
     }

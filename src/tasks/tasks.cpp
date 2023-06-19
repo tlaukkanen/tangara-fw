@@ -5,7 +5,9 @@
  */
 
 #include "tasks.hpp"
+
 #include <functional>
+
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
@@ -31,6 +33,10 @@ template <>
 auto Name<Type::kDatabase>() -> std::string {
   return "DB";
 }
+template <>
+auto Name<Type::kDatabaseBackground>() -> std::string {
+  return "DB_BG";
+}
 
 template <Type t>
 auto AllocateStack() -> cpp::span<StackType_t>;
@@ -39,7 +45,7 @@ auto AllocateStack() -> cpp::span<StackType_t>;
 // amount of stack space.
 template <>
 auto AllocateStack<Type::kAudio>() -> cpp::span<StackType_t> {
-  std::size_t size = 32 * 1024;
+  std::size_t size = 48 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
           size};
 }
@@ -63,6 +69,12 @@ auto AllocateStack<Type::kUiFlush>() -> cpp::span<StackType_t> {
 // much of a concern. It therefore uses an eye-wateringly large amount of stack.
 template <>
 auto AllocateStack<Type::kDatabase>() -> cpp::span<StackType_t> {
+  std::size_t size = 256 * 1024;
+  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
+          size};
+}
+template <>
+auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
   std::size_t size = 256 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
@@ -106,12 +118,20 @@ template <>
 auto Priority<Type::kDatabase>() -> UBaseType_t {
   return 8;
 }
+template <>
+auto Priority<Type::kDatabaseBackground>() -> UBaseType_t {
+  return 7;
+}
 
 template <Type t>
 auto WorkerQueueSize() -> std::size_t;
 
 template <>
 auto WorkerQueueSize<Type::kDatabase>() -> std::size_t {
+  return 8;
+}
+template <>
+auto WorkerQueueSize<Type::kDatabaseBackground>() -> std::size_t {
   return 8;
 }
 

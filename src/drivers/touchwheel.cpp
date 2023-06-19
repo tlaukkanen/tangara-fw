@@ -65,7 +65,7 @@ void TouchWheel::WriteRegister(uint8_t reg, uint8_t val) {
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
       .write_ack(reg, val)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
 }
 
 uint8_t TouchWheel::ReadRegister(uint8_t reg) {
@@ -78,7 +78,7 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
       .write_addr(kTouchWheelAddress, I2C_MASTER_READ)
       .read(&res, I2C_MASTER_NACK)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
   return res;
 }
 

@@ -17,7 +17,7 @@ namespace libtags {
 struct Aux {
   FIL file;
   FILINFO info;
-  SongTags* tags;
+  TrackTags* tags;
 };
 
 static int read(Tagctx* ctx, void* buf, int cnt) {
@@ -71,8 +71,14 @@ static void toc(Tagctx* ctx, int ms, int offset) {}
 static const std::size_t kBufSize = 1024;
 static const char* kTag = "TAGS";
 
-auto TagParserImpl::ReadAndParseTags(const std::string& path, SongTags* out)
+auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     -> bool {
+  if (path.ends_with(".m4a")) {
+    // TODO(jacqueline): Re-enabled once libtags is fixed.
+    ESP_LOGW(kTag, "skipping m4a %s", path.c_str());
+    return false;
+  }
+
   libtags::Aux aux;
   aux.tags = out;
   if (f_stat(path.c_str(), &aux.info) != FR_OK ||
@@ -96,12 +102,22 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, SongTags* out)
 
   if (res != 0) {
     // Parsing failed.
+    ESP_LOGE(kTag, "tag parsing failed, reason %d", res);
     return false;
   }
 
   switch (ctx.format) {
     case Fmp3:
       out->encoding = Encoding::kMp3;
+      break;
+    case Fogg:
+      out->encoding = Encoding::kOgg;
+      break;
+    case Fflac:
+      out->encoding = Encoding::kFlac;
+      break;
+    case Fwav:
+      out->encoding = Encoding::kWav;
       break;
     default:
       out->encoding = Encoding::kUnsupported;

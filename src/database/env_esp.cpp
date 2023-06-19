@@ -15,6 +15,7 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <set>
@@ -39,7 +40,7 @@
 
 namespace leveldb {
 
-std::weak_ptr<tasks::Worker> sBackgroundThread;
+std::shared_ptr<tasks::Worker> sBackgroundThread;
 
 std::string ErrToStr(FRESULT err) {
   switch (err) {
@@ -463,7 +464,7 @@ EspEnv::EspEnv() {}
 void EspEnv::Schedule(
     void (*background_work_function)(void* background_work_arg),
     void* background_work_arg) {
-  auto worker = sBackgroundThread.lock();
+  auto worker = sBackgroundThread;
   if (worker) {
     worker->Dispatch<void>(
         [=]() { std::invoke(background_work_function, background_work_arg); });

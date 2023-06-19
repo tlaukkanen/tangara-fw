@@ -38,7 +38,7 @@ Samd::Samd() {
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
   ESP_LOGI(kTag, "checking samd firmware rev");
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
   ESP_LOGI(kTag, "samd firmware: %u", raw_res);
 }
 Samd::~Samd() {}
@@ -53,7 +53,7 @@ auto Samd::ReadChargeStatus() -> std::optional<ChargeStatus> {
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
   ESP_LOGI(kTag, "checking charge status");
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
   ESP_LOGI(kTag, "raw charge status: %x", raw_res);
 
   uint8_t usb_state = raw_res & 0b11;
@@ -83,7 +83,7 @@ auto Samd::WriteAllowUsbMsc(bool is_allowed) -> void {
       .write_addr(kAddress, I2C_MASTER_WRITE)
       .write_ack(kRegisterUsbMsc, is_allowed)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  transaction.Execute();
 }
 
 auto Samd::ReadUsbMscStatus() -> UsbMscStatus {

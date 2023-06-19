@@ -13,7 +13,7 @@
 #include "leveldb/db.h"
 #include "leveldb/slice.h"
 
-#include "song.hpp"
+#include "track.hpp"
 
 namespace database {
 
@@ -31,49 +31,49 @@ class OwningSlice {
 };
 
 /*
- * Returns the prefix added to every SongData key. This can be used to iterate
+ * Returns the prefix added to every TrackData key. This can be used to iterate
  * over every data record in the database.
  */
 auto CreateDataPrefix() -> OwningSlice;
 
-/* Creates a data key for a song with the specified id. */
-auto CreateDataKey(const SongId& id) -> OwningSlice;
+/* Creates a data key for a track with the specified id. */
+auto CreateDataKey(const TrackId& id) -> OwningSlice;
 
 /*
- * Encodes a SongData instance into bytes, in preparation for storing it within
+ * Encodes a TrackData instance into bytes, in preparation for storing it within
  * the database. This encoding is consistent, and will remain stable over time.
  */
-auto CreateDataValue(const SongData& song) -> OwningSlice;
+auto CreateDataValue(const TrackData& track) -> OwningSlice;
 
 /*
- * Parses bytes previously encoded via CreateDataValue back into a SongData. May
- * return nullopt if parsing fails.
+ * Parses bytes previously encoded via CreateDataValue back into a TrackData.
+ * May return nullopt if parsing fails.
  */
-auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<SongData>;
+auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData>;
 
 /* Creates a hash key for the specified hash. */
 auto CreateHashKey(const uint64_t& hash) -> OwningSlice;
 
 /*
- * Encodes a hash value (at this point just a song id) into bytes, in
+ * Encodes a hash value (at this point just a track id) into bytes, in
  * preparation for storing within the database. This encoding is consistent, and
  * will remain stable over time.
  */
-auto CreateHashValue(SongId id) -> OwningSlice;
+auto CreateHashValue(TrackId id) -> OwningSlice;
 
 /*
- * Parses bytes previously encoded via CreateHashValue back into a song id. May
+ * Parses bytes previously encoded via CreateHashValue back into a track id. May
  * return nullopt if parsing fails.
  */
-auto ParseHashValue(const leveldb::Slice&) -> std::optional<SongId>;
+auto ParseHashValue(const leveldb::Slice&) -> std::optional<TrackId>;
 
-/* Encodes a SongId as bytes. */
-auto SongIdToBytes(SongId id) -> OwningSlice;
+/* Encodes a TrackId as bytes. */
+auto TrackIdToBytes(TrackId id) -> OwningSlice;
 
 /*
- * Converts a song id encoded via SongIdToBytes back into a SongId. May return
- * nullopt if parsing fails.
+ * Converts a track id encoded via TrackIdToBytes back into a TrackId. May
+ * return nullopt if parsing fails.
  */
-auto BytesToSongId(const std::string& bytes) -> std::optional<SongId>;
+auto BytesToTrackId(const std::string& bytes) -> std::optional<TrackId>;
 
 }  // namespace database

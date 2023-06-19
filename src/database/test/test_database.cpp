@@ -18,41 +18,41 @@
 #include "file_gatherer.hpp"
 #include "i2c_fixture.hpp"
 #include "leveldb/db.h"
-#include "song.hpp"
 #include "spi_fixture.hpp"
 #include "tag_parser.hpp"
+#include "track.hpp"
 
 namespace database {
 
 class TestBackends : public IFileGatherer, public ITagParser {
  public:
-  std::map<std::string, SongTags> songs;
+  std::map<std::string, TrackTags> tracks;
 
-  auto MakeSong(const std::string& path, const std::string& title) -> void {
-    SongTags tags;
+  auto MakeTrack(const std::string& path, const std::string& title) -> void {
+    TrackTags tags;
     tags.encoding = Encoding::kMp3;
     tags.title = title;
-    songs[path] = tags;
+    tracks[path] = tags;
   }
 
   auto FindFiles(const std::string& root,
                  std::function<void(const std::string&)> cb) -> void override {
-    for (auto keyval : songs) {
+    for (auto keyval : tracks) {
       std::invoke(cb, keyval.first);
     }
   }
 
-  auto ReadAndParseTags(const std::string& path, SongTags* out)
+  auto ReadAndParseTags(const std::string& path, TrackTags* out)
       -> bool override {
-    if (songs.contains(path)) {
-      *out = songs.at(path);
+    if (tracks.contains(path)) {
+      *out = tracks.at(path);
       return true;
     }
     return false;
   }
 };
 
-TEST_CASE("song database", "[integration]") {
+TEST_CASE("track database", "[integration]") {
   I2CFixture i2c;
   SpiFixture spi;
   drivers::DriverCache drivers;
@@ -60,104 +60,104 @@ TEST_CASE("song database", "[integration]") {
 
   Database::Destroy();
 
-  TestBackends songs;
-  auto open_res = Database::Open(&songs, &songs);
+  TestBackends tracks;
+  auto open_res = Database::Open(&tracks, &tracks);
   REQUIRE(open_res.has_value());
   std::unique_ptr<Database> db(open_res.value());
 
   SECTION("empty database") {
-    std::unique_ptr<Result<Song>> res(db->GetSongs(10).get());
+    std::unique_ptr<Result<Track>> res(db->GetTracks(10).get());
     REQUIRE(res->values().size() == 0);
   }
 
-  SECTION("add new songs") {
-    songs.MakeSong("song1.mp3", "Song 1");
-    songs.MakeSong("song2.wav", "Song 2");
-    songs.MakeSong("song3.exe", "Song 3");
+  SECTION("add new tracks") {
+    tracks.MakeTrack("track1.mp3", "Track 1");
+    tracks.MakeTrack("track2.wav", "Track 2");
+    tracks.MakeTrack("track3.exe", "Track 3");
 
     db->Update();
 
-    std::unique_ptr<Result<Song>> res(db->GetSongs(10).get());
+    std::unique_ptr<Result<Track>> res(db->GetTracks(10).get());
     REQUIRE(res->values().size() == 3);
-    CHECK(*res->values().at(0).tags().title == "Song 1");
+    CHECK(*res->values().at(0).tags().title == "Track 1");
     CHECK(res->values().at(0).data().id() == 1);
-    CHECK(*res->values().at(1).tags().title == "Song 2");
+    CHECK(*res->values().at(1).tags().title == "Track 2");
     CHECK(res->values().at(1).data().id() == 2);
-    CHECK(*res->values().at(2).tags().title == "Song 3");
+    CHECK(*res->values().at(2).tags().title == "Track 3");
     CHECK(res->values().at(2).data().id() == 3);
 
     SECTION("update with no filesystem changes") {
       db->Update();
 
-      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      std::unique_ptr<Result<Track>> new_res(db->GetTracks(10).get());
       REQUIRE(new_res->values().size() == 3);
       CHECK(res->values().at(0) == new_res->values().at(0));
       CHECK(res->values().at(1) == new_res->values().at(1));
       CHECK(res->values().at(2) == new_res->values().at(2));
     }
 
-    SECTION("update with all songs gone") {
-      songs.songs.clear();
+    SECTION("update with all tracks gone") {
+      tracks.tracks.clear();
 
       db->Update();
 
-      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      std::unique_ptr<Result<Track>> new_res(db->GetTracks(10).get());
       CHECK(new_res->values().size() == 0);
 
-      SECTION("update with one song returned") {
-        songs.MakeSong("song2.wav", "Song 2");
+      SECTION("update with one track returned") {
+        tracks.MakeTrack("track2.wav", "Track 2");
 
         db->Update();
 
-        std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+        std::unique_ptr<Result<Track>> new_res(db->GetTracks(10).get());
         REQUIRE(new_res->values().size() == 1);
         CHECK(res->values().at(1) == new_res->values().at(0));
       }
     }
 
-    SECTION("update with one song gone") {
-      songs.songs.erase("song2.wav");
+    SECTION("update with one track gone") {
+      tracks.tracks.erase("track2.wav");
 
       db->Update();
 
-      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      std::unique_ptr<Result<Track>> new_res(db->GetTracks(10).get());
       REQUIRE(new_res->values().size() == 2);
       CHECK(res->values().at(0) == new_res->values().at(0));
       CHECK(res->values().at(2) == new_res->values().at(1));
     }
 
     SECTION("update with tags changed") {
-      songs.MakeSong("song3.exe", "The Song 3");
+      tracks.MakeTrack("track3.exe", "The Track 3");
 
       db->Update();
 
-      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      std::unique_ptr<Result<Track>> new_res(db->GetTracks(10).get());
       REQUIRE(new_res->values().size() == 3);
       CHECK(res->values().at(0) == new_res->values().at(0));
       CHECK(res->values().at(1) == new_res->values().at(1));
-      CHECK(*new_res->values().at(2).tags().title == "The Song 3");
+      CHECK(*new_res->values().at(2).tags().title == "The Track 3");
       // The id should not have changed, since this was just a tag update.
       CHECK(res->values().at(2).data().id() ==
             new_res->values().at(2).data().id());
     }
 
-    SECTION("update with one new song") {
-      songs.MakeSong("my song.midi", "Song 1 (nightcore remix)");
+    SECTION("update with one new track") {
+      tracks.MakeTrack("my track.midi", "Track 1 (nightcore remix)");
 
       db->Update();
 
-      std::unique_ptr<Result<Song>> new_res(db->GetSongs(10).get());
+      std::unique_ptr<Result<Track>> new_res(db->GetTracks(10).get());
       REQUIRE(new_res->values().size() == 4);
       CHECK(res->values().at(0) == new_res->values().at(0));
       CHECK(res->values().at(1) == new_res->values().at(1));
       CHECK(res->values().at(2) == new_res->values().at(2));
       CHECK(*new_res->values().at(3).tags().title ==
-            "Song 1 (nightcore remix)");
+            "Track 1 (nightcore remix)");
       CHECK(new_res->values().at(3).data().id() == 4);
     }
 
-    SECTION("get songs with pagination") {
-      std::unique_ptr<Result<Song>> res(db->GetSongs(1).get());
+    SECTION("get tracks with pagination") {
+      std::unique_ptr<Result<Track>> res(db->GetTracks(1).get());
 
       REQUIRE(res->values().size() == 1);
       CHECK(res->values().at(0).data().id() == 1);

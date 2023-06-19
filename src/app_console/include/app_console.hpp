@@ -15,10 +15,7 @@ namespace console {
 
 class AppConsole : public Console {
  public:
-  explicit AppConsole(const std::weak_ptr<database::Database>& database);
-  virtual ~AppConsole();
-
-  const std::weak_ptr<database::Database>& database_;
+  static std::weak_ptr<database::Database> sDatabase;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

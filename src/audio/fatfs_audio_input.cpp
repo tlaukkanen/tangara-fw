@@ -8,7 +8,9 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <string>
 #include <variant>
@@ -24,12 +26,12 @@
 
 #include "audio_element.hpp"
 #include "chunk.hpp"
-#include "song.hpp"
 #include "stream_buffer.hpp"
 #include "stream_event.hpp"
 #include "stream_info.hpp"
 #include "stream_message.hpp"
 #include "tag_parser.hpp"
+#include "track.hpp"
 #include "types.hpp"
 
 static const char* kTag = "SRC";
@@ -38,6 +40,7 @@ namespace audio {
 
 FatfsAudioInput::FatfsAudioInput()
     : IAudioElement(),
+      pending_path_(),
       current_file_(),
       is_file_open_(false),
       current_container_(),
@@ -45,22 +48,32 @@ FatfsAudioInput::FatfsAudioInput()
 
 FatfsAudioInput::~FatfsAudioInput() {}
 
+auto FatfsAudioInput::OpenFile(std::future<std::optional<std::string>>&& path)
+    -> void {
+  pending_path_ = std::move(path);
+}
+
 auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
   }
+  if (pending_path_) {
+    pending_path_ = {};
+  }
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   database::TagParserImpl tag_parser;
-  database::SongTags tags;
+  database::TrackTags tags;
   if (!tag_parser.ReadAndParseTags(path, &tags)) {
     ESP_LOGE(kTag, "failed to read tags");
-    return false;
+    tags.encoding = database::Encoding::kFlac;
+    // return false;
   }
 
   auto stream_type = ContainerToStreamType(tags.encoding);
   if (!stream_type.has_value()) {
+    ESP_LOGE(kTag, "couldn't match container to stream");
     return false;
   }
 
@@ -87,16 +100,33 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
     return false;
   }
 
+  events::Dispatch<InputFileOpened, AudioState>({});
   is_file_open_ = true;
   return true;
 }
 
 auto FatfsAudioInput::NeedsToProcess() const -> bool {
-  return is_file_open_;
+  return is_file_open_ || pending_path_;
 }
 
 auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
                               OutputStream* output) -> void {
+  if (pending_path_) {
+    ESP_LOGI(kTag, "waiting for path");
+    if (!pending_path_->valid()) {
+      pending_path_ = {};
+    } else {
+      if (pending_path_->wait_for(std::chrono::seconds(0)) ==
+          std::future_status::ready) {
+        ESP_LOGI(kTag, "path ready!");
+        auto result = pending_path_->get();
+        if (result) {
+          OpenFile(*result);
+        }
+      }
+    }
+  }
+
   if (!is_file_open_) {
     return;
   }
@@ -144,8 +174,8 @@ auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
       return codecs::StreamType::kPcm;
     case database::Encoding::kFlac:
       return codecs::StreamType::kFlac;
-    case database::Encoding::kOgg:
-      return codecs::StreamType::kOgg;
+    case database::Encoding::kOgg:  // Misnamed; this is Ogg Vorbis.
+      return codecs::StreamType::kVorbis;
     case database::Encoding::kUnsupported:
     default:
       return {};
