@@ -142,7 +142,6 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
     // before starting to process data.
     // TODO(jacqueline): Pass through seek info here?
     if (!has_prepared_output_ && !output->prepare(*current_output_format_)) {
-      ESP_LOGI(kTag, "waiting for buffer to become free");
       return;
     }
     has_prepared_output_ = true;
@@ -156,12 +155,9 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
       // The codec ran out of input during processing. This is expected to
       // happen throughout the stream.
       if (res.second.error() == codecs::ICodec::Error::kOutOfInput) {
-        ESP_LOGI(kTag, "codec needs more data");
         has_input_remaining_ = false;
         has_samples_to_send_ = false;
         if (input->is_producer_finished()) {
-          ESP_LOGI(kTag, "codec is all done.");
-
           // We're out of data, and so is the producer. Nothing left to be done
           // with the input stream.
           input->mark_consumer_finished();

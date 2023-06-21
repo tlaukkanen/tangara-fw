@@ -30,6 +30,9 @@ void InputStream::consume(std::size_t bytes) const {
 
 void InputStream::mark_consumer_finished() const {
   raw_->info->is_consumer_finished = true;
+  if (is_producer_finished()) {
+    raw_->info->format = std::monostate();
+  }
 }
 
 bool InputStream::is_producer_finished() const {
@@ -71,6 +74,9 @@ cpp::span<std::byte> OutputStream::data() const {
 
 void OutputStream::mark_producer_finished() const {
   raw_->info->is_producer_finished = true;
+  if (is_consumer_finished()) {
+    raw_->info->format = std::monostate();
+  }
 }
 
 bool OutputStream::is_consumer_finished() const {

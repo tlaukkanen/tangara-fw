@@ -134,7 +134,6 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
   }
 
   if (!has_prepared_output_ && !output->prepare(*current_format_)) {
-    ESP_LOGI(kTag, "waiting for buffer to free up");
     return;
   }
   has_prepared_output_ = true;
@@ -156,7 +155,6 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
   output->add(size);
 
   if (size < max_size || f_eof(&current_file_)) {
-    ESP_LOGI(kTag, "file finished. closing.");
     f_close(&current_file_);
     is_file_open_ = false;
     has_prepared_output_ = false;
