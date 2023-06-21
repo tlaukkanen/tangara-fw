@@ -111,6 +111,10 @@ void Playback::react(const PlayFile& ev) {
   sTrackQueue.push_back(EnqueuedItem(ev.filename));
 }
 
+void Playback::react(const PlaybackUpdate& ev) {
+  ESP_LOGI(kTag, "elapsed: %lu", ev.seconds_elapsed);
+}
+
 void Playback::react(const InputFileOpened& ev) {}
 
 void Playback::react(const InputFileFinished& ev) {

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <string>
 
 #include "tinyfsm.hpp"
@@ -21,6 +22,10 @@ struct PlayFile : tinyfsm::Event {
 struct PlayTrack : tinyfsm::Event {
   database::TrackId id;
   std::optional<database::TrackData> data;
+};
+
+struct PlaybackUpdate : tinyfsm::Event {
+  uint32_t seconds_elapsed;
 };
 
 struct InputFileOpened : tinyfsm::Event {};

@@ -62,6 +62,10 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
 
   std::vector<Pipeline*> all_elements = pipeline->GetIterationOrder();
 
+  float current_sample_in_second = 0;
+  uint32_t previous_second = 0;
+  uint32_t current_second = 0;
+
   bool previously_had_work = false;
   events::EventQueue& event_queue = events::EventQueue::GetInstance();
   while (1) {
@@ -76,6 +80,10 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
           break;
         }
       }
+    }
+
+    if (!has_work) {
+      has_work = !xStreamBufferIsEmpty(sink->buffer());
     }
 
     if (previously_had_work && !has_work) {
@@ -127,6 +135,10 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
     if (sink_stream.info().bytes_in_stream == 0) {
       if (sink_stream.is_producer_finished()) {
         sink_stream.mark_consumer_finished();
+
+        current_second = 0;
+        previous_second = 0;
+        current_sample_in_second = 0;
       } else {
         // The user is probably about to hear a skip :(
         ESP_LOGW(kTag, "!! audio sink is underbuffered !!");
@@ -154,6 +166,30 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
     std::size_t bytes_sunk =
         xStreamBufferSend(sink->buffer(), sink_stream.data().data(),
                           sink_stream.data().size_bytes(), 0);
+
+    if (std::holds_alternative<StreamInfo::Pcm>(*output_format)) {
+      StreamInfo::Pcm pcm = std::get<StreamInfo::Pcm>(*output_format);
+
+      float samples_sunk = bytes_sunk;
+      samples_sunk /= pcm.channels;
+
+      int8_t bps = pcm.bits_per_sample;
+      if (bps == 24) {
+        bps = 32;
+      }
+      samples_sunk /= (bps / 8);
+
+      current_sample_in_second += samples_sunk;
+      while (current_sample_in_second >= pcm.sample_rate) {
+        current_second++;
+        current_sample_in_second -= pcm.sample_rate;
+      }
+      if (previous_second != current_second) {
+        events::Dispatch<PlaybackUpdate, AudioState>(
+            {.seconds_elapsed = current_second});
+      }
+      previous_second = current_second;
+    }
 
     // Adjust how long we wait for the next iteration if we're getting too far
     // ahead or behind.

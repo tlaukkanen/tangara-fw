@@ -129,8 +129,8 @@ auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
     return true;
   }
 
-  ESP_LOGI(kTag, "incoming audio stream: %u bpp @ %lu Hz", pcm.bits_per_sample,
-           pcm.sample_rate);
+  ESP_LOGI(kTag, "incoming audio stream: %u ch %u bpp @ %lu Hz", pcm.channels,
+           pcm.bits_per_sample, pcm.sample_rate);
 
   drivers::I2SDac::Channels ch;
   switch (pcm.channels) {
