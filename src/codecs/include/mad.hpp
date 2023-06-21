@@ -48,7 +48,7 @@ class MadMp3Decoder : public ICodec {
 
   int current_sample_;
 
-  auto GetInputPosition() -> std::size_t;
+  auto GetBytesUsed(std::size_t) -> std::size_t;
 };
 
 }  // namespace codecs

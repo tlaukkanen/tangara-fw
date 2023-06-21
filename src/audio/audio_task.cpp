@@ -173,11 +173,11 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
       float samples_sunk = bytes_sunk;
       samples_sunk /= pcm.channels;
 
-      int8_t bps = pcm.bits_per_sample;
-      if (bps == 24) {
-        bps = 32;
-      }
-      samples_sunk /= (bps / 8);
+      // Samples must be aligned to 16 bits. The number of actual bytes per
+      // sample is therefore the bps divided by 16, rounded up (align to word),
+      // times two (convert to bytes).
+      uint8_t bytes_per_sample = ((pcm.bits_per_sample + 16 - 1) / 16) * 2;
+      samples_sunk /= bytes_per_sample;
 
       current_sample_in_second += samples_sunk;
       while (current_sample_in_second >= pcm.sample_rate) {

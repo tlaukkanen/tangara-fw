@@ -13,6 +13,7 @@
 #include "mad.h"
 
 #include "codec.hpp"
+#include "esp_log.h"
 #include "result.hpp"
 #include "types.hpp"
 
@@ -43,9 +44,13 @@ MadMp3Decoder::~MadMp3Decoder() {
   mad_synth_finish(&synth_);
 }
 
-auto MadMp3Decoder::GetInputPosition() -> std::size_t {
-  assert(stream_.next_frame >= stream_.buffer);
-  return stream_.next_frame - stream_.buffer;
+auto MadMp3Decoder::GetBytesUsed(std::size_t buffer_size) -> std::size_t {
+  if (stream_.next_frame) {
+    std::size_t remaining = stream_.bufend - stream_.next_frame;
+    return buffer_size - remaining;
+  } else {
+    return stream_.bufend - stream_.buffer;
+  }
 }
 
 auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
@@ -68,13 +73,13 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
       continue;
     }
     if (stream_.error == MAD_ERROR_BUFLEN) {
-      return {GetInputPosition(), cpp::fail(Error::kOutOfInput)};
+      return {GetBytesUsed(input.size_bytes()), cpp::fail(Error::kOutOfInput)};
     }
-    return {GetInputPosition(), cpp::fail(Error::kMalformedData)};
+    return {GetBytesUsed(input.size_bytes()), cpp::fail(Error::kMalformedData)};
   }
 
   uint8_t channels = MAD_NCHANNELS(&header);
-  return {GetInputPosition(),
+  return {GetBytesUsed(input.size_bytes()),
           OutputFormat{
               .num_channels = channels,
               .bits_per_sample = 24,  // We always scale to 24 bits
@@ -85,6 +90,7 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
 auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
                                    cpp::span<std::byte> output)
     -> Result<OutputInfo> {
+  std::size_t bytes_read = 0;
   if (current_sample_ < 0) {
     mad_stream_buffer(&stream_,
                       reinterpret_cast<const unsigned char*>(input.data()),
@@ -101,15 +107,18 @@ auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
       if (stream_.error == MAD_ERROR_BUFLEN) {
         // The decoder ran out of bytes before it completed a frame. We
         // need to return back to the caller to give us more data.
-        return {GetInputPosition(), cpp::fail(Error::kOutOfInput)};
+        return {GetBytesUsed(input.size_bytes()),
+                cpp::fail(Error::kOutOfInput)};
       }
       // The error is unrecoverable. Give up.
-      return {GetInputPosition(), cpp::fail(Error::kMalformedData)};
+      return {GetBytesUsed(input.size_bytes()),
+              cpp::fail(Error::kMalformedData)};
     }
 
     // We've successfully decoded a frame! Now synthesize samples to write out.
     mad_synth_frame(&synth_, &frame_);
     current_sample_ = 0;
+    bytes_read = GetBytesUsed(input.size_bytes());
   }
 
   size_t output_byte = 0;
@@ -117,8 +126,8 @@ auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
     if (output_byte + (4 * synth_.pcm.channels) >= output.size()) {
       // We can't fit the next sample into the buffer. Stop now, and also avoid
       // writing the sample for only half the channels.
-      return {GetInputPosition(), OutputInfo{.bytes_written = output_byte,
-                                             .is_finished_writing = false}};
+      return {bytes_read, OutputInfo{.bytes_written = output_byte,
+                                     .is_finished_writing = false}};
     }
 
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
@@ -135,8 +144,8 @@ auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
 
   // We wrote everything! Reset, ready for the next frame.
   current_sample_ = -1;
-  return {GetInputPosition(), OutputInfo{.bytes_written = output_byte,
-                                         .is_finished_writing = true}};
+  return {bytes_read, OutputInfo{.bytes_written = output_byte,
+                                 .is_finished_writing = true}};
 }
 
 auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
@@ -160,7 +169,8 @@ auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
       } else {
         // Don't bother checking for other errors; if the first part of the
         // stream doesn't even contain a header then something's gone wrong.
-        return {GetInputPosition(), cpp::fail(Error::kMalformedData)};
+        return {GetBytesUsed(input.size_bytes()),
+                cpp::fail(Error::kMalformedData)};
       }
     }
 
@@ -184,10 +194,12 @@ auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
         continue;
       }
       if (stream_.error == MAD_ERROR_BUFLEN) {
-        return {GetInputPosition(), cpp::fail(Error::kOutOfInput)};
+        return {GetBytesUsed(input.size_bytes()),
+                cpp::fail(Error::kOutOfInput)};
       }
       // The error is unrecoverable. Give up.
-      return {GetInputPosition(), cpp::fail(Error::kMalformedData)};
+      return {GetBytesUsed(input.size_bytes()),
+              cpp::fail(Error::kMalformedData)};
     }
 
     if (frames_to_go <= 1) {
@@ -202,7 +214,7 @@ auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
       // call.
       current_sample_ =
           (target_sample > current_sample) ? target_sample - current_sample : 0;
-      return {GetInputPosition(), {}};
+      return {GetBytesUsed(input.size_bytes()), {}};
     }
   }
 }
