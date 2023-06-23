@@ -8,7 +8,10 @@
 
 #include <esp_log.h>
 #include <ff.h>
+#include <stdint.h>
 #include <tags.h>
+#include <cstdlib>
+#include <iomanip>
 
 namespace database {
 
@@ -74,7 +77,14 @@ static void tag(Tagctx* ctx,
   Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
   auto tag = convert_tag(t);
   if (tag) {
-    aux->tags->set(*tag, v);
+    std::string value{v};
+    if (*tag == Tag::kAlbumTrack) {
+      uint32_t as_int = std::atoi(v);
+      std::ostringstream oss;
+      oss << std::setw(4) << std::setfill('0') << as_int;
+      value = oss.str();
+    }
+    aux->tags->set(*tag, value);
   }
 }
 
