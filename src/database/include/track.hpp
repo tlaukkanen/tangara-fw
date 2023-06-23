@@ -8,11 +8,14 @@
 
 #include <stdint.h>
 
+#include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
 #include "leveldb/db.h"
+#include "shared_string.h"
 #include "span.hpp"
 
 namespace database {
@@ -41,24 +44,32 @@ enum class Encoding {
   kFlac = 4,
 };
 
+enum class Tag {
+  kTitle = 0,
+  kArtist = 1,
+  kAlbum = 2,
+  kAlbumTrack = 3,
+  kGenre = 4,
+};
+
 /*
  * Owning container for tag-related track metadata that was extracted from a
  * file.
  */
-struct TrackTags {
-  Encoding encoding;
-  std::optional<std::string> title;
+class TrackTags {
+ public:
+  auto encoding() const -> Encoding { return encoding_; };
+  auto encoding(Encoding e) -> void { encoding_ = e; };
 
-  // TODO(jacqueline): It would be nice to use shared_ptr's for the artist and
-  // album, since there's likely a fair number of duplicates for each
-  // (especially the former).
-
-  std::optional<std::string> artist;
-  std::optional<std::string> album;
+  TrackTags() : encoding_(Encoding::kUnsupported) {}
 
   std::optional<int> channels;
   std::optional<int> sample_rate;
   std::optional<int> bits_per_sample;
+
+  auto set(const Tag& key, const std::string& val) -> void;
+  auto at(const Tag& key) const -> std::optional<shared_string>;
+  auto operator[](const Tag& key) const -> std::optional<shared_string>;
 
   /*
    * Returns a hash of the 'identifying' tags of this track. That is, a hash
@@ -69,6 +80,12 @@ struct TrackTags {
   auto Hash() const -> uint64_t;
 
   bool operator==(const TrackTags&) const = default;
+  TrackTags& operator=(const TrackTags&) = default;
+  TrackTags(const TrackTags&) = default;
+
+ private:
+  Encoding encoding_;
+  std::map<Tag, shared_string> tags_;
 };
 
 /*
@@ -155,6 +172,8 @@ class Track {
 
   auto data() const -> const TrackData& { return data_; }
   auto tags() const -> const TrackTags& { return tags_; }
+
+  auto TitleOrFilename() const -> shared_string;
 
   bool operator==(const Track&) const = default;
   Track operator=(const Track& other) const { return Track(other); }

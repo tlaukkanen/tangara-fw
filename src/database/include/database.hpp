@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "file_gatherer.hpp"
+#include "index.hpp"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
@@ -23,6 +24,7 @@
 #include "leveldb/slice.h"
 #include "records.hpp"
 #include "result.hpp"
+#include "shared_string.h"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
@@ -66,6 +68,20 @@ class Result {
   std::optional<Continuation<T>> prev_page_;
 };
 
+class IndexRecord {
+ public:
+  explicit IndexRecord(const IndexKey&, std::optional<Track>);
+
+  auto text() const -> std::optional<shared_string>;
+  auto track() const -> std::optional<Track>;
+
+  auto Expand(std::size_t) const -> std::optional<Continuation<IndexRecord>>;
+
+ private:
+  IndexKey key_;
+  std::optional<Track> track_;
+};
+
 class Database {
  public:
   enum DatabaseError {
@@ -84,6 +100,9 @@ class Database {
 
   auto GetTrackPath(TrackId id) -> std::future<std::optional<std::string>>;
 
+  auto GetIndexes() -> std::vector<IndexInfo>;
+  auto GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
+      -> std::future<Result<IndexRecord>*>;
   auto GetTracks(std::size_t page_size) -> std::future<Result<Track>*>;
   auto GetDump(std::size_t page_size) -> std::future<Result<std::string>*>;
 
@@ -118,8 +137,7 @@ class Database {
   auto dbGetTrackData(TrackId id) -> std::optional<TrackData>;
   auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
   auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
-  auto dbPutTrack(TrackId id, const std::string& path, const uint64_t& hash)
-      -> void;
+  auto dbCreateIndexesForTrack(Track track) -> void;
 
   template <typename T>
   auto dbGetPage(const Continuation<T>& c) -> Result<T>*;
@@ -129,6 +147,10 @@ class Database {
       -> std::optional<T>;
 };
 
+template <>
+auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
+                                        const leveldb::Slice& val)
+    -> std::optional<IndexRecord>;
 template <>
 auto Database::ParseRecord<Track>(const leveldb::Slice& key,
                                   const leveldb::Slice& val)

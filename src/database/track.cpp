@@ -7,11 +7,28 @@
 #include "track.hpp"
 
 #include <komihash.h>
+#include "shared_string.h"
 
 namespace database {
 
+auto TrackTags::set(const Tag& key, const std::string& val) -> void {
+  tags_[key] = val;
+}
+
+auto TrackTags::at(const Tag& key) const -> std::optional<shared_string> {
+  if (tags_.contains(key)) {
+    return tags_.at(key);
+  }
+  return {};
+}
+
+auto TrackTags::operator[](const Tag& key) const
+    -> std::optional<shared_string> {
+  return at(key);
+}
+
 /* Helper function to update a komihash stream with a std::string. */
-auto HashString(komihash_stream_t* stream, std::string str) -> void {
+auto HashString(komihash_stream_t* stream, const std::string& str) -> void {
   komihash_stream_update(stream, str.c_str(), str.length());
 }
 
@@ -24,9 +41,11 @@ auto TrackTags::Hash() const -> uint64_t {
   // tags at all.
   komihash_stream_t stream;
   komihash_stream_init(&stream, 0);
-  HashString(&stream, title.value_or(""));
-  HashString(&stream, artist.value_or(""));
-  HashString(&stream, album.value_or(""));
+
+  HashString(&stream, at(Tag::kTitle).value_or(""));
+  HashString(&stream, at(Tag::kArtist).value_or(""));
+  HashString(&stream, at(Tag::kAlbum).value_or(""));
+
   return komihash_stream_final(&stream);
 }
 
@@ -46,6 +65,18 @@ void swap(Track& first, Track& second) {
   Track temp = first;
   first = second;
   second = temp;
+}
+
+auto Track::TitleOrFilename() const -> shared_string {
+  auto title = tags().at(Tag::kTitle);
+  if (title) {
+    return *title;
+  }
+  auto start = data().filepath().find_last_of('/');
+  if (start == std::string::npos) {
+    return data().filepath();
+  }
+  return data().filepath().substr(start);
 }
 
 }  // namespace database

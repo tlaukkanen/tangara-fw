@@ -75,13 +75,13 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
     return false;
   }
 
-  auto stream_type = ContainerToStreamType(tags.encoding);
+  auto stream_type = ContainerToStreamType(tags.encoding());
   if (!stream_type.has_value()) {
     ESP_LOGE(kTag, "couldn't match container to stream");
     return false;
   }
 
-  current_container_ = tags.encoding;
+  current_container_ = tags.encoding();
 
   if (*stream_type == codecs::StreamType::kPcm && tags.channels &&
       tags.bits_per_sample && tags.channels) {

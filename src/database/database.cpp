@@ -13,11 +13,13 @@
 #include <functional>
 #include <iomanip>
 #include <memory>
+#include <optional>
 #include <sstream>
 
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/projdefs.h"
+#include "index.hpp"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
@@ -130,72 +132,91 @@ Database::~Database() {
 
 auto Database::Update() -> std::future<void> {
   return worker_task_->Dispatch<void>([&]() -> void {
-    // Stage 1: verify all existing tracks are still valid.
-    ESP_LOGI(kTag, "verifying existing tracks");
-    const leveldb::Snapshot* snapshot = db_->GetSnapshot();
     leveldb::ReadOptions read_options;
     read_options.fill_cache = false;
-    read_options.snapshot = snapshot;
-    leveldb::Iterator* it = db_->NewIterator(read_options);
-    OwningSlice prefix = CreateDataPrefix();
-    it->Seek(prefix.slice);
-    while (it->Valid() && it->key().starts_with(prefix.slice)) {
-      std::optional<TrackData> track = ParseDataValue(it->value());
-      if (!track) {
-        // The value was malformed. Drop this record.
-        ESP_LOGW(kTag, "dropping malformed metadata");
+
+    // Stage 0: discard indexes
+    // TODO(jacqueline): I think it should be possible to incrementally update
+    // indexes, but my brain hurts.
+    ESP_LOGI(kTag, "dropping stale indexes");
+    {
+      leveldb::Iterator* it = db_->NewIterator(read_options);
+      OwningSlice prefix = EncodeAllIndexesPrefix();
+      it->Seek(prefix.slice);
+      while (it->Valid() && it->key().starts_with(prefix.slice)) {
         db_->Delete(leveldb::WriteOptions(), it->key());
         it->Next();
-        continue;
       }
-
-      if (track->is_tombstoned()) {
-        ESP_LOGW(kTag, "skipping tombstoned %lx", track->id());
-        it->Next();
-        continue;
-      }
-
-      TrackTags tags;
-      if (!tag_parser_->ReadAndParseTags(track->filepath(), &tags) ||
-          tags.encoding == Encoding::kUnsupported) {
-        // We couldn't read the tags for this track. Either they were
-        // malformed, or perhaps the file is missing. Either way, tombstone
-        // this record.
-        ESP_LOGW(kTag, "entombing missing #%lx", track->id());
-        dbPutTrackData(track->Entomb());
-        it->Next();
-        continue;
-      }
-
-      uint64_t new_hash = tags.Hash();
-      if (new_hash != track->tags_hash()) {
-        // This track's tags have changed. Since the filepath is exactly the
-        // same, we assume this is a legitimate correction. Update the
-        // database.
-        ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash(),
-                 new_hash);
-        dbPutTrackData(track->UpdateHash(new_hash));
-        dbPutHash(new_hash, track->id());
-      }
-
-      it->Next();
     }
-    delete it;
-    db_->ReleaseSnapshot(snapshot);
+
+    // Stage 1: verify all existing tracks are still valid.
+    ESP_LOGI(kTag, "verifying existing tracks");
+    {
+      leveldb::Iterator* it = db_->NewIterator(read_options);
+      OwningSlice prefix = EncodeDataPrefix();
+      it->Seek(prefix.slice);
+      while (it->Valid() && it->key().starts_with(prefix.slice)) {
+        std::optional<TrackData> track = ParseDataValue(it->value());
+        if (!track) {
+          // The value was malformed. Drop this record.
+          ESP_LOGW(kTag, "dropping malformed metadata");
+          db_->Delete(leveldb::WriteOptions(), it->key());
+          it->Next();
+          continue;
+        }
+
+        if (track->is_tombstoned()) {
+          ESP_LOGW(kTag, "skipping tombstoned %lx", track->id());
+          it->Next();
+          continue;
+        }
+
+        TrackTags tags{};
+        if (!tag_parser_->ReadAndParseTags(track->filepath(), &tags) ||
+            tags.encoding() == Encoding::kUnsupported) {
+          // We couldn't read the tags for this track. Either they were
+          // malformed, or perhaps the file is missing. Either way, tombstone
+          // this record.
+          ESP_LOGW(kTag, "entombing missing #%lx", track->id());
+          dbPutTrackData(track->Entomb());
+          it->Next();
+          continue;
+        }
+
+        // At this point, we know that the track still exists in its original
+        // location. All that's left to do is update any metadata about it.
+
+        uint64_t new_hash = tags.Hash();
+        if (new_hash != track->tags_hash()) {
+          // This track's tags have changed. Since the filepath is exactly the
+          // same, we assume this is a legitimate correction. Update the
+          // database.
+          ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash(),
+                   new_hash);
+          dbPutTrackData(track->UpdateHash(new_hash));
+          dbPutHash(new_hash, track->id());
+        }
+
+        dbCreateIndexesForTrack({*track, tags});
+
+        it->Next();
+      }
+      delete it;
+    }
 
     // Stage 2: search for newly added files.
     ESP_LOGI(kTag, "scanning for new tracks");
     file_gatherer_->FindFiles("", [&](const std::string& path) {
       TrackTags tags;
       if (!tag_parser_->ReadAndParseTags(path, &tags) ||
-          tags.encoding == Encoding::kUnsupported) {
+          tags.encoding() == Encoding::kUnsupported) {
         // No parseable tags; skip this fiile.
         return;
       }
 
       // Check for any existing record with the same hash.
       uint64_t hash = tags.Hash();
-      OwningSlice key = CreateHashKey(hash);
+      OwningSlice key = EncodeHashKey(hash);
       std::optional<TrackId> existing_hash;
       std::string raw_entry;
       if (db_->Get(leveldb::ReadOptions(), key.slice, &raw_entry).ok()) {
@@ -207,7 +228,11 @@ auto Database::Update() -> std::future<void> {
         // malformed. Either way, record this as a new track.
         TrackId id = dbMintNewTrackId();
         ESP_LOGI(kTag, "recording new 0x%lx", id);
-        dbPutTrack(id, path, hash);
+
+        TrackData data(id, path, hash);
+        dbPutTrackData(data);
+        dbPutHash(hash, id);
+        dbCreateIndexesForTrack({data, tags});
         return;
       }
 
@@ -216,12 +241,14 @@ auto Database::Update() -> std::future<void> {
         // We found a hash that matches, but there's no data record? Weird.
         TrackData new_data(*existing_hash, path, hash);
         dbPutTrackData(new_data);
+        dbCreateIndexesForTrack({*existing_data, tags});
         return;
       }
 
       if (existing_data->is_tombstoned()) {
         ESP_LOGI(kTag, "exhuming track %lu", existing_data->id());
         dbPutTrackData(existing_data->Exhume(path));
+        dbCreateIndexesForTrack({*existing_data, tags});
       } else if (existing_data->filepath() != path) {
         ESP_LOGW(kTag, "tag hash collision");
       }
@@ -241,11 +268,41 @@ auto Database::GetTrackPath(TrackId id)
       });
 }
 
+auto Database::GetIndexes() -> std::vector<IndexInfo> {
+  // TODO(jacqueline): This probably needs to be async? When we have runtime
+  // configurable indexes, they will need to come from somewhere.
+  return {
+      kAllTracks,
+      kAlbumsByArtist,
+      kTracksByGenre,
+  };
+}
+
+auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
+    -> std::future<Result<IndexRecord>*> {
+  return worker_task_->Dispatch<Result<IndexRecord>*>(
+      [=, this]() -> Result<IndexRecord>* {
+        IndexKey::Header header{
+            .id = index.id,
+            .depth = 0,
+            .components_hash = 0,
+        };
+        OwningSlice prefix = EncodeIndexPrefix(header);
+        Continuation<IndexRecord> c{.iterator = nullptr,
+                                    .prefix = prefix.data,
+                                    .start_key = prefix.data,
+                                    .forward = true,
+                                    .was_prev_forward = true,
+                                    .page_size = page_size};
+        return dbGetPage(c);
+      });
+}
+
 auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
   return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
     Continuation<Track> c{.iterator = nullptr,
-                          .prefix = CreateDataPrefix().data,
-                          .start_key = CreateDataPrefix().data,
+                          .prefix = EncodeDataPrefix().data,
+                          .start_key = EncodeDataPrefix().data,
                           .forward = true,
                           .was_prev_forward = true,
                           .page_size = page_size};
@@ -276,6 +333,8 @@ auto Database::GetPage(Continuation<T>* c) -> std::future<Result<T>*> {
 
 template auto Database::GetPage<Track>(Continuation<Track>* c)
     -> std::future<Result<Track>*>;
+template auto Database::GetPage<IndexRecord>(Continuation<IndexRecord>* c)
+    -> std::future<Result<IndexRecord>*>;
 template auto Database::GetPage<std::string>(Continuation<std::string>* c)
     -> std::future<Result<std::string>*>;
 
@@ -300,23 +359,23 @@ auto Database::dbMintNewTrackId() -> TrackId {
 }
 
 auto Database::dbEntomb(TrackId id, uint64_t hash) -> void {
-  OwningSlice key = CreateHashKey(hash);
-  OwningSlice val = CreateHashValue(id);
+  OwningSlice key = EncodeHashKey(hash);
+  OwningSlice val = EncodeHashValue(id);
   if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
     ESP_LOGE(kTag, "failed to entomb #%llx (id #%lx)", hash, id);
   }
 }
 
 auto Database::dbPutTrackData(const TrackData& s) -> void {
-  OwningSlice key = CreateDataKey(s.id());
-  OwningSlice val = CreateDataValue(s);
+  OwningSlice key = EncodeDataKey(s.id());
+  OwningSlice val = EncodeDataValue(s);
   if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
     ESP_LOGE(kTag, "failed to write data for #%lx", s.id());
   }
 }
 
 auto Database::dbGetTrackData(TrackId id) -> std::optional<TrackData> {
-  OwningSlice key = CreateDataKey(id);
+  OwningSlice key = EncodeDataKey(id);
   std::string raw_val;
   if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
     ESP_LOGW(kTag, "no key found for #%lx", id);
@@ -326,15 +385,15 @@ auto Database::dbGetTrackData(TrackId id) -> std::optional<TrackData> {
 }
 
 auto Database::dbPutHash(const uint64_t& hash, TrackId i) -> void {
-  OwningSlice key = CreateHashKey(hash);
-  OwningSlice val = CreateHashValue(i);
+  OwningSlice key = EncodeHashKey(hash);
+  OwningSlice val = EncodeHashValue(i);
   if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
     ESP_LOGE(kTag, "failed to write hash for #%lx", i);
   }
 }
 
 auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
-  OwningSlice key = CreateHashKey(hash);
+  OwningSlice key = EncodeHashKey(hash);
   std::string raw_val;
   if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
     ESP_LOGW(kTag, "no key found for hash #%llx", hash);
@@ -343,11 +402,13 @@ auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
   return ParseHashValue(raw_val);
 }
 
-auto Database::dbPutTrack(TrackId id,
-                          const std::string& path,
-                          const uint64_t& hash) -> void {
-  dbPutTrackData(TrackData(id, path, hash));
-  dbPutHash(hash, id);
+auto Database::dbCreateIndexesForTrack(Track track) -> void {
+  for (const IndexInfo& index : GetIndexes()) {
+    leveldb::WriteBatch writes;
+    if (Index(index, track, &writes)) {
+      db_->Write(leveldb::WriteOptions(), &writes);
+    }
+  }
 }
 
 template <typename T>
@@ -475,6 +536,31 @@ template auto Database::dbGetPage<std::string>(
     const Continuation<std::string>& c) -> Result<std::string>*;
 
 template <>
+auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
+                                        const leveldb::Slice& val)
+    -> std::optional<IndexRecord> {
+  std::optional<IndexKey> data = ParseIndexKey(key);
+  if (!data) {
+    return {};
+  }
+
+  // If there was a track id included for this key, then this is a leaf record.
+  // Fetch the actual track data instead of relying on the information in the
+  // key.
+  std::optional<Track> track;
+  if (data->track) {
+    std::optional<TrackData> track_data = dbGetTrackData(*data->track);
+    TrackTags track_tags;
+    if (track_data &&
+        tag_parser_->ReadAndParseTags(track_data->filepath(), &track_tags)) {
+      track.emplace(*track_data, track_tags);
+    }
+  }
+
+  return IndexRecord(*data, track);
+}
+
+template <>
 auto Database::ParseRecord<Track>(const leveldb::Slice& key,
                                   const leveldb::Slice& val)
     -> std::optional<Track> {
@@ -510,13 +596,46 @@ auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
       }
     }
   }
-  stream << "\tval: 0x";
-  std::string str = val.ToString();
-  for (int i = 0; i < val.size(); i++) {
-    stream << std::hex << std::setfill('0') << std::setw(2)
-           << static_cast<int>(str[i]);
+  if (!val.empty()) {
+    stream << "\tval: 0x";
+    std::string str = val.ToString();
+    for (int i = 0; i < val.size(); i++) {
+      stream << std::hex << std::setfill('0') << std::setw(2)
+             << static_cast<int>(str[i]);
+    }
   }
   return stream.str();
+}
+
+IndexRecord::IndexRecord(const IndexKey& key, std::optional<Track> track)
+    : key_(key), track_(track) {}
+
+auto IndexRecord::text() const -> std::optional<shared_string> {
+  if (track_) {
+    return track_->TitleOrFilename();
+  }
+  return key_.item;
+}
+
+auto IndexRecord::track() const -> std::optional<Track> {
+  return track_;
+}
+
+auto IndexRecord::Expand(std::size_t page_size) const
+    -> std::optional<Continuation<IndexRecord>> {
+  if (track_) {
+    return {};
+  }
+  IndexKey::Header new_header = ExpandHeader(key_.header, key_.item);
+  OwningSlice new_prefix = EncodeIndexPrefix(new_header);
+  return Continuation<IndexRecord>{
+      .iterator = nullptr,
+      .prefix = new_prefix.data,
+      .start_key = new_prefix.data,
+      .forward = true,
+      .was_prev_forward = true,
+      .page_size = page_size,
+  };
 }
 
 }  // namespace database

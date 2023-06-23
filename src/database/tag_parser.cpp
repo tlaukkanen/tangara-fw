@@ -12,6 +12,23 @@
 
 namespace database {
 
+auto convert_tag(int tag) -> std::optional<Tag> {
+  switch (tag) {
+    case Ttitle:
+      return Tag::kTitle;
+    case Tartist:
+      return Tag::kArtist;
+    case Talbum:
+      return Tag::kAlbum;
+    case Ttrack:
+      return Tag::kAlbumTrack;
+    case Tgenre:
+      return Tag::kGenre;
+    default:
+      return {};
+  }
+}
+
 namespace libtags {
 
 struct Aux {
@@ -55,12 +72,9 @@ static void tag(Tagctx* ctx,
                 int size,
                 Tagread f) {
   Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
-  if (t == Ttitle) {
-    aux->tags->title = v;
-  } else if (t == Tartist) {
-    aux->tags->artist = v;
-  } else if (t == Talbum) {
-    aux->tags->album = v;
+  auto tag = convert_tag(t);
+  if (tag) {
+    aux->tags->set(*tag, v);
   }
 }
 
@@ -108,19 +122,19 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
 
   switch (ctx.format) {
     case Fmp3:
-      out->encoding = Encoding::kMp3;
+      out->encoding(Encoding::kMp3);
       break;
     case Fogg:
-      out->encoding = Encoding::kOgg;
+      out->encoding(Encoding::kOgg);
       break;
     case Fflac:
-      out->encoding = Encoding::kFlac;
+      out->encoding(Encoding::kFlac);
       break;
     case Fwav:
-      out->encoding = Encoding::kWav;
+      out->encoding(Encoding::kWav);
       break;
     default:
-      out->encoding = Encoding::kUnsupported;
+      out->encoding(Encoding::kUnsupported);
   }
 
   if (ctx.channels > 0) {
