@@ -6,8 +6,12 @@
 
 #include "screen_menu.hpp"
 
+#include "core/lv_event.h"
+#include "esp_log.h"
+
 #include "core/lv_group.h"
 #include "core/lv_obj_pos.h"
+#include "extra/widgets/list/lv_list.h"
 #include "extra/widgets/menu/lv_menu.h"
 #include "extra/widgets/spinner/lv_spinner.h"
 #include "hal/lv_hal_disp.h"
@@ -17,33 +21,25 @@
 namespace ui {
 namespace screens {
 
+static void item_click_cb(lv_event_t* ev) {
+  ESP_LOGI("menu", "clicked!");
+}
+
 Menu::Menu() {
-  lv_obj_t* menu = lv_menu_create(root_);
-  lv_obj_set_size(menu, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
-  lv_obj_center(menu);
+  lv_obj_t* list = lv_list_create(root_);
+  lv_obj_set_size(list, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
+  lv_obj_center(list);
 
-  lv_obj_t* main_page = lv_menu_page_create(menu, NULL);
+  lv_obj_t* button;
 
-  lv_obj_t* container;
-  lv_obj_t* label;
+  button = lv_list_add_btn(list, NULL, "hi");
+  lv_obj_add_event_cb(button, item_click_cb, LV_EVENT_CLICKED, NULL);
 
-  container = lv_menu_cont_create(main_page);
-  label = lv_label_create(container);
-  lv_label_set_text(label, "I am an item");
+  button = lv_list_add_btn(list, NULL, "second");
+  lv_obj_add_event_cb(button, item_click_cb, LV_EVENT_CLICKED, NULL);
 
-  container = lv_menu_cont_create(main_page);
-  label = lv_label_create(container);
-  lv_label_set_text(label, "I am also an item");
-
-  container = lv_menu_cont_create(main_page);
-  label = lv_label_create(container);
-  lv_label_set_text(label, "Item #3");
-
-  container = lv_menu_cont_create(main_page);
-  label = lv_label_create(container);
-  lv_label_set_text(label, "Yay!");
-
-  lv_menu_set_page(menu, main_page);
+  button = lv_list_add_btn(list, NULL, "third");
+  lv_obj_add_event_cb(button, item_click_cb, LV_EVENT_CLICKED, NULL);
 }
 
 Menu::~Menu() {}

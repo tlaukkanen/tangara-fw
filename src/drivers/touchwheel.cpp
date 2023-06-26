@@ -105,8 +105,9 @@ void TouchWheel::Update() {
   }
   if (status & 0b1) {
     // Key detect. Note that the touchwheel keys also trigger this.
-    // TODO(daniel): Do something with this.
-    // bool centre_key = ReadRegister(Register::KEY_STATUS_A) & 0b1000;
+    uint8_t reg = ReadRegister(Register::KEY_STATUS_A);
+    data_.is_button_touched = reg & 0b1000;
+    data_.is_wheel_touched = reg & 0b111;
   }
 }
 

@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "core/lv_group.h"
 #include "hal/lv_hal_indev.h"
 
 #include "relative_wheel.hpp"
@@ -24,6 +25,8 @@ class TouchWheelEncoder {
  private:
   lv_indev_drv_t driver_;
   lv_indev_t* registration_;
+
+  lv_key_t last_key_;
   std::weak_ptr<drivers::RelativeWheel> wheel_;
 };
 

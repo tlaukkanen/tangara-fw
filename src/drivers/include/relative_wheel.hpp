@@ -32,12 +32,13 @@ class RelativeWheel {
 
   auto Update() -> void;
 
-  auto is_pressed() -> bool;
+  auto is_clicking() -> bool;
   auto ticks() -> std::int_fast16_t;
 
  private:
   TouchWheel* touch_;
-  bool is_pressed_;
+  bool is_clicking_;
+  bool was_clicking_;
   bool is_first_read_;
   std::int_fast16_t ticks_;
   uint8_t last_angle_;

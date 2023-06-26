@@ -15,7 +15,8 @@ namespace drivers {
 
 RelativeWheel::RelativeWheel(TouchWheel* touch)
     : touch_(touch),
-      is_pressed_(false),
+      is_clicking_(false),
+      was_clicking_(false),
       is_first_read_(true),
       ticks_(0),
       last_angle_(0) {}
@@ -23,7 +24,12 @@ RelativeWheel::RelativeWheel(TouchWheel* touch)
 auto RelativeWheel::Update() -> void {
   touch_->Update();
   TouchWheelData d = touch_->GetTouchWheelData();
-  is_pressed_ = d.is_touched;
+
+  is_clicking_ = d.is_button_touched;
+
+  if (!d.is_wheel_touched) {
+    is_first_read_ = true;
+  }
 
   uint8_t new_angle = d.wheel_position;
   if (is_first_read_) {
@@ -61,8 +67,10 @@ auto RelativeWheel::Update() -> void {
   ticks_ = change;
 }
 
-auto RelativeWheel::is_pressed() -> bool {
-  return is_pressed_;
+auto RelativeWheel::is_clicking() -> bool {
+  bool ret = is_clicking_;
+  is_clicking_ = 0;
+  return ret;
 }
 
 auto RelativeWheel::ticks() -> std::int_fast16_t {

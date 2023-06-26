@@ -17,7 +17,8 @@
 namespace drivers {
 
 struct TouchWheelData {
-  bool is_touched = false;
+  bool is_wheel_touched = false;
+  bool is_button_touched = false;
   uint8_t wheel_position = -1;
 };
 
