@@ -90,22 +90,36 @@ void RegisterListDir() {
   esp_console_cmd_register(&cmd);
 }
 
-// sInstance->playback_->Play(path + argv[1]);
 int CmdPlayFile(int argc, char** argv) {
-  static const std::string usage = "usage: play [file]";
+  static const std::string usage = "usage: play [file or id]";
   if (argc < 2) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  std::ostringstream path;
-  path << '/' << argv[1];
-  for (int i = 2; i < argc; i++) {
-    path << ' ' << argv[i];
+  std::string path_or_id = argv[1];
+  bool is_id = true;
+  for (const auto& it : path_or_id) {
+    if (!std::isdigit(it)) {
+      is_id = false;
+      break;
+    }
   }
 
-  events::Dispatch<audio::PlayFile, audio::AudioState>(
-      audio::PlayFile{.filename = path.str()});
+  if (is_id) {
+    database::TrackId id = std::atoi(argv[1]);
+    events::Dispatch<audio::PlayTrack, audio::AudioState>(
+        audio::PlayTrack{.id = id});
+  } else {
+    std::ostringstream path;
+    path << '/' << argv[1];
+    for (int i = 2; i < argc; i++) {
+      path << ' ' << argv[i];
+    }
+
+    events::Dispatch<audio::PlayFile, audio::AudioState>(
+        audio::PlayFile{.filename = path.str()});
+  }
 
   return 0;
 }
