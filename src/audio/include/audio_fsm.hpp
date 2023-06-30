@@ -40,6 +40,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   void react(const system_fsm::StorageMounted&);
 
+  void react(const system_fsm::KeyUpChanged&);
+  void react(const system_fsm::KeyDownChanged&);
+
   virtual void react(const system_fsm::BootComplete&) {}
   virtual void react(const PlayTrack&) {}
   virtual void react(const PlayFile&) {}

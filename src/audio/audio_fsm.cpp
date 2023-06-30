@@ -11,6 +11,7 @@
 #include "audio_decoder.hpp"
 #include "audio_events.hpp"
 #include "audio_task.hpp"
+#include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
@@ -63,6 +64,18 @@ auto AudioState::Init(drivers::GpioExpander* gpio_expander,
 
 void AudioState::react(const system_fsm::StorageMounted& ev) {
   sDatabase = ev.db;
+}
+
+void AudioState::react(const system_fsm::KeyUpChanged& ev) {
+  if (ev.falling && sI2SOutput->AdjustVolumeUp()) {
+    events::Dispatch<VolumeChanged, ui::UiState>({});
+  }
+}
+
+void AudioState::react(const system_fsm::KeyDownChanged& ev) {
+  if (ev.falling && sI2SOutput->AdjustVolumeDown()) {
+    events::Dispatch<VolumeChanged, ui::UiState>({});
+  }
 }
 
 namespace states {

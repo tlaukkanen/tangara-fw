@@ -27,6 +27,10 @@ namespace states {
 
 static const char kTag[] = "BOOT";
 
+static std::function<void(void)> sGpiosCallback = []() {
+  events::EventQueue::GetInstance().DispatchFromISR(internal::GpioInterrupt{});
+};
+
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
   ESP_LOGI(kTag, "installing early drivers");

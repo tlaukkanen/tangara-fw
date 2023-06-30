@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <tuple>
@@ -35,51 +36,8 @@ namespace drivers {
  */
 class GpioExpander {
  public:
-  static auto Create() -> GpioExpander* { return new GpioExpander(); }
-
-  GpioExpander();
+  static auto Create() -> GpioExpander*;
   ~GpioExpander();
-
-  static const uint8_t kPca8575Address = 0x20;
-  static const uint8_t kPca8575Timeout = pdMS_TO_TICKS(100);
-
-  // Port A:
-  // 0 - sd card mux switch
-  // 1 - sd card mux enable (active low)
-  // 2 - key up
-  // 3 - key down
-  // 4 - key lock
-  // 5 - display reset
-  // 6 - NC
-  // 7 - sd card power (active low)
-  // Default to SD card off, inputs high.
-  static const uint8_t kPortADefault = 0b10111110;
-
-  // Port B:
-  // 0 - 3.5mm jack detect (active low)
-  // 1 - trs output enable
-  // 2 - volume zero-cross detection
-  // 3 - volume direction
-  // 4 - volume left channel
-  // 5 - volume right channel
-  // 6 - NC
-  // 7 - NC
-  // Default input high, trs output low
-  static const uint8_t kPortBDefault = 0b00000010;
-
-  /*
-   * Convenience mehod for packing the port a and b bytes into a single 16 bit
-   * value.
-   */
-  static uint16_t pack(uint8_t a, uint8_t b) { return ((uint16_t)b) << 8 | a; }
-
-  /*
-   * Convenience mehod for unpacking the result of `pack` back into two single
-   * byte port datas.
-   */
-  static std::pair<uint8_t, uint8_t> unpack(uint16_t ba) {
-    return std::pair((uint8_t)ba, (uint8_t)(ba >> 8));
-  }
 
   /*
    * Convenience function for running some arbitrary pin writing code, then
@@ -91,19 +49,23 @@ class GpioExpander {
    * });
    * ```
    */
-  void with(std::function<void(GpioExpander&)> f);
+  template <typename F>
+  auto with(F fn) -> void {
+    std::invoke(fn);
+    Write();
+  }
 
   /**
    * Sets the ports on the GPIO expander to the values currently represented
    * in `ports`.
    */
-  esp_err_t Write(void);
+  auto Write(void) -> bool;
 
   /**
    * Reads from the GPIO expander, populating `inputs` with the most recent
    * values.
    */
-  esp_err_t Read(void);
+  auto Read(void) -> bool;
 
   /* Maps each pin of the expander to its number in a `pack`ed uint16. */
   enum Pin {
@@ -113,9 +75,9 @@ class GpioExpander {
     KEY_UP = 2,
     KEY_DOWN = 3,
     KEY_LOCK = 4,
-    DISPLAY_RESET = 5,
+    DISPLAY_RESET_ACTIVE_LOW = 5,
     // UNUSED = 6,
-    SD_CARD_POWER_ENABLE = 7,
+    SD_CARD_POWER_ENABLE_ACTIVE_LOW = 7,
 
     // Port B
     PHONE_DETECT = 8,
@@ -161,14 +123,26 @@ class GpioExpander {
    */
   bool get_input(Pin pin) const;
 
+  auto listener() -> std::weak_ptr<std::function<void(void)>>& {
+    return listener_;
+  }
+
+  auto set_listener(const std::weak_ptr<std::function<void(void)>>& l) -> void {
+    listener_ = l;
+  }
+
   // Not copyable or movable. There should usually only ever be once instance
   // of this class, and that instance will likely have a static lifetime.
   GpioExpander(const GpioExpander&) = delete;
   GpioExpander& operator=(const GpioExpander&) = delete;
 
  private:
+  GpioExpander();
+
   std::atomic<uint16_t> ports_;
   std::atomic<uint16_t> inputs_;
+
+  std::weak_ptr<std::function<void(void)>> listener_;
 };
 
 }  // namespace drivers

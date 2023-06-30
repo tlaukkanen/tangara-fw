@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
+#include "system_fsm.hpp"
 #include "tinyfsm.hpp"
 
 #include "ui_fsm.hpp"
@@ -31,6 +32,16 @@ class EventQueue {
   static EventQueue& GetInstance() {
     static EventQueue instance;
     return instance;
+  }
+
+  template <typename Event>
+  auto DispatchFromISR(const Event& ev) -> bool {
+    WorkItem* item = new WorkItem([=]() {
+      tinyfsm::FsmList<system_fsm::SystemState>::template dispatch<Event>(ev);
+    });
+    BaseType_t ret;
+    xQueueSendFromISR(system_handle_, &item, &ret);
+    return ret;
   }
 
   template <typename Event, typename Machine, typename... Machines>

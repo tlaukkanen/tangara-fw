@@ -56,7 +56,7 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 }  // namespace callback
 
 auto SdStorage::Create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error> {
-  gpio->set_pin(GpioExpander::SD_CARD_POWER_ENABLE, 0);
+  gpio->set_pin(GpioExpander::SD_CARD_POWER_ENABLE_ACTIVE_LOW, 0);
   gpio->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 0);
   gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
   gpio->Write();
@@ -144,7 +144,7 @@ SdStorage::~SdStorage() {
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
 
-  gpio_->set_pin(GpioExpander::SD_CARD_POWER_ENABLE, 0);
+  gpio_->set_pin(GpioExpander::SD_CARD_POWER_ENABLE_ACTIVE_LOW, 1);
   gpio_->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 1);
   gpio_->Write();
 }

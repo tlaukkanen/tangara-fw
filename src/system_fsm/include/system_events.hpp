@@ -47,6 +47,19 @@ struct StorageMounted : tinyfsm::Event {
 
 struct StorageError : tinyfsm::Event {};
 
+struct KeyUpChanged : tinyfsm::Event {
+  bool falling;
+};
+struct KeyDownChanged : tinyfsm::Event {
+  bool falling;
+};
+struct KeyLockChanged : tinyfsm::Event {
+  bool falling;
+};
+struct HasPhonesChanged : tinyfsm::Event {
+  bool falling;
+};
+
 namespace internal {
 
 /*
@@ -54,6 +67,12 @@ namespace internal {
  * by SysState in response to StoragePrepareToUnmount.
  */
 struct ReadyToUnmount : tinyfsm::Event {};
+
+/*
+ * Sent when the actual unmount operation should be performed. Always dispatched
+ * by SysState in response to StoragePrepareToUnmount.
+ */
+struct GpioInterrupt : tinyfsm::Event {};
 
 }  // namespace internal
 

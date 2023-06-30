@@ -34,8 +34,8 @@ class I2SAudioOutput : public IAudioSink {
   auto SetVolumeImbalance(int_fast8_t balance) -> void override;
   auto SetVolume(uint_fast8_t percent) -> void override;
   auto GetVolume() -> uint_fast8_t override;
-  auto AdjustVolumeUp() -> void override;
-  auto AdjustVolumeDown() -> void override;
+  auto AdjustVolumeUp() -> bool override;
+  auto AdjustVolumeDown() -> bool override;
 
   auto Configure(const StreamInfo::Format& format) -> bool override;
   auto Send(const cpp::span<std::byte>& data) -> void override;

@@ -68,6 +68,10 @@ void Interactive::entry() {
   sCurrentScreen.reset(new screens::Menu());
 }
 
+void Interactive::react(const system_fsm::KeyLockChanged& ev) {
+  sDisplay->SetDisplayOn(ev.falling);
+}
+
 }  // namespace states
 }  // namespace ui
 

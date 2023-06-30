@@ -35,6 +35,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  virtual void react(const system_fsm::KeyLockChanged&){};
+
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}
 
@@ -58,6 +60,8 @@ class Splash : public UiState {
 
 class Interactive : public UiState {
   void entry() override;
+
+  void react(const system_fsm::KeyLockChanged&) override;
 };
 
 class FatalError : public UiState {};

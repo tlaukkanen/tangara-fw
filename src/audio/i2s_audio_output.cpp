@@ -100,20 +100,22 @@ auto I2SAudioOutput::GetAdjustedMaxAttenuation() -> int_fast8_t {
   return adjusted_max;
 }
 
-auto I2SAudioOutput::AdjustVolumeUp() -> void {
+auto I2SAudioOutput::AdjustVolumeUp() -> bool {
   if (attenuation_ + left_difference_ <= pots_->GetMinAttenuation()) {
-    return;
+    return false;
   }
   attenuation_--;
   pots_->SetRelative(-1);
+  return true;
 }
 
-auto I2SAudioOutput::AdjustVolumeDown() -> void {
+auto I2SAudioOutput::AdjustVolumeDown() -> bool {
   if (attenuation_ - left_difference_ >= pots_->GetMaxAttenuation()) {
-    return;
+    return false;
   }
   attenuation_++;
   pots_->SetRelative(1);
+  return true;
 }
 
 auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {

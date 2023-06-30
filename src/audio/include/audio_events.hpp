@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <cstdint>
 #include <string>
 
 #include "tinyfsm.hpp"
@@ -31,5 +32,7 @@ struct PlaybackUpdate : tinyfsm::Event {
 struct InputFileOpened : tinyfsm::Event {};
 struct InputFileFinished : tinyfsm::Event {};
 struct AudioPipelineIdle : tinyfsm::Event {};
+
+struct VolumeChanged : tinyfsm::Event {};
 
 }  // namespace audio
