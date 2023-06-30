@@ -22,9 +22,8 @@ namespace audio {
 
 static const char kTag[] = "audio_fsm";
 
-drivers::GpioExpander* AudioState::sGpioExpander;
+drivers::IGpios* AudioState::sIGpios;
 std::shared_ptr<drivers::I2SDac> AudioState::sDac;
-std::shared_ptr<drivers::DigitalPot> AudioState::sPots;
 std::weak_ptr<database::Database> AudioState::sDatabase;
 
 std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
@@ -33,20 +32,19 @@ std::vector<std::unique_ptr<IAudioElement>> AudioState::sPipeline;
 
 std::deque<AudioState::EnqueuedItem> AudioState::sTrackQueue;
 
-auto AudioState::Init(drivers::GpioExpander* gpio_expander,
+auto AudioState::Init(drivers::IGpios* gpio_expander,
                       std::weak_ptr<database::Database> database) -> bool {
-  sGpioExpander = gpio_expander;
+  sIGpios = gpio_expander;
 
   auto dac = drivers::I2SDac::create(gpio_expander);
   if (!dac) {
     return false;
   }
   sDac.reset(dac.value());
-  sPots.reset(new drivers::DigitalPot(gpio_expander));
   sDatabase = database;
 
   sFileSource.reset(new FatfsAudioInput());
-  sI2SOutput.reset(new I2SAudioOutput(sGpioExpander, sDac, sPots));
+  sI2SOutput.reset(new I2SAudioOutput(sIGpios, sDac));
 
   // Perform initial pipeline configuration.
   // TODO(jacqueline): Factor this out once we have any kind of dynamic

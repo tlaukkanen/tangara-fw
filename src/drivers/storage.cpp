@@ -23,7 +23,7 @@
 #include "hal/spi_types.h"
 #include "sdmmc_cmd.h"
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 
 static const char* kTag = "SDSTORAGE";
 static const uint8_t kMaxOpenFiles = 8;
@@ -55,11 +55,10 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 }
 }  // namespace callback
 
-auto SdStorage::Create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error> {
-  gpio->set_pin(GpioExpander::SD_CARD_POWER_ENABLE_ACTIVE_LOW, 0);
-  gpio->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 0);
-  gpio->set_pin(GpioExpander::SD_MUX_SWITCH, GpioExpander::SD_MUX_ESP);
-  gpio->Write();
+auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
+  gpio->WriteSync(IGpios::Pin::kSdPowerDisable, 0);
+  gpio->WriteSync(IGpios::Pin::kSdMuxSwitch, IGpios::SD_MUX_ESP);
+  gpio->WriteSync(IGpios::Pin::kSdMuxDisable, 0);
 
   sdspi_dev_handle_t handle;
   std::unique_ptr<sdmmc_host_t> host;
@@ -114,7 +113,7 @@ auto SdStorage::Create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error> {
                        std::move(card), fs);
 }
 
-SdStorage::SdStorage(GpioExpander* gpio,
+SdStorage::SdStorage(IGpios* gpio,
                      esp_err_t (*do_transaction)(sdspi_dev_handle_t,
                                                  sdmmc_command_t*),
                      sdspi_dev_handle_t handle,
@@ -144,9 +143,8 @@ SdStorage::~SdStorage() {
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
 
-  gpio_->set_pin(GpioExpander::SD_CARD_POWER_ENABLE_ACTIVE_LOW, 1);
-  gpio_->set_pin(GpioExpander::SD_MUX_EN_ACTIVE_LOW, 1);
-  gpio_->Write();
+  gpio_->WriteSync(IGpios::Pin::kSdPowerDisable, 1);
+  gpio_->WriteSync(IGpios::Pin::kSdMuxDisable, 1);
 }
 
 auto SdStorage::HandleTransaction(sdspi_dev_handle_t handle,

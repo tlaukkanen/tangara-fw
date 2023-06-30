@@ -12,13 +12,12 @@
 #include <memory>
 #include <variant>
 
-#include "digital_pot.hpp"
 #include "esp_err.h"
 #include "freertos/portmacro.h"
 
 #include "audio_element.hpp"
 #include "freertos/projdefs.h"
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "i2s_dac.hpp"
 #include "result.hpp"
 #include "stream_info.hpp"
@@ -27,15 +26,13 @@ static const char* kTag = "I2SOUT";
 
 namespace audio {
 
-I2SAudioOutput::I2SAudioOutput(drivers::GpioExpander* expander,
-                               std::weak_ptr<drivers::I2SDac> dac,
-                               std::weak_ptr<drivers::DigitalPot> pots)
+I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
+                               std::weak_ptr<drivers::I2SDac> dac)
     : expander_(expander),
       dac_(dac.lock()),
-      pots_(pots.lock()),
       current_config_(),
       left_difference_(0),
-      attenuation_(pots_->GetMaxAttenuation()) {
+      attenuation_() {
   SetVolume(25);  // For testing
   dac_->SetSource(buffer());
 }
@@ -51,70 +48,33 @@ auto I2SAudioOutput::SetInUse(bool in_use) -> void {
   } else {
     dac_->Stop();
   }
-  pots_->SetZeroCrossDetect(in_use);
 }
 
 auto I2SAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
-  int_fast8_t new_difference = balance - left_difference_;
-  left_difference_ = balance;
-  if (attenuation_ + new_difference <= pots_->GetMinAttenuation()) {
-    // Volume is currently very high, so shift the left channel down.
-    pots_->SetRelative(drivers::DigitalPot::Channel::kLeft, -new_difference);
-  } else if (attenuation_ - new_difference >= pots_->GetMaxAttenuation()) {
-    // Volume is currently very low, so shift the left channel up.
-    pots_->SetRelative(drivers::DigitalPot::Channel::kLeft, new_difference);
-  } else {
-    ESP_LOGE(kTag, "volume imbalance higher than attenuation range");
-  }
+  // TODO.
 }
 
 auto I2SAudioOutput::SetVolume(uint_fast8_t percent) -> void {
-  percent = 100 - percent;
-  int_fast8_t target_attenuation =
-      static_cast<int_fast8_t>(static_cast<float>(GetAdjustedMaxAttenuation()) /
-                               100.0f * static_cast<float>(percent));
-  target_attenuation -= pots_->GetMinAttenuation();
-  int_fast8_t difference = target_attenuation - attenuation_;
-  pots_->SetRelative(difference);
-  attenuation_ = target_attenuation;
-  ESP_LOGI(kTag, "adjusting attenuation by %idB to %idB", difference,
-           attenuation_);
+  // TODO.
 }
 
 auto I2SAudioOutput::GetVolume() -> uint_fast8_t {
-  // Convert to percentage.
-  uint_fast8_t percent = static_cast<uint_fast8_t>(
-      static_cast<float>(attenuation_) /
-      static_cast<float>(GetAdjustedMaxAttenuation()) * 100.0f);
-  // Invert to get from attenuation to volume.
-  return 100 - percent;
+  // TODO.
+  return 100;
 }
 
 auto I2SAudioOutput::GetAdjustedMaxAttenuation() -> int_fast8_t {
-  // Clip to account for imbalance.
-  int_fast8_t adjusted_max =
-      pots_->GetMaxAttenuation() - std::abs(left_difference_);
-  // Shift to be zero minimum.
-  adjusted_max -= pots_->GetMinAttenuation();
-
-  return adjusted_max;
+  // TODO
+  return 0;
 }
 
 auto I2SAudioOutput::AdjustVolumeUp() -> bool {
-  if (attenuation_ + left_difference_ <= pots_->GetMinAttenuation()) {
-    return false;
-  }
-  attenuation_--;
-  pots_->SetRelative(-1);
+  // TODO
   return true;
 }
 
 auto I2SAudioOutput::AdjustVolumeDown() -> bool {
-  if (attenuation_ - left_difference_ >= pots_->GetMaxAttenuation()) {
-    return false;
-  }
-  attenuation_++;
-  pots_->SetRelative(1);
+  // TODO
   return true;
 }
 

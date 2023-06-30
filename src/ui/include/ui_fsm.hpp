@@ -21,7 +21,7 @@ namespace ui {
 
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
-  static auto Init(drivers::GpioExpander* gpio_expander) -> bool;
+  static auto Init(drivers::IGpios* gpio_expander) -> bool;
 
   virtual ~UiState() {}
 
@@ -41,7 +41,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const system_fsm::BootComplete&) {}
 
  protected:
-  static drivers::GpioExpander* sGpioExpander;
+  static drivers::IGpios* sIGpios;
   static std::shared_ptr<drivers::TouchWheel> sTouchWheel;
   static std::shared_ptr<drivers::RelativeWheel> sRelativeWheel;
   static std::shared_ptr<drivers::Display> sDisplay;

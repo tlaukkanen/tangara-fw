@@ -21,7 +21,7 @@
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "hal/i2s_types.h"
 #include "i2c.hpp"
 #include "soc/clk_tree_defs.h"
@@ -32,7 +32,7 @@ namespace drivers {
 static const char* kTag = "i2s_dac";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
-auto I2SDac::create(GpioExpander* expander) -> std::optional<I2SDac*> {
+auto I2SDac::create(IGpios* expander) -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config =
       I2S_CHANNEL_DEFAULT_CONFIG(kI2SPort, I2S_ROLE_MASTER);
@@ -78,7 +78,7 @@ auto I2SDac::create(GpioExpander* expander) -> std::optional<I2SDac*> {
   return dac.release();
 }
 
-I2SDac::I2SDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
+I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
     : gpio_(gpio),
       i2s_handle_(i2s_handle),
       i2s_active_(false),
@@ -87,8 +87,7 @@ I2SDac::I2SDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle)
       slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                    I2S_SLOT_MODE_STEREO)) {
   clock_config_.clk_src = I2S_CLK_SRC_PLL_160M;
-  gpio_->set_pin(GpioExpander::AMP_EN, false);
-  gpio_->Write();
+  gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
 }
 
 I2SDac::~I2SDac() {
@@ -97,8 +96,7 @@ I2SDac::~I2SDac() {
 }
 
 auto I2SDac::Start() -> void {
-  gpio_->set_pin(GpioExpander::AMP_EN, true);
-  gpio_->Write();
+  gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, true);
 
   vTaskDelay(pdMS_TO_TICKS(1));
   i2s_channel_enable(i2s_handle_);
@@ -110,8 +108,7 @@ auto I2SDac::Stop() -> void {
   i2s_channel_disable(i2s_handle_);
   vTaskDelay(pdMS_TO_TICKS(1));
 
-  gpio_->set_pin(GpioExpander::AMP_EN, false);
-  gpio_->Write();
+  gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
 
   i2s_active_ = false;
 }

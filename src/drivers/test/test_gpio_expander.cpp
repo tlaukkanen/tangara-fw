@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 
 #include "catch2/catch.hpp"
 
@@ -15,17 +15,16 @@ namespace drivers {
 
 TEST_CASE("gpio expander", "[integration]") {
   I2CFixture i2c;
-  GpioExpander expander;
+  IGpios expander;
   SECTION("with() writes when ") {
     // Initial value.
     expander.Read();
-    REQUIRE(expander.get_input(GpioExpander::KEY_DOWN) == true);
+    REQUIRE(expander.get_input(IGpios::KEY_DOWN) == true);
 
-    expander.with(
-        [&](auto& gpio) { gpio.set_pin(GpioExpander::KEY_DOWN, false); });
+    expander.with([&](auto& gpio) { gpio.set_pin(IGpios::KEY_DOWN, false); });
 
     expander.Read();
-    REQUIRE(expander.get_input(GpioExpander::KEY_DOWN) == false);
+    REQUIRE(expander.get_input(IGpios::KEY_DOWN) == false);
   }
 }
 

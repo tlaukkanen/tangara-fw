@@ -15,7 +15,7 @@
 #include "ff.h"
 #include "result.hpp"
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 
 namespace drivers {
 
@@ -31,9 +31,9 @@ class SdStorage {
     FAILED_TO_MOUNT,
   };
 
-  static auto Create(GpioExpander* gpio) -> cpp::result<SdStorage*, Error>;
+  static auto Create(IGpios* gpio) -> cpp::result<SdStorage*, Error>;
 
-  SdStorage(GpioExpander* gpio,
+  SdStorage(IGpios* gpio,
             esp_err_t (*do_transaction)(sdspi_dev_handle_t, sdmmc_command_t*),
             sdspi_dev_handle_t handle_,
             std::unique_ptr<sdmmc_host_t> host_,
@@ -52,7 +52,7 @@ class SdStorage {
   SdStorage& operator=(const SdStorage&) = delete;
 
  private:
-  GpioExpander* gpio_;
+  IGpios* gpio_;
 
   esp_err_t (*do_transaction_)(sdspi_dev_handle_t, sdmmc_command_t*) = nullptr;
 

@@ -13,7 +13,7 @@
 #include "esp_err.h"
 #include "result.hpp"
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "touchwheel.hpp"
 
 namespace drivers {

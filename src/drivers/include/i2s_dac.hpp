@@ -22,7 +22,7 @@
 #include "result.hpp"
 #include "span.hpp"
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "sys/_stdint.h"
 
 namespace drivers {
@@ -32,9 +32,9 @@ namespace drivers {
  */
 class I2SDac {
  public:
-  static auto create(GpioExpander* expander) -> std::optional<I2SDac*>;
+  static auto create(IGpios* expander) -> std::optional<I2SDac*>;
 
-  I2SDac(GpioExpander* gpio, i2s_chan_handle_t i2s_handle);
+  I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle);
   ~I2SDac();
 
   auto Start() -> void;
@@ -70,7 +70,7 @@ class I2SDac {
   I2SDac& operator=(const I2SDac&) = delete;
 
  private:
-  GpioExpander* gpio_;
+  IGpios* gpio_;
   i2s_chan_handle_t i2s_handle_;
   bool i2s_active_;
   std::optional<uint8_t> active_page_;

@@ -14,7 +14,7 @@
 
 #include "catch2/catch.hpp"
 
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "i2c.hpp"
 #include "i2c_fixture.hpp"
 #include "spi.hpp"
@@ -29,7 +29,7 @@ static const std::string kTestFilePath =
 TEST_CASE("sd card storage", "[integration]") {
   I2CFixture i2c;
   SpiFixture spi;
-  GpioExpander expander;
+  IGpios expander;
 
   {
     std::unique_ptr<SdStorage> result(SdStorage::create(&expander).value());

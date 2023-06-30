@@ -27,7 +27,7 @@ static const char kTag[] = "RUN";
 void Running::entry() {
   ESP_LOGI(kTag, "mounting sd card");
   vTaskDelay(pdMS_TO_TICKS(250));
-  auto storage_res = drivers::SdStorage::Create(sGpioExpander.get());
+  auto storage_res = drivers::SdStorage::Create(sGpios.get());
   if (storage_res.has_error()) {
     ESP_LOGW(kTag, "failed to mount!");
     events::Dispatch<StorageError, SystemState, audio::AudioState, ui::UiState>(

@@ -42,7 +42,7 @@
 #include "widgets/lv_label.h"
 
 #include "display.hpp"
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 
 namespace ui {
 

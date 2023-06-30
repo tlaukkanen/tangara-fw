@@ -12,7 +12,7 @@
 
 namespace system_fsm {
 
-std::shared_ptr<drivers::GpioExpander> SystemState::sGpioExpander;
+std::shared_ptr<drivers::Gpios> SystemState::sGpios;
 std::shared_ptr<drivers::Samd> SystemState::sSamd;
 
 std::shared_ptr<drivers::TouchWheel> SystemState::sTouch;
@@ -32,21 +32,17 @@ void SystemState::react(const FatalError& err) {
 
 void SystemState::react(const internal::GpioInterrupt& ev) {
   ESP_LOGI("sys", "gpios changed");
-  bool prev_key_up = sGpioExpander->get_input(drivers::GpioExpander::KEY_UP);
-  bool prev_key_down =
-      sGpioExpander->get_input(drivers::GpioExpander::KEY_DOWN);
-  bool prev_key_lock =
-      sGpioExpander->get_input(drivers::GpioExpander::KEY_LOCK);
-  bool prev_has_headphones =
-      sGpioExpander->get_input(drivers::GpioExpander::PHONE_DETECT);
+  bool prev_key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
+  bool prev_key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
+  bool prev_key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
+  bool prev_has_headphones = sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
 
-  sGpioExpander->Read();
+  sGpios->Read();
 
-  bool key_up = sGpioExpander->get_input(drivers::GpioExpander::KEY_UP);
-  bool key_down = sGpioExpander->get_input(drivers::GpioExpander::KEY_DOWN);
-  bool key_lock = sGpioExpander->get_input(drivers::GpioExpander::KEY_LOCK);
-  bool has_headphones =
-      sGpioExpander->get_input(drivers::GpioExpander::PHONE_DETECT);
+  bool key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
+  bool key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
+  bool key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
+  bool has_headphones = sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
 
   if (key_up != prev_key_up) {
     events::Dispatch<KeyUpChanged, audio::AudioState, ui::UiState>(

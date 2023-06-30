@@ -18,15 +18,15 @@
 
 namespace ui {
 
-drivers::GpioExpander* UiState::sGpioExpander;
+drivers::IGpios* UiState::sIGpios;
 std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
 std::shared_ptr<drivers::Display> UiState::sDisplay;
 
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 
-auto UiState::Init(drivers::GpioExpander* gpio_expander) -> bool {
-  sGpioExpander = gpio_expander;
+auto UiState::Init(drivers::IGpios* gpio_expander) -> bool {
+  sIGpios = gpio_expander;
 
   lv_init();
   sDisplay.reset(

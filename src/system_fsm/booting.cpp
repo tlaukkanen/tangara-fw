@@ -11,7 +11,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "lvgl/lvgl.h"
 #include "relative_wheel.hpp"
 #include "spi.hpp"
@@ -42,12 +42,12 @@ auto Booting::entry() -> void {
 
   // These drivers are the bare minimum to even show an error. If these fail,
   // then the system is completely hosed.
-  sGpioExpander.reset(drivers::GpioExpander::Create());
-  assert(sGpioExpander != nullptr);
+  sGpios.reset(drivers::Gpios::Create());
+  assert(sGpios != nullptr);
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::Init(sGpioExpander.get())) {
+  if (!ui::UiState::Init(sGpios.get())) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
@@ -68,7 +68,7 @@ auto Booting::entry() -> void {
   // state machines and inform them that the system is ready.
 
   ESP_LOGI(kTag, "starting audio");
-  if (!audio::AudioState::Init(sGpioExpander.get(), sDatabase)) {
+  if (!audio::AudioState::Init(sGpios.get(), sDatabase)) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;

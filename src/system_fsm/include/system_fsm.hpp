@@ -12,7 +12,7 @@
 #include "battery.hpp"
 #include "database.hpp"
 #include "display.hpp"
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "relative_wheel.hpp"
 #include "samd.hpp"
 #include "storage.hpp"
@@ -48,7 +48,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const StorageError&) {}
 
  protected:
-  static std::shared_ptr<drivers::GpioExpander> sGpioExpander;
+  static std::shared_ptr<drivers::Gpios> sGpios;
   static std::shared_ptr<drivers::Samd> sSamd;
 
   static std::shared_ptr<drivers::TouchWheel> sTouch;

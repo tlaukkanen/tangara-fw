@@ -15,8 +15,7 @@
 #include "chunk.hpp"
 #include "result.hpp"
 
-#include "digital_pot.hpp"
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 #include "i2s_dac.hpp"
 #include "stream_info.hpp"
 
@@ -24,9 +23,7 @@ namespace audio {
 
 class I2SAudioOutput : public IAudioSink {
  public:
-  I2SAudioOutput(drivers::GpioExpander* expander,
-                 std::weak_ptr<drivers::I2SDac> dac,
-                 std::weak_ptr<drivers::DigitalPot> pots);
+  I2SAudioOutput(drivers::IGpios* expander, std::weak_ptr<drivers::I2SDac> dac);
   ~I2SAudioOutput();
 
   auto SetInUse(bool) -> void override;
@@ -46,9 +43,8 @@ class I2SAudioOutput : public IAudioSink {
  private:
   auto GetAdjustedMaxAttenuation() -> int_fast8_t;
 
-  drivers::GpioExpander* expander_;
+  drivers::IGpios* expander_;
   std::shared_ptr<drivers::I2SDac> dac_;
-  std::shared_ptr<drivers::DigitalPot> pots_;
 
   std::optional<StreamInfo::Pcm> current_config_;
   int_fast8_t left_difference_;

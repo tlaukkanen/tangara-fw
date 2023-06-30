@@ -16,7 +16,7 @@
 #include "tasks.hpp"
 
 #include "display_init.hpp"
-#include "gpio_expander.hpp"
+#include "gpios.hpp"
 
 namespace drivers {
 
@@ -30,10 +30,10 @@ class Display {
    * over SPI. This never fails, since unfortunately these display don't give
    * us back any kind of signal to tell us we're actually using them correctly.
    */
-  static auto Create(GpioExpander* expander,
+  static auto Create(IGpios* expander,
                      const displays::InitialisationData& init_data) -> Display*;
 
-  Display(GpioExpander* gpio, spi_device_handle_t handle);
+  Display(IGpios* gpio, spi_device_handle_t handle);
   ~Display();
 
   auto SetDisplayOn(bool) -> void;
@@ -48,7 +48,7 @@ class Display {
   Display& operator=(const Display&) = delete;
 
  private:
-  GpioExpander* gpio_;
+  IGpios* gpio_;
   spi_device_handle_t handle_;
 
   std::unique_ptr<tasks::Worker> worker_task_;
