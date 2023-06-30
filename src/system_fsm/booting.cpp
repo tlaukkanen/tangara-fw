@@ -45,6 +45,8 @@ auto Booting::entry() -> void {
   sGpios.reset(drivers::Gpios::Create());
   assert(sGpios != nullptr);
 
+  sGpios->set_listener(&sGpiosCallback);
+
   // Start bringing up LVGL now, since we have all of its prerequisites.
   ESP_LOGI(kTag, "starting ui");
   if (!ui::UiState::Init(sGpios.get())) {

@@ -31,7 +31,6 @@ void SystemState::react(const FatalError& err) {
 }
 
 void SystemState::react(const internal::GpioInterrupt& ev) {
-  ESP_LOGI("sys", "gpios changed");
   bool prev_key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
   bool prev_key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
   bool prev_key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);

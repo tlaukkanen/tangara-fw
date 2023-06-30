@@ -11,11 +11,13 @@
 #include "audio_decoder.hpp"
 #include "audio_events.hpp"
 #include "audio_task.hpp"
+#include "esp_log.h"
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
 #include "pipeline.hpp"
+#include "system_events.hpp"
 #include "track.hpp"
 
 namespace audio {
@@ -66,13 +68,23 @@ void AudioState::react(const system_fsm::StorageMounted& ev) {
 
 void AudioState::react(const system_fsm::KeyUpChanged& ev) {
   if (ev.falling && sI2SOutput->AdjustVolumeUp()) {
+    ESP_LOGI(kTag, "volume up!");
     events::Dispatch<VolumeChanged, ui::UiState>({});
   }
 }
 
 void AudioState::react(const system_fsm::KeyDownChanged& ev) {
   if (ev.falling && sI2SOutput->AdjustVolumeDown()) {
+    ESP_LOGI(kTag, "volume down!");
     events::Dispatch<VolumeChanged, ui::UiState>({});
+  }
+}
+
+void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
+  if (ev.falling) {
+    ESP_LOGI(kTag, "headphones in!");
+  } else {
+    ESP_LOGI(kTag, "headphones out!");
   }
 }
 
