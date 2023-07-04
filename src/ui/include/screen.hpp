@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "core/lv_group.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
 #include "lvgl.h"
@@ -16,13 +17,20 @@ namespace ui {
 
 class Screen {
  public:
-  Screen() : root_(lv_obj_create(NULL)) {}
-  virtual ~Screen() { lv_obj_del(root_); }
+  Screen() : root_(lv_obj_create(NULL)), group_(lv_group_create()) {}
+  virtual ~Screen() {
+    lv_obj_del(root_);
+    lv_group_del(group_);
+  }
+
+  virtual auto Tick() -> void {}
 
   auto root() -> lv_obj_t* { return root_; }
+  auto group() -> lv_group_t* { return group_; }
 
  protected:
   lv_obj_t* const root_;
+  lv_group_t* const group_;
 };
 
 }  // namespace ui

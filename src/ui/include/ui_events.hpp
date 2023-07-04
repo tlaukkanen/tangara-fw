@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "database.hpp"
+#include "index.hpp"
 #include "tinyfsm.hpp"
 
 namespace ui {
@@ -19,5 +21,17 @@ struct OnStorageChange : tinyfsm::Event {
 };
 
 struct OnSystemError : tinyfsm::Event {};
+
+namespace internal {
+
+struct RecordSelected : tinyfsm::Event {
+  database::IndexRecord record;
+};
+
+struct IndexSelected : tinyfsm::Event {
+  database::IndexInfo index;
+};
+
+}  // namespace internal
 
 }  // namespace ui

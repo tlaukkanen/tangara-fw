@@ -54,9 +54,6 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
   lv_init();
 
   TouchWheelEncoder encoder(weak_touch_wheel);
-  lv_group_t* nav_group = lv_group_create();
-  lv_group_set_default(nav_group);
-  lv_indev_set_group(encoder.registration(), nav_group);
 
   std::shared_ptr<Screen> current_screen;
   auto& events = events::EventQueue::GetInstance();
@@ -68,7 +65,12 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
     if (screen != current_screen && screen != nullptr) {
       // TODO(jacqueline): animate this sometimes
       lv_scr_load(screen->root());
+      lv_indev_set_group(encoder.registration(), screen->group());
       current_screen = screen;
+    }
+
+    if (current_screen) {
+      current_screen->Tick();
     }
 
     lv_task_handler();

@@ -6,23 +6,33 @@
 
 #include "ui_fsm.hpp"
 #include <memory>
+#include "audio_events.hpp"
 #include "core/lv_obj.h"
 #include "display.hpp"
+#include "event_queue.hpp"
 #include "lvgl_task.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "screen_menu.hpp"
+#include "screen_playing.hpp"
 #include "screen_splash.hpp"
+#include "screen_track_browser.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
 
 namespace ui {
 
+static constexpr char kTag[] = "ui_fsm";
+
+static const std::size_t kRecordsPerPage = 10;
+
 drivers::IGpios* UiState::sIGpios;
 std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
 std::shared_ptr<drivers::Display> UiState::sDisplay;
+std::weak_ptr<database::Database> UiState::sDb;
 
+std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 
 auto UiState::Init(drivers::IGpios* gpio_expander) -> bool {
@@ -52,6 +62,13 @@ auto UiState::Init(drivers::IGpios* gpio_expander) -> bool {
   return true;
 }
 
+void UiState::PushScreen(std::shared_ptr<Screen> screen) {
+  if (sCurrentScreen) {
+    sScreens.push(sCurrentScreen);
+  }
+  sCurrentScreen = screen;
+}
+
 namespace states {
 
 void Splash::exit() {
@@ -64,12 +81,60 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   transit<Interactive>();
 }
 
-void Interactive::entry() {
-  sCurrentScreen.reset(new screens::Menu());
-}
+void Interactive::entry() {}
 
 void Interactive::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
+}
+
+void Interactive::react(const system_fsm::StorageMounted& ev) {
+  sDb = ev.db;
+  auto db = ev.db.lock();
+  if (!db) {
+    // TODO(jacqueline): Hmm.
+    return;
+  }
+  PushScreen(std::make_shared<screens::Menu>(db->GetIndexes()));
+}
+
+void Interactive::react(const internal::RecordSelected& ev) {
+  auto db = sDb.lock();
+  if (!db) {
+    return;
+  }
+
+  if (ev.record.track()) {
+    ESP_LOGI(kTag, "selected track '%s'", ev.record.text()->c_str());
+    // TODO(jacqueline): We should also send some kind of playlist info here.
+    auto track = ev.record.track().value();
+    events::Dispatch<audio::PlayTrack, audio::AudioState>(audio::PlayTrack{
+        .id = track.data().id(),
+        .data = track.data(),
+    });
+    PushScreen(std::make_shared<screens::Playing>(track));
+  } else {
+    ESP_LOGI(kTag, "selected record '%s'", ev.record.text()->c_str());
+    auto cont = ev.record.Expand(kRecordsPerPage);
+    if (!cont) {
+      return;
+    }
+    auto query = db->GetPage(&cont.value());
+    std::string title = ev.record.text().value_or("TODO");
+    PushScreen(
+        std::make_shared<screens::TrackBrowser>(sDb, title, std::move(query)));
+  }
+}
+
+void Interactive::react(const internal::IndexSelected& ev) {
+  auto db = sDb.lock();
+  if (!db) {
+    return;
+  }
+
+  ESP_LOGI(kTag, "selected index %s", ev.index.name.c_str());
+  auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
+  PushScreen(std::make_shared<screens::TrackBrowser>(sDb, ev.index.name,
+                                                     std::move(query)));
 }
 
 }  // namespace states
