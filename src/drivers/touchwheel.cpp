@@ -84,10 +84,10 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
 
 void TouchWheel::Update() {
   // Read data from device into member struct
-  bool has_data = !gpio_get_level(kIntPin);
-  if (!has_data) {
-    return;
-  }
+  // bool has_data = !gpio_get_level(kIntPin);
+  // if (!has_data) {
+  //   return;
+  // }
   uint8_t status = ReadRegister(Register::DETECTION_STATUS);
   if (status & 0b10000000) {
     // Still calibrating.
@@ -108,6 +108,9 @@ void TouchWheel::Update() {
     uint8_t reg = ReadRegister(Register::KEY_STATUS_A);
     data_.is_button_touched = reg & 0b1000;
     data_.is_wheel_touched = reg & 0b111;
+  } else {
+    data_.is_button_touched = false;
+    data_.is_wheel_touched = false;
   }
 }
 
