@@ -77,8 +77,6 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
     // 30 FPS
     // TODO(jacqueline): make this dynamic
     vTaskDelay(pdMS_TO_TICKS(33));
-    lv_indev_data_t d;
-    encoder.Read(&d);
   }
 }
 
