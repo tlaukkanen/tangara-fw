@@ -9,7 +9,9 @@
 #include <memory>
 #include <stack>
 
+#include "audio_events.hpp"
 #include "relative_wheel.hpp"
+#include "screen_playing.hpp"
 #include "tinyfsm.hpp"
 
 #include "display.hpp"
@@ -37,6 +39,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  virtual void react(const audio::PlaybackUpdate){};
+
   virtual void react(const system_fsm::KeyLockChanged&){};
 
   virtual void react(const internal::RecordSelected&){};
@@ -57,6 +61,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
+  static std::unique_ptr<screens::Playing> sPlayingScreen;
 };
 
 namespace states {
@@ -68,7 +73,7 @@ class Splash : public UiState {
   using UiState::react;
 };
 
-class Interactive : public UiState {
+class Browse : public UiState {
   void entry() override;
 
   void react(const internal::RecordSelected&) override;
@@ -76,6 +81,12 @@ class Interactive : public UiState {
 
   void react(const system_fsm::KeyLockChanged&) override;
   void react(const system_fsm::StorageMounted&) override;
+};
+
+class Playing : public UiState {
+  void entry() override;
+
+  void react(const audio::PlaybackUpdate) override;
 };
 
 class FatalError : public UiState {};

@@ -50,6 +50,7 @@ enum class Tag {
   kAlbum = 2,
   kAlbumTrack = 3,
   kGenre = 4,
+  kDuration = 5,
 };
 
 /*

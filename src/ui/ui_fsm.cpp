@@ -34,6 +34,7 @@ std::weak_ptr<database::Database> UiState::sDb;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
+std::unique_ptr<screens::Playing> UiState::sPlayingScreen;
 
 auto UiState::Init(drivers::IGpios* gpio_expander) -> bool {
   sIGpios = gpio_expander;
@@ -78,16 +79,16 @@ void Splash::exit() {
 }
 
 void Splash::react(const system_fsm::BootComplete& ev) {
-  transit<Interactive>();
+  transit<Browse>();
 }
 
-void Interactive::entry() {}
+void Browse::entry() {}
 
-void Interactive::react(const system_fsm::KeyLockChanged& ev) {
+void Browse::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
 }
 
-void Interactive::react(const system_fsm::StorageMounted& ev) {
+void Browse::react(const system_fsm::StorageMounted& ev) {
   sDb = ev.db;
   auto db = ev.db.lock();
   if (!db) {
@@ -97,7 +98,7 @@ void Interactive::react(const system_fsm::StorageMounted& ev) {
   PushScreen(std::make_shared<screens::Menu>(db->GetIndexes()));
 }
 
-void Interactive::react(const internal::RecordSelected& ev) {
+void Browse::react(const internal::RecordSelected& ev) {
   auto db = sDb.lock();
   if (!db) {
     return;
@@ -125,7 +126,7 @@ void Interactive::react(const internal::RecordSelected& ev) {
   }
 }
 
-void Interactive::react(const internal::IndexSelected& ev) {
+void Browse::react(const internal::IndexSelected& ev) {
   auto db = sDb.lock();
   if (!db) {
     return;
@@ -135,6 +136,10 @@ void Interactive::react(const internal::IndexSelected& ev) {
   auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
   PushScreen(std::make_shared<screens::TrackBrowser>(sDb, ev.index.name,
                                                      std::move(query)));
+}
+
+void Playing::react(const audio::PlaybackUpdate ev) {
+  sPlayingScreen->UpdateTime(ev.seconds_elapsed);
 }
 
 }  // namespace states

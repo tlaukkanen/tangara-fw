@@ -7,6 +7,7 @@
 #include "screen_playing.hpp"
 
 #include "core/lv_obj.h"
+#include "core/lv_obj_tree.h"
 #include "esp_log.h"
 #include "extra/layouts/flex/lv_flex.h"
 #include "extra/layouts/grid/lv_grid.h"
@@ -130,11 +131,6 @@ Playing::Playing(database::Track track) : track_(track) {
   lv_obj_set_flex_align(next_up_container_, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
 
-  lv_group_add_obj(group_, next_up_label(root_, "Song 2"));
-  lv_group_add_obj(group_, next_up_label(root_, "Song 3"));
-  lv_group_add_obj(
-      group_, next_up_label(root_, "Another song that has a very long name"));
-
   BindTrack(track);
 }
 
@@ -148,6 +144,28 @@ auto Playing::BindTrack(database::Track t) -> void {
   lv_label_set_text(album_label_,
                     t.tags().at(database::Tag::kAlbum).value_or("").c_str());
   lv_label_set_text(title_label_, t.TitleOrFilename().c_str());
+
+  // TODO.
+  lv_bar_set_range(scrubber_, 0, 0);
+  lv_bar_set_value(scrubber_, 0, LV_ANIM_OFF);
+}
+
+auto Playing::UpdateTime(uint32_t time) -> void {
+  lv_bar_set_value(scrubber_, time, LV_ANIM_OFF);
+}
+
+auto Playing::UpdateNextUp(std::vector<database::Track> tracks) -> void {
+  // TODO(jacqueline): Do a proper diff to maintain selection.
+  int children = lv_obj_get_child_cnt(next_up_container_);
+  while (children > 0) {
+    lv_obj_del(lv_obj_get_child(next_up_container_, 0));
+    children--;
+  }
+
+  next_tracks_ = tracks;
+  for (const auto &track : next_tracks_) {
+    lv_group_add_obj(group_, next_up_label(next_up_container_, track.TitleOrFilename()));
+  }
 }
 
 }  // namespace screens
