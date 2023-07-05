@@ -248,6 +248,7 @@ class EspLogger final : public Logger {
   ~EspLogger() override { f_close(&file_); }
 
   void Logv(const char* format, std::va_list ap) override {
+    /*
     std::va_list args_copy;
     va_copy(args_copy, ap);
 #pragma GCC diagnostic push
@@ -261,6 +262,7 @@ class EspLogger final : public Logger {
     ESP_LOGI("LEVELDB", "%s", output);
     // f_puts(output, &file_);
     free(reinterpret_cast<void*>(output));
+    */
   }
 
  private:
