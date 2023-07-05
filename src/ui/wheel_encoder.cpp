@@ -41,7 +41,6 @@ auto TouchWheelEncoder::Read(lv_indev_data_t* data) -> void {
 
   lock->Update();
 
-
   auto ticks = lock->ticks();
   if (ticks > 0) {
     data->key = LV_KEY_PREV;

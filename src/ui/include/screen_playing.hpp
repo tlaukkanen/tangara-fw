@@ -21,8 +21,19 @@ class Playing : public Screen {
   explicit Playing(database::Track t);
   ~Playing();
 
+  auto BindTrack(database::Track t) -> void;
+
  private:
   database::Track track_;
+
+  lv_obj_t* artist_label_;
+  lv_obj_t* album_label_;
+  lv_obj_t* title_label_;
+
+  lv_obj_t* scrubber_;
+  lv_obj_t* play_pause_control_;
+
+  lv_obj_t* next_up_container_;
 };
 
 }  // namespace screens

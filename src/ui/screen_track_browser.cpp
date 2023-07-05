@@ -7,8 +7,11 @@
 #include <algorithm>
 #include <memory>
 
+#include "core/lv_obj.h"
 #include "database.hpp"
 #include "event_queue.hpp"
+#include "extra/layouts/flex/lv_flex.h"
+#include "font/lv_symbol_def.h"
 #include "lvgl.h"
 #include "screen_menu.hpp"
 
@@ -61,11 +64,31 @@ TrackBrowser::TrackBrowser(
       loading_pos_(END),
       loading_page_(std::move(initial_page)),
       current_pages_() {
-  lv_obj_t* title_obj = lv_label_create(root_);
-  lv_label_set_text(title_obj, title.c_str());
+  lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
+  lv_obj_set_size(root_, lv_pct(100), lv_pct(100));
+  lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START);
+
+  lv_obj_t* header = lv_obj_create(root_);
+  lv_obj_set_size(header, lv_pct(100), 15);
+  lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_CENTER);
+
+  lv_obj_t* title_label = lv_label_create(header);
+  lv_label_set_text(title_label, title.c_str());
+  lv_obj_set_flex_grow(title_label, 1);
+
+  lv_obj_t* playback_label = lv_label_create(header);
+  lv_label_set_text(playback_label, LV_SYMBOL_PAUSE);
+
+  lv_obj_t* battery_label = lv_label_create(header);
+  lv_label_set_text(battery_label, LV_SYMBOL_BATTERY_2);
 
   list_ = lv_list_create(root_);
-  lv_obj_set_size(list_, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
+  lv_obj_set_width(list_, lv_pct(100));
+  lv_obj_set_flex_grow(list_, 1);
   lv_obj_center(list_);
 }
 

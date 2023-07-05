@@ -22,6 +22,7 @@
 #include "core/lv_obj_tree.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
+#include "extra/themes/basic/lv_theme_basic.h"
 #include "font/lv_font.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -52,6 +53,9 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
               std::weak_ptr<drivers::Display> weak_display) {
   ESP_LOGI(kTag, "init lvgl");
   lv_init();
+
+  lv_theme_t* theme = lv_theme_basic_init(NULL);
+  lv_disp_set_theme(NULL, theme);
 
   TouchWheelEncoder encoder(weak_touch_wheel);
 
