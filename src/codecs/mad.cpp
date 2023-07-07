@@ -270,6 +270,8 @@ auto MadMp3Decoder::GetVbrLength(const mad_header& header)
 
   unsigned char const* frames_count_raw;
   uint32_t frames_count = 0;
+  // TODO(jacqueline): we should also look up any toc fields here, to make
+  // seeking faster.
   if (std::memcmp(stream_.this_frame + xing_offset, "Xing", 4) == 0 ||
       std::memcmp(stream_.this_frame + xing_offset, "Info", 4) == 0) {
     /* Xing header to get the count of frames for VBR */
