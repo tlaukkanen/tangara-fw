@@ -42,6 +42,8 @@ class MadMp3Decoder : public ICodec {
       -> Result<void> override;
 
  private:
+  auto GetVbrLength(const mad_header& header) -> std::optional<uint32_t>;
+
   mad_stream stream_;
   mad_frame frame_;
   mad_synth synth_;

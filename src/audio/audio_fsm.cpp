@@ -144,8 +144,8 @@ void Playback::react(const QueueUpdate& ev) {
 }
 
 void Playback::react(const PlaybackUpdate& ev) {
-  // ESP_LOGI(kTag, "elapsed: %lu, total: %lu", ev.seconds_elapsed,
-  // ev.seconds_total);
+  ESP_LOGI(kTag, "elapsed: %lu, total: %lu", ev.seconds_elapsed,
+           ev.seconds_total);
 }
 
 void Playback::react(const internal::InputFileOpened& ev) {}

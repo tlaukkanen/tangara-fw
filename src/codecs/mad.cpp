@@ -9,6 +9,7 @@
 #include <sys/_stdint.h>
 
 #include <cstdint>
+#include <cstring>
 #include <optional>
 
 #include "mad.h"
@@ -88,9 +89,12 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
       .bits_per_second = {},
   };
 
-  // TODO(jacqueline): Support VBR. Although maybe libtags is the better place
-  // to handle this?
-  output.bits_per_second = header.bitrate;
+  auto vbr_length = GetVbrLength(header);
+  if (vbr_length) {
+    output.duration_seconds = vbr_length;
+  } else {
+    output.bits_per_second = header.bitrate;
+  }
 
   return {GetBytesUsed(input.size_bytes()), output};
 }
@@ -225,6 +229,64 @@ auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
       return {GetBytesUsed(input.size_bytes()), {}};
     }
   }
+}
+
+/*
+ * Implementation taken from SDL_mixer and modified. Original is zlib-licensed,
+ * copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+ */
+auto MadMp3Decoder::GetVbrLength(const mad_header& header)
+    -> std::optional<uint32_t> {
+  if (!stream_.this_frame || !stream_.next_frame ||
+      stream_.next_frame <= stream_.this_frame ||
+      (stream_.next_frame - stream_.this_frame) < 48) {
+    return {};
+  }
+
+  int mpeg_version = (stream_.this_frame[1] >> 3) & 0x03;
+
+  int xing_offset = 0;
+  switch (mpeg_version) {
+    case 0x03: /* MPEG1 */
+      if (header.mode == MAD_MODE_SINGLE_CHANNEL) {
+        xing_offset = 4 + 17;
+      } else {
+        xing_offset = 4 + 32;
+      }
+      break;
+    default: /* MPEG2 and MPEG2.5 */
+      if (header.mode == MAD_MODE_SINGLE_CHANNEL) {
+        xing_offset = 4 + 17;
+      } else {
+        xing_offset = 4 + 9;
+      }
+      break;
+  }
+
+  uint32_t samples_per_frame = 32 * MAD_NSBSAMPLES(&header);
+
+  unsigned char const* frames_count_raw;
+  uint32_t frames_count = 0;
+  if (std::memcmp(stream_.this_frame + xing_offset, "Xing", 4) == 0 ||
+      std::memcmp(stream_.this_frame + xing_offset, "Info", 4) == 0) {
+    /* Xing header to get the count of frames for VBR */
+    frames_count_raw = stream_.this_frame + xing_offset + 8;
+    frames_count = ((uint32_t)frames_count_raw[0] << 24) +
+                   ((uint32_t)frames_count_raw[1] << 16) +
+                   ((uint32_t)frames_count_raw[2] << 8) +
+                   ((uint32_t)frames_count_raw[3]);
+  } else if (std::memcmp(stream_.this_frame + xing_offset, "VBRI", 4) == 0) {
+    /* VBRI header to get the count of frames for VBR */
+    frames_count_raw = stream_.this_frame + xing_offset + 14;
+    frames_count = ((uint32_t)frames_count_raw[0] << 24) +
+                   ((uint32_t)frames_count_raw[1] << 16) +
+                   ((uint32_t)frames_count_raw[2] << 8) +
+                   ((uint32_t)frames_count_raw[3]);
+  } else {
+    return {};
+  }
+
+  return (double)(frames_count * samples_per_frame) / header.samplerate;
 }
 
 }  // namespace codecs
