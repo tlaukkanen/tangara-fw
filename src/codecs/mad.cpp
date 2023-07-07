@@ -199,8 +199,11 @@ auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
       continue;
     }
 
-    // The target is within the next few frames. We should decode these, to give
-    // the decoder a chance to sync with the stream.
+    // The target is within the next few frames. We should decode these, as per
+    // the LAME FAQ (https://lame.sourceforge.io/tech-FAQ.txt):
+    // > The MP3 data for frame N is not stored in frame N, but can be spread
+    // > over several frames.  In a typical case, the data for frame N will
+    // > have 20% of it stored in frame N-1 and 80% stored in frame N.
     while (mad_frame_decode(&frame_, &stream_) < 0) {
       if (MAD_RECOVERABLE(stream_.error)) {
         continue;
