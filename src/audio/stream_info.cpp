@@ -64,6 +64,10 @@ bool OutputStream::prepare(const StreamInfo::Format& new_format) {
   return false;
 }
 
+void OutputStream::set_duration(std::size_t seconds) {
+  raw_->info->duration_seconds = seconds;
+}
+
 const StreamInfo& OutputStream::info() const {
   return *raw_->info;
 }

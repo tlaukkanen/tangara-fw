@@ -30,6 +30,7 @@
 namespace console {
 
 std::weak_ptr<database::Database> AppConsole::sDatabase;
+audio::TrackQueue* AppConsole::sTrackQueue;
 
 int CmdListDir(int argc, char** argv) {
   auto lock = AppConsole::sDatabase.lock();
@@ -108,9 +109,10 @@ int CmdPlayFile(int argc, char** argv) {
 
   if (is_id) {
     database::TrackId id = std::atoi(argv[1]);
-    events::Dispatch<audio::PlayTrack, audio::AudioState>(
-        audio::PlayTrack{.id = id});
+    AppConsole::sTrackQueue->AddLast(id);
   } else {
+    // TODO.
+    /*
     std::ostringstream path;
     path << '/' << argv[1];
     for (int i = 2; i < argc; i++) {
@@ -119,6 +121,7 @@ int CmdPlayFile(int argc, char** argv) {
 
     events::Dispatch<audio::PlayFile, audio::AudioState>(
         audio::PlayFile{.filename = path.str()});
+        */
   }
 
   return 0;

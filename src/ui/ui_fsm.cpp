@@ -19,6 +19,7 @@
 #include "screen_track_browser.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
+#include "track_queue.hpp"
 
 namespace ui {
 
@@ -27,6 +28,8 @@ static constexpr char kTag[] = "ui_fsm";
 static const std::size_t kRecordsPerPage = 10;
 
 drivers::IGpios* UiState::sIGpios;
+audio::TrackQueue* UiState::sQueue;
+
 std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
 std::shared_ptr<drivers::Display> UiState::sDisplay;
@@ -35,8 +38,10 @@ std::weak_ptr<database::Database> UiState::sDb;
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 
-auto UiState::Init(drivers::IGpios* gpio_expander) -> bool {
+auto UiState::Init(drivers::IGpios* gpio_expander, audio::TrackQueue* queue)
+    -> bool {
   sIGpios = gpio_expander;
+  sQueue = queue;
 
   lv_init();
   sDisplay.reset(
@@ -69,6 +74,14 @@ void UiState::PushScreen(std::shared_ptr<Screen> screen) {
   sCurrentScreen = screen;
 }
 
+void UiState::PopScreen() {
+  if (sScreens.empty()) {
+    return;
+  }
+  sCurrentScreen = sScreens.top();
+  sScreens.pop();
+}
+
 namespace states {
 
 void Splash::exit() {
@@ -78,16 +91,16 @@ void Splash::exit() {
 }
 
 void Splash::react(const system_fsm::BootComplete& ev) {
-  transit<Interactive>();
+  transit<Browse>();
 }
 
-void Interactive::entry() {}
+void Browse::entry() {}
 
-void Interactive::react(const system_fsm::KeyLockChanged& ev) {
+void Browse::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
 }
 
-void Interactive::react(const system_fsm::StorageMounted& ev) {
+void Browse::react(const system_fsm::StorageMounted& ev) {
   sDb = ev.db;
   auto db = ev.db.lock();
   if (!db) {
@@ -97,7 +110,7 @@ void Interactive::react(const system_fsm::StorageMounted& ev) {
   PushScreen(std::make_shared<screens::Menu>(db->GetIndexes()));
 }
 
-void Interactive::react(const internal::RecordSelected& ev) {
+void Browse::react(const internal::RecordSelected& ev) {
   auto db = sDb.lock();
   if (!db) {
     return;
@@ -106,12 +119,9 @@ void Interactive::react(const internal::RecordSelected& ev) {
   if (ev.record.track()) {
     ESP_LOGI(kTag, "selected track '%s'", ev.record.text()->c_str());
     // TODO(jacqueline): We should also send some kind of playlist info here.
-    auto track = ev.record.track().value();
-    events::Dispatch<audio::PlayTrack, audio::AudioState>(audio::PlayTrack{
-        .id = track.data().id(),
-        .data = track.data(),
-    });
-    PushScreen(std::make_shared<screens::Playing>(track));
+    sQueue->Clear();
+    sQueue->AddLast(ev.record.track()->data().id());
+    transit<Playing>();
   } else {
     ESP_LOGI(kTag, "selected record '%s'", ev.record.text()->c_str());
     auto cont = ev.record.Expand(kRecordsPerPage);
@@ -125,7 +135,7 @@ void Interactive::react(const internal::RecordSelected& ev) {
   }
 }
 
-void Interactive::react(const internal::IndexSelected& ev) {
+void Browse::react(const internal::IndexSelected& ev) {
   auto db = sDb.lock();
   if (!db) {
     return;
@@ -135,6 +145,30 @@ void Interactive::react(const internal::IndexSelected& ev) {
   auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
   PushScreen(std::make_shared<screens::TrackBrowser>(sDb, ev.index.name,
                                                      std::move(query)));
+}
+
+static std::shared_ptr<screens::Playing> sPlayingScreen;
+
+void Playing::entry() {
+  sPlayingScreen.reset(new screens::Playing(sDb, sQueue));
+  PushScreen(sPlayingScreen);
+}
+
+void Playing::exit() {
+  sPlayingScreen.reset();
+  PopScreen();
+}
+
+void Playing::react(const audio::PlaybackStarted& ev) {
+  sPlayingScreen->OnTrackUpdate();
+}
+
+void Playing::react(const audio::PlaybackUpdate& ev) {
+  sPlayingScreen->OnPlaybackUpdate(ev.seconds_elapsed, ev.seconds_total);
+}
+
+void Playing::react(const audio::QueueUpdate& ev) {
+  sPlayingScreen->OnQueueUpdate();
 }
 
 }  // namespace states

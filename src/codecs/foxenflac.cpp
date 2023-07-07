@@ -43,6 +43,7 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
               .num_channels = static_cast<uint8_t>(channels),
               .bits_per_sample = 32,  // libfoxenflac output is fixed-size.
               .sample_rate_hz = static_cast<uint32_t>(fs),
+              .duration_seconds = {},
           }};
 }
 
