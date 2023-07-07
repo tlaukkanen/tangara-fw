@@ -19,6 +19,7 @@
 #include "screen_track_browser.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
+#include "track_queue.hpp"
 
 namespace ui {
 
@@ -27,6 +28,8 @@ static constexpr char kTag[] = "ui_fsm";
 static const std::size_t kRecordsPerPage = 10;
 
 drivers::IGpios* UiState::sIGpios;
+audio::TrackQueue* UiState::sQueue;
+
 std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
 std::shared_ptr<drivers::Display> UiState::sDisplay;
@@ -34,10 +37,11 @@ std::weak_ptr<database::Database> UiState::sDb;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
-std::unique_ptr<screens::Playing> UiState::sPlayingScreen;
 
-auto UiState::Init(drivers::IGpios* gpio_expander) -> bool {
+auto UiState::Init(drivers::IGpios* gpio_expander, audio::TrackQueue* queue)
+    -> bool {
   sIGpios = gpio_expander;
+  sQueue = queue;
 
   lv_init();
   sDisplay.reset(
@@ -68,6 +72,14 @@ void UiState::PushScreen(std::shared_ptr<Screen> screen) {
     sScreens.push(sCurrentScreen);
   }
   sCurrentScreen = screen;
+}
+
+void UiState::PopScreen() {
+  if (sScreens.empty()) {
+    return;
+  }
+  sCurrentScreen = sScreens.top();
+  sScreens.pop();
 }
 
 namespace states {
@@ -107,12 +119,9 @@ void Browse::react(const internal::RecordSelected& ev) {
   if (ev.record.track()) {
     ESP_LOGI(kTag, "selected track '%s'", ev.record.text()->c_str());
     // TODO(jacqueline): We should also send some kind of playlist info here.
-    auto track = ev.record.track().value();
-    events::Dispatch<audio::PlayTrack, audio::AudioState>(audio::PlayTrack{
-        .id = track.data().id(),
-        .data = track.data(),
-    });
-    PushScreen(std::make_shared<screens::Playing>(track));
+    sQueue->Clear();
+    sQueue->AddLast(ev.record.track()->data().id());
+    transit<Playing>();
   } else {
     ESP_LOGI(kTag, "selected record '%s'", ev.record.text()->c_str());
     auto cont = ev.record.Expand(kRecordsPerPage);
@@ -138,8 +147,28 @@ void Browse::react(const internal::IndexSelected& ev) {
                                                      std::move(query)));
 }
 
-void Playing::react(const audio::PlaybackUpdate ev) {
-  sPlayingScreen->UpdateTime(ev.seconds_elapsed);
+static std::shared_ptr<screens::Playing> sPlayingScreen;
+
+void Playing::entry() {
+  sPlayingScreen.reset(new screens::Playing(sDb, sQueue));
+  PushScreen(sPlayingScreen);
+}
+
+void Playing::exit() {
+  sPlayingScreen.reset();
+  PopScreen();
+}
+
+void Playing::react(const audio::PlaybackStarted& ev) {
+  sPlayingScreen->OnTrackUpdate();
+}
+
+void Playing::react(const audio::PlaybackUpdate& ev) {
+  sPlayingScreen->OnPlaybackUpdate(ev.seconds_elapsed, ev.seconds_total);
+}
+
+void Playing::react(const audio::QueueUpdate& ev) {
+  sPlayingScreen->OnQueueUpdate();
 }
 
 }  // namespace states

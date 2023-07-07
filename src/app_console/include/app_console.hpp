@@ -10,12 +10,14 @@
 
 #include "console.hpp"
 #include "database.hpp"
+#include "track_queue.hpp"
 
 namespace console {
 
 class AppConsole : public Console {
  public:
   static std::weak_ptr<database::Database> sDatabase;
+  static audio::TrackQueue* sTrackQueue;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

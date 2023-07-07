@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -50,6 +51,9 @@ class ICodec {
     uint8_t num_channels;
     uint8_t bits_per_sample;
     uint32_t sample_rate_hz;
+
+    std::optional<uint32_t> duration_seconds;
+    std::optional<uint32_t> bits_per_second;
   };
 
   /*

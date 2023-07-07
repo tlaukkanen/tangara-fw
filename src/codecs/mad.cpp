@@ -6,6 +6,7 @@
 
 #include "mad.hpp"
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <cstdint>
 #include <optional>
@@ -79,12 +80,19 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
   }
 
   uint8_t channels = MAD_NCHANNELS(&header);
-  return {GetBytesUsed(input.size_bytes()),
-          OutputFormat{
-              .num_channels = channels,
-              .bits_per_sample = 24,  // We always scale to 24 bits
-              .sample_rate_hz = header.samplerate,
-          }};
+  OutputFormat output{
+      .num_channels = channels,
+      .bits_per_sample = 24,  // We always scale to 24 bits
+      .sample_rate_hz = header.samplerate,
+      .duration_seconds = {},
+      .bits_per_second = {},
+  };
+
+  // TODO(jacqueline): Support VBR. Although maybe libtags is the better place
+  // to handle this?
+  output.bits_per_second = header.bitrate;
+
+  return {GetBytesUsed(input.size_bytes()), output};
 }
 
 auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,

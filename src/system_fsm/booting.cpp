@@ -17,6 +17,7 @@
 #include "spi.hpp"
 #include "system_events.hpp"
 #include "system_fsm.hpp"
+#include "track_queue.hpp"
 #include "ui_fsm.hpp"
 
 #include "i2c.hpp"
@@ -48,8 +49,9 @@ auto Booting::entry() -> void {
   sGpios->set_listener(&sGpiosCallback);
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
+  sTrackQueue.reset(new audio::TrackQueue());
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::Init(sGpios.get())) {
+  if (!ui::UiState::Init(sGpios.get(), sTrackQueue.get())) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
@@ -70,7 +72,7 @@ auto Booting::entry() -> void {
   // state machines and inform them that the system is ready.
 
   ESP_LOGI(kTag, "starting audio");
-  if (!audio::AudioState::Init(sGpios.get(), sDatabase)) {
+  if (!audio::AudioState::Init(sGpios.get(), sDatabase, sTrackQueue.get())) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
@@ -83,6 +85,7 @@ auto Booting::entry() -> void {
 auto Booting::exit() -> void {
   // TODO(jacqueline): Gate this on something. Debug flag? Flashing mode?
   sAppConsole = new console::AppConsole();
+  sAppConsole->sTrackQueue = sTrackQueue.get();
   sAppConsole->Launch();
 }
 

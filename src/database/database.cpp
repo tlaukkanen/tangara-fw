@@ -268,6 +268,62 @@ auto Database::GetTrackPath(TrackId id)
       });
 }
 
+auto Database::GetTrack(TrackId id) -> std::future<std::optional<Track>> {
+  return worker_task_->Dispatch<std::optional<Track>>(
+      [=, this]() -> std::optional<Track> {
+        std::optional<TrackData> data = dbGetTrackData(id);
+        if (!data || data->is_tombstoned()) {
+          return {};
+        }
+        TrackTags tags;
+        if (!tag_parser_->ReadAndParseTags(data->filepath(), &tags)) {
+          return {};
+        }
+        return Track(*data, tags);
+      });
+}
+
+auto Database::GetBulkTracks(std::vector<TrackId> ids)
+    -> std::future<std::vector<std::optional<Track>>> {
+  return worker_task_->Dispatch<std::vector<std::optional<Track>>>(
+      [=, this]() -> std::vector<std::optional<Track>> {
+        std::map<TrackId, Track> id_to_track{};
+
+        // Sort the list of ids so that we can retrieve them all in a single
+        // iteration through the database, without re-seeking.
+        std::vector<TrackId> sorted_ids = ids;
+        std::sort(sorted_ids.begin(), sorted_ids.end());
+
+        leveldb::Iterator* it = db_->NewIterator(leveldb::ReadOptions{});
+        for (const TrackId& id : sorted_ids) {
+          OwningSlice key = EncodeDataKey(id);
+          it->Seek(key.slice);
+          if (!it->Valid() || it->key() != key.slice) {
+            // This id wasn't found at all. Skip it.
+            continue;
+          }
+          std::optional<Track> track =
+              ParseRecord<Track>(it->key(), it->value());
+          if (track) {
+            id_to_track.insert({id, *track});
+          }
+        }
+
+        // We've fetched all of the ids in the request, so now just put them
+        // back into the order they were asked for in.
+        std::vector<std::optional<Track>> results;
+        for (const TrackId& id : ids) {
+          if (id_to_track.contains(id)) {
+            results.push_back(id_to_track.at(id));
+          } else {
+            // This lookup failed.
+            results.push_back({});
+          }
+        }
+        return results;
+      });
+}
+
 auto Database::GetIndexes() -> std::vector<IndexInfo> {
   // TODO(jacqueline): This probably needs to be async? When we have runtime
   // configurable indexes, they will need to come from somewhere.

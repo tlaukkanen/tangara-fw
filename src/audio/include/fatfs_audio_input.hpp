@@ -34,6 +34,7 @@ class FatfsAudioInput : public IAudioElement {
   FatfsAudioInput();
   ~FatfsAudioInput();
 
+  auto CurrentFile() -> std::optional<std::string> { return current_path_; }
   auto OpenFile(std::future<std::optional<std::string>>&& path) -> void;
   auto OpenFile(const std::string& path) -> bool;
 
@@ -50,6 +51,7 @@ class FatfsAudioInput : public IAudioElement {
       -> std::optional<codecs::StreamType>;
 
   std::optional<std::future<std::optional<std::string>>> pending_path_;
+  std::optional<std::string> current_path_;
   FIL current_file_;
   bool is_file_open_;
   bool has_prepared_output_;

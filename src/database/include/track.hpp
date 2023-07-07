@@ -68,6 +68,8 @@ class TrackTags {
   std::optional<int> sample_rate;
   std::optional<int> bits_per_sample;
 
+  std::optional<int> duration;
+
   auto set(const Tag& key, const std::string& val) -> void;
   auto at(const Tag& key) const -> std::optional<shared_string>;
   auto operator[](const Tag& key) const -> std::optional<shared_string>;

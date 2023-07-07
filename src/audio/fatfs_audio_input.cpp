@@ -56,6 +56,7 @@ auto FatfsAudioInput::OpenFile(std::future<std::optional<std::string>>&& path)
 }
 
 auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
+  current_path_.reset();
   if (is_file_open_) {
     f_close(&current_file_);
     is_file_open_ = false;
@@ -67,6 +68,11 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   }
 
   ESP_LOGI(kTag, "opening file %s", path.c_str());
+
+  FILINFO info;
+  if (f_stat(path.c_str(), &info) != FR_OK) {
+    ESP_LOGE(kTag, "failed to stat file");
+  }
 
   database::TagParserImpl tag_parser;
   database::TrackTags tags;
@@ -95,7 +101,10 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
         .sample_rate = static_cast<uint32_t>(*tags.sample_rate),
     };
   } else {
-    current_format_ = StreamInfo::Encoded{*stream_type};
+    current_format_ = StreamInfo::Encoded{
+        .type = *stream_type,
+        .duration_bytes = info.fsize,
+    };
   }
 
   FRESULT res = f_open(&current_file_, path.c_str(), FA_READ);
@@ -104,7 +113,8 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
     return false;
   }
 
-  events::Dispatch<InputFileOpened, AudioState>({});
+  events::Dispatch<internal::InputFileOpened, AudioState>({});
+  current_path_ = path;
   is_file_open_ = true;
   return true;
 }
@@ -124,9 +134,10 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
       if (pending_path_->wait_for(std::chrono::seconds(0)) ==
           std::future_status::ready) {
         auto result = pending_path_->get();
-        if (result) {
+        if (result && result != current_path_) {
           OpenFile(*result);
         }
+        pending_path_ = {};
       }
     }
   }
@@ -173,10 +184,11 @@ auto FatfsAudioInput::Process(const std::vector<InputStream>& inputs,
 
     f_close(&current_file_);
     is_file_open_ = false;
+    current_path_.reset();
     has_prepared_output_ = false;
     output->mark_producer_finished();
 
-    events::Dispatch<InputFileFinished, AudioState>({});
+    events::Dispatch<internal::InputFileClosed, AudioState>({});
   }
 }
 

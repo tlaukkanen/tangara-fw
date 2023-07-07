@@ -53,7 +53,7 @@ auto AudioDecoder::ProcessStreamInfo(const StreamInfo& info) -> bool {
   }
 
   const auto& new_format = std::get<StreamInfo::Encoded>(info.format);
-  current_input_format_ = info.format;
+  current_input_format_ = new_format;
 
   ESP_LOGI(kTag, "creating new decoder");
   auto result = codecs::CreateCodecForType(new_format.type);
@@ -112,6 +112,15 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
         .sample_rate = format.sample_rate_hz,
     };
 
+    if (format.duration_seconds) {
+      duration_seconds_from_decoder_ = format.duration_seconds;
+    } else if (format.bits_per_second &&
+               current_input_format_->duration_bytes) {
+      duration_seconds_from_decoder_ =
+          (current_input_format_->duration_bytes.value() - res.first) * 8 /
+          format.bits_per_second.value() / format.num_channels;
+    }
+
     if (info.seek_to_seconds) {
       seek_to_sample_ = *info.seek_to_seconds * format.sample_rate_hz;
     } else {
@@ -143,6 +152,9 @@ auto AudioDecoder::Process(const std::vector<InputStream>& inputs,
     // TODO(jacqueline): Pass through seek info here?
     if (!has_prepared_output_ && !output->prepare(*current_output_format_)) {
       return;
+    }
+    if (duration_seconds_from_decoder_) {
+      output->set_duration(*duration_seconds_from_decoder_);
     }
     has_prepared_output_ = true;
 
