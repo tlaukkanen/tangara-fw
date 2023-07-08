@@ -165,6 +165,7 @@ auto TrackBrowser::AddResults(Position pos,
       text = "[ no data ]";
     }
     lv_obj_t* item = lv_list_add_btn(list_, NULL, text->c_str());
+    lv_obj_set_style_bg_color(item, lv_palette_main(LV_PALETTE_BLUE), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_add_event_cb(item, item_click_cb, LV_EVENT_CLICKED, this);
     lv_obj_add_event_cb(item, item_select_cb, LV_EVENT_FOCUSED, this);
     lv_group_add_obj(group_, item);
