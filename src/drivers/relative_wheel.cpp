@@ -27,8 +27,15 @@ auto RelativeWheel::Update() -> void {
 
   is_clicking_ = d.is_button_touched;
 
+  if (is_clicking_) {
+    ticks_ = 0;
+    return;
+  }
+
   if (!d.is_wheel_touched) {
+    ticks_ = 0;
     is_first_read_ = true;
+    return;
   }
 
   uint8_t new_angle = d.wheel_position;
@@ -38,33 +45,20 @@ auto RelativeWheel::Update() -> void {
     return;
   }
 
-  // Work out the magnitude of travel.
-  uint8_t change_cw = last_angle_ - new_angle;
-  uint8_t change_ccw = new_angle - last_angle_;
-  int change = std::min(change_cw, change_ccw);
+  int delta = 128 - last_angle_;
+  uint8_t rotated_angle = new_angle + delta;
+  int threshold = 20;
 
-  last_angle_ = new_angle;
-
-  // Round to eliminate noise.
-  if (change <= 2) {
+  if (rotated_angle < 128 - threshold) {
+    ticks_ = 1;
+    last_angle_ = new_angle;
+  } else if (rotated_angle > 128 + threshold) {
+    ticks_ = -1;
+    last_angle_ = new_angle;
+  } else {
     ticks_ = 0;
-    return;
   }
 
-  // Quantize into ticks.
-  change /= 4;
-
-  // Clamp to reliminate more noise.
-  if (change > 10) {
-    change = 0;
-  }
-
-  // Work out the direction of travel.
-  if (change_cw > change_ccw) {
-    change *= -1;
-  }
-
-  ticks_ = change;
 }
 
 auto RelativeWheel::is_clicking() -> bool {
