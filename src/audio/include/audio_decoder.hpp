@@ -40,8 +40,9 @@ class AudioDecoder : public IAudioElement {
 
  private:
   std::unique_ptr<codecs::ICodec> current_codec_;
-  std::optional<StreamInfo::Format> current_input_format_;
+  std::optional<StreamInfo::Encoded> current_input_format_;
   std::optional<StreamInfo::Format> current_output_format_;
+  std::optional<std::size_t> duration_seconds_from_decoder_;
   std::optional<std::size_t> seek_to_sample_;
   bool has_prepared_output_;
   bool has_samples_to_send_;

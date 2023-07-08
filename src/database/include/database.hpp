@@ -100,6 +100,15 @@ class Database {
 
   auto GetTrackPath(TrackId id) -> std::future<std::optional<std::string>>;
 
+  auto GetTrack(TrackId id) -> std::future<std::optional<Track>>;
+
+  /*
+   * Fetches data for multiple tracks more efficiently than multiple calls to
+   * GetTrack.
+   */
+  auto GetBulkTracks(std::vector<TrackId> id)
+      -> std::future<std::vector<std::optional<Track>>>;
+
   auto GetIndexes() -> std::vector<IndexInfo>;
   auto GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
       -> std::future<Result<IndexRecord>*>;

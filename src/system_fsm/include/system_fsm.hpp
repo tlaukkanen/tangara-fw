@@ -20,6 +20,7 @@
 #include "touchwheel.hpp"
 
 #include "system_events.hpp"
+#include "track_queue.hpp"
 
 namespace system_fsm {
 
@@ -57,6 +58,8 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;
   static std::shared_ptr<database::Database> sDatabase;
+
+  static std::shared_ptr<audio::TrackQueue> sTrackQueue;
 
   static console::AppConsole* sAppConsole;
 };

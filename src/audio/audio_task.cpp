@@ -37,6 +37,7 @@
 #include "stream_message.hpp"
 #include "sys/_stdint.h"
 #include "tasks.hpp"
+#include "ui_fsm.hpp"
 
 namespace audio {
 
@@ -87,7 +88,7 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
     }
 
     if (previously_had_work && !has_work) {
-      events::Dispatch<AudioPipelineIdle, AudioState>({});
+      events::Dispatch<internal::AudioPipelineIdle, AudioState>({});
     }
     previously_had_work = has_work;
 
@@ -135,6 +136,10 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
     if (sink_stream.info().bytes_in_stream == 0) {
       if (sink_stream.is_producer_finished()) {
         sink_stream.mark_consumer_finished();
+
+        if (current_second > 0 || current_sample_in_second > 0) {
+          events::Dispatch<internal::InputFileFinished, AudioState>({});
+        }
 
         current_second = 0;
         previous_second = 0;
@@ -185,8 +190,11 @@ void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
         current_sample_in_second -= pcm.sample_rate;
       }
       if (previous_second != current_second) {
-        events::Dispatch<PlaybackUpdate, AudioState>(
-            {.seconds_elapsed = current_second});
+        events::Dispatch<PlaybackUpdate, AudioState, ui::UiState>({
+            .seconds_elapsed = current_second,
+            .seconds_total =
+                sink_stream.info().duration_seconds.value_or(current_second),
+        });
       }
       previous_second = current_second;
     }

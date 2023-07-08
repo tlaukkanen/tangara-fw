@@ -13,26 +13,31 @@
 #include "tinyfsm.hpp"
 
 #include "track.hpp"
+#include "track_queue.hpp"
 
 namespace audio {
 
-struct PlayFile : tinyfsm::Event {
-  std::string filename;
-};
-
-struct PlayTrack : tinyfsm::Event {
-  database::TrackId id;
-  std::optional<database::TrackData> data;
+struct PlaybackStarted : tinyfsm::Event {
+  database::Track track;
 };
 
 struct PlaybackUpdate : tinyfsm::Event {
   uint32_t seconds_elapsed;
+  uint32_t seconds_total;
 };
 
-struct InputFileOpened : tinyfsm::Event {};
-struct InputFileFinished : tinyfsm::Event {};
-struct AudioPipelineIdle : tinyfsm::Event {};
+struct QueueUpdate : tinyfsm::Event {};
 
 struct VolumeChanged : tinyfsm::Event {};
+
+namespace internal {
+
+struct InputFileOpened : tinyfsm::Event {};
+struct InputFileClosed : tinyfsm::Event {};
+struct InputFileFinished : tinyfsm::Event {};
+
+struct AudioPipelineIdle : tinyfsm::Event {};
+
+}  // namespace internal
 
 }  // namespace audio

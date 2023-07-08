@@ -22,13 +22,15 @@
 #include "track.hpp"
 
 #include "system_events.hpp"
+#include "track_queue.hpp"
 
 namespace audio {
 
 class AudioState : public tinyfsm::Fsm<AudioState> {
  public:
   static auto Init(drivers::IGpios* gpio_expander,
-                   std::weak_ptr<database::Database>) -> bool;
+                   std::weak_ptr<database::Database>,
+                   TrackQueue* queue) -> bool;
 
   virtual ~AudioState() {}
 
@@ -45,14 +47,14 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const system_fsm::HasPhonesChanged&);
 
   virtual void react(const system_fsm::BootComplete&) {}
-  virtual void react(const PlayTrack&) {}
-  virtual void react(const PlayFile&) {}
 
+  virtual void react(const QueueUpdate&) {}
   virtual void react(const PlaybackUpdate&) {}
 
-  virtual void react(const InputFileOpened&) {}
-  virtual void react(const InputFileFinished&) {}
-  virtual void react(const AudioPipelineIdle&) {}
+  virtual void react(const internal::InputFileOpened&) {}
+  virtual void react(const internal::InputFileClosed&) {}
+  virtual void react(const internal::InputFileFinished&) {}
+  virtual void react(const internal::AudioPipelineIdle&) {}
 
  protected:
   static drivers::IGpios* sIGpios;
@@ -63,8 +65,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::unique_ptr<I2SAudioOutput> sI2SOutput;
   static std::vector<std::unique_ptr<IAudioElement>> sPipeline;
 
-  typedef std::variant<database::TrackId, std::string> EnqueuedItem;
-  static std::deque<EnqueuedItem> sTrackQueue;
+  static TrackQueue* sTrackQueue;
 };
 
 namespace states {
@@ -77,9 +78,8 @@ class Uninitialised : public AudioState {
 
 class Standby : public AudioState {
  public:
-  void react(const InputFileOpened&) override;
-  void react(const PlayTrack&) override;
-  void react(const PlayFile&) override;
+  void react(const internal::InputFileOpened&) override;
+  void react(const QueueUpdate&) override;
 
   using AudioState::react;
 };
@@ -89,14 +89,13 @@ class Playback : public AudioState {
   void entry() override;
   void exit() override;
 
-  void react(const PlayTrack&) override;
-  void react(const PlayFile&) override;
-
+  void react(const QueueUpdate&) override;
   void react(const PlaybackUpdate&) override;
 
-  void react(const InputFileOpened&) override;
-  void react(const InputFileFinished&) override;
-  void react(const AudioPipelineIdle&) override;
+  void react(const internal::InputFileOpened&) override;
+  void react(const internal::InputFileClosed&) override;
+  void react(const internal::InputFileFinished&) override;
+  void react(const internal::AudioPipelineIdle&) override;
 
   using AudioState::react;
 };

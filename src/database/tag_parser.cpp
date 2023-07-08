@@ -156,6 +156,9 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
   if (ctx.bitrate > 0) {
     out->bits_per_sample = ctx.bitrate;
   }
+  if (ctx.duration > 0) {
+    out->duration = ctx.duration;
+  }
 
   return true;
 }

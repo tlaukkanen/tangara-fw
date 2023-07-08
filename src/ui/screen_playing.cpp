@@ -5,12 +5,17 @@
  */
 
 #include "screen_playing.hpp"
+#include <sys/_stdint.h>
+#include <memory>
 
 #include "core/lv_obj.h"
+#include "core/lv_obj_tree.h"
+#include "database.hpp"
 #include "esp_log.h"
 #include "extra/layouts/flex/lv_flex.h"
 #include "extra/layouts/grid/lv_grid.h"
 #include "font/lv_symbol_def.h"
+#include "future_fetcher.hpp"
 #include "lvgl.h"
 
 #include "core/lv_group.h"
@@ -19,8 +24,10 @@
 #include "extra/widgets/list/lv_list.h"
 #include "extra/widgets/menu/lv_menu.h"
 #include "extra/widgets/spinner/lv_spinner.h"
+#include "future_fetcher.hpp"
 #include "hal/lv_hal_disp.h"
 #include "index.hpp"
+#include "misc/lv_anim.h"
 #include "misc/lv_area.h"
 #include "misc/lv_color.h"
 #include "track.hpp"
@@ -33,6 +40,8 @@
 
 namespace ui {
 namespace screens {
+
+static constexpr std::size_t kMaxUpcoming = 10;
 
 static lv_style_t scrubber_style;
 
@@ -59,7 +68,13 @@ auto next_up_label(lv_obj_t* parent, const std::string& text) -> lv_obj_t* {
   return label;
 }
 
-Playing::Playing(database::Track track) : track_(track) {
+Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
+    : db_(db),
+      queue_(queue),
+      track_(),
+      next_tracks_(),
+      new_track_(),
+      new_next_tracks_() {
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
   lv_obj_set_size(root_, lv_pct(100), lv_pct(200));
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
@@ -130,17 +145,72 @@ Playing::Playing(database::Track track) : track_(track) {
   lv_obj_set_flex_align(next_up_container_, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
 
-  lv_group_add_obj(group_, next_up_label(root_, "Song 2"));
-  lv_group_add_obj(group_, next_up_label(root_, "Song 3"));
-  lv_group_add_obj(
-      group_, next_up_label(root_, "Another song that has a very long name"));
-
-  BindTrack(track);
+  OnTrackUpdate();
+  OnQueueUpdate();
 }
 
 Playing::~Playing() {}
 
-auto Playing::BindTrack(database::Track t) -> void {
+auto Playing::OnTrackUpdate() -> void {
+  auto current = queue_->GetCurrent();
+  if (!current) {
+    return;
+  }
+  if (track_ && track_->data().id() == *current) {
+    return;
+  }
+  auto db = db_.lock();
+  if (!db) {
+    return;
+  }
+  new_track_.reset(new database::FutureFetcher<std::optional<database::Track>>(
+      db->GetTrack(*current)));
+}
+
+auto Playing::OnPlaybackUpdate(uint32_t pos_seconds, uint32_t new_duration)
+    -> void {
+  if (!track_) {
+    return;
+  }
+  lv_bar_set_range(scrubber_, 0, new_duration);
+  lv_bar_set_value(scrubber_, pos_seconds, LV_ANIM_ON);
+}
+
+auto Playing::OnQueueUpdate() -> void {
+  auto current = queue_->GetUpcoming(kMaxUpcoming);
+  auto db = db_.lock();
+  if (!db) {
+    return;
+  }
+  new_next_tracks_.reset(
+      new database::FutureFetcher<std::vector<std::optional<database::Track>>>(
+          db->GetBulkTracks(current)));
+}
+
+auto Playing::Tick() -> void {
+  if (new_track_ && new_track_->Finished()) {
+    auto res = new_track_->Result();
+    new_track_.reset();
+    if (res && *res) {
+      BindTrack(**res);
+    }
+  }
+  if (new_next_tracks_ && new_next_tracks_->Finished()) {
+    auto res = new_next_tracks_->Result();
+    new_next_tracks_.reset();
+    if (res) {
+      std::vector<database::Track> filtered;
+      for (const auto& t : *res) {
+        if (t) {
+          filtered.push_back(*t);
+        }
+      }
+      ApplyNextUp(filtered);
+    }
+  }
+}
+
+auto Playing::BindTrack(const database::Track& t) -> void {
   track_ = t;
 
   lv_label_set_text(artist_label_,
@@ -148,6 +218,25 @@ auto Playing::BindTrack(database::Track t) -> void {
   lv_label_set_text(album_label_,
                     t.tags().at(database::Tag::kAlbum).value_or("").c_str());
   lv_label_set_text(title_label_, t.TitleOrFilename().c_str());
+
+  std::optional<int> duration = t.tags().duration;
+  lv_bar_set_range(scrubber_, 0, duration.value_or(1));
+  lv_bar_set_value(scrubber_, 0, LV_ANIM_OFF);
+}
+
+auto Playing::ApplyNextUp(const std::vector<database::Track>& tracks) -> void {
+  // TODO(jacqueline): Do a proper diff to maintain selection.
+  int children = lv_obj_get_child_cnt(next_up_container_);
+  while (children > 0) {
+    lv_obj_del(lv_obj_get_child(next_up_container_, 0));
+    children--;
+  }
+
+  next_tracks_ = tracks;
+  for (const auto& track : next_tracks_) {
+    lv_group_add_obj(
+        group_, next_up_label(next_up_container_, track.TitleOrFilename()));
+  }
 }
 
 }  // namespace screens

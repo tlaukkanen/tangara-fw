@@ -30,12 +30,15 @@ struct StreamInfo {
 
   bool is_consumer_finished = true;
 
-  //
-  std::optional<uint32_t> seek_to_seconds{};
+  std::optional<std::uint32_t> duration_seconds;
+
+  std::optional<std::uint32_t> seek_to_seconds{};
 
   struct Encoded {
     // The codec that this stream is associated with.
     codecs::StreamType type;
+
+    std::optional<std::size_t> duration_bytes;
 
     bool operator==(const Encoded&) const = default;
   };
@@ -94,6 +97,8 @@ class OutputStream {
   void add(std::size_t bytes) const;
 
   bool prepare(const StreamInfo::Format& new_format);
+
+  void set_duration(std::size_t);
 
   const StreamInfo& info() const;
 

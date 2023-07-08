@@ -50,6 +50,7 @@ enum class Tag {
   kAlbum = 2,
   kAlbumTrack = 3,
   kGenre = 4,
+  kDuration = 5,
 };
 
 /*
@@ -66,6 +67,8 @@ class TrackTags {
   std::optional<int> channels;
   std::optional<int> sample_rate;
   std::optional<int> bits_per_sample;
+
+  std::optional<int> duration;
 
   auto set(const Tag& key, const std::string& val) -> void;
   auto at(const Tag& key) const -> std::optional<shared_string>;

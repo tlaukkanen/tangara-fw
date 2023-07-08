@@ -19,6 +19,7 @@
 #include "pipeline.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
+#include "track_queue.hpp"
 
 namespace audio {
 
@@ -32,11 +33,13 @@ std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::vector<std::unique_ptr<IAudioElement>> AudioState::sPipeline;
 
-std::deque<AudioState::EnqueuedItem> AudioState::sTrackQueue;
+TrackQueue* AudioState::sTrackQueue;
 
 auto AudioState::Init(drivers::IGpios* gpio_expander,
-                      std::weak_ptr<database::Database> database) -> bool {
+                      std::weak_ptr<database::Database> database,
+                      TrackQueue* queue) -> bool {
   sIGpios = gpio_expander;
+  sTrackQueue = queue;
 
   auto dac = drivers::I2SDac::create(gpio_expander);
   if (!dac) {
@@ -94,26 +97,23 @@ void Uninitialised::react(const system_fsm::BootComplete&) {
   transit<Standby>();
 }
 
-void Standby::react(const InputFileOpened& ev) {
+void Standby::react(const internal::InputFileOpened& ev) {
   transit<Playback>();
 }
 
-void Standby::react(const PlayTrack& ev) {
+void Standby::react(const QueueUpdate& ev) {
+  auto current_track = sTrackQueue->GetCurrent();
+  if (!current_track) {
+    return;
+  }
+
   auto db = sDatabase.lock();
   if (!db) {
     ESP_LOGW(kTag, "database not open; ignoring play request");
     return;
   }
 
-  if (ev.data) {
-    sFileSource->OpenFile(ev.data->filepath());
-  } else {
-    sFileSource->OpenFile(db->GetTrackPath(ev.id));
-  }
-}
-
-void Standby::react(const PlayFile& ev) {
-  sFileSource->OpenFile(ev.filename);
+  sFileSource->OpenFile(db->GetTrackPath(*current_track));
 }
 
 void Playback::entry() {
@@ -126,42 +126,50 @@ void Playback::exit() {
   sI2SOutput->SetInUse(false);
 }
 
-void Playback::react(const PlayTrack& ev) {
-  sTrackQueue.push_back(EnqueuedItem(ev.id));
-}
+void Playback::react(const QueueUpdate& ev) {
+  auto current_track = sTrackQueue->GetCurrent();
+  if (!current_track) {
+    // TODO: return to standby?
+    return;
+  }
 
-void Playback::react(const PlayFile& ev) {
-  sTrackQueue.push_back(EnqueuedItem(ev.filename));
+  auto db = sDatabase.lock();
+  if (!db) {
+    return;
+  }
+
+  // TODO: what if we just finished this, and are preemptively loading the next
+  // one?
+  sFileSource->OpenFile(db->GetTrackPath(*current_track));
 }
 
 void Playback::react(const PlaybackUpdate& ev) {
-  ESP_LOGI(kTag, "elapsed: %lu", ev.seconds_elapsed);
+  ESP_LOGI(kTag, "elapsed: %lu, total: %lu", ev.seconds_elapsed,
+           ev.seconds_total);
 }
 
-void Playback::react(const InputFileOpened& ev) {}
+void Playback::react(const internal::InputFileOpened& ev) {}
 
-void Playback::react(const InputFileFinished& ev) {
-  ESP_LOGI(kTag, "finished file");
-  if (sTrackQueue.empty()) {
+void Playback::react(const internal::InputFileClosed& ev) {
+  ESP_LOGI(kTag, "finished reading file");
+  auto upcoming = sTrackQueue->GetUpcoming(1);
+  if (upcoming.empty()) {
     return;
   }
-  EnqueuedItem next_item = sTrackQueue.front();
-  sTrackQueue.pop_front();
-
-  if (std::holds_alternative<std::string>(next_item)) {
-    sFileSource->OpenFile(std::get<std::string>(next_item));
-  } else if (std::holds_alternative<database::TrackId>(next_item)) {
-    auto db = sDatabase.lock();
-    if (!db) {
-      ESP_LOGW(kTag, "database not open; ignoring play request");
-      return;
-    }
-    sFileSource->OpenFile(
-        db->GetTrackPath(std::get<database::TrackId>(next_item)));
+  auto db = sDatabase.lock();
+  if (!db) {
+    return;
   }
+  ESP_LOGI(kTag, "preemptively opening next file");
+  sFileSource->OpenFile(db->GetTrackPath(upcoming.front()));
 }
 
-void Playback::react(const AudioPipelineIdle& ev) {
+void Playback::react(const internal::InputFileFinished& ev) {
+  ESP_LOGI(kTag, "finished playing file");
+  sTrackQueue->Next();
+}
+
+void Playback::react(const internal::AudioPipelineIdle& ev) {
   transit<Standby>();
 }
 

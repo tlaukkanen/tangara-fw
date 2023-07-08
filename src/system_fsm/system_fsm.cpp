@@ -9,6 +9,7 @@
 #include "event_queue.hpp"
 #include "relative_wheel.hpp"
 #include "system_events.hpp"
+#include "track_queue.hpp"
 
 namespace system_fsm {
 
@@ -21,6 +22,8 @@ std::shared_ptr<drivers::Battery> SystemState::sBattery;
 std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
 std::shared_ptr<drivers::Display> SystemState::sDisplay;
 std::shared_ptr<database::Database> SystemState::sDatabase;
+
+std::shared_ptr<audio::TrackQueue> SystemState::sTrackQueue;
 
 console::AppConsole* SystemState::sAppConsole;
 
