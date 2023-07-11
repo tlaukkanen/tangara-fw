@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "core/lv_obj.h"
+#include "core/lv_obj_scroll.h"
 #include "database.hpp"
 #include "event_queue.hpp"
 #include "extra/layouts/flex/lv_flex.h"
@@ -69,6 +70,7 @@ TrackBrowser::TrackBrowser(
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);
+  lv_obj_set_scrollbar_mode(root_, LV_SCROLLBAR_MODE_OFF);
 
   lv_obj_t* header = lv_obj_create(root_);
   lv_obj_set_size(header, lv_pct(100), 15);
