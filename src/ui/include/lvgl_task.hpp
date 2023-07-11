@@ -15,8 +15,8 @@
 
 #include "display.hpp"
 #include "relative_wheel.hpp"
-#include "touchwheel.hpp"
 #include "themes.hpp"
+#include "touchwheel.hpp"
 
 namespace ui {
 

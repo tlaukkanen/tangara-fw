@@ -1,4 +1,5 @@
 #include "themes.hpp"
+#include "core/lv_obj.h"
 
 namespace ui {
 namespace themes {
@@ -29,8 +30,9 @@ void Theme::Apply(void) {
 }
 
 void Theme::Callback(lv_obj_t* obj) {
-  if (lv_obj_check_type(obj, &lv_btn_class) || lv_obj_check_type(obj, &lv_list_btn_class)) {
-    lv_obj_add_style(obj, &button_style_, 0);
+  if (lv_obj_check_type(obj, &lv_btn_class) ||
+      lv_obj_check_type(obj, &lv_list_btn_class)) {
+    lv_obj_add_style(obj, &button_style_, LV_PART_MAIN | LV_STATE_FOCUSED);
   }
 }
 }  // namespace themes

@@ -58,7 +58,6 @@ auto RelativeWheel::Update() -> void {
   } else {
     ticks_ = 0;
   }
-
 }
 
 auto RelativeWheel::is_clicking() -> bool {

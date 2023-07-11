@@ -9,11 +9,13 @@
 
 #include "core/lv_obj.h"
 #include "core/lv_obj_scroll.h"
+#include "core/lv_obj_tree.h"
 #include "database.hpp"
 #include "event_queue.hpp"
 #include "extra/layouts/flex/lv_flex.h"
 #include "font/lv_symbol_def.h"
 #include "lvgl.h"
+#include "misc/lv_anim.h"
 #include "screen_menu.hpp"
 
 #include "core/lv_event.h"
@@ -33,8 +35,8 @@
 
 static constexpr char kTag[] = "browser";
 
-static constexpr int kMaxPages = 3;
-static constexpr int kPageBuffer = 5;
+static constexpr int kMaxPages = 4;
+static constexpr int kPageBuffer = 6;
 
 namespace ui {
 namespace screens {
@@ -70,7 +72,11 @@ TrackBrowser::TrackBrowser(
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);
+
+  // The default scrollbar is deceptive because we load in items progressively.
   lv_obj_set_scrollbar_mode(root_, LV_SCROLLBAR_MODE_OFF);
+  // Wrapping behaves in surprising ways, again due to progressing loading.
+  lv_group_set_wrap(group_, false);
 
   lv_obj_t* header = lv_obj_create(root_);
   lv_obj_set_size(header, lv_pct(100), 15);
@@ -104,6 +110,7 @@ auto TrackBrowser::Tick() -> void {
   }
   if (loading_page_->wait_for(std::chrono::seconds(0)) ==
       std::future_status::ready) {
+    ESP_LOGI(kTag, "load finished. adding to page.");
     auto result = loading_page_->get();
     AddResults(loading_pos_.value_or(END), result);
 
@@ -118,10 +125,12 @@ auto TrackBrowser::OnItemSelected(lv_event_t* ev) -> void {
     return;
   }
   if (index < kPageBuffer) {
+    ESP_LOGI(kTag, "fetch page at start");
     FetchNewPage(START);
     return;
   }
   if (index > GetNumRecords() - kPageBuffer) {
+    ESP_LOGI(kTag, "fetch page at end");
     FetchNewPage(END);
     return;
   }
@@ -169,11 +178,27 @@ auto TrackBrowser::AddResults(Position pos,
     lv_obj_t* item = lv_list_add_btn(list_, NULL, text->c_str());
     lv_obj_add_event_cb(item, item_click_cb, LV_EVENT_CLICKED, this);
     lv_obj_add_event_cb(item, item_select_cb, LV_EVENT_FOCUSED, this);
-    lv_group_add_obj(group_, item);
+
     if (pos == START) {
       lv_obj_move_to_index(item, 0);
     }
   };
+
+  lv_obj_t* focused = lv_group_get_focused(group_);
+
+  // Adding objects at the start of the list will artificially scroll the list
+  // up. Scroll it down by the height we're adding so that the user doesn't
+  // notice any jank.
+  if (pos == START) {
+    int num_to_add = results->values().size();
+    // Assuming that all items are the same height, this item's y pos should be
+    // exactly the height of the new items.
+    lv_obj_t* representative_item = lv_obj_get_child(list_, num_to_add);
+    if (representative_item != nullptr) {
+      int scroll_adjustment = lv_obj_get_y(representative_item);
+      lv_obj_scroll_by(list_, 0, -scroll_adjustment, LV_ANIM_OFF);
+    }
+  }
 
   switch (pos) {
     case START:
@@ -185,10 +210,27 @@ auto TrackBrowser::AddResults(Position pos,
       current_pages_.emplace_back(results);
       break;
   }
+
+  lv_group_remove_all_objs(group_);
+  int num_children = lv_obj_get_child_cnt(list_);
+  for (int i = 0; i < num_children; i++) {
+    lv_group_add_obj(group_, lv_obj_get_child(list_, i));
+  }
+  lv_group_focus_obj(focused);
 }
 
 auto TrackBrowser::DropPage(Position pos) -> void {
   if (pos == START) {
+    // Removing objects from the start of the list will artificially scroll the
+    // list down. Scroll it up by the height we're removing so that the user
+    // doesn't notice any jank.
+    int num_to_remove = current_pages_.front()->values().size();
+    lv_obj_t* new_top_obj = lv_obj_get_child(list_, num_to_remove);
+    if (new_top_obj != nullptr) {
+      int scroll_adjustment = lv_obj_get_y(new_top_obj);
+      lv_obj_scroll_by(list_, 0, scroll_adjustment, LV_ANIM_OFF);
+    }
+
     for (int i = 0; i < current_pages_.front()->values().size(); i++) {
       lv_obj_t* item = lv_obj_get_child(list_, 0);
       if (item == NULL) {
@@ -212,24 +254,8 @@ auto TrackBrowser::DropPage(Position pos) -> void {
 
 auto TrackBrowser::FetchNewPage(Position pos) -> void {
   if (loading_page_) {
+    ESP_LOGI(kTag, "already loading; giving up");
     return;
-  }
-  auto db = db_.lock();
-  if (!db) {
-    return;
-  }
-
-  // If we already have a complete set of pages, drop the page that's furthest
-  // away.
-  if (current_pages_.size() >= kMaxPages) {
-    switch (pos) {
-      case START:
-        DropPage(END);
-        break;
-      case END:
-        DropPage(START);
-        break;
-    }
   }
 
   std::optional<database::Continuation<database::IndexRecord>> cont;
@@ -242,7 +268,28 @@ auto TrackBrowser::FetchNewPage(Position pos) -> void {
       break;
   }
   if (!cont) {
+    ESP_LOGI(kTag, "out of pages; giving up");
     return;
+  }
+
+  auto db = db_.lock();
+  if (!db) {
+    return;
+  }
+
+  // If we already have a complete set of pages, drop the page that's furthest
+  // away.
+  if (current_pages_.size() >= kMaxPages) {
+    switch (pos) {
+      case START:
+        ESP_LOGI(kTag, "dropping end page");
+        DropPage(END);
+        break;
+      case END:
+        ESP_LOGI(kTag, "dropping start page");
+        DropPage(START);
+        break;
+    }
   }
 
   loading_pos_ = pos;

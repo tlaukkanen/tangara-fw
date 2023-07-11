@@ -25,7 +25,7 @@ namespace ui {
 
 static constexpr char kTag[] = "ui_fsm";
 
-static const std::size_t kRecordsPerPage = 10;
+static const std::size_t kRecordsPerPage = 15;
 
 drivers::IGpios* UiState::sIGpios;
 audio::TrackQueue* UiState::sQueue;
