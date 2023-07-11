@@ -1,5 +1,8 @@
 #include "themes.hpp"
 #include "core/lv_obj.h"
+#include "misc/lv_color.h"
+
+LV_FONT_DECLARE(font_fusion);
 
 namespace ui {
 namespace themes {
@@ -30,6 +33,9 @@ void Theme::Apply(void) {
 }
 
 void Theme::Callback(lv_obj_t* obj) {
+  lv_obj_set_style_text_font(obj, &font_fusion, 0);
+  lv_obj_set_style_text_color(obj, lv_color_black(), 0);
+
   if (lv_obj_check_type(obj, &lv_btn_class) ||
       lv_obj_check_type(obj, &lv_list_btn_class)) {
     lv_obj_add_style(obj, &button_style_, LV_PART_MAIN | LV_STATE_FOCUSED);

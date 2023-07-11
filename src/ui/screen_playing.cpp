@@ -14,6 +14,7 @@
 #include "esp_log.h"
 #include "extra/layouts/flex/lv_flex.h"
 #include "extra/layouts/grid/lv_grid.h"
+#include "font/lv_font.h"
 #include "font/lv_symbol_def.h"
 #include "future_fetcher.hpp"
 #include "lvgl.h"
@@ -30,6 +31,7 @@
 #include "misc/lv_anim.h"
 #include "misc/lv_area.h"
 #include "misc/lv_color.h"
+#include "misc/lv_txt.h"
 #include "track.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
@@ -37,6 +39,8 @@
 #include "widgets/lv_btn.h"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
+
+LV_FONT_DECLARE(font_symbols);
 
 namespace ui {
 namespace screens {
@@ -49,6 +53,7 @@ auto info_label(lv_obj_t* parent) -> lv_obj_t* {
   lv_obj_t* label = lv_label_create(parent);
   lv_obj_set_size(label, lv_pct(100), LV_SIZE_CONTENT);
   lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_center(label);
   return label;
 }
@@ -57,6 +62,7 @@ auto control_button(lv_obj_t* parent, char* icon) -> lv_obj_t* {
   lv_obj_t* button = lv_img_create(parent);
   lv_obj_set_size(button, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   lv_img_set_src(button, icon);
+  lv_obj_set_style_text_font(button, &font_symbols, 0);
   return button;
 }
 
