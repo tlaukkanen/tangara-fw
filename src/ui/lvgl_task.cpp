@@ -54,8 +54,10 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
   ESP_LOGI(kTag, "init lvgl");
   lv_init();
 
-  lv_theme_t* theme = lv_theme_basic_init(NULL);
-  lv_disp_set_theme(NULL, theme);
+  lv_theme_t* base_theme = lv_theme_basic_init(NULL);
+  lv_disp_set_theme(NULL, base_theme);
+  static themes::Theme sTheme{};
+  sTheme.Apply();
 
   TouchWheelEncoder encoder(weak_touch_wheel);
 

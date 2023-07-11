@@ -25,7 +25,7 @@ TouchWheelEncoder::TouchWheelEncoder(
     std::weak_ptr<drivers::RelativeWheel> wheel)
     : last_key_(0), wheel_(wheel) {
   lv_indev_drv_init(&driver_);
-  driver_.type = LV_INDEV_TYPE_KEYPAD;
+  driver_.type = LV_INDEV_TYPE_ENCODER;
   driver_.read_cb = encoder_read;
   // driver_.feedback_cb = encoder_feedback;
   driver_.user_data = this;
@@ -41,19 +41,9 @@ auto TouchWheelEncoder::Read(lv_indev_data_t* data) -> void {
 
   lock->Update();
 
-  auto ticks = lock->ticks();
-  if (ticks > 0) {
-    data->key = LV_KEY_PREV;
-    data->state = LV_INDEV_STATE_PRESSED;
-  } else if (ticks < 0) {
-    data->key = LV_KEY_NEXT;
-    data->state = LV_INDEV_STATE_PRESSED;
-  } else if (lock->is_clicking()) {
-    data->key = LV_KEY_ENTER;
-    data->state = LV_INDEV_STATE_PRESSED;
-  } else {
-    data->state = LV_INDEV_STATE_RELEASED;
-  }
+  data->enc_diff = lock->ticks();
+  data->state =
+      lock->is_clicking() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 }
 
 }  // namespace ui
