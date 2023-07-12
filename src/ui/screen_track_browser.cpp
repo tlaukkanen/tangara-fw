@@ -311,6 +311,12 @@ auto TrackBrowser::GetItemIndex(lv_obj_t* obj) -> std::optional<std::size_t> {
 
 auto TrackBrowser::GetRecordByIndex(std::size_t index)
     -> std::optional<database::IndexRecord> {
+  std::size_t total_tracks = 0;
+  for (int i = 0; i < current_pages_.size(); i++) {
+    total_tracks += current_pages_.at(i)->values().size();
+  }
+  ESP_LOGI(kTag, "total tracks %u, getting index %u", total_tracks, index);
+
   std::size_t current_index = 0;
   for (const auto& page : current_pages_) {
     if (index > current_index + page->values().size()) {
