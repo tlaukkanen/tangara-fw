@@ -655,7 +655,9 @@ auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
   return stream.str();
 }
 
-IndexRecord::IndexRecord(const IndexKey& key, std::optional<shared_string> title, std::optional<TrackId> track)
+IndexRecord::IndexRecord(const IndexKey& key,
+                         std::optional<shared_string> title,
+                         std::optional<TrackId> track)
     : key_(key), override_text_(title), track_(track) {}
 
 auto IndexRecord::text() const -> std::optional<shared_string> {

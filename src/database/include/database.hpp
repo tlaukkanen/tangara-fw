@@ -70,7 +70,9 @@ class Result {
 
 class IndexRecord {
  public:
-   explicit IndexRecord(const IndexKey&, std::optional<shared_string>, std::optional<TrackId>);
+  explicit IndexRecord(const IndexKey&,
+                       std::optional<shared_string>,
+                       std::optional<TrackId>);
 
   auto text() const -> std::optional<shared_string>;
   auto track() const -> std::optional<TrackId>;
