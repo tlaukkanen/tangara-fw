@@ -70,16 +70,17 @@ class Result {
 
 class IndexRecord {
  public:
-  explicit IndexRecord(const IndexKey&, std::optional<Track>);
+   explicit IndexRecord(const IndexKey&, std::optional<shared_string>, std::optional<TrackId>);
 
   auto text() const -> std::optional<shared_string>;
-  auto track() const -> std::optional<Track>;
+  auto track() const -> std::optional<TrackId>;
 
   auto Expand(std::size_t) const -> std::optional<Continuation<IndexRecord>>;
 
  private:
   IndexKey key_;
-  std::optional<Track> track_;
+  std::optional<shared_string> override_text_;
+  std::optional<TrackId> track_;
 };
 
 class Database {

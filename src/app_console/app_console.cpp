@@ -259,7 +259,7 @@ int CmdDbIndex(int argc, char** argv) {
   for (database::IndexRecord r : res->values()) {
     std::cout << r.text().value_or("<unknown>");
     if (r.track()) {
-      std::cout << "\t(id:" << r.track()->data().id() << ")";
+      std::cout << "\t(id:" << *r.track() << ")";
     }
     std::cout << std::endl;
   }

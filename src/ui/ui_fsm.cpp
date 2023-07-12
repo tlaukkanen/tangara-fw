@@ -120,7 +120,7 @@ void Browse::react(const internal::RecordSelected& ev) {
     ESP_LOGI(kTag, "selected track '%s'", ev.record.text()->c_str());
     // TODO(jacqueline): We should also send some kind of playlist info here.
     sQueue->Clear();
-    sQueue->AddLast(ev.record.track()->data().id());
+    sQueue->AddLast(*ev.record.track());
     transit<Playing>();
   } else {
     ESP_LOGI(kTag, "selected record '%s'", ev.record.text()->c_str());

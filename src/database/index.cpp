@@ -52,15 +52,20 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       key.item = {};
     }
 
-    // If this is the last component, then we should also fill in the track id.
+    // If this is the last component, then we should also fill in the track id
+    // and title.
+    std::optional<std::string> title;
     if (i == info.components.size() - 1) {
       key.track = t.data().id();
+      if (info.components.at(i) != Tag::kTitle) {
+        title = t.TitleOrFilename();
+      }
     } else {
       key.track = {};
     }
 
     auto encoded = EncodeIndexKey(key);
-    batch->Put(encoded.slice, leveldb::Slice{});
+    batch->Put(encoded.slice, title.value_or(""));
 
     // If there are more components after this, then we need to finish by
     // narrowing the header with the current title.

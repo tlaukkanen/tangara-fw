@@ -600,20 +600,12 @@ auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
     return {};
   }
 
-  // If there was a track id included for this key, then this is a leaf record.
-  // Fetch the actual track data instead of relying on the information in the
-  // key.
-  std::optional<Track> track;
-  if (data->track) {
-    std::optional<TrackData> track_data = dbGetTrackData(*data->track);
-    TrackTags track_tags;
-    if (track_data &&
-        tag_parser_->ReadAndParseTags(track_data->filepath(), &track_tags)) {
-      track.emplace(*track_data, track_tags);
-    }
+  std::optional<std::string> title;
+  if (!val.empty()) {
+    title = val.ToString();
   }
 
-  return IndexRecord(*data, track);
+  return IndexRecord(*data, title, data->track);
 }
 
 template <>
@@ -663,17 +655,17 @@ auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
   return stream.str();
 }
 
-IndexRecord::IndexRecord(const IndexKey& key, std::optional<Track> track)
-    : key_(key), track_(track) {}
+IndexRecord::IndexRecord(const IndexKey& key, std::optional<shared_string> title, std::optional<TrackId> track)
+    : key_(key), override_text_(title), track_(track) {}
 
 auto IndexRecord::text() const -> std::optional<shared_string> {
-  if (track_) {
-    return track_->TitleOrFilename();
+  if (override_text_) {
+    return override_text_;
   }
   return key_.item;
 }
 
-auto IndexRecord::track() const -> std::optional<Track> {
+auto IndexRecord::track() const -> std::optional<TrackId> {
   return track_;
 }
 

@@ -110,7 +110,6 @@ auto TrackBrowser::Tick() -> void {
   }
   if (loading_page_->wait_for(std::chrono::seconds(0)) ==
       std::future_status::ready) {
-    ESP_LOGI(kTag, "load finished. adding to page.");
     auto result = loading_page_->get();
     AddResults(loading_pos_.value_or(END), result);
 
@@ -125,12 +124,10 @@ auto TrackBrowser::OnItemSelected(lv_event_t* ev) -> void {
     return;
   }
   if (index < kPageBuffer) {
-    ESP_LOGI(kTag, "fetch page at start");
     FetchNewPage(START);
     return;
   }
   if (index > GetNumRecords() - kPageBuffer) {
-    ESP_LOGI(kTag, "fetch page at end");
     FetchNewPage(END);
     return;
   }
@@ -254,7 +251,6 @@ auto TrackBrowser::DropPage(Position pos) -> void {
 
 auto TrackBrowser::FetchNewPage(Position pos) -> void {
   if (loading_page_) {
-    ESP_LOGI(kTag, "already loading; giving up");
     return;
   }
 
@@ -268,7 +264,6 @@ auto TrackBrowser::FetchNewPage(Position pos) -> void {
       break;
   }
   if (!cont) {
-    ESP_LOGI(kTag, "out of pages; giving up");
     return;
   }
 
@@ -282,11 +277,9 @@ auto TrackBrowser::FetchNewPage(Position pos) -> void {
   if (current_pages_.size() >= kMaxPages) {
     switch (pos) {
       case START:
-        ESP_LOGI(kTag, "dropping end page");
         DropPage(END);
         break;
       case END:
-        ESP_LOGI(kTag, "dropping start page");
         DropPage(START);
         break;
     }
