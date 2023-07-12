@@ -8,7 +8,9 @@
 #include <sys/_stdint.h>
 #include <memory>
 
+#include "core/lv_event.h"
 #include "core/lv_obj.h"
+#include "core/lv_obj_scroll.h"
 #include "core/lv_obj_tree.h"
 #include "database.hpp"
 #include "esp_log.h"
@@ -35,7 +37,6 @@
 #include "track.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
-#include "widgets/lv_bar.h"
 #include "widgets/lv_btn.h"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
@@ -47,6 +48,22 @@ namespace screens {
 
 static constexpr std::size_t kMaxUpcoming = 10;
 
+static void above_fold_focus_cb(lv_event_t* ev) {
+  if (ev->user_data == NULL) {
+    return;
+  }
+  Playing* instance = reinterpret_cast<Playing*>(ev->user_data);
+  instance->OnFocusAboveFold();
+}
+
+static void below_fold_focus_cb(lv_event_t* ev) {
+  if (ev->user_data == NULL) {
+    return;
+  }
+  Playing* instance = reinterpret_cast<Playing*>(ev->user_data);
+  instance->OnFocusBelowFold();
+}
+
 static lv_style_t scrubber_style;
 
 auto info_label(lv_obj_t* parent) -> lv_obj_t* {
@@ -55,23 +72,31 @@ auto info_label(lv_obj_t* parent) -> lv_obj_t* {
   lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_center(label);
+
+  lv_obj_set_style_bg_color(label, lv_color_black(), LV_STATE_FOCUSED);
   return label;
 }
 
-auto control_button(lv_obj_t* parent, char* icon) -> lv_obj_t* {
-  lv_obj_t* button = lv_img_create(parent);
+auto Playing::control_button(lv_obj_t* parent, char* icon) -> lv_obj_t* {
+  lv_obj_t* button = lv_btn_create(parent);
   lv_obj_set_size(button, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_img_set_src(button, icon);
-  lv_obj_set_style_text_font(button, &font_symbols, 0);
+
+  lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+  lv_obj_add_event_cb(button, above_fold_focus_cb, LV_EVENT_FOCUSED, this);
+
+  lv_obj_t* icon_obj = lv_img_create(button);
+  lv_img_set_src(icon_obj, icon);
+  lv_obj_set_style_text_font(icon_obj, &font_symbols, 0);
+
   return button;
 }
 
-auto next_up_label(lv_obj_t* parent, const std::string& text) -> lv_obj_t* {
-  lv_obj_t* label = lv_label_create(parent);
-  lv_label_set_text(label, text.c_str());
-  lv_obj_set_size(label, lv_pct(100), LV_SIZE_CONTENT);
-  lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL_CIRCULAR);
-  return label;
+auto Playing::next_up_label(lv_obj_t* parent, const std::string& text)
+    -> lv_obj_t* {
+  lv_obj_t* button = lv_list_add_btn(parent, NULL, text.c_str());
+  lv_obj_add_event_cb(button, below_fold_focus_cb, LV_EVENT_FOCUSED, this);
+  lv_group_add_obj(group_, button);
+  return button;
 }
 
 Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
@@ -82,37 +107,48 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
       new_track_(),
       new_next_tracks_() {
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
-  lv_obj_set_size(root_, lv_pct(100), lv_pct(200));
+  lv_group_set_wrap(group_, false);
+
+  lv_obj_set_size(root_, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
+  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);
 
   lv_obj_t* above_fold_container = lv_obj_create(root_);
   lv_obj_set_layout(above_fold_container, LV_LAYOUT_FLEX);
   lv_obj_set_size(above_fold_container, lv_pct(100), lv_disp_get_ver_res(NULL));
   lv_obj_set_flex_flow(above_fold_container, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(above_fold_container, LV_FLEX_ALIGN_CENTER,
-                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
+  lv_obj_set_flex_align(above_fold_container, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                        LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+
+  lv_obj_t* back_button = lv_btn_create(above_fold_container);
+  lv_obj_set_size(back_button, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_t* back_label = lv_label_create(back_button);
+  lv_label_set_text(back_label, "<");
+  lv_group_add_obj(group_, back_button);
 
   lv_obj_t* info_container = lv_obj_create(above_fold_container);
   lv_obj_set_layout(info_container, LV_LAYOUT_FLEX);
-  lv_obj_set_size(info_container, lv_pct(100), 80);
+  lv_obj_set_width(info_container, lv_pct(100));
+  lv_obj_set_flex_grow(info_container, 1);
   lv_obj_set_flex_flow(info_container, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(info_container, LV_FLEX_ALIGN_CENTER,
-                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   artist_label_ = info_label(info_container);
   album_label_ = info_label(info_container);
   title_label_ = info_label(info_container);
 
-  scrubber_ = lv_bar_create(above_fold_container);
+  scrubber_ = lv_slider_create(above_fold_container);
   lv_obj_set_size(scrubber_, lv_pct(100), 5);
-  lv_bar_set_range(scrubber_, 0, 100);
-  lv_bar_set_value(scrubber_, 0, LV_ANIM_OFF);
+  lv_slider_set_range(scrubber_, 0, 100);
+  lv_slider_set_value(scrubber_, 0, LV_ANIM_OFF);
 
   lv_style_init(&scrubber_style);
   lv_style_set_bg_color(&scrubber_style, lv_color_black());
   lv_obj_add_style(scrubber_, &scrubber_style, LV_PART_INDICATOR);
+
+  lv_group_add_obj(group_, scrubber_);
 
   lv_obj_t* controls_container = lv_obj_create(above_fold_container);
   lv_obj_set_size(controls_container, lv_pct(100), 20);
@@ -128,28 +164,27 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
                    control_button(controls_container, LV_SYMBOL_SHUFFLE));
   lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_LOOP));
 
-  lv_obj_t* next_up_header = lv_obj_create(above_fold_container);
-  lv_obj_set_size(next_up_header, lv_pct(100), 15);
-  lv_obj_set_flex_flow(next_up_header, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(next_up_header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END,
+  next_up_header_ = lv_obj_create(above_fold_container);
+  lv_obj_set_size(next_up_header_, lv_pct(100), 15);
+  lv_obj_set_flex_flow(next_up_header_, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(next_up_header_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END,
                         LV_FLEX_ALIGN_END);
 
-  lv_obj_t* next_up_title = lv_label_create(next_up_header);
-  lv_label_set_text(next_up_title, "Next up...");
-  lv_obj_set_height(next_up_title, lv_pct(100));
-  lv_obj_set_flex_grow(next_up_title, 1);
+  next_up_label_ = lv_label_create(next_up_header_);
+  lv_label_set_text(next_up_label_, "Next up...");
+  lv_obj_set_height(next_up_label_, lv_pct(100));
+  lv_obj_set_flex_grow(next_up_label_, 1);
 
-  lv_obj_t* next_up_hint = lv_label_create(next_up_header);
+  lv_obj_t* next_up_hint = lv_label_create(next_up_header_);
   lv_label_set_text(next_up_hint, LV_SYMBOL_DOWN);
   lv_obj_set_size(next_up_hint, LV_SIZE_CONTENT, lv_pct(100));
 
-  next_up_container_ = lv_obj_create(root_);
+  next_up_container_ = lv_list_create(root_);
   lv_obj_set_layout(next_up_container_, LV_LAYOUT_FLEX);
-  lv_obj_set_width(next_up_container_, lv_pct(100));
-  lv_obj_set_flex_grow(next_up_container_, 1);
+  lv_obj_set_size(next_up_container_, lv_pct(100), lv_disp_get_ver_res(NULL));
   lv_obj_set_flex_flow(next_up_container_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(next_up_container_, LV_FLEX_ALIGN_CENTER,
-                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
+  lv_obj_set_flex_align(next_up_container_, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   OnTrackUpdate();
   OnQueueUpdate();
@@ -178,8 +213,8 @@ auto Playing::OnPlaybackUpdate(uint32_t pos_seconds, uint32_t new_duration)
   if (!track_) {
     return;
   }
-  lv_bar_set_range(scrubber_, 0, new_duration);
-  lv_bar_set_value(scrubber_, pos_seconds, LV_ANIM_ON);
+  lv_slider_set_range(scrubber_, 0, new_duration);
+  lv_slider_set_value(scrubber_, pos_seconds, LV_ANIM_ON);
 }
 
 auto Playing::OnQueueUpdate() -> void {
@@ -226,8 +261,8 @@ auto Playing::BindTrack(const database::Track& t) -> void {
   lv_label_set_text(title_label_, t.TitleOrFilename().c_str());
 
   std::optional<int> duration = t.tags().duration;
-  lv_bar_set_range(scrubber_, 0, duration.value_or(1));
-  lv_bar_set_value(scrubber_, 0, LV_ANIM_OFF);
+  lv_slider_set_range(scrubber_, 0, duration.value_or(1));
+  lv_slider_set_value(scrubber_, 0, LV_ANIM_OFF);
 }
 
 auto Playing::ApplyNextUp(const std::vector<database::Track>& tracks) -> void {
@@ -239,9 +274,27 @@ auto Playing::ApplyNextUp(const std::vector<database::Track>& tracks) -> void {
   }
 
   next_tracks_ = tracks;
+
+  if (next_tracks_.empty()) {
+    lv_label_set_text(next_up_label_, "Nothing queued");
+    return;
+  } else {
+    lv_label_set_text(next_up_label_, "Next up");
+  }
+
   for (const auto& track : next_tracks_) {
     lv_group_add_obj(
         group_, next_up_label(next_up_container_, track.TitleOrFilename()));
+  }
+}
+
+auto Playing::OnFocusAboveFold() -> void {
+  lv_obj_scroll_to_y(root_, 0, LV_ANIM_ON);
+}
+
+auto Playing::OnFocusBelowFold() -> void {
+  if (lv_obj_get_scroll_y(root_) < lv_obj_get_y(next_up_header_)) {
+    lv_obj_scroll_to_y(root_, lv_obj_get_y(next_up_header_), LV_ANIM_ON);
   }
 }
 

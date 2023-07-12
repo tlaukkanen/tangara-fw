@@ -40,7 +40,13 @@ class Playing : public Screen {
   auto OnPlaybackUpdate(uint32_t, uint32_t) -> void;
   auto OnQueueUpdate() -> void;
 
+  auto OnFocusAboveFold() -> void;
+  auto OnFocusBelowFold() -> void;
+
  private:
+  auto control_button(lv_obj_t* parent, char* icon) -> lv_obj_t*;
+  auto next_up_label(lv_obj_t* parent, const std::string& text) -> lv_obj_t*;
+
   auto BindTrack(const database::Track& track) -> void;
   auto ApplyNextUp(const std::vector<database::Track>& tracks) -> void;
 
@@ -63,6 +69,8 @@ class Playing : public Screen {
   lv_obj_t* scrubber_;
   lv_obj_t* play_pause_control_;
 
+  lv_obj_t* next_up_header_;
+  lv_obj_t* next_up_label_;
   lv_obj_t* next_up_container_;
 };
 
