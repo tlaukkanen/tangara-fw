@@ -31,6 +31,7 @@
 #include "screen_track_browser.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
+#include "widget_top_bar.hpp"
 #include "widgets/lv_label.h"
 
 static constexpr char kTag[] = "browser";
@@ -70,29 +71,17 @@ TrackBrowser::TrackBrowser(
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
   lv_obj_set_size(root_, lv_pct(100), lv_pct(100));
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
-                        LV_FLEX_ALIGN_START);
+  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
 
   // The default scrollbar is deceptive because we load in items progressively.
   lv_obj_set_scrollbar_mode(root_, LV_SCROLLBAR_MODE_OFF);
   // Wrapping behaves in surprising ways, again due to progressing loading.
   lv_group_set_wrap(group_, false);
 
-  lv_obj_t* header = lv_obj_create(root_);
-  lv_obj_set_size(header, lv_pct(100), 15);
-  lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
-                        LV_FLEX_ALIGN_CENTER);
-
-  lv_obj_t* title_label = lv_label_create(header);
-  lv_label_set_text(title_label, title.c_str());
-  lv_obj_set_flex_grow(title_label, 1);
-
-  lv_obj_t* playback_label = lv_label_create(header);
-  lv_label_set_text(playback_label, LV_SYMBOL_PAUSE);
-
-  lv_obj_t* battery_label = lv_label_create(header);
-  lv_label_set_text(battery_label, LV_SYMBOL_BATTERY_2);
+  widgets::TopBar top_bar(root_, group_);
+  top_bar.set_title(title);
+  back_button_ = top_bar.back_button_;
 
   list_ = lv_list_create(root_);
   lv_obj_set_width(list_, lv_pct(100));
@@ -209,6 +198,7 @@ auto TrackBrowser::AddResults(Position pos,
   }
 
   lv_group_remove_all_objs(group_);
+  lv_group_add_obj(group_, back_button_);
   int num_children = lv_obj_get_child_cnt(list_);
   for (int i = 0; i < num_children; i++) {
     lv_group_add_obj(group_, lv_obj_get_child(list_, i));

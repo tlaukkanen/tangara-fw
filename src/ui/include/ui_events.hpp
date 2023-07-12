@@ -32,6 +32,8 @@ struct IndexSelected : tinyfsm::Event {
   database::IndexInfo index;
 };
 
+struct BackPressed : tinyfsm::Event {};
+
 }  // namespace internal
 
 }  // namespace ui

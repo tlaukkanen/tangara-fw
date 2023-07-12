@@ -37,6 +37,7 @@
 #include "track.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
+#include "widget_top_bar.hpp"
 #include "widgets/lv_btn.h"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
@@ -114,6 +115,8 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
   lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);
 
+  lv_obj_set_scrollbar_mode(root_, LV_SCROLLBAR_MODE_OFF);
+
   lv_obj_t* above_fold_container = lv_obj_create(root_);
   lv_obj_set_layout(above_fold_container, LV_LAYOUT_FLEX);
   lv_obj_set_size(above_fold_container, lv_pct(100), lv_disp_get_ver_res(NULL));
@@ -121,11 +124,8 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
   lv_obj_set_flex_align(above_fold_container, LV_FLEX_ALIGN_SPACE_BETWEEN,
                         LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-  lv_obj_t* back_button = lv_btn_create(above_fold_container);
-  lv_obj_set_size(back_button, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_obj_t* back_label = lv_label_create(back_button);
-  lv_label_set_text(back_label, "<");
-  lv_group_add_obj(group_, back_button);
+  widgets::TopBar top_bar(above_fold_container, group_);
+  top_bar.set_title("Now Playing");
 
   lv_obj_t* info_container = lv_obj_create(above_fold_container);
   lv_obj_set_layout(info_container, LV_LAYOUT_FLEX);

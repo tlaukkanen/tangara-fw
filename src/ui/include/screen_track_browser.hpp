@@ -49,6 +49,7 @@ class TrackBrowser : public Screen {
       -> std::optional<database::IndexRecord>;
 
   std::weak_ptr<database::Database> db_;
+  lv_obj_t* back_button_;
   lv_obj_t* list_;
   lv_obj_t* loading_indicator_;
 

@@ -48,6 +48,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   virtual void react(const internal::RecordSelected&) {}
   virtual void react(const internal::IndexSelected&) {}
+  virtual void react(const internal::BackPressed&) {}
 
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}
@@ -83,6 +84,7 @@ class Browse : public UiState {
 
   void react(const internal::RecordSelected&) override;
   void react(const internal::IndexSelected&) override;
+  void react(const internal::BackPressed&) override;
 
   void react(const system_fsm::KeyLockChanged&) override;
   void react(const system_fsm::StorageMounted&) override;
@@ -92,6 +94,8 @@ class Browse : public UiState {
 class Playing : public UiState {
   void entry() override;
   void exit() override;
+
+  void react(const internal::BackPressed&) override;
 
   void react(const audio::PlaybackStarted&) override;
   void react(const audio::PlaybackUpdate&) override;

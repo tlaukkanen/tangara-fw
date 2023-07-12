@@ -20,6 +20,7 @@
 #include "system_events.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
+#include "ui_events.hpp"
 
 namespace ui {
 
@@ -147,6 +148,10 @@ void Browse::react(const internal::IndexSelected& ev) {
                                                      std::move(query)));
 }
 
+void Browse::react(const internal::BackPressed& ev) {
+  PopScreen();
+}
+
 static std::shared_ptr<screens::Playing> sPlayingScreen;
 
 void Playing::entry() {
@@ -169,6 +174,10 @@ void Playing::react(const audio::PlaybackUpdate& ev) {
 
 void Playing::react(const audio::QueueUpdate& ev) {
   sPlayingScreen->OnQueueUpdate();
+}
+
+void Playing::react(const internal::BackPressed& ev) {
+  transit<Browse>();
 }
 
 }  // namespace states
