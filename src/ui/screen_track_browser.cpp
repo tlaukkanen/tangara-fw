@@ -307,18 +307,13 @@ auto TrackBrowser::GetRecordByIndex(std::size_t index)
   }
   ESP_LOGI(kTag, "total tracks %u, getting index %u", total_tracks, index);
 
-  std::size_t current_index = 0;
   for (const auto& page : current_pages_) {
-    if (index > current_index + page->values().size()) {
-      current_index += page->values().size();
-      continue;
+    for (int i = 0; i < page->values().size(); i++) {
+      if (index == 0) {
+        return page->values().at(i);
+      }
+      index--;
     }
-    if (index < current_index) {
-      // uhhh
-      break;
-    }
-    std::size_t index_in_page = index - current_index;
-    return page->values().at(index_in_page);
   }
   return {};
 }

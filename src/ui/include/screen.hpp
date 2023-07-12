@@ -25,8 +25,10 @@ class Screen {
   Screen() : root_(lv_obj_create(NULL)), group_(lv_group_create()) {}
 
   virtual ~Screen() {
-    lv_obj_del(root_);
+    // The group *must* be deleted first. Otherwise, focus events will be
+    // generated whilst deleting the object tree, which causes a big mess.
     lv_group_del(group_);
+    lv_obj_del(root_);
   }
 
   /*
