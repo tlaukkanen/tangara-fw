@@ -16,8 +16,8 @@
 #include "esp_log.h"
 #include "extra/layouts/flex/lv_flex.h"
 #include "extra/layouts/grid/lv_grid.h"
-#include "font/lv_font.h"
 #include "font/lv_symbol_def.h"
+#include "font_symbols.hpp"
 #include "future_fetcher.hpp"
 #include "lvgl.h"
 
@@ -41,8 +41,6 @@
 #include "widgets/lv_btn.h"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
-
-LV_FONT_DECLARE(font_symbols);
 
 namespace ui {
 namespace screens {
@@ -70,6 +68,7 @@ static lv_style_t scrubber_style;
 auto info_label(lv_obj_t* parent) -> lv_obj_t* {
   lv_obj_t* label = lv_label_create(parent);
   lv_obj_set_size(label, lv_pct(100), LV_SIZE_CONTENT);
+  lv_label_set_text(label, "");
   lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_center(label);
@@ -124,8 +123,11 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
   lv_obj_set_flex_align(above_fold_container, LV_FLEX_ALIGN_SPACE_BETWEEN,
                         LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-  widgets::TopBar top_bar(above_fold_container, group_);
-  top_bar.set_title("Now Playing");
+  widgets::TopBar::Configuration config{
+      .show_back_button = true,
+      .title = "Now Playing",
+  };
+  CreateTopBar(above_fold_container, config);
 
   lv_obj_t* info_container = lv_obj_create(above_fold_container);
   lv_obj_set_layout(info_container, LV_LAYOUT_FLEX);
@@ -171,13 +173,14 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
                         LV_FLEX_ALIGN_END);
 
   next_up_label_ = lv_label_create(next_up_header_);
-  lv_label_set_text(next_up_label_, "Next up...");
+  lv_label_set_text(next_up_label_, "");
   lv_obj_set_height(next_up_label_, lv_pct(100));
   lv_obj_set_flex_grow(next_up_label_, 1);
 
-  lv_obj_t* next_up_hint = lv_label_create(next_up_header_);
-  lv_label_set_text(next_up_hint, LV_SYMBOL_DOWN);
-  lv_obj_set_size(next_up_hint, LV_SIZE_CONTENT, lv_pct(100));
+  next_up_hint_ = lv_label_create(next_up_header_);
+  lv_label_set_text(next_up_hint_, "");
+  lv_obj_set_style_text_font(next_up_hint_, &font_symbols, 0);
+  lv_obj_set_size(next_up_hint_, LV_SIZE_CONTENT, lv_pct(100));
 
   next_up_container_ = lv_list_create(root_);
   lv_obj_set_layout(next_up_container_, LV_LAYOUT_FLEX);
@@ -277,9 +280,11 @@ auto Playing::ApplyNextUp(const std::vector<database::Track>& tracks) -> void {
 
   if (next_tracks_.empty()) {
     lv_label_set_text(next_up_label_, "Nothing queued");
+    lv_label_set_text(next_up_hint_, "");
     return;
   } else {
     lv_label_set_text(next_up_label_, "Next up");
+    lv_label_set_text(next_up_hint_, "");
   }
 
   for (const auto& track : next_tracks_) {

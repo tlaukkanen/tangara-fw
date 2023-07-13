@@ -71,6 +71,7 @@ class Playing : public Screen {
 
   lv_obj_t* next_up_header_;
   lv_obj_t* next_up_label_;
+  lv_obj_t* next_up_hint_;
   lv_obj_t* next_up_container_;
 };
 

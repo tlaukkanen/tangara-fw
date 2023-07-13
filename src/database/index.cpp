@@ -31,6 +31,22 @@ const IndexInfo kAllTracks{
     .components = {Tag::kTitle},
 };
 
+static auto missing_component_text(Tag tag) -> std::optional<std::string> {
+  switch (tag) {
+    case Tag::kArtist:
+      return "Unknown Artist";
+    case Tag::kAlbum:
+      return "Unknown Album";
+    case Tag::kGenre:
+      return "Unknown Genre";
+    case Tag::kAlbumTrack:
+    case Tag::kDuration:
+    case Tag::kTitle:
+    default:
+      return {};
+  }
+}
+
 auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
     -> bool {
   IndexKey key{
@@ -43,6 +59,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       .track = {},
   };
 
+  std::optional<std::string> value;
   for (std::uint8_t i = 0; i < info.components.size(); i++) {
     // Fill in the text for this depth.
     auto text = t.tags().at(info.components.at(i));
@@ -50,22 +67,22 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       key.item = *text;
     } else {
       key.item = {};
+      value = missing_component_text(info.components.at(i));
     }
 
     // If this is the last component, then we should also fill in the track id
     // and title.
-    std::optional<std::string> title;
     if (i == info.components.size() - 1) {
       key.track = t.data().id();
       if (info.components.at(i) != Tag::kTitle) {
-        title = t.TitleOrFilename();
+        value = t.TitleOrFilename();
       }
     } else {
       key.track = {};
     }
 
     auto encoded = EncodeIndexKey(key);
-    batch->Put(encoded.slice, title.value_or(""));
+    batch->Put(encoded.slice, value.value_or(""));
 
     // If there are more components after this, then we need to finish by
     // narrowing the header with the current title.

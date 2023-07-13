@@ -12,6 +12,7 @@
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
 #include "lvgl.h"
+#include "widget_top_bar.hpp"
 
 namespace ui {
 
@@ -37,12 +38,20 @@ class Screen {
    */
   virtual auto Tick() -> void {}
 
+  auto UpdateTopBar(const widgets::TopBar::State& state) -> void;
+
   auto root() -> lv_obj_t* { return root_; }
   auto group() -> lv_group_t* { return group_; }
 
  protected:
+  auto CreateTopBar(lv_obj_t* parent, const widgets::TopBar::Configuration&)
+      -> widgets::TopBar*;
+
   lv_obj_t* const root_;
   lv_group_t* const group_;
+
+ private:
+  std::unique_ptr<widgets::TopBar> top_bar_;
 };
 
 }  // namespace ui

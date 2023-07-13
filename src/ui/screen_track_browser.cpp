@@ -79,9 +79,12 @@ TrackBrowser::TrackBrowser(
   // Wrapping behaves in surprising ways, again due to progressing loading.
   lv_group_set_wrap(group_, false);
 
-  widgets::TopBar top_bar(root_, group_);
-  top_bar.set_title(title);
-  back_button_ = top_bar.back_button_;
+  widgets::TopBar::Configuration config{
+      .show_back_button = true,
+      .title = title,
+  };
+  auto top_bar = CreateTopBar(root_, config);
+  back_button_ = top_bar->button();
 
   list_ = lv_list_create(root_);
   lv_obj_set_width(list_, lv_pct(100));
