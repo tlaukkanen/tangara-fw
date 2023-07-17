@@ -97,6 +97,12 @@ static const char* kTag = "TAGS";
 
 auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     -> bool {
+  std::optional<TrackTags> cached = cache_.Get(path);
+  if (cached) {
+    *out = *cached;
+    return true;
+  }
+
   if (path.ends_with(".m4a")) {
     // TODO(jacqueline): Re-enabled once libtags is fixed.
     ESP_LOGW(kTag, "skipping m4a %s", path.c_str());
@@ -160,6 +166,7 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     out->duration = ctx.duration;
   }
 
+  cache_.Put(path, *out);
   return true;
 }
 

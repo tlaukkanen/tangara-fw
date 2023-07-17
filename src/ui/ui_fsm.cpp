@@ -17,6 +17,7 @@
 #include "screen_playing.hpp"
 #include "screen_splash.hpp"
 #include "screen_track_browser.hpp"
+#include "source.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
@@ -117,20 +118,21 @@ void Browse::react(const internal::RecordSelected& ev) {
     return;
   }
 
-  if (ev.record.track()) {
-    ESP_LOGI(kTag, "selected track '%s'", ev.record.text()->c_str());
-    // TODO(jacqueline): We should also send some kind of playlist info here.
+  auto record = ev.page->values().at(ev.record);
+  if (record.track()) {
+    ESP_LOGI(kTag, "selected track '%s'", record.text()->c_str());
     sQueue->Clear();
-    sQueue->AddLast(*ev.record.track());
+    sQueue->IncludeLast(std::make_shared<playlist::IndexRecordSource>(
+        sDb, ev.initial_page, 0, ev.page, ev.record));
     transit<Playing>();
   } else {
-    ESP_LOGI(kTag, "selected record '%s'", ev.record.text()->c_str());
-    auto cont = ev.record.Expand(kRecordsPerPage);
+    ESP_LOGI(kTag, "selected record '%s'", record.text()->c_str());
+    auto cont = record.Expand(kRecordsPerPage);
     if (!cont) {
       return;
     }
     auto query = db->GetPage(&cont.value());
-    std::string title = ev.record.text().value_or("TODO");
+    std::string title = record.text().value_or("TODO");
     PushScreen(
         std::make_shared<screens::TrackBrowser>(sDb, title, std::move(query)));
   }

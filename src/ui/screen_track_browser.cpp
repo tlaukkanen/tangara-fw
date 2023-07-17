@@ -66,7 +66,8 @@ TrackBrowser::TrackBrowser(
       list_(nullptr),
       loading_indicator_(nullptr),
       loading_pos_(END),
-      loading_page_(std::move(initial_page)),
+      loading_page_(move(initial_page)),
+      initial_page_(),
       current_pages_() {
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
   lv_obj_set_size(root_, lv_pct(100), lv_pct(100));
@@ -102,7 +103,8 @@ auto TrackBrowser::Tick() -> void {
   }
   if (loading_page_->wait_for(std::chrono::seconds(0)) ==
       std::future_status::ready) {
-    auto result = loading_page_->get();
+    std::shared_ptr<database::Result<database::IndexRecord>> result{
+        loading_page_->get()};
     AddResults(loading_pos_.value_or(END), result);
 
     loading_page_.reset();
@@ -126,18 +128,26 @@ auto TrackBrowser::OnItemSelected(lv_event_t* ev) -> void {
 }
 
 auto TrackBrowser::OnItemClicked(lv_event_t* ev) -> void {
-  auto index = GetItemIndex(lv_event_get_target(ev));
-  if (!index) {
+  auto res = GetItemIndex(lv_event_get_target(ev));
+  if (!res) {
     return;
   }
-  auto record = GetRecordByIndex(*index);
-  if (!record) {
-    return;
+
+  auto index = *res;
+  for (const auto& page : current_pages_) {
+    for (std::size_t i = 0; i < page->values().size(); i++) {
+      if (index == 0) {
+        events::Dispatch<internal::RecordSelected, UiState>(
+            internal::RecordSelected{
+                .initial_page = initial_page_,
+                .page = page,
+                .record = i,
+            });
+        return;
+      }
+      index--;
+    }
   }
-  ESP_LOGI(kTag, "clicked item %u (%s)", *index,
-           record->text().value_or("[nil]").c_str());
-  events::Dispatch<internal::RecordSelected, UiState>(
-      internal::RecordSelected{.record = *record});
 }
 
 auto TrackBrowser::AddLoadingIndictor(Position pos) -> void {
@@ -150,12 +160,16 @@ auto TrackBrowser::AddLoadingIndictor(Position pos) -> void {
   }
 }
 
-auto TrackBrowser::AddResults(Position pos,
-                              database::Result<database::IndexRecord>* results)
-    -> void {
+auto TrackBrowser::AddResults(
+    Position pos,
+    std::shared_ptr<database::Result<database::IndexRecord>> results) -> void {
   if (loading_indicator_ != nullptr) {
     lv_obj_del(loading_indicator_);
     loading_indicator_ = nullptr;
+  }
+
+  if (initial_page_ == nullptr) {
+    initial_page_ = results;
   }
 
   auto fn = [&](const database::IndexRecord& record) {
@@ -192,11 +206,11 @@ auto TrackBrowser::AddResults(Position pos,
   switch (pos) {
     case START:
       std::for_each(results->values().rbegin(), results->values().rend(), fn);
-      current_pages_.emplace_front(results);
+      current_pages_.push_front(results);
       break;
     case END:
       std::for_each(results->values().begin(), results->values().end(), fn);
-      current_pages_.emplace_back(results);
+      current_pages_.push_back(results);
       break;
   }
 
@@ -298,25 +312,6 @@ auto TrackBrowser::GetItemIndex(lv_obj_t* obj) -> std::optional<std::size_t> {
       return index;
     }
     index++;
-  }
-  return {};
-}
-
-auto TrackBrowser::GetRecordByIndex(std::size_t index)
-    -> std::optional<database::IndexRecord> {
-  std::size_t total_tracks = 0;
-  for (int i = 0; i < current_pages_.size(); i++) {
-    total_tracks += current_pages_.at(i)->values().size();
-  }
-  ESP_LOGI(kTag, "total tracks %u, getting index %u", total_tracks, index);
-
-  for (const auto& page : current_pages_) {
-    for (int i = 0; i < page->values().size(); i++) {
-      if (index == 0) {
-        return page->values().at(i);
-      }
-      index--;
-    }
   }
   return {};
 }

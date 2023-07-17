@@ -6,10 +6,12 @@
 
 #pragma once
 
-#include <deque>
+#include <list>
+#include <memory>
 #include <mutex>
 #include <vector>
 
+#include "source.hpp"
 #include "track.hpp"
 
 namespace audio {
@@ -44,7 +46,9 @@ class TrackQueue {
    * If there is no current track, the given track will begin playback.
    */
   auto AddNext(database::TrackId) -> void;
-  auto AddNext(const std::vector<database::TrackId>&) -> void;
+  auto AddNext(std::shared_ptr<playlist::ISource>) -> void;
+
+  auto IncludeNext(std::shared_ptr<playlist::IResetableSource>) -> void;
 
   /*
    * Enqueues a track, placing it the end of all enqueued tracks.
@@ -52,7 +56,9 @@ class TrackQueue {
    * If there is no current track, the given track will begin playback.
    */
   auto AddLast(database::TrackId) -> void;
-  auto AddLast(const std::vector<database::TrackId>&) -> void;
+  auto AddLast(std::shared_ptr<playlist::ISource>) -> void;
+
+  auto IncludeLast(std::shared_ptr<playlist::IResetableSource>) -> void;
 
   /*
    * Advances to the next track in the queue, placing the current track at the
@@ -65,11 +71,6 @@ class TrackQueue {
    * Removes all tracks from all queues, and stops any currently playing track.
    */
   auto Clear() -> void;
-  /*
-   * Removes a specific track from the queue of upcoming tracks. Has no effect
-   * on the currently playing track.
-   */
-  auto RemoveUpcoming(database::TrackId) -> void;
 
   TrackQueue(const TrackQueue&) = delete;
   TrackQueue& operator=(const TrackQueue&) = delete;
@@ -77,9 +78,13 @@ class TrackQueue {
  private:
   mutable std::mutex mutex_;
 
-  std::deque<database::TrackId> played_;
-  std::deque<database::TrackId> upcoming_;
-  std::optional<database::TrackId> current_;
+  std::list<std::variant<database::TrackId,
+                         std::shared_ptr<playlist::IResetableSource>>>
+      played_;
+  std::list<std::variant<database::TrackId,
+                         std::shared_ptr<playlist::ISource>,
+                         std::shared_ptr<playlist::IResetableSource>>>
+      enqueued_;
 };
 
 }  // namespace audio

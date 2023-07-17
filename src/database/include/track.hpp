@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "leveldb/db.h"
@@ -88,7 +89,7 @@ class TrackTags {
 
  private:
   Encoding encoding_;
-  std::map<Tag, shared_string> tags_;
+  std::unordered_map<Tag, shared_string> tags_;
 };
 
 /*

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <memory>
 #include "database.hpp"
 #include "index.hpp"
 #include "tinyfsm.hpp"
@@ -25,7 +26,9 @@ struct OnSystemError : tinyfsm::Event {};
 namespace internal {
 
 struct RecordSelected : tinyfsm::Event {
-  database::IndexRecord record;
+  std::shared_ptr<database::Result<database::IndexRecord>> initial_page;
+  std::shared_ptr<database::Result<database::IndexRecord>> page;
+  std::size_t record;
 };
 
 struct IndexSelected : tinyfsm::Event {
