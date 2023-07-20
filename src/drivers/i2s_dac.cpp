@@ -5,7 +5,9 @@
  */
 
 #include "i2s_dac.hpp"
+#include <sys/unistd.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -13,6 +15,7 @@
 #include "driver/i2c.h"
 #include "driver/i2s_common.h"
 #include "driver/i2s_std.h"
+#include "driver/i2s_types.h"
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -31,6 +34,28 @@ namespace drivers {
 
 static const char* kTag = "i2s_dac";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
+static const uint8_t kWm8523Address = 0b0011010;
+
+enum Register {
+  kReset = 0,
+  kRevision = 1,
+  kPsCtrl = 2,
+  kAifCtrl1 = 3,
+  kAifCtrl2 = 4,
+  kDacCtrl = 5,
+  kDacGainLeft = 6,
+  kDacGainRight = 7,
+  kZeroDetect = 8,
+};
+
+auto write_register(Register reg, uint8_t msb, uint8_t lsb) -> esp_err_t {
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kWm8523Address, I2C_MASTER_WRITE)
+      .write_ack(reg, msb, lsb)
+      .stop();
+  return transaction.Execute();
+}
 
 auto I2SDac::create(IGpios* expander) -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
@@ -84,10 +109,19 @@ I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
       i2s_active_(false),
       active_page_(),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(44100)),
-      slot_config_(I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
+      slot_config_(I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                    I2S_SLOT_MODE_STEREO)) {
   clock_config_.clk_src = I2S_CLK_SRC_PLL_160M;
+
+  // Keep the 5V circuity off until it's needed.
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
+
+  // Reset all registers back to their default values.
+  write_register(kReset, 0, 1);
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  // Power up the charge pump.
+  write_register(kPsCtrl, 0, 0b01);
 }
 
 I2SDac::~I2SDac() {
@@ -98,15 +132,15 @@ I2SDac::~I2SDac() {
 auto I2SDac::Start() -> void {
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, true);
 
-  vTaskDelay(pdMS_TO_TICKS(1));
   i2s_channel_enable(i2s_handle_);
+  write_register(kPsCtrl, 0, 0b11);
 
   i2s_active_ = true;
 }
 
 auto I2SDac::Stop() -> void {
+  write_register(kPsCtrl, 0, 0b01);
   i2s_channel_disable(i2s_handle_);
-  vTaskDelay(pdMS_TO_TICKS(1));
 
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
 
@@ -116,6 +150,7 @@ auto I2SDac::Stop() -> void {
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
   if (i2s_active_) {
+    write_register(kPsCtrl, 0, 0b01);
     i2s_channel_disable(i2s_handle_);
   }
 
@@ -128,15 +163,19 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
       break;
   }
 
+  uint8_t word_length = 0;
   switch (bps) {
     case BPS_16:
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_16BIT;
+      word_length = 0b00;
       break;
     case BPS_24:
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_24BIT;
+      word_length = 0b10;
       break;
     case BPS_32:
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_32BIT;
+      word_length = 0b11;
       break;
   }
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(i2s_handle_, &slot_config_));
@@ -149,8 +188,14 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
       bps == BPS_24 ? I2S_MCLK_MULTIPLE_384 : I2S_MCLK_MULTIPLE_256;
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
+  // Set the correct word size, and set the input format to I2S-justified.
+  write_register(kAifCtrl1, 0, (word_length << 3) & 0b10);
+  // Tell the DAC the clock ratio instead of waiting for it to auto detect.
+  write_register(kAifCtrl2, 0, bps == BPS_24 ?  0b100 : 0b011);
+
   if (i2s_active_) {
     i2s_channel_enable(i2s_handle_);
+    write_register(kPsCtrl, 0, 0b11);
   }
 }
 
@@ -163,6 +208,12 @@ auto I2SDac::WriteData(const cpp::span<const std::byte>& data) -> void {
   }
 }
 
+static constexpr double increment = (2.0 * 3.141592) / (44100.0 / 500.0);
+static constexpr double amplitude = 16'777'216.0 * 0.6;
+static double current = 0;
+static uint8_t leftover = 0;
+static bool left = false;
+
 extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
                                    i2s_event_data_t* event,
                                    void* user_ctx) -> bool {
@@ -172,6 +223,7 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
   if (event->data == nullptr || event->size == 0) {
     return false;
   }
+  /*
   uint8_t** buf = reinterpret_cast<uint8_t**>(event->data);
   StreamBufferHandle_t src = reinterpret_cast<StreamBufferHandle_t>(user_ctx);
   BaseType_t ret = false;
@@ -181,6 +233,42 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
     memset(*buf + bytes_received, 0, event->size - bytes_received);
   }
   return ret;
+  */
+  uint8_t* buf = *(reinterpret_cast<uint8_t**>(event->data));
+  std::size_t i = 0;
+  while (i < event->size) {
+    uint32_t sample = amplitude * std::sin(current);
+    if (leftover > 0) {
+      if (leftover == 2) {
+        buf[i++] = (sample >> 8) & 0xFF;
+        leftover--;
+      }
+      if (leftover == 1) {
+        buf[i++] = sample & 0xFF;
+        leftover--;
+      }
+      continue;
+    }
+
+    buf[i++] = (sample >> 16) & 0xFF;
+    if (i == event->size) {
+      leftover = 2;
+      return false;
+    }
+    buf[i++] = (sample >> 8) & 0xFF;
+    if (i == event->size) {
+      leftover = 1;
+      return false;
+    }
+    buf[i++] = sample & 0xFF;
+    if (left) {
+      current += increment;
+      left = false;
+    } else {
+      left = true;
+    }
+  }
+  return false;
 }
 
 auto I2SDac::SetSource(StreamBufferHandle_t buffer) -> void {

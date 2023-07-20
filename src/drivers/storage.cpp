@@ -56,7 +56,7 @@ static esp_err_t do_transaction(sdspi_dev_handle_t handle,
 }  // namespace callback
 
 auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
-  gpio->WriteSync(IGpios::Pin::kSdPowerDisable, 0);
+  gpio->WriteSync(IGpios::Pin::kSdPowerEnable, 1);
   gpio->WriteSync(IGpios::Pin::kSdMuxSwitch, IGpios::SD_MUX_ESP);
   gpio->WriteSync(IGpios::Pin::kSdMuxDisable, 0);
 
@@ -143,7 +143,7 @@ SdStorage::~SdStorage() {
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
 
-  gpio_->WriteSync(IGpios::Pin::kSdPowerDisable, 1);
+  gpio_->WriteSync(IGpios::Pin::kSdPowerEnable, 0);
   gpio_->WriteSync(IGpios::Pin::kSdMuxDisable, 1);
 }
 

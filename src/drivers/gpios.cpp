@@ -26,21 +26,21 @@ static const uint8_t kPca8575Address = 0x20;
 // 4 - key lock
 // 5 - display reset (active low)
 // 6 - NC
-// 7 - sd card power (active low)
-// Default to SD card off, inputs high.
-static const uint8_t kPortADefault = 0b10111110;
+// 7 - sd card power
+// Default to SD card off, inputs high, display running
+static const uint8_t kPortADefault = 0b00111110;
 
 // Port B:
 // 0 - 3.5mm jack detect (active low)
 // 1 - headphone amp power enable
-// 2 - volume zero-cross detection
-// 3 - volume direction
-// 4 - volume left channel
-// 5 - volume right channel
+// 2 - sd card detect
+// 3 - NC
+// 4 - NC
+// 5 - NC
 // 6 - NC
 // 7 - NC
-// Default input high, trs output low
-static const uint8_t kPortBDefault = 0b00000011;
+// Default inputs high, amp off.
+static const uint8_t kPortBDefault = 0b00000101;
 
 /*
  * Convenience mehod for packing the port a and b bytes into a single 16 bit

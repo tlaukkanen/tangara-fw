@@ -48,7 +48,7 @@ class IGpios {
     kKeyLock = 4,
     kDisplayEnable = 5,
     // 6 is unused
-    kSdPowerDisable = 7,
+    kSdPowerEnable = 7,
 
     // Port B
     kPhoneDetect = 8,
