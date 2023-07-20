@@ -11,6 +11,7 @@
 #include "assert.h"
 #include "driver/i2c.h"
 #include "esp_err.h"
+#include "hal/i2c_types.h"
 
 namespace drivers {
 
@@ -46,8 +47,6 @@ esp_err_t init_i2c(void) {
     return err;
   }
 
-  // TODO: INT line
-
   return ESP_OK;
 }
 
@@ -66,7 +65,7 @@ I2CTransaction::~I2CTransaction() {
   free(buffer_);
 }
 
-esp_err_t I2CTransaction::Execute(uint8_t port) {
+esp_err_t I2CTransaction::Execute(i2c_port_t port) {
   return i2c_master_cmd_begin(port, handle_, kI2CTimeout);
 }
 
