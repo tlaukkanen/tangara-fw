@@ -26,6 +26,10 @@ auto Name<Type::kUiFlush>() -> std::string {
   return "DISPLAY";
 }
 template <>
+auto Name<Type::kFileStreamer>() -> std::string {
+  return "FSTREAMER";
+}
+template <>
 auto Name<Type::kAudio>() -> std::string {
   return "AUDIO";
 }
@@ -65,6 +69,14 @@ auto AllocateStack<Type::kUiFlush>() -> cpp::span<StackType_t> {
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
           size};
 }
+
+template <>
+auto AllocateStack<Type::kFileStreamer>() -> cpp::span<StackType_t> {
+  std::size_t size = 4 * 1024;
+  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
+          size};
+}
+
 // Leveldb is designed for non-embedded use cases, where stack space isn't so
 // much of a concern. It therefore uses an eye-wateringly large amount of stack.
 template <>
@@ -109,6 +121,11 @@ auto Priority<Type::kUi>() -> UBaseType_t {
 template <>
 auto Priority<Type::kUiFlush>() -> UBaseType_t {
   return 9;
+}
+
+template <>
+auto Priority<Type::kFileStreamer>() -> UBaseType_t {
+  return 10;
 }
 // Database interactions are all inherently async already, due to their
 // potential for disk access. The user likely won't notice or care about a

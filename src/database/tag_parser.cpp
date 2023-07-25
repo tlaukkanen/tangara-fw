@@ -12,6 +12,7 @@
 #include <tags.h>
 #include <cstdlib>
 #include <iomanip>
+#include <mutex>
 
 namespace database {
 
@@ -97,10 +98,13 @@ static const char* kTag = "TAGS";
 
 auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     -> bool {
-  std::optional<TrackTags> cached = cache_.Get(path);
-  if (cached) {
-    *out = *cached;
-    return true;
+  {
+    std::lock_guard<std::mutex> lock{cache_mutex_};
+    std::optional<TrackTags> cached = cache_.Get(path);
+    if (cached) {
+      *out = *cached;
+      return true;
+    }
   }
 
   if (path.ends_with(".m4a")) {
@@ -166,7 +170,10 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     out->duration = ctx.duration;
   }
 
-  cache_.Put(path, *out);
+  {
+    std::lock_guard<std::mutex> lock{cache_mutex_};
+    cache_.Put(path, *out);
+  }
   return true;
 }
 

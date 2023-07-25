@@ -17,6 +17,7 @@
 #include "spi.hpp"
 #include "system_events.hpp"
 #include "system_fsm.hpp"
+#include "tag_parser.hpp"
 #include "track_queue.hpp"
 #include "ui_fsm.hpp"
 
@@ -50,17 +51,20 @@ auto Booting::entry() -> void {
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
   sTrackQueue.reset(new audio::TrackQueue());
+  /*
   ESP_LOGI(kTag, "starting ui");
   if (!ui::UiState::Init(sGpios.get(), sTrackQueue.get())) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;
   }
+  */
 
   // Install everything else that is certain to be needed.
   ESP_LOGI(kTag, "installing remaining drivers");
   sSamd.reset(drivers::Samd::Create());
   sBattery.reset(drivers::Battery::Create());
+  sTagParser.reset(new database::TagParserImpl());
 
   if (!sSamd || !sBattery) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
@@ -72,7 +76,8 @@ auto Booting::entry() -> void {
   // state machines and inform them that the system is ready.
 
   ESP_LOGI(kTag, "starting audio");
-  if (!audio::AudioState::Init(sGpios.get(), sDatabase, sTrackQueue.get())) {
+  if (!audio::AudioState::Init(sGpios.get(), sDatabase, sTagParser,
+                               sTrackQueue.get())) {
     events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
         FatalError());
     return;

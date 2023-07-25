@@ -18,6 +18,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
+#include "freertos/ringbuf.h"
 #include "freertos/stream_buffer.h"
 #include "result.hpp"
 #include "span.hpp"
@@ -73,7 +74,7 @@ class I2SDac {
   IGpios* gpio_;
   i2s_chan_handle_t i2s_handle_;
   bool i2s_active_;
-  std::optional<uint8_t> active_page_;
+  StreamBufferHandle_t buffer_;
 
   i2s_std_clk_config_t clock_config_;
   i2s_std_slot_config_t slot_config_;

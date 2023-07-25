@@ -40,6 +40,18 @@ class ICodec {
     kInternalError,
   };
 
+  static auto ErrorString(Error err) -> std::string {
+    switch (err) {
+      case Error::kOutOfInput:
+        return "out of input";
+      case Error::kMalformedData:
+        return "malformed data";
+      case Error::kInternalError:
+        return "internal error";
+    }
+    return "uhh";
+  }
+
   /*
    * Alias for more readable return types. All codec methods, success or
    * failure, should also return the number of bytes they consumed.

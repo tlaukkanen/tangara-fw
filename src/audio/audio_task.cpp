@@ -9,23 +9,29 @@
 #include <stdlib.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <deque>
 #include <memory>
 #include <variant>
 
+#include "audio_decoder.hpp"
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
 #include "audio_sink.hpp"
 #include "cbor.h"
+#include "codec.hpp"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
+#include "fatfs_audio_input.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/queue.h"
+#include "freertos/ringbuf.h"
 #include "pipeline.hpp"
 #include "span.hpp"
 
@@ -41,193 +47,209 @@
 
 namespace audio {
 
-namespace task {
+static const char* kTag = "audio_dec";
 
-static const char* kTag = "task";
+static constexpr std::size_t kSampleBufferSize = 16 * 1024;
 
-// The default amount of time to wait between pipeline iterations for a single
-// track.
-static constexpr uint_fast16_t kDefaultDelayTicks = pdMS_TO_TICKS(5);
-static constexpr uint_fast16_t kMaxDelayTicks = pdMS_TO_TICKS(10);
-static constexpr uint_fast16_t kMinDelayTicks = pdMS_TO_TICKS(1);
+Timer::Timer(StreamInfo::Pcm format)
+    : format_(format),
+      last_seconds_(0),
+      total_duration_seconds_(0),
+      current_seconds_(0) {}
 
-void AudioTaskMain(std::unique_ptr<Pipeline> pipeline, IAudioSink* sink) {
-  // The stream format for bytes currently in the sink buffer.
-  std::optional<StreamInfo::Format> output_format;
+auto Timer::SetLengthSeconds(uint32_t len) -> void {
+  total_duration_seconds_ = len;
+}
 
-  // How long to wait between pipeline iterations. This is reset for each track,
-  // and readjusted on the fly to maintain a reasonable amount playback buffer.
-  // Buffering too much will mean we process samples inefficiently, wasting CPU
-  // time, whilst buffering too little will affect the quality of the output.
-  uint_fast16_t delay_ticks = kDefaultDelayTicks;
+auto Timer::SetLengthBytes(uint32_t len) -> void {
+  total_duration_seconds_ = 0;
+}
 
-  std::vector<Pipeline*> all_elements = pipeline->GetIterationOrder();
+auto Timer::AddBytes(std::size_t bytes) -> void {
+  float samples_sunk = bytes;
+  samples_sunk /= format_.channels;
 
-  float current_sample_in_second = 0;
-  uint32_t previous_second = 0;
-  uint32_t current_second = 0;
+  // Samples must be aligned to 16 bits. The number of actual bytes per
+  // sample is therefore the bps divided by 16, rounded up (align to word),
+  // times two (convert to bytes).
+  uint8_t bytes_per_sample = ((format_.bits_per_sample + 16 - 1) / 16) * 2;
+  samples_sunk /= bytes_per_sample;
 
-  bool previously_had_work = false;
-  events::EventQueue& event_queue = events::EventQueue::GetInstance();
-  while (1) {
-    // First, see if we actually have any pipeline work to do in this iteration.
-    bool has_work = false;
-    // We always have work to do if there's still bytes to be sunk.
-    has_work = all_elements.back()->OutStream().info->bytes_in_stream > 0;
-    if (!has_work) {
-      for (Pipeline* p : all_elements) {
-        has_work = p->OutputElement()->NeedsToProcess();
-        if (has_work) {
-          break;
-        }
-      }
-    }
+  current_seconds_ += samples_sunk / format_.sample_rate;
 
-    if (!has_work) {
-      has_work = !xStreamBufferIsEmpty(sink->buffer());
-    }
-
-    if (previously_had_work && !has_work) {
-      events::Dispatch<internal::AudioPipelineIdle, AudioState>({});
-    }
-    previously_had_work = has_work;
-
-    // See if there's any new events.
-    event_queue.ServiceAudio(has_work ? delay_ticks : portMAX_DELAY);
-
-    if (!has_work) {
-      // See if we've been given work by this event.
-      for (Pipeline* p : all_elements) {
-        has_work = p->OutputElement()->NeedsToProcess();
-        if (has_work) {
-          delay_ticks = kDefaultDelayTicks;
-          break;
-        }
-      }
-      if (!has_work) {
-        continue;
-      }
-    }
-
-    // We have work to do! Allow each element in the pipeline to process one
-    // chunk. We iterate from input nodes first, so this should result in
-    // samples in the output buffer.
-
-    for (int i = 0; i < all_elements.size(); i++) {
-      std::vector<RawStream> raw_in_streams;
-      all_elements.at(i)->InStreams(&raw_in_streams);
-      RawStream raw_out_stream = all_elements.at(i)->OutStream();
-
-      // Crop the input and output streams to the ranges that are safe to
-      // touch. For the input streams, this is the region that contains
-      // data. For the output stream, this is the region that does *not*
-      // already contain data.
-      std::vector<InputStream> in_streams;
-      std::for_each(raw_in_streams.begin(), raw_in_streams.end(),
-                    [&](RawStream& s) { in_streams.emplace_back(&s); });
-      OutputStream out_stream(&raw_out_stream);
-
-      all_elements.at(i)->OutputElement()->Process(in_streams, &out_stream);
-    }
-
-    RawStream raw_sink_stream = all_elements.back()->OutStream();
-    InputStream sink_stream(&raw_sink_stream);
-
-    if (sink_stream.info().bytes_in_stream == 0) {
-      if (sink_stream.is_producer_finished()) {
-        sink_stream.mark_consumer_finished();
-
-        if (current_second > 0 || current_sample_in_second > 0) {
-          events::Dispatch<internal::InputFileFinished, AudioState>({});
-        }
-
-        current_second = 0;
-        previous_second = 0;
-        current_sample_in_second = 0;
-      } else {
-        // The user is probably about to hear a skip :(
-        ESP_LOGW(kTag, "!! audio sink is underbuffered !!");
-      }
-      // No new bytes to sink, so skip sinking completely.
-      continue;
-    }
-
-    if (!output_format || output_format != sink_stream.info().format) {
-      // The format of the stream within the sink stream has changed. We
-      // need to reconfigure the sink, but shouldn't do so until we've fully
-      // drained the current buffer.
-      if (xStreamBufferIsEmpty(sink->buffer())) {
-        ESP_LOGI(kTag, "reconfiguring dac");
-        output_format = sink_stream.info().format;
-        sink->Configure(*output_format);
-      } else {
-        ESP_LOGI(kTag, "waiting to reconfigure");
-        continue;
-      }
-    }
-
-    // We've reconfigured the sink, or it was already configured correctly.
-    // Send through some data.
-    std::size_t bytes_sunk =
-        xStreamBufferSend(sink->buffer(), sink_stream.data().data(),
-                          sink_stream.data().size_bytes(), 0);
-
-    if (std::holds_alternative<StreamInfo::Pcm>(*output_format)) {
-      StreamInfo::Pcm pcm = std::get<StreamInfo::Pcm>(*output_format);
-
-      float samples_sunk = bytes_sunk;
-      samples_sunk /= pcm.channels;
-
-      // Samples must be aligned to 16 bits. The number of actual bytes per
-      // sample is therefore the bps divided by 16, rounded up (align to word),
-      // times two (convert to bytes).
-      uint8_t bytes_per_sample = ((pcm.bits_per_sample + 16 - 1) / 16) * 2;
-      samples_sunk /= bytes_per_sample;
-
-      current_sample_in_second += samples_sunk;
-      while (current_sample_in_second >= pcm.sample_rate) {
-        current_second++;
-        current_sample_in_second -= pcm.sample_rate;
-      }
-      if (previous_second != current_second) {
-        events::Dispatch<PlaybackUpdate, AudioState, ui::UiState>({
-            .seconds_elapsed = current_second,
-            .seconds_total =
-                sink_stream.info().duration_seconds.value_or(current_second),
-        });
-      }
-      previous_second = current_second;
-    }
-
-    // Adjust how long we wait for the next iteration if we're getting too far
-    // ahead or behind.
-    float sunk_percent = static_cast<float>(bytes_sunk) /
-                         static_cast<float>(sink_stream.info().bytes_in_stream);
-
-    if (sunk_percent > 0.66f) {
-      // We're sinking a lot of the output buffer per iteration, so we need to
-      // be running faster.
-      delay_ticks--;
-    } else if (sunk_percent < 0.33f) {
-      // We're not sinking much of the output buffer per iteration, so we can
-      // slow down to save some cycles.
-      delay_ticks++;
-    }
-    delay_ticks = std::clamp(delay_ticks, kMinDelayTicks, kMaxDelayTicks);
-
-    // Finally, actually mark the bytes we sunk as consumed.
-    if (bytes_sunk > 0) {
-      sink_stream.consume(bytes_sunk);
-    }
+  uint32_t rounded = std::round(current_seconds_);
+  if (rounded != last_seconds_) {
+    last_seconds_ = rounded;
+    events::Dispatch<PlaybackUpdate, AudioState, ui::UiState>(PlaybackUpdate{
+        .seconds_elapsed = rounded,
+        .seconds_total =
+            total_duration_seconds_ == 0 ? rounded : total_duration_seconds_});
   }
 }
 
-auto StartPipeline(Pipeline* pipeline, IAudioSink* sink) -> void {
-  ESP_LOGI(kTag, "starting audio pipeline task");
-  tasks::StartPersistent<tasks::Type::kAudio>(
-      [=]() { AudioTaskMain(std::unique_ptr<Pipeline>(pipeline), sink); });
+auto AudioTask::Start(IAudioSource* source, IAudioSink* sink) -> AudioTask* {
+  AudioTask* task = new AudioTask(source, sink);
+  tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
+  return task;
 }
 
-}  // namespace task
+AudioTask::AudioTask(IAudioSource* source, IAudioSink* sink)
+    : source_(source),
+      sink_(sink),
+      codec_(),
+      timer_(),
+      is_new_stream_(false),
+      current_input_format_(),
+      current_output_format_(),
+      sample_buffer_(reinterpret_cast<std::byte*>(
+          heap_caps_malloc(kSampleBufferSize,
+                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT))),
+      sample_buffer_len_(kSampleBufferSize) {}
+
+void AudioTask::Main() {
+  for (;;) {
+    source_->Read(
+        [this](StreamInfo::Format format) -> bool {
+          if (current_input_format_ && format == *current_input_format_) {
+            // This is the continuation of previous data. We can handle it if
+            // we are able to decode it, or if it doesn't need decoding.
+            return current_output_format_ == format || codec_ != nullptr;
+          }
+          // This must be a new stream of data. Reset everything to prepare to
+          // handle it.
+          current_input_format_ = format;
+          is_new_stream_ = true;
+          codec_.reset();
+          timer_.reset();
+
+          // What kind of data does this new stream contain?
+          if (std::holds_alternative<StreamInfo::Pcm>(format)) {
+            // It's already decoded! We can handle this immediately if it
+            // matches what we're currently sending to the sink. Otherwise, we
+            // will need to wait for the sink to drain before we can reconfigure
+            // it.
+            if (current_output_format_ && format == *current_output_format_) {
+              return true;
+            } else if (xStreamBufferIsEmpty(sink_->stream())) {
+              return true;
+            } else {
+              return false;
+            }
+          } else if (std::holds_alternative<StreamInfo::Encoded>(format)) {
+            // The stream has some kind of encoding. Whether or not we can
+            // handle it is entirely down to whether or not we have a codec for
+            // it.
+            auto encoding = std::get<StreamInfo::Encoded>(format);
+            auto codec = codecs::CreateCodecForType(encoding.type);
+            if (codec) {
+              ESP_LOGI(kTag, "successfully created codec for stream");
+              codec_.reset(*codec);
+              return true;
+            } else {
+              ESP_LOGE(kTag, "stream has unknown encoding");
+              return false;
+            }
+          } else {
+            // programmer error / skill issue :(
+            ESP_LOGE(kTag, "stream has unknown format");
+            current_input_format_ = format;
+            return false;
+          }
+        },
+        [this](cpp::span<const std::byte> bytes) -> size_t {
+          // PCM streams are simple, so handle them first.
+          if (std::holds_alternative<StreamInfo::Pcm>(*current_input_format_)) {
+            // First we need to reconfigure the sink for this sample format.
+            // TODO(jacqueline): We should verify whether or not the sink can
+            // actually deal with this format first.
+            if (current_input_format_ != current_output_format_) {
+              current_output_format_ = current_input_format_;
+              sink_->Configure(*current_output_format_);
+              timer_.reset(new Timer(
+                  std::get<StreamInfo::Pcm>(*current_output_format_)));
+            }
+            // Stream the raw samples directly to the sink.
+            xStreamBufferSend(sink_->stream(), bytes.data(), bytes.size_bytes(),
+                              portMAX_DELAY);
+            timer_->AddBytes(bytes.size_bytes());
+            return bytes.size_bytes();
+          }
+          // Else, assume it's an encoded stream.
+
+          size_t bytes_used = 0;
+          if (is_new_stream_) {
+            // This is a new stream! First order of business is verifying that
+            // we can indeed decode it.
+            auto res = codec_->BeginStream(bytes);
+            bytes_used += res.first;
+
+            if (res.second.has_error()) {
+              if (res.second.error() != codecs::ICodec::Error::kOutOfInput) {
+                // Decoding the header failed, so we can't actually deal with
+                // this stream after all. It could be malformed.
+                ESP_LOGE(kTag, "error beginning stream");
+                codec_.reset();
+              }
+              return bytes_used;
+            }
+            is_new_stream_ = false;
+
+            codecs::ICodec::OutputFormat format = res.second.value();
+            StreamInfo::Pcm pcm{
+                .channels = format.num_channels,
+                .bits_per_sample = format.bits_per_sample,
+                .sample_rate = format.sample_rate_hz,
+            };
+            StreamInfo::Format new_format{pcm};
+            timer_.reset(new Timer{pcm});
+            if (format.duration_seconds) {
+              timer_->SetLengthSeconds(*format.duration_seconds);
+            }
+
+            // Now that we have the output format for decoded samples from this
+            // stream, we need to see if they are compatible with what's already
+            // in the sink stream.
+            if (new_format != current_output_format_) {
+              // The new format is different to the old one. Wait for the sink
+              // to drain before continuing.
+              while (!xStreamBufferIsEmpty(sink_->stream())) {
+                ESP_LOGI(kTag, "waiting for sink stream to drain...");
+                // TODO(jacqueline): Get the sink drain ISR to notify us of this
+                // via semaphore instead of busy-ish waiting.
+                vTaskDelay(pdMS_TO_TICKS(100));
+              }
+            }
+
+            ESP_LOGI(kTag, "configuring sink");
+            current_output_format_ = new_format;
+            sink_->Configure(new_format);
+            timer_.reset(
+                new Timer(std::get<StreamInfo::Pcm>(*current_output_format_)));
+          }
+
+          // At this point the decoder has been initialised, and the sink has
+          // been correctly configured. All that remains is to throw samples
+          // into the sink as fast as possible.
+          while (bytes_used < bytes.size_bytes()) {
+            auto res =
+                codec_->ContinueStream(bytes.subspan(bytes_used),
+                                       {sample_buffer_, sample_buffer_len_});
+
+            bytes_used += res.first;
+
+            if (res.second.has_error()) {
+              return bytes_used;
+            } else {
+              xStreamBufferSend(sink_->stream(), sample_buffer_,
+                                res.second->bytes_written, portMAX_DELAY);
+              timer_->AddBytes(res.second->bytes_written);
+            }
+          }
+
+          return bytes_used;
+        },
+        portMAX_DELAY);
+  }
+}
 
 }  // namespace audio

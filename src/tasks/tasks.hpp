@@ -32,6 +32,8 @@ enum class Type {
   kUi,
   // Task for flushing graphics buffers to the display.
   kUiFlush,
+  // TODO.
+  kFileStreamer,
   // The main audio pipeline task.
   kAudio,
   // Task for running database queries.
@@ -55,9 +57,9 @@ template <Type t>
 auto StartPersistent(const std::function<void(void)>& fn) -> void {
   StaticTask_t* task_buffer = new StaticTask_t;
   cpp::span<StackType_t> stack = AllocateStack<t>();
-  xTaskCreateStatic(&PersistentMain, Name<t>().c_str(), stack.size(),
-                    new std::function<void(void)>(fn), Priority<t>(),
-                    stack.data(), task_buffer);
+  xTaskCreateStaticPinnedToCore(&PersistentMain, Name<t>().c_str(),
+                                stack.size(), new std::function<void(void)>(fn),
+                                Priority<t>(), stack.data(), task_buffer, 0);
 }
 
 class Worker {

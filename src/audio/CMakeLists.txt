@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 idf_component_register(
-  SRCS "audio_decoder.cpp" "audio_task.cpp" "chunk.cpp" "fatfs_audio_input.cpp"
+  SRCS "audio_task.cpp" "chunk.cpp" "fatfs_audio_input.cpp"
   "stream_message.cpp" "i2s_audio_output.cpp" "stream_buffer.cpp" "track_queue.cpp"
   "stream_event.cpp" "pipeline.cpp" "stream_info.cpp" "audio_fsm.cpp"
   INCLUDE_DIRS "include"

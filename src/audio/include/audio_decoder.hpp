@@ -25,15 +25,12 @@ namespace audio {
  * An audio element that accepts various kinds of encoded audio streams as
  * input, and converts them to uncompressed PCM output.
  */
-class AudioDecoder : public IAudioElement {
+class AudioDecoder {
  public:
   AudioDecoder();
   ~AudioDecoder();
 
-  auto NeedsToProcess() const -> bool override;
-
-  auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
-      -> void override;
+  auto Process(const InputStream& input, OutputStream* output) -> void;
 
   AudioDecoder(const AudioDecoder&) = delete;
   AudioDecoder& operator=(const AudioDecoder&) = delete;

@@ -14,6 +14,8 @@
 #include "esp_log.h"
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
+#include "freertos/portmacro.h"
+#include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
 #include "pipeline.hpp"
@@ -29,14 +31,16 @@ drivers::IGpios* AudioState::sIGpios;
 std::shared_ptr<drivers::I2SDac> AudioState::sDac;
 std::weak_ptr<database::Database> AudioState::sDatabase;
 
+std::unique_ptr<AudioTask> AudioState::sTask;
 std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
-std::vector<std::unique_ptr<IAudioElement>> AudioState::sPipeline;
 
 TrackQueue* AudioState::sTrackQueue;
+std::optional<database::TrackId> AudioState::sCurrentTrack;
 
 auto AudioState::Init(drivers::IGpios* gpio_expander,
                       std::weak_ptr<database::Database> database,
+                      std::shared_ptr<database::ITagParser> tag_parser,
                       TrackQueue* queue) -> bool {
   sIGpios = gpio_expander;
   sTrackQueue = queue;
@@ -48,19 +52,10 @@ auto AudioState::Init(drivers::IGpios* gpio_expander,
   sDac.reset(dac.value());
   sDatabase = database;
 
-  sFileSource.reset(new FatfsAudioInput());
+  sFileSource.reset(new FatfsAudioInput(tag_parser));
   sI2SOutput.reset(new I2SAudioOutput(sIGpios, sDac));
 
-  // Perform initial pipeline configuration.
-  // TODO(jacqueline): Factor this out once we have any kind of dynamic
-  // reconfiguration.
-  AudioDecoder* codec = new AudioDecoder();
-  sPipeline.emplace_back(codec);
-
-  Pipeline* pipeline = new Pipeline(sPipeline.front().get());
-  pipeline->AddInput(sFileSource.get());
-
-  task::StartPipeline(pipeline, sI2SOutput.get());
+  AudioTask::Start(sFileSource.get(), sI2SOutput.get());
 
   return true;
 }
@@ -85,9 +80,9 @@ void AudioState::react(const system_fsm::KeyDownChanged& ev) {
 
 void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
   if (ev.falling) {
-    ESP_LOGI(kTag, "headphones in!");
+    // ESP_LOGI(kTag, "headphones in!");
   } else {
-    ESP_LOGI(kTag, "headphones out!");
+    // ESP_LOGI(kTag, "headphones out!");
   }
 }
 
@@ -107,13 +102,15 @@ void Standby::react(const QueueUpdate& ev) {
     return;
   }
 
+  sCurrentTrack = current_track;
+
   auto db = sDatabase.lock();
   if (!db) {
     ESP_LOGW(kTag, "database not open; ignoring play request");
     return;
   }
 
-  sFileSource->OpenFile(db->GetTrackPath(*current_track));
+  sFileSource->SetPath(db->GetTrackPath(*current_track));
 }
 
 void Playback::entry() {
@@ -127,20 +124,25 @@ void Playback::exit() {
 }
 
 void Playback::react(const QueueUpdate& ev) {
-  auto current_track = sTrackQueue->GetCurrent();
-  if (!current_track) {
-    // TODO: return to standby?
+  if (!ev.current_changed) {
     return;
   }
+  auto current_track = sTrackQueue->GetCurrent();
+  if (!current_track) {
+    sFileSource->SetPath();
+    sCurrentTrack.reset();
+    transit<Standby>();
+    return;
+  }
+
+  sCurrentTrack = current_track;
 
   auto db = sDatabase.lock();
   if (!db) {
     return;
   }
 
-  // TODO: what if we just finished this, and are preemptively loading the next
-  // one?
-  sFileSource->OpenFile(db->GetTrackPath(*current_track));
+  sFileSource->SetPath(db->GetTrackPath(*current_track));
 }
 
 void Playback::react(const PlaybackUpdate& ev) {
@@ -161,7 +163,7 @@ void Playback::react(const internal::InputFileClosed& ev) {
     return;
   }
   ESP_LOGI(kTag, "preemptively opening next file");
-  sFileSource->OpenFile(db->GetTrackPath(upcoming.front()));
+  sFileSource->SetPath(db->GetTrackPath(upcoming.front()));
 }
 
 void Playback::react(const internal::InputFileFinished& ev) {

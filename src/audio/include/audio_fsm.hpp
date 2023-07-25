@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "audio_events.hpp"
+#include "audio_task.hpp"
 #include "database.hpp"
 #include "display.hpp"
 #include "fatfs_audio_input.hpp"
@@ -18,6 +19,7 @@
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
 #include "storage.hpp"
+#include "tag_parser.hpp"
 #include "tinyfsm.hpp"
 #include "track.hpp"
 
@@ -30,6 +32,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
  public:
   static auto Init(drivers::IGpios* gpio_expander,
                    std::weak_ptr<database::Database>,
+                   std::shared_ptr<database::ITagParser>,
                    TrackQueue* queue) -> bool;
 
   virtual ~AudioState() {}
@@ -61,11 +64,12 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<drivers::I2SDac> sDac;
   static std::weak_ptr<database::Database> sDatabase;
 
+  static std::unique_ptr<AudioTask> sTask;
   static std::unique_ptr<FatfsAudioInput> sFileSource;
   static std::unique_ptr<I2SAudioOutput> sI2SOutput;
-  static std::vector<std::unique_ptr<IAudioElement>> sPipeline;
 
   static TrackQueue* sTrackQueue;
+  static std::optional<database::TrackId> sCurrentTrack;
 };
 
 namespace states {

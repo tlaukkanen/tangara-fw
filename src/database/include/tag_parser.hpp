@@ -26,6 +26,8 @@ class TagParserImpl : public ITagParser {
       -> bool override;
 
  private:
+  std::mutex cache_mutex_;
+
   /*
    * Cache of tags that have already been extracted from files. Ideally this
    * cache should be slightly larger than any page sizes in the UI.

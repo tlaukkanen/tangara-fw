@@ -6,6 +6,7 @@
 
 #include "i2s_audio_output.hpp"
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -18,6 +19,7 @@
 #include "audio_element.hpp"
 #include "freertos/projdefs.h"
 #include "gpios.hpp"
+#include "i2c.hpp"
 #include "i2s_dac.hpp"
 #include "result.hpp"
 #include "stream_info.hpp"
@@ -34,7 +36,7 @@ I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
       left_difference_(0),
       attenuation_() {
   SetVolume(25);  // For testing
-  dac_->SetSource(buffer());
+  dac_->SetSource(stream());
 }
 
 I2SAudioOutput::~I2SAudioOutput() {
@@ -68,13 +70,47 @@ auto I2SAudioOutput::GetAdjustedMaxAttenuation() -> int_fast8_t {
   return 0;
 }
 
+static uint8_t vol = 0xFF;
+
 auto I2SAudioOutput::AdjustVolumeUp() -> bool {
-  // TODO
+  vol += 0xF;
+  {
+    drivers::I2CTransaction transaction;
+    transaction.start()
+        .write_addr(0b0011010, I2C_MASTER_WRITE)
+        .write_ack(6, 0b01, vol)
+        .stop();
+    transaction.Execute();
+  }
+  {
+    drivers::I2CTransaction transaction;
+    transaction.start()
+        .write_addr(0b0011010, I2C_MASTER_WRITE)
+        .write_ack(7, 0b11, vol)
+        .stop();
+    transaction.Execute();
+  }
   return true;
 }
 
 auto I2SAudioOutput::AdjustVolumeDown() -> bool {
-  // TODO
+  vol -= 0xF;
+  {
+    drivers::I2CTransaction transaction;
+    transaction.start()
+        .write_addr(0b0011010, I2C_MASTER_WRITE)
+        .write_ack(6, 0b01, vol)
+        .stop();
+    transaction.Execute();
+  }
+  {
+    drivers::I2CTransaction transaction;
+    transaction.start()
+        .write_addr(0b0011010, I2C_MASTER_WRITE)
+        .write_ack(7, 0b11, vol)
+        .stop();
+    transaction.Execute();
+  }
   return true;
 }
 

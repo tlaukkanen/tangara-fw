@@ -9,6 +9,7 @@
 #include "event_queue.hpp"
 #include "relative_wheel.hpp"
 #include "system_events.hpp"
+#include "tag_parser.hpp"
 #include "track_queue.hpp"
 
 namespace system_fsm {
@@ -21,7 +22,9 @@ std::shared_ptr<drivers::RelativeWheel> SystemState::sRelativeTouch;
 std::shared_ptr<drivers::Battery> SystemState::sBattery;
 std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
 std::shared_ptr<drivers::Display> SystemState::sDisplay;
+
 std::shared_ptr<database::Database> SystemState::sDatabase;
+std::shared_ptr<database::TagParserImpl> SystemState::sTagParser;
 
 std::shared_ptr<audio::TrackQueue> SystemState::sTrackQueue;
 
@@ -37,14 +40,14 @@ void SystemState::react(const internal::GpioInterrupt& ev) {
   bool prev_key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
   bool prev_key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
   bool prev_key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
-  bool prev_has_headphones = sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
+  bool prev_has_headphones = !sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
 
   sGpios->Read();
 
   bool key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
   bool key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
   bool key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
-  bool has_headphones = sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
+  bool has_headphones = !sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
 
   if (key_up != prev_key_up) {
     events::Dispatch<KeyUpChanged, audio::AudioState, ui::UiState>(

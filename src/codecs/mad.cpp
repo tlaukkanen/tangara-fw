@@ -145,11 +145,13 @@ auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
       uint32_t sample_24 =
           mad_fixed_to_pcm(synth_.pcm.samples[channel][current_sample_], 24);
-      output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);
-      output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
-      output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
+
       // 24 bit samples must still be aligned to 32 bits. The LSB is ignored.
       output[output_byte++] = static_cast<std::byte>(0);
+
+      output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
+      output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);
     }
     current_sample_++;
   }

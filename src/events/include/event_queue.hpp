@@ -50,8 +50,6 @@ class EventQueue {
         [=]() { tinyfsm::FsmList<Machine>::template dispatch<Event>(ev); });
     if (std::is_same<Machine, ui::UiState>()) {
       xQueueSend(ui_handle_, &item, portMAX_DELAY);
-    } else if (std::is_same<Machine, audio::AudioState>()) {
-      xQueueSend(audio_handle_, &item, portMAX_DELAY);
     } else {
       xQueueSend(system_handle_, &item, portMAX_DELAY);
     }
@@ -61,9 +59,8 @@ class EventQueue {
   template <typename Event>
   auto Dispatch(const Event& ev) -> void {}
 
-  auto ServiceSystem(TickType_t max_wait_time) -> bool;
+  auto ServiceSystemAndAudio(TickType_t max_wait_time) -> bool;
   auto ServiceUi(TickType_t max_wait_time) -> bool;
-  auto ServiceAudio(TickType_t max_wait_time) -> bool;
 
   EventQueue(EventQueue const&) = delete;
   void operator=(EventQueue const&) = delete;
@@ -73,7 +70,6 @@ class EventQueue {
 
   QueueHandle_t system_handle_;
   QueueHandle_t ui_handle_;
-  QueueHandle_t audio_handle_;
 };
 
 template <typename Event, typename... Machines>

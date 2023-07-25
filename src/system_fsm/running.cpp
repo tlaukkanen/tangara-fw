@@ -5,6 +5,7 @@
  */
 
 #include "app_console.hpp"
+#include "file_gatherer.hpp"
 #include "freertos/projdefs.h"
 #include "result.hpp"
 
@@ -19,6 +20,8 @@ namespace system_fsm {
 namespace states {
 
 static const char kTag[] = "RUN";
+
+static database::IFileGatherer* sFileGatherer;
 
 /*
  * Ensure the storage and database are both available. If either of these fails
@@ -38,7 +41,8 @@ void Running::entry() {
   vTaskDelay(pdMS_TO_TICKS(250));
 
   ESP_LOGI(kTag, "opening database");
-  auto database_res = database::Database::Open();
+  sFileGatherer = new database::FileGathererImpl();
+  auto database_res = database::Database::Open(sFileGatherer, sTagParser.get());
   if (database_res.has_error()) {
     ESP_LOGW(kTag, "failed to open!");
     events::Dispatch<StorageError, SystemState, audio::AudioState, ui::UiState>(

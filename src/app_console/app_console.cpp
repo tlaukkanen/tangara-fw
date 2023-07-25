@@ -21,6 +21,7 @@
 #include "audio_fsm.hpp"
 #include "database.hpp"
 #include "esp_console.h"
+#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
 #include "ff.h"

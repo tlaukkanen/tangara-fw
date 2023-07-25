@@ -16,8 +16,7 @@ static const std::size_t kMaxPendingEvents = 16;
 
 EventQueue::EventQueue()
     : system_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))),
-      ui_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))),
-      audio_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))) {}
+      ui_handle_(xQueueCreate(kMaxPendingEvents, sizeof(WorkItem*))) {}
 
 auto ServiceQueue(QueueHandle_t queue, TickType_t max_wait_time) -> bool {
   WorkItem* item;
@@ -29,16 +28,12 @@ auto ServiceQueue(QueueHandle_t queue, TickType_t max_wait_time) -> bool {
   return false;
 }
 
-auto EventQueue::ServiceSystem(TickType_t max_wait_time) -> bool {
+auto EventQueue::ServiceSystemAndAudio(TickType_t max_wait_time) -> bool {
   return ServiceQueue(system_handle_, max_wait_time);
 }
 
 auto EventQueue::ServiceUi(TickType_t max_wait_time) -> bool {
   return ServiceQueue(ui_handle_, max_wait_time);
-}
-
-auto EventQueue::ServiceAudio(TickType_t max_wait_time) -> bool {
-  return ServiceQueue(audio_handle_, max_wait_time);
 }
 
 }  // namespace events

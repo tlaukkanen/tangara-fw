@@ -32,37 +32,12 @@ namespace drivers {
 
 const char* kStoragePath = "/sdcard";
 
-// Static functions for interrop with the ESP IDF API, which requires a
-// function pointer.
-namespace callback {
-static std::atomic<SdStorage*> instance = nullptr;
-static std::atomic<esp_err_t (*)(sdspi_dev_handle_t, sdmmc_command_t*)>
-    bootstrap = nullptr;
-
-static esp_err_t do_transaction(sdspi_dev_handle_t handle,
-                                sdmmc_command_t* cmdinfo) {
-  auto bootstrap_fn = bootstrap.load();
-  if (bootstrap_fn != nullptr) {
-    return bootstrap_fn(handle, cmdinfo);
-  }
-  auto instance_unwrapped = instance.load();
-  if (instance_unwrapped == nullptr) {
-    ESP_LOGW(kTag, "uncaught sdspi transaction");
-    return ESP_OK;
-  }
-  // TODO: what if a transaction comes in right now?
-  return instance_unwrapped->HandleTransaction(handle, cmdinfo);
-}
-}  // namespace callback
-
 auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
   gpio->WriteSync(IGpios::Pin::kSdPowerEnable, 1);
   gpio->WriteSync(IGpios::Pin::kSdMuxSwitch, IGpios::SD_MUX_ESP);
   gpio->WriteSync(IGpios::Pin::kSdMuxDisable, 0);
 
   sdspi_dev_handle_t handle;
-  std::unique_ptr<sdmmc_host_t> host;
-  std::unique_ptr<sdmmc_card_t> card;
   FATFS* fs = nullptr;
 
   // Now we can init the driver and set up the SD card into SPI mode.
@@ -80,17 +55,10 @@ auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
     return cpp::fail(Error::FAILED_TO_INIT);
   }
 
-  host = std::make_unique<sdmmc_host_t>(sdmmc_host_t SDSPI_HOST_DEFAULT());
-  card = std::make_unique<sdmmc_card_t>();
+  auto host = std::make_unique<sdmmc_host_t>(sdmmc_host_t SDSPI_HOST_DEFAULT());
+  auto card = std::make_unique<sdmmc_card_t>();
 
-  // We manage the CS pin ourselves via the GPIO expander. To do this safely in
-  // a multithreaded environment, we wrap the ESP IDF do_transaction function
-  // with our own that acquires the CS mutex for the duration of the SPI
-  // transaction.
-  auto do_transaction = host->do_transaction;
-  host->do_transaction = &callback::do_transaction;
   host->slot = handle;
-  callback::bootstrap = do_transaction;
 
   // Will return ESP_ERR_INVALID_RESPONSE if there is no card
   esp_err_t err = sdmmc_card_init(host.get(), card.get());
@@ -101,6 +69,7 @@ auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
 
   ESP_ERROR_CHECK(esp_vfs_fat_register(kStoragePath, "", kMaxOpenFiles, &fs));
   ff_diskio_register_sdmmc(fs->pdrv, card.get());
+  ff_sdmmc_set_disk_status_check(fs->pdrv, true);
 
   // Mount right now, not on first operation.
   FRESULT ferr = f_mount(fs, "", 1);
@@ -109,26 +78,19 @@ auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
     return cpp::fail(Error::FAILED_TO_MOUNT);
   }
 
-  return new SdStorage(gpio, do_transaction, handle, std::move(host),
-                       std::move(card), fs);
+  return new SdStorage(gpio, handle, std::move(host), std::move(card), fs);
 }
 
 SdStorage::SdStorage(IGpios* gpio,
-                     esp_err_t (*do_transaction)(sdspi_dev_handle_t,
-                                                 sdmmc_command_t*),
                      sdspi_dev_handle_t handle,
                      std::unique_ptr<sdmmc_host_t> host,
                      std::unique_ptr<sdmmc_card_t> card,
                      FATFS* fs)
     : gpio_(gpio),
-      do_transaction_(do_transaction),
       handle_(handle),
       host_(std::move(host)),
       card_(std::move(card)),
-      fs_(fs) {
-  callback::instance = this;
-  callback::bootstrap = nullptr;
-}
+      fs_(fs) {}
 
 SdStorage::~SdStorage() {
   // Unmount and unregister the filesystem
@@ -137,20 +99,12 @@ SdStorage::~SdStorage() {
   esp_vfs_fat_unregister_path(kStoragePath);
   fs_ = nullptr;
 
-  callback::instance = nullptr;
-
   // Uninstall the SPI driver
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
 
-  gpio_->WriteSync(IGpios::Pin::kSdPowerEnable, 0);
+  gpio_->WriteSync(IGpios::Pin::kSdPowerEnable, 1);
   gpio_->WriteSync(IGpios::Pin::kSdMuxDisable, 1);
-}
-
-auto SdStorage::HandleTransaction(sdspi_dev_handle_t handle,
-                                  sdmmc_command_t* cmdinfo) -> esp_err_t {
-  // TODO: not needed anymore?
-  return do_transaction_(handle, cmdinfo);
 }
 
 auto SdStorage::GetFs() -> FATFS* {

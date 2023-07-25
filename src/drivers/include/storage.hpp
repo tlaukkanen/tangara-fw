@@ -34,7 +34,6 @@ class SdStorage {
   static auto Create(IGpios* gpio) -> cpp::result<SdStorage*, Error>;
 
   SdStorage(IGpios* gpio,
-            esp_err_t (*do_transaction)(sdspi_dev_handle_t, sdmmc_command_t*),
             sdspi_dev_handle_t handle_,
             std::unique_ptr<sdmmc_host_t> host_,
             std::unique_ptr<sdmmc_card_t> card_,
@@ -47,14 +46,11 @@ class SdStorage {
   auto GetFs() -> FATFS*;
 
   // Not copyable or movable.
-  // TODO: maybe this could be movable?
   SdStorage(const SdStorage&) = delete;
   SdStorage& operator=(const SdStorage&) = delete;
 
  private:
   IGpios* gpio_;
-
-  esp_err_t (*do_transaction_)(sdspi_dev_handle_t, sdmmc_command_t*) = nullptr;
 
   // SPI and SD driver info
   sdspi_dev_handle_t handle_;

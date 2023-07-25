@@ -6,57 +6,130 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
-#include <vector>
-
-#include "arena.hpp"
-#include "chunk.hpp"
-#include "freertos/FreeRTOS.h"
 
 #include "ff.h"
-#include "freertos/message_buffer.h"
-#include "freertos/queue.h"
-#include "span.hpp"
-#include "track.hpp"
 
-#include "audio_element.hpp"
-#include "stream_buffer.hpp"
+#include "audio_source.hpp"
+#include "freertos/portmacro.h"
+#include "future_fetcher.hpp"
 #include "stream_info.hpp"
+#include "tag_parser.hpp"
 #include "types.hpp"
 
 namespace audio {
 
-class FatfsAudioInput : public IAudioElement {
+/*
+ * Handles coordination with a persistent background task to asynchronously
+ * read files from disk into a StreamBuffer.
+ */
+class FileStreamer {
  public:
-  FatfsAudioInput();
+  FileStreamer(StreamBufferHandle_t dest, SemaphoreHandle_t first_read);
+  ~FileStreamer();
+
+  /*
+   * Continues reading data into the destination buffer until the destination
+   * is full.
+   */
+  auto Fetch() -> void;
+
+  /* Returns true if the streamer has run out of data from the current file. */
+  auto HasFinished() -> bool;
+
+  /*
+   * Clears any remaining buffered data, and begins reading again from the
+   * given file. This function respects any seeking/reading that has already
+   * been done on the new source file.
+   */
+  auto Restart(std::unique_ptr<FIL>) -> void;
+
+  FileStreamer(const FileStreamer&) = delete;
+  FileStreamer& operator=(const FileStreamer&) = delete;
+
+ private:
+  // Note: private methods here should only be called from the streamer's task.
+
+  auto Main() -> void;
+  auto CloseFile() -> void;
+
+  enum Command {
+    kRestart,
+    kRefillBuffer,
+    kQuit,
+  };
+  QueueHandle_t control_;
+  StreamBufferHandle_t destination_;
+  SemaphoreHandle_t data_was_read_;
+
+  std::atomic<bool> has_data_;
+  std::unique_ptr<FIL> file_;
+  std::unique_ptr<FIL> next_file_;
+};
+
+/*
+ * Audio source that fetches data from a FatFs (or exfat i guess) filesystem.
+ *
+ * All public methods are safe to call from any task.
+ */
+class FatfsAudioInput : public IAudioSource {
+ public:
+  explicit FatfsAudioInput(std::shared_ptr<database::ITagParser> tag_parser);
   ~FatfsAudioInput();
 
-  auto CurrentFile() -> std::optional<std::string> { return current_path_; }
-  auto OpenFile(std::future<std::optional<std::string>>&& path) -> void;
-  auto OpenFile(const std::string& path) -> bool;
+  /*
+   * Immediately cease reading any current source, and begin reading from the
+   * given file path.
+   */
+  auto SetPath(std::future<std::optional<std::string>>) -> void;
+  auto SetPath(const std::string&) -> void;
+  auto SetPath() -> void;
 
-  auto NeedsToProcess() const -> bool override;
-
-  auto Process(const std::vector<InputStream>& inputs, OutputStream* output)
-      -> void override;
+  auto Read(std::function<bool(StreamInfo::Format)>,
+            std::function<size_t(cpp::span<const std::byte>)>,
+            TickType_t) -> void override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
+  // Note: private methods assume that the appropriate locks have already been
+  // acquired.
+
+  auto OpenFile(const std::string& path) -> void;
+  auto CloseCurrentFile() -> void;
+  auto HasDataRemaining() -> bool;
+
   auto ContainerToStreamType(database::Encoding)
       -> std::optional<codecs::StreamType>;
+  auto IsCurrentFormatMp3() -> bool;
 
-  std::optional<std::future<std::optional<std::string>>> pending_path_;
-  std::optional<std::string> current_path_;
-  FIL current_file_;
-  bool is_file_open_;
-  bool has_prepared_output_;
+  std::shared_ptr<database::ITagParser> tag_parser_;
 
-  std::optional<database::Encoding> current_container_;
+  // Semaphore used to block when this source is out of data. This should be
+  // acquired before attempting to read data, and returned after each incomplete
+  // read.
+  SemaphoreHandle_t has_data_;
+
+  StreamBufferHandle_t streamer_buffer_;
+  std::unique_ptr<FileStreamer> streamer_;
+
+  StreamInfo file_buffer_info_;
+  std::size_t file_buffer_len_;
+  std::byte* file_buffer_;
+
+  RawStream file_buffer_stream_;
+
+  // Mutex guarding the current file/stream associated with this source. Must be
+  // held during readings, and before altering the current file.
+  std::mutex source_mutex_;
+
+  std::unique_ptr<database::FutureFetcher<std::optional<std::string>>>
+      pending_path_;
   std::optional<StreamInfo::Format> current_format_;
 };
 

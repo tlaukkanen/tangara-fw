@@ -15,6 +15,10 @@
 #include <utility>
 #include <variant>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/ringbuf.h"
+#include "freertos/stream_buffer.h"
+
 #include "result.hpp"
 #include "span.hpp"
 #include "types.hpp"
