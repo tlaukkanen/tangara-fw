@@ -119,8 +119,8 @@ I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
   // TODO: testing
   // write_register(kDacGainLeft, 0b01, 0x50);
   // write_register(kDacGainRight, 0b11, 0x50);
-  write_register(kDacGainLeft, 0b01, 0x80);
-  write_register(kDacGainRight, 0b11, 0x78);
+  write_register(kDacGainLeft, 0b01, 0x0);
+  write_register(kDacGainRight, 0b11, 0x0);
 }
 
 I2SDac::~I2SDac() {

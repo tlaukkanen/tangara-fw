@@ -53,9 +53,9 @@ static constexpr std::size_t kSampleBufferSize = 16 * 1024;
 
 Timer::Timer(StreamInfo::Pcm format)
     : format_(format),
-      last_seconds_(0),
-      total_duration_seconds_(0),
-      current_seconds_(0) {}
+      current_seconds_(0),
+      current_sample_in_second_(0),
+      total_duration_seconds_(0) {}
 
 auto Timer::SetLengthSeconds(uint32_t len) -> void {
   total_duration_seconds_ = len;
@@ -75,15 +75,22 @@ auto Timer::AddBytes(std::size_t bytes) -> void {
   uint8_t bytes_per_sample = ((format_.bits_per_sample + 16 - 1) / 16) * 2;
   samples_sunk /= bytes_per_sample;
 
-  current_seconds_ += samples_sunk / format_.sample_rate;
+  current_sample_in_second_ += samples_sunk;
+  bool incremented = false;
+  while (current_sample_in_second_ > format_.sample_rate) {
+    current_seconds_++;
+    current_sample_in_second_ -= format_.sample_rate;
+    incremented = true;
+  }
 
-  uint32_t rounded = std::round(current_seconds_);
-  if (rounded != last_seconds_) {
-    last_seconds_ = rounded;
+  if (incremented) {
+    ESP_LOGI("timer", "new time %lu", current_seconds_);
+    /*
     events::Dispatch<PlaybackUpdate, AudioState, ui::UiState>(PlaybackUpdate{
-        .seconds_elapsed = rounded,
-        .seconds_total =
-            total_duration_seconds_ == 0 ? rounded : total_duration_seconds_});
+        .seconds_elapsed = current_seconds_,
+        .seconds_total = 0,
+        });
+    */
   }
 }
 

@@ -29,9 +29,9 @@ class Timer {
  private:
   StreamInfo::Pcm format_;
 
-  uint32_t last_seconds_;
+  uint32_t current_seconds_;
+  uint32_t current_sample_in_second_;
   uint32_t total_duration_seconds_;
-  float current_seconds_;
 };
 
 class AudioTask {
