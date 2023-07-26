@@ -27,7 +27,7 @@ class IAudioSource {
    public:
     Flags(bool is_start, bool is_end) {
       flags_[0] = is_start;
-      flags_[1] = is_start;
+      flags_[1] = is_end;
     }
 
     auto is_start() -> bool { return flags_[0]; }

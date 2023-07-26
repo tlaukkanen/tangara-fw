@@ -68,18 +68,9 @@ auto Timer::SetLengthBytes(uint32_t len) -> void {
 }
 
 auto Timer::AddBytes(std::size_t bytes) -> void {
-  float samples_sunk = bytes;
-  samples_sunk /= format_.channels;
-
-  // Samples must be aligned to 16 bits. The number of actual bytes per
-  // sample is therefore the bps divided by 16, rounded up (align to word),
-  // times two (convert to bytes).
-  uint8_t bytes_per_sample = ((format_.bits_per_sample + 16 - 1) / 16) * 2;
-  samples_sunk /= bytes_per_sample;
-
-  current_sample_in_second_ += samples_sunk;
   bool incremented = false;
-  while (current_sample_in_second_ > format_.sample_rate) {
+  current_sample_in_second_ += bytes_to_samples(bytes);
+  while (current_sample_in_second_ >= format_.sample_rate) {
     current_seconds_++;
     current_sample_in_second_ -= format_.sample_rate;
     incremented = true;

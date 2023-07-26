@@ -15,6 +15,7 @@
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
 #include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
@@ -120,6 +121,9 @@ void Playback::entry() {
 
 void Playback::exit() {
   ESP_LOGI(kTag, "finishing playback");
+  // TODO(jacqueline): Second case where it's useful to wait for the i2s buffer
+  // to drain.
+  vTaskDelay(pdMS_TO_TICKS(250));
   sI2SOutput->SetInUse(false);
 }
 

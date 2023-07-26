@@ -295,7 +295,7 @@ auto FatfsAudioInput::CloseCurrentFile() -> void {
 }
 
 auto FatfsAudioInput::HasDataRemaining() -> bool {
-  return !xStreamBufferIsEmpty(streamer_buffer_) || !streamer_->HasFinished();
+  return !streamer_->HasFinished() || !xStreamBufferIsEmpty(streamer_buffer_);
 }
 
 auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
