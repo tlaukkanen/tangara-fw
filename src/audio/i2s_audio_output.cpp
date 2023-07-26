@@ -114,14 +114,7 @@ auto I2SAudioOutput::AdjustVolumeDown() -> bool {
   return true;
 }
 
-auto I2SAudioOutput::Configure(const StreamInfo::Format& format) -> bool {
-  if (!std::holds_alternative<StreamInfo::Pcm>(format)) {
-    ESP_LOGI(kTag, "ignoring non-pcm stream (%d)", format.index());
-    return false;
-  }
-
-  StreamInfo::Pcm pcm = std::get<StreamInfo::Pcm>(format);
-
+auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> bool {
   if (current_config_ && pcm == *current_config_) {
     ESP_LOGI(kTag, "ignoring unchanged format");
     return true;

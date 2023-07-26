@@ -89,9 +89,8 @@ class FatfsAudioInput : public IAudioSource {
   auto SetPath(const std::string&) -> void;
   auto SetPath() -> void;
 
-  auto Read(std::function<bool(StreamInfo::Format)>,
-            std::function<size_t(cpp::span<const std::byte>)>,
-            TickType_t) -> void override;
+  auto Read(std::function<void(Flags, InputStream&)>, TickType_t)
+      -> void override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
@@ -118,11 +117,7 @@ class FatfsAudioInput : public IAudioSource {
   StreamBufferHandle_t streamer_buffer_;
   std::unique_ptr<FileStreamer> streamer_;
 
-  StreamInfo file_buffer_info_;
-  std::size_t file_buffer_len_;
-  std::byte* file_buffer_;
-
-  RawStream file_buffer_stream_;
+  std::unique_ptr<RawStream> input_buffer_;
 
   // Mutex guarding the current file/stream associated with this source. Must be
   // held during readings, and before altering the current file.
@@ -130,7 +125,7 @@ class FatfsAudioInput : public IAudioSource {
 
   std::unique_ptr<database::FutureFetcher<std::optional<std::string>>>
       pending_path_;
-  std::optional<StreamInfo::Format> current_format_;
+  bool is_first_read_;
 };
 
 }  // namespace audio

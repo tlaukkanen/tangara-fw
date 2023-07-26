@@ -145,21 +145,15 @@ FatfsAudioInput::FatfsAudioInput(
       has_data_(xSemaphoreCreateBinary()),
       streamer_buffer_(xStreamBufferCreate(kStreamerBufferSize, 1)),
       streamer_(new FileStreamer(streamer_buffer_, has_data_)),
-      file_buffer_info_(),
-      file_buffer_len_(kFileBufferSize),
-      file_buffer_(reinterpret_cast<std::byte*>(
-          heap_caps_malloc(file_buffer_len_,
-                           MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL))),
-      file_buffer_stream_(&file_buffer_info_, {file_buffer_, file_buffer_len_}),
+      input_buffer_(new RawStream(kFileBufferSize)),
       source_mutex_(),
       pending_path_(),
-      current_format_() {}
+      is_first_read_(false) {}
 
 FatfsAudioInput::~FatfsAudioInput() {
   streamer_.reset();
   vStreamBufferDelete(streamer_buffer_);
   vSemaphoreDelete(has_data_);
-  free(file_buffer_);
 }
 
 auto FatfsAudioInput::SetPath(std::future<std::optional<std::string>> fut)
@@ -185,10 +179,8 @@ auto FatfsAudioInput::SetPath() -> void {
   CloseCurrentFile();
 }
 
-auto FatfsAudioInput::Read(
-    std::function<bool(StreamInfo::Format)> can_read,
-    std::function<size_t(cpp::span<const std::byte>)> read,
-    TickType_t max_wait) -> void {
+auto FatfsAudioInput::Read(std::function<void(Flags, InputStream&)> read_cb,
+                           TickType_t max_wait) -> void {
   // Wait until we have data to return.
   xSemaphoreTake(has_data_, portMAX_DELAY);
 
@@ -205,7 +197,7 @@ auto FatfsAudioInput::Read(
     auto res = pending_path_->Result();
     pending_path_.reset();
 
-    if (res || *res) {
+    if (res && *res) {
       OpenFile(**res);
     }
 
@@ -217,28 +209,22 @@ auto FatfsAudioInput::Read(
   // Move data from the file streamer's buffer into our file buffer. We need our
   // own buffer so that we can handle concatenating smaller file chunks into
   // complete frames for the decoder.
-  OutputStream writer{&file_buffer_stream_};
+  OutputStream writer{input_buffer_.get()};
   std::size_t bytes_added =
       xStreamBufferReceive(streamer_buffer_, writer.data().data(),
                            writer.data().size_bytes(), pdMS_TO_TICKS(0));
   writer.add(bytes_added);
 
-  // HACK: libmad needs at least MAD_HEADER_GUARD (= 8) extra bytes following a
-  // frame, or else it refuses to decode it.
-  if (IsCurrentFormatMp3() && !HasDataRemaining()) {
-    ESP_LOGI(kTag, "applying MAD_HEADER_GUARD fix");
-    cpp::span<std::byte> buf = writer.data();
-    size_t pad_amount = std::min<size_t>(buf.size_bytes(), 8);
-    std::fill_n(buf.begin(), pad_amount, static_cast<std::byte>(0));
-  }
+  bool has_data_remaining = HasDataRemaining();
 
-  InputStream reader{&file_buffer_stream_};
+  InputStream reader{input_buffer_.get()};
   auto data_for_cb = reader.data();
-  if (!data_for_cb.empty() && std::invoke(can_read, *current_format_)) {
-    reader.consume(std::invoke(read, reader.data()));
+  if (!data_for_cb.empty()) {
+    std::invoke(read_cb, Flags{is_first_read_, !has_data_remaining}, reader);
+    is_first_read_ = false;
   }
 
-  if (!HasDataRemaining()) {
+  if (!has_data_remaining) {
     // Out of data. We're finished. Note we don't care about anything left in
     // the file buffer at this point; the callback as seen it, so if it didn't
     // consume it then presumably whatever is left isn't enough to form a
@@ -273,18 +259,19 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
     return;
   }
 
-  if (*stream_type == codecs::StreamType::kPcm && tags.channels &&
-      tags.bits_per_sample && tags.channels) {
-    current_format_ = StreamInfo::Pcm{
-        .channels = static_cast<uint8_t>(*tags.channels),
-        .bits_per_sample = static_cast<uint8_t>(*tags.bits_per_sample),
-        .sample_rate = static_cast<uint32_t>(*tags.sample_rate),
-    };
+  StreamInfo::Format format;
+  if (*stream_type == codecs::StreamType::kPcm) {
+    if (tags.channels && tags.bits_per_sample && tags.channels) {
+      format = StreamInfo::Pcm{
+          .channels = static_cast<uint8_t>(*tags.channels),
+          .bits_per_sample = static_cast<uint8_t>(*tags.bits_per_sample),
+          .sample_rate = static_cast<uint32_t>(*tags.sample_rate)};
+    } else {
+      ESP_LOGW(kTag, "pcm stream missing format info");
+      return;
+    }
   } else {
-    current_format_ = StreamInfo::Encoded{
-        .type = *stream_type,
-        .duration_bytes = info.fsize,
-    };
+    format = StreamInfo::Encoded{.type = *stream_type};
   }
 
   std::unique_ptr<FIL> file = std::make_unique<FIL>();
@@ -294,15 +281,17 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
     return;
   }
 
-  streamer_->Restart(std::move(file));
+  OutputStream writer{input_buffer_.get()};
+  writer.prepare(format, info.fsize);
 
+  streamer_->Restart(std::move(file));
+  is_first_read_ = true;
   events::Audio().Dispatch(internal::InputFileOpened{});
 }
 
 auto FatfsAudioInput::CloseCurrentFile() -> void {
   streamer_->Restart({});
   xStreamBufferReset(streamer_buffer_);
-  current_format_ = {};
 }
 
 auto FatfsAudioInput::HasDataRemaining() -> bool {
@@ -327,14 +316,11 @@ auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
 }
 
 auto FatfsAudioInput::IsCurrentFormatMp3() -> bool {
-  if (!current_format_) {
+  auto format = input_buffer_->info().format_as<StreamInfo::Encoded>();
+  if (!format) {
     return false;
   }
-  if (!std::holds_alternative<StreamInfo::Encoded>(*current_format_)) {
-    return false;
-  }
-  return std::get<StreamInfo::Encoded>(*current_format_).type ==
-         codecs::StreamType::kMp3;
+  return format->type == codecs::StreamType::kMp3;
 }
 
 }  // namespace audio

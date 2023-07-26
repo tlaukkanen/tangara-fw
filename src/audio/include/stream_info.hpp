@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <sys/_stdint.h>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -25,24 +26,25 @@
 
 namespace audio {
 
-struct StreamInfo {
+class StreamInfo {
+ public:
+  StreamInfo() : bytes_in_stream_(0), total_length_bytes_(), format_() {}
+
   // The number of bytes that are available for consumption within this
   // stream's buffer.
-  std::size_t bytes_in_stream{0};
+  auto bytes_in_stream() -> std::size_t& { return bytes_in_stream_; }
+  auto bytes_in_stream() const -> std::size_t { return bytes_in_stream_; }
 
-  bool is_producer_finished = true;
-
-  bool is_consumer_finished = true;
-
-  std::optional<std::uint32_t> duration_seconds;
-
-  std::optional<std::uint32_t> seek_to_seconds{};
+  auto total_length_bytes() -> std::optional<std::uint32_t>& {
+    return total_length_bytes_;
+  }
+  auto total_length_bytes() const -> std::optional<std::uint32_t> {
+    return total_length_bytes_;
+  }
 
   struct Encoded {
     // The codec that this stream is associated with.
     codecs::StreamType type;
-
-    std::optional<std::size_t> duration_bytes;
 
     bool operator==(const Encoded&) const = default;
   };
@@ -59,32 +61,47 @@ struct StreamInfo {
   };
 
   typedef std::variant<std::monostate, Encoded, Pcm> Format;
-  Format format{};
+  auto format() const -> const Format& { return format_; }
+  auto set_format(Format f) -> void { format_ = f; }
+
+  template <typename T>
+  auto format_as() const -> std::optional<T> {
+    if (std::holds_alternative<T>(format_)) {
+      return std::get<T>(format_);
+    }
+    return {};
+  }
 
   bool operator==(const StreamInfo&) const = default;
+
+ private:
+  std::size_t bytes_in_stream_;
+  std::optional<std::uint32_t> total_length_bytes_;
+  Format format_{};
 };
+
+class InputStream;
+class OutputStream;
 
 class RawStream {
  public:
-  StreamInfo* info;
-  cpp::span<std::byte> data;
+  explicit RawStream(std::size_t size);
+  ~RawStream();
 
-  RawStream(StreamInfo* i, cpp::span<std::byte> d) : info(i), data(d) {}
+  auto info() -> StreamInfo& { return info_; }
+  auto data() -> cpp::span<std::byte>;
+
+ private:
+  StreamInfo info_;
+  std::size_t buffer_size_;
+  std::byte* buffer_;
 };
 
-/*
- * A byte buffer + associated metadata, which is not allowed to modify any of
- * the underlying data.
- */
 class InputStream {
  public:
   explicit InputStream(RawStream* s) : raw_(s) {}
 
   void consume(std::size_t bytes) const;
-
-  bool is_producer_finished() const;
-
-  void mark_consumer_finished() const;
 
   const StreamInfo& info() const;
 
@@ -100,17 +117,12 @@ class OutputStream {
 
   void add(std::size_t bytes) const;
 
-  bool prepare(const StreamInfo::Format& new_format);
-
-  void set_duration(std::size_t);
+  void prepare(const StreamInfo::Format& new_format,
+               std::optional<uint32_t> length);
 
   const StreamInfo& info() const;
 
   cpp::span<std::byte> data() const;
-
-  bool is_consumer_finished() const;
-
-  void mark_producer_finished() const;
 
  private:
   RawStream* raw_;

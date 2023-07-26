@@ -38,7 +38,7 @@ class IAudioSink {
   virtual auto AdjustVolumeUp() -> bool = 0;
   virtual auto AdjustVolumeDown() -> bool = 0;
 
-  virtual auto Configure(const StreamInfo::Format& format) -> bool = 0;
+  virtual auto Configure(const StreamInfo::Pcm& format) -> bool = 0;
   virtual auto Send(const cpp::span<std::byte>& data) -> void = 0;
 
   auto stream() -> StreamBufferHandle_t { return stream_; }
