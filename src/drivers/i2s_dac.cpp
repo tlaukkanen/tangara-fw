@@ -104,7 +104,7 @@ I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(48000)),
       slot_config_(I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
                                                        I2S_SLOT_MODE_STEREO)) {
-  clock_config_.clk_src = I2S_CLK_SRC_PLL_160M;
+  clock_config_.clk_src = I2S_CLK_SRC_APLL;
 
   // Keep the 5V circuity off until it's needed.
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
@@ -148,10 +148,8 @@ auto I2SDac::Stop() -> void {
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
-  if (i2s_active_) {
-    write_register(kPsCtrl, 0, 0b01);
-    i2s_channel_disable(i2s_handle_);
-  }
+  write_register(kPsCtrl, 0, 0b01);
+  i2s_channel_disable(i2s_handle_);
 
   switch (ch) {
     case CHANNELS_MONO:
