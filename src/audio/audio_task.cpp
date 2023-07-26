@@ -84,13 +84,11 @@ auto Timer::AddBytes(std::size_t bytes) -> void {
   }
 
   if (incremented) {
-    ESP_LOGI("timer", "new time %lu", current_seconds_);
-    /*
-    events::Dispatch<PlaybackUpdate, AudioState, ui::UiState>(PlaybackUpdate{
+    // ESP_LOGI("timer", "new time %lu", current_seconds_);
+    events::Audio().Dispatch(PlaybackUpdate{
         .seconds_elapsed = current_seconds_,
         .seconds_total = 0,
-        });
-    */
+    });
   }
 }
 

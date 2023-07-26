@@ -81,45 +81,57 @@ auto TrackQueue::GetUpcoming(std::size_t limit) const
 auto TrackQueue::AddNext(database::TrackId t) -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_front(t);
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = enqueued_.size() < 2});
+
+  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::AddNext(std::shared_ptr<playlist::ISource> src) -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_front(src);
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = enqueued_.size() < 2});
+
+  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::IncludeNext(std::shared_ptr<playlist::IResetableSource> src)
     -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_front(src);
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = enqueued_.size() < 2});
+
+  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::AddLast(database::TrackId t) -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_back(t);
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = enqueued_.size() < 2});
+
+  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::AddLast(std::shared_ptr<playlist::ISource> src) -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_back(src);
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = enqueued_.size() < 2});
+
+  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::IncludeLast(std::shared_ptr<playlist::IResetableSource> src)
     -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_back(src);
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = enqueued_.size() < 2});
+
+  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::Next() -> void {
@@ -149,8 +161,9 @@ auto TrackQueue::Next() -> void {
     }
   }
 
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = true});
+  QueueUpdate ev{.current_changed = true};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::Previous() -> void {
@@ -161,7 +174,9 @@ auto TrackQueue::Previous() -> void {
     auto src = std::get<std::shared_ptr<playlist::IResetableSource>>(
         enqueued_.front());
     if (src->Previous()) {
-      events::Dispatch<QueueUpdate, AudioState, ui::UiState>({});
+      QueueUpdate ev{.current_changed = false};
+      events::Audio().Dispatch(ev);
+      events::Ui().Dispatch(ev);
       return;
     }
   }
@@ -180,16 +195,19 @@ auto TrackQueue::Previous() -> void {
   }
   played_.pop_front();
 
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = true});
+  QueueUpdate ev{.current_changed = true};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 auto TrackQueue::Clear() -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
+  QueueUpdate ev{.current_changed = !enqueued_.empty()};
   played_.clear();
   enqueued_.clear();
-  events::Dispatch<QueueUpdate, AudioState, ui::UiState>(
-      QueueUpdate{.current_changed = true});
+
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 }  // namespace audio

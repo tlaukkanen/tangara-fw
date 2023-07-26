@@ -7,6 +7,8 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
+#include <queue>
 #include <type_traits>
 
 #include "audio_fsm.hpp"
@@ -20,62 +22,78 @@
 
 namespace events {
 
-typedef std::function<void(void)> WorkItem;
-
-/*
- * Handles communication of events between the system's state machines. Each
- * event will be dispatched separately to each FSM, on the correct task for
- * that FSM.
- */
-class EventQueue {
+class Queue {
  public:
-  static EventQueue& GetInstance() {
-    static EventQueue instance;
-    return instance;
-  }
+  Queue() : has_events_(xSemaphoreCreateBinary()), mut_(), events_() {}
 
-  template <typename Event>
-  auto DispatchFromISR(const Event& ev) -> bool {
-    WorkItem* item = new WorkItem([=]() {
-      tinyfsm::FsmList<system_fsm::SystemState>::template dispatch<Event>(ev);
-    });
-    BaseType_t ret;
-    xQueueSendFromISR(system_handle_, &item, &ret);
-    return ret;
-  }
-
-  template <typename Event, typename Machine, typename... Machines>
-  auto Dispatch(const Event& ev) -> void {
-    WorkItem* item = new WorkItem(
-        [=]() { tinyfsm::FsmList<Machine>::template dispatch<Event>(ev); });
-    if (std::is_same<Machine, ui::UiState>()) {
-      xQueueSend(ui_handle_, &item, portMAX_DELAY);
-    } else {
-      xQueueSend(system_handle_, &item, portMAX_DELAY);
+  auto Add(std::function<void(void)> fn) {
+    {
+      std::lock_guard<std::mutex> lock{mut_};
+      events_.push(fn);
     }
-    Dispatch<Event, Machines...>(ev);
+    xSemaphoreGive(has_events_);
   }
 
-  template <typename Event>
-  auto Dispatch(const Event& ev) -> void {}
+  auto Service(TickType_t max_wait) -> bool {
+    bool res = xSemaphoreTake(has_events_, max_wait);
+    if (!res) {
+      return false;
+    }
 
-  auto ServiceSystemAndAudio(TickType_t max_wait_time) -> bool;
-  auto ServiceUi(TickType_t max_wait_time) -> bool;
+    bool had_work = false;
+    for (;;) {
+      std::function<void(void)> fn;
+      {
+        std::lock_guard<std::mutex> lock{mut_};
+        if (events_.empty()) {
+          return had_work;
+        }
+        had_work = true;
+        fn = events_.front();
+        events_.pop();
+      }
+      std::invoke(fn);
+    }
+  }
 
-  EventQueue(EventQueue const&) = delete;
-  void operator=(EventQueue const&) = delete;
+  auto has_events() -> SemaphoreHandle_t { return has_events_; }
+
+  Queue(Queue const&) = delete;
+  void operator=(Queue const&) = delete;
 
  private:
-  EventQueue();
-
-  QueueHandle_t system_handle_;
-  QueueHandle_t ui_handle_;
+  SemaphoreHandle_t has_events_;
+  std::mutex mut_;
+  std::queue<std::function<void(void)>> events_;
 };
 
-template <typename Event, typename... Machines>
-auto Dispatch(const Event& ev) -> void {
-  EventQueue& queue = EventQueue::GetInstance();
-  queue.Dispatch<Event, Machines...>(ev);
-}
+template <class Machine>
+class Dispatcher {
+ public:
+  Dispatcher(Queue* queue) : queue_(queue) {}
+
+  template <typename Event>
+  auto Dispatch(const Event& ev) -> void {
+    auto dispatch_fn = [=]() {
+      tinyfsm::FsmList<Machine>::template dispatch<Event>(ev);
+    };
+    queue_->Add(dispatch_fn);
+  }
+
+  Dispatcher(Dispatcher const&) = delete;
+  void operator=(Dispatcher const&) = delete;
+
+ private:
+  Queue* queue_;
+};
+
+namespace queues {
+auto SystemAndAudio() -> Queue*;
+auto Ui() -> Queue*;
+}  // namespace queues
+
+auto System() -> Dispatcher<system_fsm::SystemState>&;
+auto Audio() -> Dispatcher<audio::AudioState>&;
+auto Ui() -> Dispatcher<ui::UiState>&;
 
 }  // namespace events

@@ -7,6 +7,7 @@
 #include "system_fsm.hpp"
 #include "audio_fsm.hpp"
 #include "event_queue.hpp"
+#include "gpios.hpp"
 #include "relative_wheel.hpp"
 #include "system_events.hpp"
 #include "tag_parser.hpp"
@@ -30,13 +31,18 @@ std::shared_ptr<audio::TrackQueue> SystemState::sTrackQueue;
 
 console::AppConsole* SystemState::sAppConsole;
 
+auto SystemState::early_init_gpios() -> drivers::Gpios* {
+  sGpios.reset(drivers::Gpios::Create());
+  return sGpios.get();
+}
+
 void SystemState::react(const FatalError& err) {
   if (!is_in_state<states::Error>()) {
     transit<states::Error>();
   }
 }
 
-void SystemState::react(const internal::GpioInterrupt& ev) {
+void SystemState::react(const internal::GpioInterrupt&) {
   bool prev_key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
   bool prev_key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
   bool prev_key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
@@ -50,20 +56,23 @@ void SystemState::react(const internal::GpioInterrupt& ev) {
   bool has_headphones = !sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
 
   if (key_up != prev_key_up) {
-    events::Dispatch<KeyUpChanged, audio::AudioState, ui::UiState>(
-        {.falling = prev_key_up});
+    KeyUpChanged ev{.falling = prev_key_up};
+    events::Audio().Dispatch(ev);
+    events::Ui().Dispatch(ev);
   }
   if (key_down != prev_key_down) {
-    events::Dispatch<KeyDownChanged, audio::AudioState, ui::UiState>(
-        {.falling = prev_key_down});
+    KeyDownChanged ev{.falling = prev_key_up};
+    events::Audio().Dispatch(ev);
+    events::Ui().Dispatch(ev);
   }
   if (key_lock != prev_key_lock) {
-    events::Dispatch<KeyLockChanged, SystemState, ui::UiState>(
-        {.falling = prev_key_lock});
+    KeyLockChanged ev{.falling = prev_key_up};
+    events::System().Dispatch(ev);
+    events::Ui().Dispatch(ev);
   }
   if (has_headphones != prev_has_headphones) {
-    events::Dispatch<HasPhonesChanged, audio::AudioState>(
-        {.falling = prev_has_headphones});
+    HasPhonesChanged ev{.falling = prev_key_up};
+    events::Audio().Dispatch(ev);
   }
 }
 

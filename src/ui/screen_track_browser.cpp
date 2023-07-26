@@ -137,12 +137,11 @@ auto TrackBrowser::OnItemClicked(lv_event_t* ev) -> void {
   for (const auto& page : current_pages_) {
     for (std::size_t i = 0; i < page->values().size(); i++) {
       if (index == 0) {
-        events::Dispatch<internal::RecordSelected, UiState>(
-            internal::RecordSelected{
-                .initial_page = initial_page_,
-                .page = page,
-                .record = i,
-            });
+        events::Ui().Dispatch(internal::RecordSelected{
+            .initial_page = initial_page_,
+            .page = page,
+            .record = i,
+        });
         return;
       }
       index--;

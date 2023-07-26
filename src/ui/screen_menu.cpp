@@ -33,8 +33,7 @@ static void item_click_cb(lv_event_t* ev) {
   database::IndexInfo* index =
       reinterpret_cast<database::IndexInfo*>(ev->user_data);
 
-  events::Dispatch<internal::IndexSelected, UiState>(
-      internal::IndexSelected{.index = *index});
+  events::Ui().Dispatch(internal::IndexSelected{.index = *index});
 }
 
 Menu::Menu(std::vector<database::IndexInfo> indexes) : indexes_(indexes) {

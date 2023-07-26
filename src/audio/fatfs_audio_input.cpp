@@ -135,7 +135,7 @@ auto FileStreamer::CloseFile() -> void {
   ESP_LOGI(kTag, "closing file");
   f_close(file_.get());
   file_ = {};
-  events::Dispatch<internal::InputFileClosed, AudioState>({});
+  events::Audio().Dispatch(internal::InputFileClosed{});
 }
 
 FatfsAudioInput::FatfsAudioInput(
@@ -296,7 +296,7 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
 
   streamer_->Restart(std::move(file));
 
-  events::Dispatch<internal::InputFileOpened, AudioState>({});
+  events::Audio().Dispatch(internal::InputFileOpened{});
 }
 
 auto FatfsAudioInput::CloseCurrentFile() -> void {

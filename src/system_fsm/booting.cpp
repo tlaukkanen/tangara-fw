@@ -29,36 +29,22 @@ namespace states {
 
 static const char kTag[] = "BOOT";
 
-static std::function<void(void)> sGpiosCallback = []() {
-  events::EventQueue::GetInstance().DispatchFromISR(internal::GpioInterrupt{});
-};
-
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
   ESP_LOGI(kTag, "installing early drivers");
 
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
-  ESP_ERROR_CHECK(drivers::init_i2c());
   ESP_ERROR_CHECK(drivers::init_spi());
-
-  // These drivers are the bare minimum to even show an error. If these fail,
-  // then the system is completely hosed.
-  sGpios.reset(drivers::Gpios::Create());
-  assert(sGpios != nullptr);
-
-  sGpios->set_listener(&sGpiosCallback);
+  sGpios->InstallReadPendingISR();
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
   sTrackQueue.reset(new audio::TrackQueue());
-  /*
   ESP_LOGI(kTag, "starting ui");
   if (!ui::UiState::Init(sGpios.get(), sTrackQueue.get())) {
-    events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
-        FatalError());
+    events::System().Dispatch(FatalError{});
     return;
   }
-  */
 
   // Install everything else that is certain to be needed.
   ESP_LOGI(kTag, "installing remaining drivers");
@@ -67,8 +53,8 @@ auto Booting::entry() -> void {
   sTagParser.reset(new database::TagParserImpl());
 
   if (!sSamd || !sBattery) {
-    events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
-        FatalError());
+    events::System().Dispatch(FatalError{});
+    events::Ui().Dispatch(FatalError{});
     return;
   }
 
@@ -78,13 +64,14 @@ auto Booting::entry() -> void {
   ESP_LOGI(kTag, "starting audio");
   if (!audio::AudioState::Init(sGpios.get(), sDatabase, sTagParser,
                                sTrackQueue.get())) {
-    events::Dispatch<FatalError, SystemState, ui::UiState, audio::AudioState>(
-        FatalError());
+    events::System().Dispatch(FatalError{});
+    events::Ui().Dispatch(FatalError{});
     return;
   }
 
-  events::Dispatch<BootComplete, SystemState, ui::UiState, audio::AudioState>(
-      BootComplete());
+  events::System().Dispatch(BootComplete{});
+  events::Audio().Dispatch(BootComplete{});
+  events::Ui().Dispatch(BootComplete{});
 }
 
 auto Booting::exit() -> void {

@@ -62,9 +62,9 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
   TouchWheelEncoder encoder(weak_touch_wheel);
 
   std::shared_ptr<Screen> current_screen;
-  auto& events = events::EventQueue::GetInstance();
+  auto* events = events::queues::Ui();
   while (1) {
-    while (events.ServiceUi(0)) {
+    while (events->Service(0)) {
     }
 
     std::shared_ptr<Screen> screen = UiState::current_screen();

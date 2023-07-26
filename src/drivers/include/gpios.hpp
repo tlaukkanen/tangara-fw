@@ -107,9 +107,8 @@ class Gpios : public IGpios {
    */
   auto Read(void) -> bool;
 
-  auto listener() -> std::function<void(void)>* { return listener_; }
-
-  auto set_listener(std::function<void(void)>* l) -> void { listener_ = l; }
+  auto InstallReadPendingISR() -> void;
+  auto IsReadPending() -> SemaphoreHandle_t { return read_pending_; }
 
   // Not copyable or movable. There should usually only ever be once instance
   // of this class, and that instance will likely have a static lifetime.
@@ -122,7 +121,7 @@ class Gpios : public IGpios {
   std::atomic<uint16_t> ports_;
   std::atomic<uint16_t> inputs_;
 
-  std::function<void(void)>* listener_;
+  SemaphoreHandle_t read_pending_;
 };
 
 }  // namespace drivers

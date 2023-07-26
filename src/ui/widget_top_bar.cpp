@@ -20,7 +20,7 @@ namespace ui {
 namespace widgets {
 
 static void back_click_cb(lv_event_t* ev) {
-  events::Dispatch<internal::BackPressed, UiState>({});
+  events::Ui().Dispatch(internal::BackPressed{});
 }
 
 TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {

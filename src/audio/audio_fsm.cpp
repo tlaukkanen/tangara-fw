@@ -67,14 +67,14 @@ void AudioState::react(const system_fsm::StorageMounted& ev) {
 void AudioState::react(const system_fsm::KeyUpChanged& ev) {
   if (ev.falling && sI2SOutput->AdjustVolumeUp()) {
     ESP_LOGI(kTag, "volume up!");
-    events::Dispatch<VolumeChanged, ui::UiState>({});
+    events::Ui().Dispatch(VolumeChanged{});
   }
 }
 
 void AudioState::react(const system_fsm::KeyDownChanged& ev) {
   if (ev.falling && sI2SOutput->AdjustVolumeDown()) {
     ESP_LOGI(kTag, "volume down!");
-    events::Dispatch<VolumeChanged, ui::UiState>({});
+    events::Ui().Dispatch(VolumeChanged{});
   }
 }
 
