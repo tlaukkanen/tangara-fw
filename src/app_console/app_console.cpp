@@ -233,7 +233,7 @@ int CmdDbIndex(int argc, char** argv) {
     return -1;
   }
 
-  std::unique_ptr<database::Result<database::IndexRecord>> res(
+  std::shared_ptr<database::Result<database::IndexRecord>> res(
       db->GetTracksByIndex(*index, 20).get());
   int choice_index = 2;
 
@@ -247,6 +247,10 @@ int CmdDbIndex(int argc, char** argv) {
     if (choice >= res->values().size()) {
       std::cout << "choice out of range" << std::endl;
       return -1;
+    }
+    if (res->values().at(choice).track()) {
+      AppConsole::sTrackQueue->IncludeLast(std::make_shared<playlist::IndexRecordSource>(
+          AppConsole::sDatabase, res, 0, res, choice));
     }
     auto cont = res->values().at(choice).Expand(20);
     if (!cont) {

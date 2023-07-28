@@ -196,7 +196,7 @@ auto Display::SetDisplayOn(bool enabled) -> void {
   display_on_ = enabled;
 
   int new_duty = display_on_ ? brightness_ : 0;
-  ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 250);
+  ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 100);
   ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
 }
 

@@ -99,7 +99,7 @@ void Standby::react(const internal::InputFileOpened& ev) {
 
 void Standby::react(const QueueUpdate& ev) {
   auto current_track = sTrackQueue->GetCurrent();
-  if (!current_track) {
+  if (!current_track || (sCurrentTrack && *sCurrentTrack == *current_track)) {
     return;
   }
 
@@ -156,19 +156,7 @@ void Playback::react(const PlaybackUpdate& ev) {
 
 void Playback::react(const internal::InputFileOpened& ev) {}
 
-void Playback::react(const internal::InputFileClosed& ev) {
-  ESP_LOGI(kTag, "finished reading file");
-  auto upcoming = sTrackQueue->GetUpcoming(1);
-  if (upcoming.empty()) {
-    return;
-  }
-  auto db = sDatabase.lock();
-  if (!db) {
-    return;
-  }
-  ESP_LOGI(kTag, "preemptively opening next file");
-  sFileSource->SetPath(db->GetTrackPath(upcoming.front()));
-}
+void Playback::react(const internal::InputFileClosed& ev) {}
 
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");

@@ -221,6 +221,7 @@ auto Playing::OnPlaybackUpdate(uint32_t pos_seconds, uint32_t new_duration)
 }
 
 auto Playing::OnQueueUpdate() -> void {
+  OnTrackUpdate();
   auto current = queue_->GetUpcoming(kMaxUpcoming);
   auto db = db_.lock();
   if (!db) {
