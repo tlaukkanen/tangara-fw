@@ -84,6 +84,10 @@ void UiState::PopScreen() {
   sScreens.pop();
 }
 
+void UiState::react(const system_fsm::KeyLockChanged& ev) {
+  sDisplay->SetDisplayOn(ev.falling);
+}
+
 namespace states {
 
 void Splash::exit() {
@@ -97,10 +101,6 @@ void Splash::react(const system_fsm::BootComplete& ev) {
 }
 
 void Browse::entry() {}
-
-void Browse::react(const system_fsm::KeyLockChanged& ev) {
-  sDisplay->SetDisplayOn(ev.falling);
-}
 
 void Browse::react(const system_fsm::StorageMounted& ev) {
   sDb = ev.db;
