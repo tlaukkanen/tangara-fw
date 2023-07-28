@@ -47,5 +47,5 @@ auto WriteRegister(Register reg, uint8_t msb, uint8_t lsb) -> bool {
   return transaction.Execute() == ESP_OK;
 }
 
-}
-}
+}  // namespace wm8523
+}  // namespace drivers

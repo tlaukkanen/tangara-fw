@@ -48,7 +48,7 @@ I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
       current_config_(),
       left_difference_(0),
       current_volume_(kDefaultVolume),
-      max_volume_(kLineLevelVolume){
+      max_volume_(kLineLevelVolume) {
   SetVolume(GetVolume());
   dac_->SetSource(stream());
 }
@@ -82,13 +82,13 @@ auto I2SAudioOutput::SetVolume(uint_fast8_t percent) -> void {
 
   using drivers::wm8523::Register;
   drivers::wm8523::WriteRegister(Register::kDacGainLeft, left);
-  drivers::wm8523::WriteRegister(Register::kDacGainRight, current_volume_ | 0x200);
+  drivers::wm8523::WriteRegister(Register::kDacGainRight,
+                                 current_volume_ | 0x200);
 }
 
 auto I2SAudioOutput::GetVolume() -> uint_fast8_t {
-  return 
-    static_cast<uint_fast8_t>(
-        static_cast<float>(current_volume_) / max_volume_ * 100.0f);
+  return static_cast<uint_fast8_t>(static_cast<float>(current_volume_) /
+                                   max_volume_ * 100.0f);
 }
 
 auto I2SAudioOutput::AdjustVolumeUp() -> bool {

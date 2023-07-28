@@ -27,5 +27,5 @@ auto ReadRegister(Register reg) -> std::optional<uint16_t>;
 auto WriteRegister(Register reg, uint16_t data) -> bool;
 auto WriteRegister(Register reg, uint8_t msb, uint8_t lsb) -> bool;
 
-}
-}
+}  // namespace wm8523
+}  // namespace drivers

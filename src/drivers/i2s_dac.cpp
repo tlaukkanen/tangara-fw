@@ -28,10 +28,10 @@
 #include "hal/i2c_types.h"
 
 #include "gpios.hpp"
-#include "wm8523.hpp"
 #include "hal/i2s_types.h"
 #include "i2c.hpp"
 #include "soc/clk_tree_defs.h"
+#include "wm8523.hpp"
 
 namespace drivers {
 
@@ -106,7 +106,7 @@ auto I2SDac::Start() -> void {
   vTaskDelay(pdMS_TO_TICKS(1));
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
 
-  uint8_t zeroes[256] {0};
+  uint8_t zeroes[256]{0};
   size_t bytes_loaded = 0;
   esp_err_t res = ESP_OK;
   do {
@@ -180,7 +180,8 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
   // Set the correct word size, and set the input format to I2S-justified.
   wm8523::WriteRegister(wm8523::Register::kAifCtrl1, (word_length << 3) | 0b10);
   // Tell the DAC the clock ratio instead of waiting for it to auto detect.
-  wm8523::WriteRegister(wm8523::Register::kAifCtrl2, bps == BPS_24 ? 0b100 : 0b011);
+  wm8523::WriteRegister(wm8523::Register::kAifCtrl2,
+                        bps == BPS_24 ? 0b100 : 0b011);
 
   if (i2s_active_) {
     i2s_channel_enable(i2s_handle_);

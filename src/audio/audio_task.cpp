@@ -81,10 +81,8 @@ auto Timer::AddBytes(std::size_t bytes) -> void {
       total_duration_seconds_ = current_seconds_;
     }
 
-    PlaybackUpdate ev{
-        .seconds_elapsed = current_seconds_,
-        .seconds_total = total_duration_seconds_
-    };
+    PlaybackUpdate ev{.seconds_elapsed = current_seconds_,
+                      .seconds_total = total_duration_seconds_};
     events::Audio().Dispatch(ev);
     events::Ui().Dispatch(ev);
   }

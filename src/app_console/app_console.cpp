@@ -249,8 +249,9 @@ int CmdDbIndex(int argc, char** argv) {
       return -1;
     }
     if (res->values().at(choice).track()) {
-      AppConsole::sTrackQueue->IncludeLast(std::make_shared<playlist::IndexRecordSource>(
-          AppConsole::sDatabase, res, 0, res, choice));
+      AppConsole::sTrackQueue->IncludeLast(
+          std::make_shared<playlist::IndexRecordSource>(AppConsole::sDatabase,
+                                                        res, 0, res, choice));
     }
     auto cont = res->values().at(choice).Expand(20);
     if (!cont) {
