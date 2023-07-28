@@ -28,6 +28,7 @@
 #include "hal/i2c_types.h"
 
 #include "gpios.hpp"
+#include "wm8523.hpp"
 #include "hal/i2s_types.h"
 #include "i2c.hpp"
 #include "soc/clk_tree_defs.h"
@@ -36,28 +37,6 @@ namespace drivers {
 
 static const char* kTag = "i2s_dac";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
-static const uint8_t kWm8523Address = 0b0011010;
-
-enum Register {
-  kReset = 0,
-  kRevision = 1,
-  kPsCtrl = 2,
-  kAifCtrl1 = 3,
-  kAifCtrl2 = 4,
-  kDacCtrl = 5,
-  kDacGainLeft = 6,
-  kDacGainRight = 7,
-  kZeroDetect = 8,
-};
-
-auto write_register(Register reg, uint8_t msb, uint8_t lsb) -> esp_err_t {
-  I2CTransaction transaction;
-  transaction.start()
-      .write_addr(kWm8523Address, I2C_MASTER_WRITE)
-      .write_ack(reg, msb, lsb)
-      .stop();
-  return transaction.Execute();
-}
 
 auto I2SDac::create(IGpios* expander) -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
@@ -110,17 +89,11 @@ I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
 
   // Reset all registers back to their default values.
-  write_register(kReset, 0, 1);
+  wm8523::WriteRegister(wm8523::Register::kReset, 1);
   vTaskDelay(pdMS_TO_TICKS(10));
 
   // Power up the charge pump.
-  write_register(kPsCtrl, 0, 0b01);
-
-  // TODO: testing
-  // write_register(kDacGainLeft, 0b01, 0x50);
-  // write_register(kDacGainRight, 0b11, 0x50);
-  write_register(kDacGainLeft, 0b01, 0x0);
-  write_register(kDacGainRight, 0b11, 0x0);
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
 }
 
 I2SDac::~I2SDac() {
@@ -130,15 +103,23 @@ I2SDac::~I2SDac() {
 
 auto I2SDac::Start() -> void {
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, true);
+  vTaskDelay(pdMS_TO_TICKS(1));
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
 
+  uint8_t zeroes[256] {0};
+  size_t bytes_loaded = 0;
+  esp_err_t res = ESP_OK;
+  do {
+    res = i2s_channel_preload_data(i2s_handle_, zeroes, 256, &bytes_loaded);
+  } while (bytes_loaded > 0 && res == ESP_OK);
+
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
   i2s_channel_enable(i2s_handle_);
-  write_register(kPsCtrl, 0, 0b11);
-
   i2s_active_ = true;
 }
 
 auto I2SDac::Stop() -> void {
-  write_register(kPsCtrl, 0, 0b01);
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
   i2s_channel_disable(i2s_handle_);
 
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
@@ -148,8 +129,15 @@ auto I2SDac::Stop() -> void {
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
-  write_register(kPsCtrl, 0, 0b01);
-  i2s_channel_disable(i2s_handle_);
+  if (i2s_active_) {
+    // Ramp down into mute instead of just outright stopping to minimise any
+    // clicks and pops.
+    wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
+    vTaskDelay(pdMS_TO_TICKS(1));
+
+    wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
+    i2s_channel_disable(i2s_handle_);
+  }
 
   switch (ch) {
     case CHANNELS_MONO:
@@ -190,13 +178,13 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
   ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(i2s_handle_, &clock_config_));
 
   // Set the correct word size, and set the input format to I2S-justified.
-  write_register(kAifCtrl1, 0, (word_length << 3) | 0b10);
+  wm8523::WriteRegister(wm8523::Register::kAifCtrl1, (word_length << 3) | 0b10);
   // Tell the DAC the clock ratio instead of waiting for it to auto detect.
-  // write_register(kAifCtrl2, 0, bps == BPS_24 ? 0b100 : 0b011);
+  wm8523::WriteRegister(wm8523::Register::kAifCtrl2, bps == BPS_24 ? 0b100 : 0b011);
 
   if (i2s_active_) {
     i2s_channel_enable(i2s_handle_);
-    write_register(kPsCtrl, 0, 0b11);
+    wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
   }
 }
 

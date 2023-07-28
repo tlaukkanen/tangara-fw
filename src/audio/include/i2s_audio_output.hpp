@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <sys/_stdint.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -41,14 +42,13 @@ class I2SAudioOutput : public IAudioSink {
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
 
  private:
-  auto GetAdjustedMaxAttenuation() -> int_fast8_t;
-
   drivers::IGpios* expander_;
   std::shared_ptr<drivers::I2SDac> dac_;
 
   std::optional<StreamInfo::Pcm> current_config_;
   int_fast8_t left_difference_;
-  uint_fast8_t attenuation_;
+  uint16_t current_volume_;
+  uint16_t max_volume_;
 };
 
 }  // namespace audio

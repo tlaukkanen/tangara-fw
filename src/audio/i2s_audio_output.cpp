@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <variant>
 
@@ -23,10 +24,22 @@
 #include "i2s_dac.hpp"
 #include "result.hpp"
 #include "stream_info.hpp"
+#include "wm8523.hpp"
 
 static const char* kTag = "I2SOUT";
 
 namespace audio {
+
+// Consumer line level = 0.316 VRMS = -10db = 61
+// Professional line level = 1.228 VRMS = +4dB = 111
+// Cliipping level = 2.44 VRMS = 133?
+// all into 650 ohms
+
+static constexpr uint16_t kMaxVolume = 0x1ff;
+static constexpr uint16_t kMinVolume = 0b0;
+static constexpr uint16_t kMaxVolumeBeforeClipping = 0x185;
+static constexpr uint16_t kLineLevelVolume = 0x13d;
+static constexpr uint16_t kDefaultVolume = 0x128;
 
 I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
                                std::weak_ptr<drivers::I2SDac> dac)
@@ -34,8 +47,9 @@ I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
       dac_(dac.lock()),
       current_config_(),
       left_difference_(0),
-      attenuation_() {
-  SetVolume(25);  // For testing
+      current_volume_(kDefaultVolume),
+      max_volume_(kLineLevelVolume){
+  SetVolume(GetVolume());
   dac_->SetSource(stream());
 }
 
@@ -53,63 +67,50 @@ auto I2SAudioOutput::SetInUse(bool in_use) -> void {
 }
 
 auto I2SAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
-  // TODO.
+  left_difference_ = balance;
+  SetVolume(GetVolume());
 }
 
 auto I2SAudioOutput::SetVolume(uint_fast8_t percent) -> void {
-  // TODO.
+  percent = std::min<uint_fast8_t>(percent, 100);
+  float new_value = static_cast<float>(max_volume_) / 100 * percent;
+  current_volume_ = std::max<float>(new_value, kMinVolume);
+  ESP_LOGI(kTag, "set volume to %u%% = %u", percent, current_volume_);
+
+  int32_t left_unclamped = current_volume_ + left_difference_;
+  uint16_t left = std::clamp<int32_t>(left_unclamped, kMinVolume, max_volume_);
+
+  using drivers::wm8523::Register;
+  drivers::wm8523::WriteRegister(Register::kDacGainLeft, left);
+  drivers::wm8523::WriteRegister(Register::kDacGainRight, current_volume_ | 0x200);
 }
 
 auto I2SAudioOutput::GetVolume() -> uint_fast8_t {
-  // TODO.
-  return 100;
+  return 
+    static_cast<uint_fast8_t>(
+        static_cast<float>(current_volume_) / max_volume_ * 100.0f);
 }
-
-auto I2SAudioOutput::GetAdjustedMaxAttenuation() -> int_fast8_t {
-  // TODO
-  return 0;
-}
-
-static uint8_t vol = 0xFF;
 
 auto I2SAudioOutput::AdjustVolumeUp() -> bool {
-  vol += 0xF;
-  {
-    drivers::I2CTransaction transaction;
-    transaction.start()
-        .write_addr(0b0011010, I2C_MASTER_WRITE)
-        .write_ack(6, 0b01, vol)
-        .stop();
-    transaction.Execute();
+  if (GetVolume() >= 100) {
+    return false;
   }
-  {
-    drivers::I2CTransaction transaction;
-    transaction.start()
-        .write_addr(0b0011010, I2C_MASTER_WRITE)
-        .write_ack(7, 0b11, vol)
-        .stop();
-    transaction.Execute();
+  if (GetVolume() >= 95) {
+    SetVolume(100);
+  } else {
+    SetVolume(GetVolume() + 5);
   }
   return true;
 }
 
 auto I2SAudioOutput::AdjustVolumeDown() -> bool {
-  vol -= 0xF;
-  {
-    drivers::I2CTransaction transaction;
-    transaction.start()
-        .write_addr(0b0011010, I2C_MASTER_WRITE)
-        .write_ack(6, 0b01, vol)
-        .stop();
-    transaction.Execute();
+  if (GetVolume() == 0) {
+    return false;
   }
-  {
-    drivers::I2CTransaction transaction;
-    transaction.start()
-        .write_addr(0b0011010, I2C_MASTER_WRITE)
-        .write_ack(7, 0b11, vol)
-        .stop();
-    transaction.Execute();
+  if (GetVolume() <= 5) {
+    SetVolume(0);
+  } else {
+    SetVolume(GetVolume() - 5);
   }
   return true;
 }
