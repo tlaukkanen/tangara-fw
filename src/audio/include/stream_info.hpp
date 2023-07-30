@@ -42,6 +42,13 @@ class StreamInfo {
     return total_length_bytes_;
   }
 
+  auto total_length_seconds() -> std::optional<std::uint32_t>& {
+    return total_length_seconds_;
+  }
+  auto total_length_seconds() const -> std::optional<std::uint32_t> {
+    return total_length_seconds_;
+  }
+
   struct Encoded {
     // The codec that this stream is associated with.
     codecs::StreamType type;
@@ -77,6 +84,7 @@ class StreamInfo {
  private:
   std::size_t bytes_in_stream_;
   std::optional<std::uint32_t> total_length_bytes_;
+  std::optional<std::uint32_t> total_length_seconds_;
   Format format_{};
 };
 

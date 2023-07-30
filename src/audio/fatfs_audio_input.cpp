@@ -283,6 +283,9 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
 
   OutputStream writer{input_buffer_.get()};
   writer.prepare(format, info.fsize);
+  if (tags.duration) {
+    writer.info().total_length_seconds() = *tags.duration;
+  }
 
   streamer_->Restart(std::move(file));
   is_first_read_ = true;

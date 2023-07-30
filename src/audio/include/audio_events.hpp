@@ -30,6 +30,10 @@ struct QueueUpdate : tinyfsm::Event {
   bool current_changed;
 };
 
+struct PlayFile : tinyfsm::Event {
+  std::string filename;
+};
+
 struct VolumeChanged : tinyfsm::Event {};
 
 namespace internal {

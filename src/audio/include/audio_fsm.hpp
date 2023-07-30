@@ -51,6 +51,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   virtual void react(const system_fsm::BootComplete&) {}
 
+  virtual void react(const PlayFile&) {}
   virtual void react(const QueueUpdate&) {}
   virtual void react(const PlaybackUpdate&) {}
 
@@ -82,6 +83,7 @@ class Uninitialised : public AudioState {
 
 class Standby : public AudioState {
  public:
+  void react(const PlayFile&) override;
   void react(const internal::InputFileOpened&) override;
   void react(const QueueUpdate&) override;
 

@@ -61,10 +61,12 @@ Timer::Timer(StreamInfo::Pcm format)
 
 auto Timer::SetLengthSeconds(uint32_t len) -> void {
   total_duration_seconds_ = len;
+  has_duration_ = true;
 }
 
 auto Timer::SetLengthBytes(uint32_t len) -> void {
   total_duration_seconds_ = bytes_to_samples(len) / format_.sample_rate;
+  has_duration_ = true;
 }
 
 auto Timer::AddBytes(std::size_t bytes) -> void {
@@ -135,8 +137,14 @@ void AudioTask::Main() {
             if (ForwardPcmStream(*pcm, stream.data())) {
               stream.consume(stream.data().size_bytes());
             }
-            timer_->SetLengthBytes(
-                stream.info().total_length_bytes().value_or(0));
+            if (!timer_->has_duration()) {
+              if (stream.info().total_length_seconds()) {
+                timer_->SetLengthSeconds(*stream.info().total_length_seconds());
+              } else {
+                timer_->SetLengthBytes(
+                    stream.info().total_length_bytes().value_or(0));
+              }
+            }
             return;
           }
 
@@ -233,6 +241,8 @@ auto AudioTask::BeginDecoding(InputStream& stream) -> bool {
 
   if (format.duration_seconds) {
     timer_->SetLengthSeconds(*format.duration_seconds);
+  } else if (stream.info().total_length_seconds()) {
+    timer_->SetLengthSeconds(*stream.info().total_length_seconds());
   } else {
     timer_->SetLengthBytes(stream.info().total_length_bytes().value_or(0));
   }

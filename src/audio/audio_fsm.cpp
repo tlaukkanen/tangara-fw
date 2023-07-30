@@ -93,6 +93,10 @@ void Uninitialised::react(const system_fsm::BootComplete&) {
   transit<Standby>();
 }
 
+void Standby::react(const PlayFile& ev) {
+  sFileSource->SetPath(ev.filename);
+}
+
 void Standby::react(const internal::InputFileOpened& ev) {
   transit<Playback>();
 }
@@ -161,6 +165,9 @@ void Playback::react(const internal::InputFileClosed& ev) {}
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
   sTrackQueue->Next();
+  if (!sTrackQueue->GetCurrent()) {
+    transit<Standby>();
+  }
 }
 
 void Playback::react(const internal::AudioPipelineIdle& ev) {

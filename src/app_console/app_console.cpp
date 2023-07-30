@@ -112,17 +112,13 @@ int CmdPlayFile(int argc, char** argv) {
     database::TrackId id = std::atoi(argv[1]);
     AppConsole::sTrackQueue->AddLast(id);
   } else {
-    // TODO.
-    /*
     std::ostringstream path;
     path << '/' << argv[1];
     for (int i = 2; i < argc; i++) {
       path << ' ' << argv[i];
     }
 
-    events::Dispatch<audio::PlayFile, audio::AudioState>(
-        audio::PlayFile{.filename = path.str()});
-        */
+    events::Audio().Dispatch(audio::PlayFile{.filename = path.str()});
   }
 
   return 0;

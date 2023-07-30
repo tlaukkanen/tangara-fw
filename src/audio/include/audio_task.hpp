@@ -26,6 +26,7 @@ class Timer {
   auto SetLengthBytes(uint32_t) -> void;
 
   auto AddBytes(std::size_t) -> void;
+  auto has_duration() const -> bool { return has_duration_; }
 
  private:
   auto bytes_to_samples(uint32_t) -> uint32_t;
@@ -35,6 +36,7 @@ class Timer {
   uint32_t current_seconds_;
   uint32_t current_sample_in_second_;
 
+  bool has_duration_;
   uint32_t total_duration_seconds_;
 };
 
