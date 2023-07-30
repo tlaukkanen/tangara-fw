@@ -43,6 +43,9 @@ struct Aux {
 
 static int read(Tagctx* ctx, void* buf, int cnt) {
   Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
+  if (f_eof(&aux->file)) {
+    return 0;
+  }
   UINT bytes_read;
   if (f_read(&aux->file, buf, cnt, &bytes_read) != FR_OK) {
     return -1;
@@ -65,7 +68,10 @@ static int seek(Tagctx* ctx, int offset, int whence) {
   } else {
     return -1;
   }
-  return res;
+  if (res != FR_OK) {
+    return -1;
+  }
+  return aux->file.fptr;
 }
 
 static void tag(Tagctx* ctx,
