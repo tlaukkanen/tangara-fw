@@ -6,6 +6,7 @@
 
 #include "foxenflac.hpp"
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <cstdlib>
 
@@ -44,13 +45,20 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
     return {bytes_used, cpp::fail(Error::kMalformedData)};
   }
 
-  return {bytes_used,
-          OutputFormat{
-              .num_channels = static_cast<uint8_t>(channels),
-              .bits_per_sample = 32,  // libfoxenflac output is fixed-size.
-              .sample_rate_hz = static_cast<uint32_t>(fs),
-              .duration_seconds = {},
-          }};
+  OutputFormat format{
+      .num_channels = static_cast<uint8_t>(channels),
+      .bits_per_sample = 32,  // libfoxenflac output is fixed-size.
+      .sample_rate_hz = static_cast<uint32_t>(fs),
+      .duration_seconds = {},
+      .bits_per_second = {},
+  };
+
+  uint64_t num_samples = fx_flac_get_streaminfo(flac_, FLAC_KEY_N_SAMPLES);
+  if (num_samples > 0) {
+    format.duration_seconds = num_samples / fs;
+  }
+
+  return {bytes_used, format};
 }
 
 auto FoxenFlacDecoder::ContinueStream(cpp::span<const std::byte> input,

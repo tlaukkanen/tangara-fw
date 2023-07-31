@@ -53,20 +53,23 @@ static const char* kTag = "audio_dec";
 
 static constexpr std::size_t kSampleBufferSize = 16 * 1024;
 
-Timer::Timer(StreamInfo::Pcm format)
-    : format_(format),
-      current_seconds_(0),
-      current_sample_in_second_(0),
-      total_duration_seconds_(0) {}
-
-auto Timer::SetLengthSeconds(uint32_t len) -> void {
-  total_duration_seconds_ = len;
-  has_duration_ = true;
-}
-
-auto Timer::SetLengthBytes(uint32_t len) -> void {
-  total_duration_seconds_ = bytes_to_samples(len) / format_.sample_rate;
-  has_duration_ = true;
+Timer::Timer(const StreamInfo::Pcm& format, const Duration& duration)
+    : format_(format), current_seconds_(0), current_sample_in_second_(0) {
+  switch (duration.src) {
+    case Duration::Source::kLibTags:
+      ESP_LOGI(kTag, "using duration from libtags");
+      total_duration_seconds_ = duration.duration;
+      break;
+    case Duration::Source::kCodec:
+      ESP_LOGI(kTag, "using duration from decoder");
+      total_duration_seconds_ = duration.duration;
+      break;
+    case Duration::Source::kFileSize:
+      ESP_LOGW(kTag, "calculating duration from filesize");
+      total_duration_seconds_ =
+          bytes_to_samples(duration.duration) / format_.sample_rate;
+      break;
+  }
 }
 
 auto Timer::AddBytes(std::size_t bytes) -> void {
@@ -136,14 +139,6 @@ void AudioTask::Main() {
           if (pcm) {
             if (ForwardPcmStream(*pcm, stream.data())) {
               stream.consume(stream.data().size_bytes());
-            }
-            if (!timer_->has_duration()) {
-              if (stream.info().total_length_seconds()) {
-                timer_->SetLengthSeconds(*stream.info().total_length_seconds());
-              } else {
-                timer_->SetLengthBytes(
-                    stream.info().total_length_bytes().value_or(0));
-              }
             }
             return;
           }
@@ -235,16 +230,20 @@ auto AudioTask::BeginDecoding(InputStream& stream) -> bool {
       .sample_rate = format.sample_rate_hz,
   };
 
-  if (!ConfigureSink(new_format)) {
-    return false;
+  Duration duration;
+  if (format.duration_seconds) {
+    duration.src = Duration::Source::kCodec;
+    duration.duration = *format.duration_seconds;
+  } else if (stream.info().total_length_seconds()) {
+    duration.src = Duration::Source::kLibTags;
+    duration.duration = *stream.info().total_length_seconds();
+  } else {
+    duration.src = Duration::Source::kFileSize;
+    duration.duration = *stream.info().total_length_bytes();
   }
 
-  if (format.duration_seconds) {
-    timer_->SetLengthSeconds(*format.duration_seconds);
-  } else if (stream.info().total_length_seconds()) {
-    timer_->SetLengthSeconds(*stream.info().total_length_seconds());
-  } else {
-    timer_->SetLengthBytes(stream.info().total_length_bytes().value_or(0));
+  if (!ConfigureSink(new_format, duration)) {
+    return false;
   }
 
   return true;
@@ -307,7 +306,11 @@ auto AudioTask::ForwardPcmStream(StreamInfo::Pcm& format,
                                  cpp::span<const std::byte> samples) -> bool {
   // First we need to reconfigure the sink for this sample format.
   if (format != current_output_format_) {
-    if (!ConfigureSink(format)) {
+    Duration d{
+        .src = Duration::Source::kFileSize,
+        .duration = samples.size_bytes(),
+    };
+    if (!ConfigureSink(format, d)) {
       return false;
     }
   }
@@ -319,7 +322,8 @@ auto AudioTask::ForwardPcmStream(StreamInfo::Pcm& format,
   return true;
 }
 
-auto AudioTask::ConfigureSink(const StreamInfo::Pcm& format) -> bool {
+auto AudioTask::ConfigureSink(const StreamInfo::Pcm& format,
+                              const Duration& duration) -> bool {
   if (format != current_output_format_) {
     // The new format is different to the old one. Wait for the sink to drain
     // before continuing.
@@ -337,7 +341,7 @@ auto AudioTask::ConfigureSink(const StreamInfo::Pcm& format) -> bool {
   }
 
   current_output_format_ = format;
-  timer_.reset(new Timer(format));
+  timer_.reset(new Timer(format, duration));
   return true;
 }
 

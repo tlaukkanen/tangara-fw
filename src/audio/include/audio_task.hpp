@@ -18,15 +18,21 @@
 
 namespace audio {
 
+struct Duration {
+  enum class Source {
+    kLibTags,
+    kCodec,
+    kFileSize,
+  };
+  Source src;
+  uint32_t duration;
+};
+
 class Timer {
  public:
-  explicit Timer(StreamInfo::Pcm);
-
-  auto SetLengthSeconds(uint32_t) -> void;
-  auto SetLengthBytes(uint32_t) -> void;
+  Timer(const StreamInfo::Pcm&, const Duration&);
 
   auto AddBytes(std::size_t) -> void;
-  auto has_duration() const -> bool { return has_duration_; }
 
  private:
   auto bytes_to_samples(uint32_t) -> uint32_t;
@@ -36,7 +42,6 @@ class Timer {
   uint32_t current_seconds_;
   uint32_t current_sample_in_second_;
 
-  bool has_duration_;
   uint32_t total_duration_seconds_;
 };
 
@@ -57,7 +62,7 @@ class AudioTask {
 
   auto ForwardPcmStream(StreamInfo::Pcm&, cpp::span<const std::byte>) -> bool;
 
-  auto ConfigureSink(const StreamInfo::Pcm&) -> bool;
+  auto ConfigureSink(const StreamInfo::Pcm&, const Duration&) -> bool;
 
   IAudioSource* source_;
   IAudioSink* sink_;
