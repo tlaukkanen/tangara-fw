@@ -41,7 +41,7 @@ static const char* kTag = "SRC";
 namespace audio {
 
 static constexpr UINT kFileBufferSize = 4096 * 2;
-static constexpr UINT kStreamerBufferSize = 1024;
+static constexpr UINT kStreamerBufferSize = 4096;
 
 static StreamBufferHandle_t sForwardDest = nullptr;
 

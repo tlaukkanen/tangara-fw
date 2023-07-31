@@ -106,7 +106,7 @@ auto Priority() -> UBaseType_t;
 // highest priority.
 template <>
 auto Priority<Type::kAudio>() -> UBaseType_t {
-  return 10;
+  return 11;
 }
 // After audio issues, UI jank is the most noticeable kind of scheduling-induced
 // slowness that the user is likely to notice or care about. Therefore we place

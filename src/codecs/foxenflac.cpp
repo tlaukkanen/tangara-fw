@@ -14,6 +14,8 @@
 
 namespace codecs {
 
+static const char kTag[] = "flac";
+
 FoxenFlacDecoder::FoxenFlacDecoder()
     : flac_(FX_FLAC_ALLOC(FLAC_MAX_BLOCK_SIZE, 2)) {}
 
@@ -28,7 +30,11 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
       fx_flac_process(flac_, reinterpret_cast<const uint8_t*>(input.data()),
                       &bytes_used, NULL, NULL);
   if (state != FLAC_END_OF_METADATA) {
-    return {bytes_used, cpp::fail(Error::kMalformedData)};
+    if (state == FLAC_ERR) {
+      return {bytes_used, cpp::fail(Error::kMalformedData)};
+    } else {
+      return {bytes_used, cpp::fail(Error::kOutOfInput)};
+    }
   }
 
   int64_t channels = fx_flac_get_streaminfo(flac_, FLAC_KEY_N_CHANNELS);
