@@ -250,7 +250,8 @@ auto Database::Update() -> std::future<void> {
         dbPutTrackData(existing_data->Exhume(path));
         dbCreateIndexesForTrack({*existing_data, tags});
       } else if (existing_data->filepath() != path) {
-        ESP_LOGW(kTag, "tag hash collision");
+        ESP_LOGW(kTag, "tag hash collision for %s and %s",
+                 existing_data->filepath().c_str(), path.c_str());
       }
     });
   });
