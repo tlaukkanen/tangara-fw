@@ -16,6 +16,7 @@
 #include "relative_wheel.hpp"
 #include "samd.hpp"
 #include "storage.hpp"
+#include "nvs.hpp"
 #include "tag_parser.hpp"
 #include "tinyfsm.hpp"
 #include "touchwheel.hpp"
@@ -54,6 +55,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
  protected:
   static std::shared_ptr<drivers::Gpios> sGpios;
   static std::shared_ptr<drivers::Samd> sSamd;
+  static std::shared_ptr<drivers::NvsStorage> sNvs;
 
   static std::shared_ptr<drivers::TouchWheel> sTouch;
   static std::shared_ptr<drivers::RelativeWheel> sRelativeTouch;
