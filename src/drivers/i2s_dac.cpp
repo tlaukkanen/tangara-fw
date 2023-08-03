@@ -161,7 +161,6 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
       word_length = 0b10;
       break;
     case BPS_32:
-      // TODO(jacqueline): Error on this? It's not supported anymore.
       slot_config_.data_bit_width = I2S_DATA_BIT_WIDTH_32BIT;
       slot_config_.ws_width = 32;
       word_length = 0b11;

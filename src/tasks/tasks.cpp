@@ -34,6 +34,10 @@ auto Name<Type::kAudio>() -> std::string {
   return "AUDIO";
 }
 template <>
+auto Name<Type::kMixer>() -> std::string {
+  return "MIXER";
+}
+template <>
 auto Name<Type::kDatabase>() -> std::string {
   return "DB";
 }
@@ -77,6 +81,14 @@ auto AllocateStack<Type::kFileStreamer>() -> cpp::span<StackType_t> {
           size};
 }
 
+template <>
+auto AllocateStack<Type::kMixer>() -> cpp::span<StackType_t> {
+  std::size_t size = 4 * 1024;
+  return {static_cast<StackType_t*>(
+              heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+          size};
+}
+
 // Leveldb is designed for non-embedded use cases, where stack space isn't so
 // much of a concern. It therefore uses an eye-wateringly large amount of stack.
 template <>
@@ -104,6 +116,10 @@ auto Priority() -> UBaseType_t;
 
 // Realtime audio is the entire point of this device, so give this task the
 // highest priority.
+template <>
+auto Priority<Type::kMixer>() -> UBaseType_t {
+  return 12;
+}
 template <>
 auto Priority<Type::kAudio>() -> UBaseType_t {
   return 11;

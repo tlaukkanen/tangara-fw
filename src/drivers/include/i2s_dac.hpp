@@ -51,14 +51,12 @@ class I2SDac {
     BPS_32 = I2S_DATA_BIT_WIDTH_32BIT,
   };
   enum SampleRate {
-    SAMPLE_RATE_11_025 = 11025,
-    SAMPLE_RATE_16 = 16000,
-    SAMPLE_RATE_22_05 = 22050,
+    SAMPLE_RATE_8 = 8000,
     SAMPLE_RATE_32 = 32000,
     SAMPLE_RATE_44_1 = 44100,
     SAMPLE_RATE_48 = 48000,
+    SAMPLE_RATE_88_2 = 88200,
     SAMPLE_RATE_96 = 96000,
-    SAMPLE_RATE_192 = 192000,
   };
 
   auto Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate) -> void;

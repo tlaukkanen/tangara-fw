@@ -32,7 +32,7 @@ typedef struct
 
 	int		end_of_input ;
 
-	double	src_ratio ;
+	float src_ratio ;
 } SRC_DATA ;
 
 /*
@@ -89,7 +89,7 @@ int src_process (SRC_STATE *state, SRC_DATA *data) ;
 **	Callback based processing function. Read up to frames worth of data from
 **	the converter int *data and return frames read or -1 on error.
 */
-long src_callback_read (SRC_STATE *state, double src_ratio, long frames, float *data) ;
+long src_callback_read (SRC_STATE *state, float src_ratio, long frames, float *data) ;
 
 /*
 **	Simple interface for performing a single conversion from input buffer to
@@ -119,7 +119,7 @@ const char *src_get_version (void) ;
 **	Returns non zero on error.
 */
 
-int src_set_ratio (SRC_STATE *state, double new_ratio) ;
+int src_set_ratio (SRC_STATE *state, float new_ratio) ;
 
 /*
 **	Get the current channel count.
@@ -142,7 +142,7 @@ int src_reset (SRC_STATE *state) ;
 ** otherwise.
 */
 
-int src_is_valid_ratio (double ratio) ;
+int src_is_valid_ratio (float ratio) ;
 
 /*
 **	Return an error number.

@@ -5,7 +5,7 @@
 namespace drivers {
 
 auto Bluetooth::Enable() -> Bluetooth* {
-    return nullptr;
+  return nullptr;
 }
 
 }  // namespace drivers

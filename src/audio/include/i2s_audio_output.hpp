@@ -35,8 +35,8 @@ class I2SAudioOutput : public IAudioSink {
   auto AdjustVolumeUp() -> bool override;
   auto AdjustVolumeDown() -> bool override;
 
-  auto Configure(const StreamInfo::Pcm& format) -> bool override;
-  auto Send(const cpp::span<std::byte>& data) -> void override;
+  auto PrepareFormat(const StreamInfo::Pcm&) -> StreamInfo::Pcm override;
+  auto Configure(const StreamInfo::Pcm& format) -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;

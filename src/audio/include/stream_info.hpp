@@ -56,6 +56,18 @@ class StreamInfo {
     bool operator==(const Encoded&) const = default;
   };
 
+  /*
+   * Two-channel, interleaved, 32-bit floating point pcm samples.
+   */
+  struct FloatingPointPcm {
+    // Number of channels in this stream.
+    uint8_t channels;
+    // The sample rate.
+    uint32_t sample_rate;
+
+    bool operator==(const FloatingPointPcm&) const = default;
+  };
+
   struct Pcm {
     // Number of channels in this stream.
     uint8_t channels;
@@ -64,10 +76,14 @@ class StreamInfo {
     // The sample rate.
     uint32_t sample_rate;
 
+    auto real_bytes_per_sample() const -> uint8_t {
+      return bits_per_sample == 16 ? 2 : 4;
+    }
+
     bool operator==(const Pcm&) const = default;
   };
 
-  typedef std::variant<std::monostate, Encoded, Pcm> Format;
+  typedef std::variant<std::monostate, Encoded, FloatingPointPcm, Pcm> Format;
   auto format() const -> const Format& { return format_; }
   auto set_format(Format f) -> void { format_ = f; }
 
@@ -98,6 +114,12 @@ class RawStream {
 
   auto info() -> StreamInfo& { return info_; }
   auto data() -> cpp::span<std::byte>;
+  template <typename T>
+  auto data_as() -> cpp::span<T> {
+    auto orig = data();
+    return {reinterpret_cast<T*>(orig.data()), orig.size_bytes() / sizeof(T)};
+  }
+  auto empty() const -> bool { return info_.bytes_in_stream() == 0; }
 
  private:
   StreamInfo info_;
@@ -114,6 +136,12 @@ class InputStream {
   const StreamInfo& info() const;
 
   cpp::span<const std::byte> data() const;
+  template <typename T>
+  auto data_as() const -> cpp::span<const T> {
+    auto orig = data();
+    return {reinterpret_cast<const T*>(orig.data()),
+            orig.size_bytes() / sizeof(T)};
+  }
 
  private:
   RawStream* raw_;
@@ -131,6 +159,11 @@ class OutputStream {
   const StreamInfo& info() const;
 
   cpp::span<std::byte> data() const;
+  template <typename T>
+  auto data_as() const -> cpp::span<T> {
+    auto orig = data();
+    return {reinterpret_cast<T*>(orig.data()), orig.size_bytes() / sizeof(T)};
+  }
 
  private:
   RawStream* raw_;

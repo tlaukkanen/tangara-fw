@@ -36,6 +36,8 @@ enum class Type {
   kFileStreamer,
   // The main audio pipeline task.
   kAudio,
+  // TODO
+  kMixer,
   // Task for running database queries.
   kDatabase,
   // Task for internal database operations
