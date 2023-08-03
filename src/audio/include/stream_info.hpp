@@ -16,6 +16,7 @@
 #include <utility>
 #include <variant>
 
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/ringbuf.h"
 #include "freertos/stream_buffer.h"
@@ -110,6 +111,7 @@ class OutputStream;
 class RawStream {
  public:
   explicit RawStream(std::size_t size);
+  RawStream(std::size_t size, uint32_t);
   ~RawStream();
 
   auto info() -> StreamInfo& { return info_; }

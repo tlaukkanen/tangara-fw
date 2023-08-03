@@ -20,11 +20,11 @@
 
 static constexpr char kTag[] = "mixer";
 
-static constexpr std::size_t kSourceBufferLength = 4 * 1024;
-static constexpr std::size_t kInputBufferLength = 4 * 1024;
-static constexpr std::size_t kReformatBufferLength = 4 * 1024;
+static constexpr std::size_t kSourceBufferLength = 2 * 1024;
+static constexpr std::size_t kInputBufferLength = 2 * 1024;
+static constexpr std::size_t kReformatBufferLength = 8 * 1024;
 static constexpr std::size_t kResampleBufferLength = kReformatBufferLength;
-static constexpr std::size_t kQuantisedBufferLength = 2 * 1024;
+static constexpr std::size_t kQuantisedBufferLength = 1 * 1024;
 
 namespace audio {
 
@@ -35,8 +35,8 @@ SinkMixer::SinkMixer(StreamBufferHandle_t dest)
       source_(xStreamBufferCreate(kSourceBufferLength, 1)),
       sink_(dest) {
   input_stream_.reset(new RawStream(kInputBufferLength));
-  floating_point_stream_.reset(new RawStream(kReformatBufferLength));
-  resampled_stream_.reset(new RawStream(kResampleBufferLength));
+  floating_point_stream_.reset(new RawStream(kReformatBufferLength, MALLOC_CAP_SPIRAM));
+  resampled_stream_.reset(new RawStream(kResampleBufferLength, MALLOC_CAP_SPIRAM));
 
   quantisation_buffer_ = {
       reinterpret_cast<std::byte*>(heap_caps_malloc(

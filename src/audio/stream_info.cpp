@@ -30,6 +30,14 @@ RawStream::RawStream(std::size_t size)
   assert(buffer_ != NULL);
 }
 
+RawStream::RawStream(std::size_t size, uint32_t caps)
+    : info_(),
+      buffer_size_(size),
+      buffer_(reinterpret_cast<std::byte*>(
+          heap_caps_malloc(size, caps))) {
+  assert(buffer_ != NULL);
+}
+
 RawStream::~RawStream() {
   heap_caps_free(buffer_);
 }
