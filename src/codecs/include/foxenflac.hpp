@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "foxen/flac.h"
+#include "sample.hpp"
 #include "span.hpp"
 
 #include "codec.hpp"
@@ -26,7 +27,7 @@ class FoxenFlacDecoder : public ICodec {
   ~FoxenFlacDecoder();
 
   auto BeginStream(cpp::span<const std::byte>) -> Result<OutputFormat> override;
-  auto ContinueStream(cpp::span<const std::byte>, cpp::span<std::byte>)
+  auto ContinueStream(cpp::span<const std::byte>, cpp::span<sample::Sample>)
       -> Result<OutputInfo> override;
   auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
       -> Result<void> override;

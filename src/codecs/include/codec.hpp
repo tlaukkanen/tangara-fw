@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 
+#include "sample.hpp"
 #include "result.hpp"
 #include "span.hpp"
 #include "types.hpp"
@@ -61,7 +62,6 @@ class ICodec {
 
   struct OutputFormat {
     uint8_t num_channels;
-    uint8_t bits_per_sample;
     uint32_t sample_rate_hz;
 
     std::optional<uint32_t> duration_seconds;
@@ -76,7 +76,7 @@ class ICodec {
       -> Result<OutputFormat> = 0;
 
   struct OutputInfo {
-    std::size_t bytes_written;
+    std::size_t samples_written;
     bool is_finished_writing;
   };
 
@@ -84,7 +84,7 @@ class ICodec {
    * Writes PCM samples to the given output buffer.
    */
   virtual auto ContinueStream(cpp::span<const std::byte> input,
-                              cpp::span<std::byte> output)
+                              cpp::span<sample::Sample> output)
       -> Result<OutputInfo> = 0;
 
   virtual auto SeekStream(cpp::span<const std::byte> input,

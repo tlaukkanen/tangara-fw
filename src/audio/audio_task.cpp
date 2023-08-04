@@ -34,6 +34,7 @@
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
 #include "pipeline.hpp"
+#include "sample.hpp"
 #include "sink_mixer.hpp"
 #include "span.hpp"
 
@@ -225,7 +226,7 @@ auto AudioTask::BeginDecoding(InputStream& stream) -> bool {
   codecs::ICodec::OutputFormat format = res.second.value();
   StreamInfo::Pcm new_format{
       .channels = format.num_channels,
-      .bits_per_sample = format.bits_per_sample,
+      .bits_per_sample = 32,
       .sample_rate = format.sample_rate_hz,
   };
 
@@ -255,7 +256,8 @@ auto AudioTask::ContinueDecoding(InputStream& stream) -> bool {
   while (!stream.data().empty()) {
     OutputStream writer{codec_buffer_.get()};
 
-    auto res = codec_->ContinueStream(stream.data(), writer.data());
+    auto res =
+        codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
 
     stream.consume(res.first);
 
@@ -266,7 +268,7 @@ auto AudioTask::ContinueDecoding(InputStream& stream) -> bool {
         return false;
       }
     } else {
-      writer.add(res.second->bytes_written);
+      writer.add(res.second->samples_written * sizeof(sample::Sample));
 
       InputStream reader{codec_buffer_.get()};
       SendToSink(reader);
@@ -295,12 +297,12 @@ auto AudioTask::FinishDecoding(InputStream& stream) -> void {
     InputStream padded_stream{mad_buffer.get()};
 
     OutputStream writer{codec_buffer_.get()};
-    auto res = codec_->ContinueStream(stream.data(), writer.data());
+    auto res = codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
     if (res.second.has_error()) {
       return;
     }
 
-    writer.add(res.second->bytes_written);
+    writer.add(res.second->samples_written * sizeof(sample::Sample));
 
     InputStream reader{codec_buffer_.get()};
     SendToSink(reader);

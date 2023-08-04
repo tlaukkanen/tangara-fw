@@ -77,7 +77,7 @@ class StreamInfo {
     // The sample rate.
     uint32_t sample_rate;
 
-    auto real_bytes_per_sample() const -> uint8_t {
+    auto bytes_per_sample() const -> uint8_t {
       return bits_per_sample == 16 ? 2 : 4;
     }
 

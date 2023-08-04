@@ -17,23 +17,10 @@
 #include "codec.hpp"
 #include "esp_log.h"
 #include "result.hpp"
+#include "sample.hpp"
 #include "types.hpp"
 
 namespace codecs {
-
-static uint32_t mad_fixed_to_pcm(mad_fixed_t sample, uint8_t bits) {
-  // Round the bottom bits.
-  sample += (1L << (MAD_F_FRACBITS - bits));
-
-  // Clip the leftover bits to within range.
-  if (sample >= MAD_F_ONE)
-    sample = MAD_F_ONE - 1;
-  else if (sample < -MAD_F_ONE)
-    sample = -MAD_F_ONE;
-
-  // Quantize.
-  return sample >> (MAD_F_FRACBITS + 1 - bits);
-}
 
 MadMp3Decoder::MadMp3Decoder() {
   mad_stream_init(&stream_);
@@ -83,7 +70,6 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
   uint8_t channels = MAD_NCHANNELS(&header);
   OutputFormat output{
       .num_channels = channels,
-      .bits_per_sample = 24,  // We always scale to 24 bits
       .sample_rate_hz = header.samplerate,
       .duration_seconds = {},
       .bits_per_second = {},
@@ -100,7 +86,7 @@ auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
 }
 
 auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
-                                   cpp::span<std::byte> output)
+                                   cpp::span<sample::Sample> output)
     -> Result<OutputInfo> {
   std::size_t bytes_read = 0;
   if (current_sample_ < 0) {
@@ -133,32 +119,24 @@ auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
     bytes_read = GetBytesUsed(input.size_bytes());
   }
 
-  size_t output_byte = 0;
+  size_t output_sample = 0;
   while (current_sample_ < synth_.pcm.length) {
-    if (output_byte + (4 * synth_.pcm.channels) >= output.size()) {
-      // We can't fit the next sample into the buffer. Stop now, and also avoid
-      // writing the sample for only half the channels.
-      return {bytes_read, OutputInfo{.bytes_written = output_byte,
+    if (output_sample + synth_.pcm.channels >= output.size()) {
+      // We can't fit the next full frame into the buffer.
+      return {bytes_read, OutputInfo{.samples_written = output_sample,
                                      .is_finished_writing = false}};
     }
 
     for (int channel = 0; channel < synth_.pcm.channels; channel++) {
-      uint32_t sample_24 =
-          mad_fixed_to_pcm(synth_.pcm.samples[channel][current_sample_], 24);
-
-      // 24 bit samples must still be aligned to 32 bits. The LSB is ignored.
-      output[output_byte++] = static_cast<std::byte>(0);
-
-      output[output_byte++] = static_cast<std::byte>((sample_24)&0xFF);
-      output[output_byte++] = static_cast<std::byte>((sample_24 >> 8) & 0xFF);
-      output[output_byte++] = static_cast<std::byte>((sample_24 >> 16) & 0xFF);
+      output[output_sample++] =
+          sample::FromMad(synth_.pcm.samples[channel][current_sample_]);
     }
     current_sample_++;
   }
 
   // We wrote everything! Reset, ready for the next frame.
   current_sample_ = -1;
-  return {bytes_read, OutputInfo{.bytes_written = output_byte,
+  return {bytes_read, OutputInfo{.samples_written = output_sample,
                                  .is_finished_writing = true}};
 }
 
