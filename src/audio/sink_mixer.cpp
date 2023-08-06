@@ -15,7 +15,6 @@
 #include "freertos/projdefs.h"
 #include "resample.hpp"
 #include "sample.hpp"
-#include "samplerate.h"
 
 #include "stream_info.hpp"
 #include "tasks.hpp"
@@ -23,7 +22,7 @@
 static constexpr char kTag[] = "mixer";
 
 static constexpr std::size_t kSourceBufferLength = 2 * 1024;
-static constexpr std::size_t kSampleBufferLength = 4 * 1024;
+static constexpr std::size_t kSampleBufferLength = 2 * 1024;
 
 namespace audio {
 
@@ -33,8 +32,8 @@ SinkMixer::SinkMixer(StreamBufferHandle_t dest)
       resampler_(nullptr),
       source_(xStreamBufferCreate(kSourceBufferLength, 1)),
       sink_(dest) {
-  input_stream_.reset(new RawStream(kSampleBufferLength));
-  resampled_stream_.reset(new RawStream(kSampleBufferLength));
+  input_stream_.reset(new RawStream(kSampleBufferLength, MALLOC_CAP_SPIRAM));
+  resampled_stream_.reset(new RawStream(kSampleBufferLength, MALLOC_CAP_SPIRAM));
 
   tasks::StartPersistent<tasks::Type::kMixer>([&]() { Main(); });
 }
@@ -187,9 +186,6 @@ auto SinkMixer::Resample(InputStream& in, OutputStream& out) -> bool {
 
   auto res = resampler_->Process(in.data_as<sample::Sample>(),
                                  out.data_as<sample::Sample>(), false);
-
-  ESP_LOGI(kTag, "resampler sent %u samples, consumed %u, produced %u",
-           in.data().size(), res.first, res.second);
 
   in.consume(res.first * sizeof(sample::Sample));
   out.add(res.first * sizeof(sample::Sample));

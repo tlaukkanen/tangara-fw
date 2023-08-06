@@ -127,7 +127,7 @@ auto I2SAudioOutput::PrepareFormat(const StreamInfo::Pcm& orig)
   return StreamInfo::Pcm{
       .channels = std::min<uint8_t>(orig.channels, 2),
       .bits_per_sample = 16,
-      .sample_rate = 48000,
+      .sample_rate = 44100,
   };
 }
 

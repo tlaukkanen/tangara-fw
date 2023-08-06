@@ -231,7 +231,8 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
                         cpp::span<sample::Sample> output,
                         bool end_of_data) -> std::pair<size_t, size_t> {
   size_t samples_used = 0;
-  std::vector<size_t> samples_produced = {num_channels_, 0};
+  std::vector<size_t> samples_produced = {};
+  samples_produced.resize(num_channels_, 0);
   size_t total_samples_produced = 0;
 
   size_t slop = (factor_ >> kPhaseBits) + 1;

@@ -12,7 +12,6 @@
 
 #include "resample.hpp"
 #include "sample.hpp"
-#include "samplerate.h"
 
 #include "audio_decoder.hpp"
 #include "audio_sink.hpp"
