@@ -48,11 +48,24 @@
 namespace ui {
 
 static const char* kTag = "lv_task";
+static const TickType_t kMaxFrameRate = pdMS_TO_TICKS(33);
+
+static int sTimerId;
+static SemaphoreHandle_t sFrameSemaphore;
+
+auto next_frame(TimerHandle_t) {
+  xSemaphoreGive(sFrameSemaphore);
+}
 
 void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
               std::weak_ptr<drivers::Display> weak_display) {
   ESP_LOGI(kTag, "init lvgl");
   lv_init();
+
+  sFrameSemaphore = xSemaphoreCreateBinary();
+  auto timer =
+      xTimerCreate("lvgl_frame", kMaxFrameRate, pdTRUE, &sTimerId, next_frame);
+  xTimerStart(timer, portMAX_DELAY);
 
   lv_theme_t* base_theme = lv_theme_basic_init(NULL);
   lv_disp_set_theme(NULL, base_theme);
@@ -80,9 +93,9 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
     }
 
     lv_task_handler();
-    // 30 FPS
-    // TODO(jacqueline): make this dynamic
-    vTaskDelay(pdMS_TO_TICKS(33));
+
+    // Wait for the signal to loop again.
+    xSemaphoreTake(sFrameSemaphore, portMAX_DELAY);
   }
 }
 
