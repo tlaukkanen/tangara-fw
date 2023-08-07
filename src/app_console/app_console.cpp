@@ -7,11 +7,13 @@
 #include "app_console.hpp"
 
 #include <dirent.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -25,6 +27,7 @@
 #include "esp_log.h"
 #include "event_queue.hpp"
 #include "ff.h"
+#include "freertos/projdefs.h"
 #include "index.hpp"
 #include "track.hpp"
 
@@ -324,6 +327,98 @@ void RegisterDbDump() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdTaskStats(int argc, char** argv) {
+  static const std::string usage = "usage: task_stats";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  // Pad the number of tasks so that uxTaskGetSystemState still returns info if
+  // new tasks are started during measurement.
+  size_t num_tasks = uxTaskGetNumberOfTasks() + 4;
+  TaskStatus_t* start_status = new TaskStatus_t[num_tasks];
+  TaskStatus_t* end_status = new TaskStatus_t[num_tasks];
+  uint32_t start_elapsed_ticks = 0;
+  uint32_t end_elapsed_ticks = 0;
+
+  size_t start_num_tasks =
+      uxTaskGetSystemState(start_status, num_tasks, &start_elapsed_ticks);
+
+  vTaskDelay(pdMS_TO_TICKS(2500));
+
+  size_t end_num_tasks =
+      uxTaskGetSystemState(end_status, num_tasks, &end_elapsed_ticks);
+
+  std::vector<std::pair<uint32_t, std::string>> info_strings;
+  for (int i = 0; i < start_num_tasks; i++) {
+    int k = -1;
+    for (int j = 0; j < end_num_tasks; j++) {
+      if (start_status[i].xHandle == end_status[j].xHandle) {
+        k = j;
+        break;
+      }
+    }
+
+    if (k >= 0) {
+      uint32_t run_time =
+          end_status[k].ulRunTimeCounter - start_status[i].ulRunTimeCounter;
+
+      float time_percent =
+          static_cast<float>(run_time) /
+          static_cast<float>(end_elapsed_ticks - start_elapsed_ticks);
+
+      auto depth = uxTaskGetStackHighWaterMark2(start_status[i].xHandle);
+      float depth_kib = static_cast<float>(depth) / 1024.0f;
+
+      std::ostringstream str;
+      str << start_status[i].pcTaskName;
+      if (str.str().size() < 8) {
+        str << "\t\t";
+      } else {
+        str << "\t";
+      }
+
+      str << std::fixed << std::setprecision(1) << depth_kib;
+      str << " KiB";
+      if (depth_kib >= 10) {
+        str << "\t";
+      } else {
+        str << "\t\t";
+      }
+
+      str << std::fixed << std::setprecision(1) << time_percent * 100;
+      str << "%";
+
+      info_strings.push_back({run_time, str.str()});
+    }
+  }
+
+  std::sort(info_strings.begin(), info_strings.end(),
+            [](const auto& first, const auto& second) {
+              return first.first >= second.first;
+            });
+
+  std::cout << "name\t\tfree stack\trun time" << std::endl;
+  for (const auto& i : info_strings) {
+    std::cout << i.second << std::endl;
+  }
+
+  delete[] start_status;
+  delete[] end_status;
+
+  return 0;
+}
+
+void RegisterTaskStates() {
+  esp_console_cmd_t cmd{.command = "task_stats",
+                        .help = "prints performance info for all tasks",
+                        .hint = NULL,
+                        .func = &CmdTaskStats,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -336,6 +431,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterDbTracks();
   RegisterDbIndex();
   RegisterDbDump();
+  RegisterTaskStates();
 }
 
 }  // namespace console
