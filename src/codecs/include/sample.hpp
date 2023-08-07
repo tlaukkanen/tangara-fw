@@ -52,8 +52,14 @@ constexpr auto FromMad(mad_fixed_t src) -> Sample {
   return FromSigned(src >> (MAD_F_FRACBITS + 1 - 24), 24);
 }
 
-constexpr auto ToSigned16Bit(Sample src) -> uint16_t {
+constexpr auto ToSigned16Bit(Sample src) -> int16_t {
   return src >> 16;
+}
+
+static constexpr float kFactor = 1.0f / static_cast<float>(INT32_MAX);
+
+constexpr auto ToFloat(Sample src) -> float {
+  return src * kFactor;
 }
 
 }  // namespace sample

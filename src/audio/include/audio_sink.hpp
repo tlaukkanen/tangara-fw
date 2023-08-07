@@ -17,7 +17,6 @@ namespace audio {
 
 class IAudioSink {
  private:
-  // TODO: tune. at least about 12KiB seems right for mp3
   static const std::size_t kDrainBufferSize = 24 * 1024;
   StreamBufferHandle_t stream_;
 

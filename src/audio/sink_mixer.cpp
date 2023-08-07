@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
+#include "idf_additions.h"
 #include "resample.hpp"
 #include "sample.hpp"
 
@@ -21,8 +22,8 @@
 
 static constexpr char kTag[] = "mixer";
 
-static constexpr std::size_t kSourceBufferLength = 2 * 1024;
-static constexpr std::size_t kSampleBufferLength = 2 * 1024;
+static constexpr std::size_t kSourceBufferLength = 8 * 1024;
+static constexpr std::size_t kSampleBufferLength = 240 * 2 * sizeof(int32_t);
 
 namespace audio {
 
@@ -30,12 +31,14 @@ SinkMixer::SinkMixer(StreamBufferHandle_t dest)
     : commands_(xQueueCreate(1, sizeof(Args))),
       is_idle_(xSemaphoreCreateBinary()),
       resampler_(nullptr),
-      source_(xStreamBufferCreate(kSourceBufferLength, 1)),
+      source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
+                                          1,
+                                          MALLOC_CAP_SPIRAM)),
       sink_(dest) {
-  input_stream_.reset(new RawStream(kSampleBufferLength, MALLOC_CAP_SPIRAM));
-  resampled_stream_.reset(new RawStream(kSampleBufferLength, MALLOC_CAP_SPIRAM));
+  input_stream_.reset(new RawStream(kSampleBufferLength));
+  resampled_stream_.reset(new RawStream(kSampleBufferLength));
 
-  tasks::StartPersistent<tasks::Type::kMixer>([&]() { Main(); });
+  tasks::StartPersistent<tasks::Type::kMixer>(1, [&]() { Main(); });
 }
 
 SinkMixer::~SinkMixer() {
@@ -154,13 +157,13 @@ auto SinkMixer::HandleBytes() -> void {
       cpp::span<sample::Sample> src =
           output_source->data_as<sample::Sample>().first(
               output_source->info().bytes_in_stream() / sizeof(sample::Sample));
-      cpp::span<int16_t> dest = output_source->data_as<int16_t>().first(
-          output_source->info().bytes_in_stream() / sizeof(int16_t));
+      cpp::span<int16_t> dest{reinterpret_cast<int16_t*>(src.data()),
+                              src.size()};
 
       ApplyDither(src, 16);
       Downscale(src, dest);
 
-      output_source->info().bytes_in_stream() /= 2;
+      output_source->info().bytes_in_stream() = dest.size_bytes();
     }
 
     InputStream output{output_source};

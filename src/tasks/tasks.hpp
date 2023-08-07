@@ -59,9 +59,18 @@ template <Type t>
 auto StartPersistent(const std::function<void(void)>& fn) -> void {
   StaticTask_t* task_buffer = new StaticTask_t;
   cpp::span<StackType_t> stack = AllocateStack<t>();
+  xTaskCreateStatic(&PersistentMain, Name<t>().c_str(),
+                                stack.size(), new std::function<void(void)>(fn),
+                                Priority<t>(), stack.data(), task_buffer);
+}
+
+template <Type t>
+auto StartPersistent(BaseType_t core, const std::function<void(void)>& fn) -> void {
+  StaticTask_t* task_buffer = new StaticTask_t;
+  cpp::span<StackType_t> stack = AllocateStack<t>();
   xTaskCreateStaticPinnedToCore(&PersistentMain, Name<t>().c_str(),
                                 stack.size(), new std::function<void(void)>(fn),
-                                Priority<t>(), stack.data(), task_buffer, 0);
+                                Priority<t>(), stack.data(), task_buffer, core);
 }
 
 class Worker {
