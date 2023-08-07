@@ -16,8 +16,8 @@
 #include <string>
 #include <utility>
 
-#include "sample.hpp"
 #include "result.hpp"
+#include "sample.hpp"
 #include "span.hpp"
 #include "types.hpp"
 

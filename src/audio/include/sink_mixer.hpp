@@ -40,9 +40,10 @@ class SinkMixer {
   auto HandleBytes() -> void;
 
   auto Resample(InputStream&, OutputStream&) -> bool;
-  auto ApplyDither(cpp::span<sample::Sample> samples, uint_fast8_t bits) -> void;
+  auto ApplyDither(cpp::span<sample::Sample> samples, uint_fast8_t bits)
+      -> void;
   auto Downscale(cpp::span<sample::Sample>, cpp::span<int16_t>) -> void;
- 
+
   enum class Command {
     kReadBytes,
     kSetSourceFormat,

@@ -137,7 +137,7 @@ auto SinkMixer::HandleBytes() -> void {
     return;
   }
 
-  while (!input_stream_->empty()) {
+  while (input_stream_->info().bytes_in_stream() >= sizeof(sample::Sample)) {
     RawStream* output_source;
     if (pcm->sample_rate != target_format_.sample_rate) {
       OutputStream resampled_writer{resampled_stream_.get()};
@@ -149,6 +149,9 @@ auto SinkMixer::HandleBytes() -> void {
     } else {
       output_source = input_stream_.get();
     }
+
+    size_t bytes_consumed = output_source->info().bytes_in_stream();
+    size_t bytes_to_send = output_source->info().bytes_in_stream();
 
     if (target_format_.bits_per_sample == 16) {
       // This is slightly scary; we're basically reaching into the internals of
@@ -163,19 +166,20 @@ auto SinkMixer::HandleBytes() -> void {
       ApplyDither(src, 16);
       Downscale(src, dest);
 
-      output_source->info().bytes_in_stream() = dest.size_bytes();
+      bytes_consumed = src.size_bytes();
+      bytes_to_send = src.size_bytes() / 2;
     }
 
     InputStream output{output_source};
     cpp::span<const std::byte> buf = output.data();
 
     size_t bytes_sent = 0;
-    while (bytes_sent < buf.size_bytes()) {
-      auto cropped = buf.subspan(bytes_sent);
+    while (bytes_sent < bytes_to_send) {
+      auto cropped = buf.subspan(bytes_sent, bytes_to_send - bytes_sent);
       bytes_sent += xStreamBufferSend(sink_, cropped.data(),
                                       cropped.size_bytes(), portMAX_DELAY);
     }
-    output.consume(bytes_sent);
+    output.consume(bytes_consumed);
   }
 }
 

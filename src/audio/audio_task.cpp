@@ -297,7 +297,8 @@ auto AudioTask::FinishDecoding(InputStream& stream) -> void {
     InputStream padded_stream{mad_buffer.get()};
 
     OutputStream writer{codec_buffer_.get()};
-    auto res = codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
+    auto res =
+        codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
     if (res.second.has_error()) {
       return;
     }

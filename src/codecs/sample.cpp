@@ -268,8 +268,7 @@ void foconv(int* src, uint8_t* dst, int bits, int skip, int count) {
     }
   }
 }
-    
-    
-  }
-  
-}
+
+}  // namespace sample
+
+}  // namespace audio

@@ -23,7 +23,7 @@ class Resampler {
 
   auto Process(cpp::span<const sample::Sample> input,
                cpp::span<sample::Sample> output,
-               bool end_of_data) -> std::pair<size_t,size_t>;
+               bool end_of_data) -> std::pair<size_t, size_t>;
 
  private:
   auto Subsample(int channel) -> float;
