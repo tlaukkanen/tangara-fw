@@ -13,6 +13,8 @@
 #include <string>
 #include <utility>
 
+#include "ogg.hpp"
+#include "ogg/ogg.h"
 #include "opus.h"
 #include "sample.hpp"
 #include "span.hpp"
@@ -44,6 +46,7 @@ class XiphOpusDecoder : public ICodec {
       -> Result<void> override;
 
  private:
+  OggContainer ogg_;
   OpusDecoder* opus_;
   cpp::span<int16_t> sample_buffer_;
   int32_t pos_in_buffer_;

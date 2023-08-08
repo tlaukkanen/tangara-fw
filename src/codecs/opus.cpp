@@ -18,6 +18,7 @@
 
 #include "codec.hpp"
 #include "esp_log.h"
+#include "ogg/ogg.h"
 #include "opus.h"
 #include "opus_types.h"
 #include "result.hpp"
@@ -32,11 +33,7 @@ static constexpr char kTag[] = "opus";
 // this function will not be capable of decoding some packets"
 static constexpr size_t kSampleBufferSize = 5760;
 
-XiphOpusDecoder::XiphOpusDecoder() {
-  int err;
-  opus_ = opus_decoder_create(48000, 2, &err);
-  assert(err == OPUS_OK);
-
+XiphOpusDecoder::XiphOpusDecoder() : opus_(nullptr) {
   pos_in_buffer_ = 0;
   sample_buffer_ = {reinterpret_cast<opus_int16*>(
                         heap_caps_calloc(kSampleBufferSize, sizeof(opus_int16),
@@ -44,23 +41,36 @@ XiphOpusDecoder::XiphOpusDecoder() {
                     kSampleBufferSize};
 }
 XiphOpusDecoder::~XiphOpusDecoder() {
-  opus_decoder_destroy(opus_);
+  if (opus_ != nullptr) {
+    opus_decoder_destroy(opus_);
+  }
   heap_caps_free(sample_buffer_.data());
 }
 
 auto XiphOpusDecoder::BeginStream(const cpp::span<const std::byte> input)
     -> Result<OutputFormat> {
-  return {0, OutputFormat{
-                 .num_channels = 2,
-                 .sample_rate_hz = 48000,
-             }};
-}
+  ogg_.AddBytes(input);
+  if (!ogg_.HasNextPacket()) {
+    return {input.size(), cpp::fail(Error::kOutOfInput)};
+  }
+  auto packet = ogg_.NextPacket();
+  int num_channels = opus_packet_get_nb_channels(packet.data());
+  if (num_channels > 2) {
+    // Too many channels; we can't handle this.
+    // TODO: better error
+    return {input.size(), cpp::fail(Error::kMalformedData)};
+  }
 
-auto read_uint32(cpp::span<const std::byte> src) -> uint32_t {
-  return static_cast<uint32_t>(src[0] << 24) |
-         static_cast<uint32_t>(src[1] << 16) |
-         static_cast<uint32_t>(src[2] << 8) |
-         static_cast<uint32_t>(src[3] << 0);
+  int err;
+  opus_ = opus_decoder_create(48000, num_channels, &err);
+  if (err != OPUS_OK) {
+    return {input.size(), cpp::fail(Error::kInternalError)};
+  }
+
+  return {input.size(), OutputFormat{
+                            .num_channels = static_cast<uint8_t>(num_channels),
+                            .sample_rate_hz = 48000,
+                        }};
 }
 
 auto XiphOpusDecoder::ContinueStream(cpp::span<const std::byte> input,
@@ -69,26 +79,20 @@ auto XiphOpusDecoder::ContinueStream(cpp::span<const std::byte> input,
   size_t bytes_used = 0;
   if (pos_in_buffer_ >= samples_in_buffer_) {
     ESP_LOGI(kTag, "sample buffer is empty. parsing more.");
-    if (input.size() < 4) {
-      return {0, cpp::fail(Error::kOutOfInput)};
+    if (!ogg_.HasNextPacket()) {
+      bytes_used = input.size();
+      ogg_.AddBytes(input);
     }
-    uint32_t payload_length = read_uint32(input);
-    ESP_LOGI(kTag, "payload length is %lu", payload_length);
-
-    if (input.size() - 4 < payload_length) {
-      ESP_LOGI(kTag, "input too small for payload");
-      return {0, cpp::fail(Error::kOutOfInput)};
+    if (!ogg_.HasNextPacket()) {
+      return {bytes_used, cpp::fail(Error::kOutOfInput)};
     }
 
-    // Next 4 bytes are the 'final range'.
-    // uint32_t enc_final_range = read_uint32(input.subspan(4));
-
-    bytes_used = payload_length + 8;
+    auto packet = ogg_.NextPacket();
 
     pos_in_buffer_ = 0;
-    samples_in_buffer_ = opus_decode(
-        opus_, reinterpret_cast<const unsigned char*>(input.data() + 8),
-        payload_length, sample_buffer_.data(), sample_buffer_.size(), 0);
+    samples_in_buffer_ =
+        opus_decode(opus_, packet.data(), packet.size_bytes(),
+                    sample_buffer_.data(), sample_buffer_.size(), 0);
 
     if (samples_in_buffer_ < 0) {
       ESP_LOGE(kTag, "error decoding stream");
