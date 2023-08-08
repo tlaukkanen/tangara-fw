@@ -17,6 +17,7 @@ namespace system_fsm {
 
 std::shared_ptr<drivers::Gpios> SystemState::sGpios;
 std::shared_ptr<drivers::Samd> SystemState::sSamd;
+std::shared_ptr<drivers::NvsStorage> SystemState::sNvs;
 
 std::shared_ptr<drivers::TouchWheel> SystemState::sTouch;
 std::shared_ptr<drivers::RelativeWheel> SystemState::sRelativeTouch;

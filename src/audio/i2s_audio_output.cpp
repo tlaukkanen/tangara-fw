@@ -115,10 +115,20 @@ auto I2SAudioOutput::AdjustVolumeDown() -> bool {
   return true;
 }
 
-auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> bool {
+auto I2SAudioOutput::PrepareFormat(const StreamInfo::Pcm& orig)
+    -> StreamInfo::Pcm {
+  return StreamInfo::Pcm{
+      .channels = std::min<uint8_t>(orig.channels, 2),
+      .bits_per_sample = std::clamp<uint8_t>(orig.bits_per_sample, 16, 32),
+      .sample_rate = 44100,
+      //.sample_rate = std::clamp<uint32_t>(orig.sample_rate, 8000, 96000),
+  };
+}
+
+auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> void {
   if (current_config_ && pcm == *current_config_) {
     ESP_LOGI(kTag, "ignoring unchanged format");
-    return true;
+    return;
   }
 
   ESP_LOGI(kTag, "incoming audio stream: %u ch %u bpp @ %lu Hz", pcm.channels,
@@ -134,7 +144,7 @@ auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> bool {
       break;
     default:
       ESP_LOGE(kTag, "dropping stream with out of bounds channels");
-      return false;
+      return;
   }
 
   drivers::I2SDac::BitsPerSample bps;
@@ -150,30 +160,36 @@ auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> bool {
       break;
     default:
       ESP_LOGE(kTag, "dropping stream with unknown bps");
-      return false;
+      return;
   }
 
   drivers::I2SDac::SampleRate sample_rate;
   switch (pcm.sample_rate) {
+    case 8000:
+      sample_rate = drivers::I2SDac::SAMPLE_RATE_8;
+      break;
+    case 32000:
+      sample_rate = drivers::I2SDac::SAMPLE_RATE_32;
+      break;
     case 44100:
       sample_rate = drivers::I2SDac::SAMPLE_RATE_44_1;
       break;
     case 48000:
       sample_rate = drivers::I2SDac::SAMPLE_RATE_48;
       break;
+    case 88200:
+      sample_rate = drivers::I2SDac::SAMPLE_RATE_88_2;
+      break;
+    case 96000:
+      sample_rate = drivers::I2SDac::SAMPLE_RATE_96;
+      break;
     default:
       ESP_LOGE(kTag, "dropping stream with unknown rate");
-      return false;
+      return;
   }
 
   dac_->Reconfigure(ch, bps, sample_rate);
   current_config_ = pcm;
-
-  return true;
-}
-
-auto I2SAudioOutput::Send(const cpp::span<std::byte>& data) -> void {
-  dac_->WriteData(data);
 }
 
 }  // namespace audio

@@ -5,7 +5,7 @@
 idf_component_register(
   SRCS "audio_task.cpp" "chunk.cpp" "fatfs_audio_input.cpp"
   "stream_message.cpp" "i2s_audio_output.cpp" "stream_buffer.cpp" "track_queue.cpp"
-  "stream_event.cpp" "stream_info.cpp" "audio_fsm.cpp"
+  "stream_event.cpp" "stream_info.cpp" "audio_fsm.cpp" "sink_mixer.cpp" "resample.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory" "tinyfsm" "database" "system_fsm" "playlist")
 

@@ -13,6 +13,7 @@
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "lvgl/lvgl.h"
+#include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "spi.hpp"
 #include "system_events.hpp"
@@ -50,9 +51,10 @@ auto Booting::entry() -> void {
   ESP_LOGI(kTag, "installing remaining drivers");
   sSamd.reset(drivers::Samd::Create());
   sBattery.reset(drivers::Battery::Create());
+  sNvs.reset(drivers::NvsStorage::Open());
   sTagParser.reset(new database::TagParserImpl());
 
-  if (!sSamd || !sBattery) {
+  if (!sSamd || !sBattery || !sNvs) {
     events::System().Dispatch(FatalError{});
     events::Ui().Dispatch(FatalError{});
     return;

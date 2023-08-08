@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 idf_component_register(
-  SRCS "codec.cpp" "mad.cpp" "foxenflac.cpp" "stbvorbis.cpp"
+  SRCS "codec.cpp" "mad.cpp" "foxenflac.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "result" "span" "libmad" "libfoxenflac" "stb_vorbis")
+  REQUIRES "result" "span" "libmad" "libfoxenflac")
 
 target_compile_options("${COMPONENT_LIB}" PRIVATE ${EXTRA_WARNINGS})
 

@@ -34,6 +34,8 @@
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
 #include "pipeline.hpp"
+#include "sample.hpp"
+#include "sink_mixer.hpp"
 #include "span.hpp"
 
 #include "arena.hpp"
@@ -107,7 +109,10 @@ auto Timer::bytes_to_samples(uint32_t bytes) -> uint32_t {
 
 auto AudioTask::Start(IAudioSource* source, IAudioSink* sink) -> AudioTask* {
   AudioTask* task = new AudioTask(source, sink);
-  tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
+  // Pin to CORE1 because codecs should be fixed point anyway, and being on
+  // the opposite core to the mixer maximises throughput in the worst case
+  // (some heavy codec like opus + resampling for bluetooth).
+  tasks::StartPersistent<tasks::Type::kAudio>(1, [=]() { task->Main(); });
   return task;
 }
 
@@ -115,14 +120,12 @@ AudioTask::AudioTask(IAudioSource* source, IAudioSink* sink)
     : source_(source),
       sink_(sink),
       codec_(),
+      mixer_(new SinkMixer(sink->stream())),
       timer_(),
       has_begun_decoding_(false),
       current_input_format_(),
       current_output_format_(),
-      sample_buffer_(reinterpret_cast<std::byte*>(
-          heap_caps_malloc(kSampleBufferSize,
-                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT))),
-      sample_buffer_len_(kSampleBufferSize) {}
+      codec_buffer_(new RawStream(kSampleBufferSize)) {}
 
 void AudioTask::Main() {
   for (;;) {
@@ -226,7 +229,7 @@ auto AudioTask::BeginDecoding(InputStream& stream) -> bool {
   codecs::ICodec::OutputFormat format = res.second.value();
   StreamInfo::Pcm new_format{
       .channels = format.num_channels,
-      .bits_per_sample = format.bits_per_sample,
+      .bits_per_sample = 32,
       .sample_rate = format.sample_rate_hz,
   };
 
@@ -246,13 +249,18 @@ auto AudioTask::BeginDecoding(InputStream& stream) -> bool {
     return false;
   }
 
+  OutputStream writer{codec_buffer_.get()};
+  writer.prepare(new_format, {});
+
   return true;
 }
 
 auto AudioTask::ContinueDecoding(InputStream& stream) -> bool {
   while (!stream.data().empty()) {
-    auto res = codec_->ContinueStream(stream.data(),
-                                      {sample_buffer_, sample_buffer_len_});
+    OutputStream writer{codec_buffer_.get()};
+
+    auto res =
+        codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
 
     stream.consume(res.first);
 
@@ -263,9 +271,10 @@ auto AudioTask::ContinueDecoding(InputStream& stream) -> bool {
         return false;
       }
     } else {
-      xStreamBufferSend(sink_->stream(), sample_buffer_,
-                        res.second->bytes_written, portMAX_DELAY);
-      timer_->AddBytes(res.second->bytes_written);
+      writer.add(res.second->samples_written * sizeof(sample::Sample));
+
+      InputStream reader{codec_buffer_.get()};
+      SendToSink(reader);
     }
   }
   return true;
@@ -284,21 +293,23 @@ auto AudioTask::FinishDecoding(InputStream& stream) -> void {
     std::unique_ptr<RawStream> mad_buffer;
     mad_buffer.reset(new RawStream(stream.data().size_bytes() + 8));
 
-    OutputStream writer{mad_buffer.get()};
+    OutputStream mad_writer{mad_buffer.get()};
     std::copy(stream.data().begin(), stream.data().end(),
-              writer.data().begin());
-    std::fill(writer.data().begin(), writer.data().end(), std::byte{0});
+              mad_writer.data().begin());
+    std::fill(mad_writer.data().begin(), mad_writer.data().end(), std::byte{0});
     InputStream padded_stream{mad_buffer.get()};
 
-    auto res = codec_->ContinueStream(stream.data(),
-                                      {sample_buffer_, sample_buffer_len_});
+    OutputStream writer{codec_buffer_.get()};
+    auto res =
+        codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
     if (res.second.has_error()) {
       return;
     }
 
-    xStreamBufferSend(sink_->stream(), sample_buffer_,
-                      res.second->bytes_written, portMAX_DELAY);
-    timer_->AddBytes(res.second->bytes_written);
+    writer.add(res.second->samples_written * sizeof(sample::Sample));
+
+    InputStream reader{codec_buffer_.get()};
+    SendToSink(reader);
   }
 }
 
@@ -319,30 +330,50 @@ auto AudioTask::ForwardPcmStream(StreamInfo::Pcm& format,
   xStreamBufferSend(sink_->stream(), samples.data(), samples.size_bytes(),
                     portMAX_DELAY);
   timer_->AddBytes(samples.size_bytes());
+  InputStream reader{codec_buffer_.get()};
+  SendToSink(reader);
+
   return true;
 }
 
 auto AudioTask::ConfigureSink(const StreamInfo::Pcm& format,
                               const Duration& duration) -> bool {
   if (format != current_output_format_) {
-    // The new format is different to the old one. Wait for the sink to drain
-    // before continuing.
-    while (!xStreamBufferIsEmpty(sink_->stream())) {
-      ESP_LOGI(kTag, "waiting for sink stream to drain...");
-      // TODO(jacqueline): Get the sink drain ISR to notify us of this
-      // via semaphore instead of busy-ish waiting.
-      vTaskDelay(pdMS_TO_TICKS(100));
-    }
+    current_output_format_ = format;
+    StreamInfo::Pcm new_sink_format = sink_->PrepareFormat(format);
+    if (new_sink_format != current_sink_format_) {
+      current_sink_format_ = new_sink_format;
 
-    ESP_LOGI(kTag, "configuring sink");
-    if (!sink_->Configure(format)) {
-      return false;
+      // The new format is different to the old one. Wait for the sink to drain
+      // before continuing.
+      while (!xStreamBufferIsEmpty(sink_->stream())) {
+        ESP_LOGI(kTag, "waiting for sink stream to drain...");
+        // TODO(jacqueline): Get the sink drain ISR to notify us of this
+        // via semaphore instead of busy-ish waiting.
+        vTaskDelay(pdMS_TO_TICKS(10));
+      }
+
+      ESP_LOGI(kTag, "configuring sink");
+      sink_->Configure(new_sink_format);
     }
   }
 
   current_output_format_ = format;
   timer_.reset(new Timer(format, duration));
   return true;
+}
+
+auto AudioTask::SendToSink(InputStream& stream) -> void {
+  std::size_t bytes_to_send = stream.data().size_bytes();
+  std::size_t bytes_sent;
+  if (stream.info().format_as<StreamInfo::Pcm>() == current_sink_format_) {
+    bytes_sent = xStreamBufferSend(sink_->stream(), stream.data().data(),
+                                   bytes_to_send, portMAX_DELAY);
+    stream.consume(bytes_sent);
+  } else {
+    bytes_sent = mixer_->MixAndSend(stream, current_sink_format_.value());
+  }
+  timer_->AddBytes(bytes_sent);
 }
 
 }  // namespace audio

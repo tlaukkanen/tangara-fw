@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "mad.h"
+#include "sample.hpp"
 #include "span.hpp"
 
 #include "codec.hpp"
@@ -35,7 +36,7 @@ class MadMp3Decoder : public ICodec {
    * Writes samples for the current frame.
    */
   auto ContinueStream(cpp::span<const std::byte> input,
-                      cpp::span<std::byte> output)
+                      cpp::span<sample::Sample> output)
       -> Result<OutputInfo> override;
 
   auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)

@@ -14,6 +14,7 @@
 #include "audio_source.hpp"
 #include "codec.hpp"
 #include "pipeline.hpp"
+#include "sink_mixer.hpp"
 #include "stream_info.hpp"
 
 namespace audio {
@@ -63,18 +64,20 @@ class AudioTask {
   auto ForwardPcmStream(StreamInfo::Pcm&, cpp::span<const std::byte>) -> bool;
 
   auto ConfigureSink(const StreamInfo::Pcm&, const Duration&) -> bool;
+  auto SendToSink(InputStream&) -> void;
 
   IAudioSource* source_;
   IAudioSink* sink_;
   std::unique_ptr<codecs::ICodec> codec_;
+  std::unique_ptr<SinkMixer> mixer_;
   std::unique_ptr<Timer> timer_;
 
   bool has_begun_decoding_;
   std::optional<StreamInfo::Format> current_input_format_;
   std::optional<StreamInfo::Pcm> current_output_format_;
+  std::optional<StreamInfo::Pcm> current_sink_format_;
 
-  std::byte* sample_buffer_;
-  std::size_t sample_buffer_len_;
+  std::unique_ptr<RawStream> codec_buffer_;
 };
 
 }  // namespace audio

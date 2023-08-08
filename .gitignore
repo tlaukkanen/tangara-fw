@@ -4,6 +4,7 @@
 
 .cache/
 .clangd
+.helix/
 build/
 build.clang/
 sdkconfig

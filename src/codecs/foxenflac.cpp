@@ -12,6 +12,7 @@
 
 #include "esp_log.h"
 #include "foxen/flac.h"
+#include "sample.hpp"
 
 namespace codecs {
 
@@ -47,7 +48,6 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
 
   OutputFormat format{
       .num_channels = static_cast<uint8_t>(channels),
-      .bits_per_sample = 32,  // libfoxenflac output is fixed-size.
       .sample_rate_hz = static_cast<uint32_t>(fs),
       .duration_seconds = {},
       .bits_per_second = {},
@@ -62,7 +62,7 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
 }
 
 auto FoxenFlacDecoder::ContinueStream(cpp::span<const std::byte> input,
-                                      cpp::span<std::byte> output)
+                                      cpp::span<sample::Sample> output)
     -> Result<OutputInfo> {
   cpp::span<int32_t> output_as_samples{
       reinterpret_cast<int32_t*>(output.data()), output.size_bytes() / 4};
@@ -78,7 +78,7 @@ auto FoxenFlacDecoder::ContinueStream(cpp::span<const std::byte> input,
 
   if (samples_written > 0) {
     return {bytes_read,
-            OutputInfo{.bytes_written = samples_written * 4,
+            OutputInfo{.samples_written = samples_written,
                        .is_finished_writing = state == FLAC_END_OF_FRAME}};
   }
 

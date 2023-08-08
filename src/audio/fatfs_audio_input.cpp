@@ -30,6 +30,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "future_fetcher.hpp"
+#include "idf_additions.h"
 #include "span.hpp"
 #include "stream_info.hpp"
 #include "tag_parser.hpp"
@@ -40,8 +41,8 @@ static const char* kTag = "SRC";
 
 namespace audio {
 
-static constexpr UINT kFileBufferSize = 4096 * 2;
-static constexpr UINT kStreamerBufferSize = 4096;
+static constexpr UINT kFileBufferSize = 8 * 1024;
+static constexpr UINT kStreamerBufferSize = 64 * 1024;
 
 static StreamBufferHandle_t sForwardDest = nullptr;
 
@@ -143,7 +144,9 @@ FatfsAudioInput::FatfsAudioInput(
     : IAudioSource(),
       tag_parser_(tag_parser),
       has_data_(xSemaphoreCreateBinary()),
-      streamer_buffer_(xStreamBufferCreate(kStreamerBufferSize, 1)),
+      streamer_buffer_(xStreamBufferCreateWithCaps(kStreamerBufferSize,
+                                                   1,
+                                                   MALLOC_CAP_SPIRAM)),
       streamer_(new FileStreamer(streamer_buffer_, has_data_)),
       input_buffer_(new RawStream(kFileBufferSize)),
       source_mutex_(),
