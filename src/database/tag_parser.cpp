@@ -153,6 +153,9 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     case Fwav:
       out->encoding(Encoding::kWav);
       break;
+    case Fopus:
+      out->encoding(Encoding::kOpus);
+      break;
     default:
       out->encoding(Encoding::kUnsupported);
   }

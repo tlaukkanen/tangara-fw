@@ -10,6 +10,7 @@
 #include <optional>
 
 #include "foxenflac.hpp"
+#include "opus.hpp"
 #include "mad.hpp"
 #include "types.hpp"
 
@@ -21,6 +22,8 @@ auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
       return new MadMp3Decoder();
     case StreamType::kFlac:
       return new FoxenFlacDecoder();
+    case StreamType::kOpus:
+      return new XiphOpusDecoder();
     default:
       return {};
   }

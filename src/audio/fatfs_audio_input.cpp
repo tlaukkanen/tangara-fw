@@ -313,8 +313,8 @@ auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
       return codecs::StreamType::kPcm;
     case database::Encoding::kFlac:
       return codecs::StreamType::kFlac;
-    case database::Encoding::kOgg:  // Misnamed; this is Ogg Vorbis.
-      return codecs::StreamType::kVorbis;
+    case database::Encoding::kOpus:
+      return codecs::StreamType::kOpus;
     case database::Encoding::kUnsupported:
     default:
       return {};

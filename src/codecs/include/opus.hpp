@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "opus.h"
+#include "sample.hpp"
 #include "span.hpp"
 
 #include "codec.hpp"
@@ -36,14 +37,18 @@ class XiphOpusDecoder : public ICodec {
    * Writes samples for the current frame.
    */
   auto ContinueStream(cpp::span<const std::byte> input,
-                      cpp::span<std::byte> output)
+                      cpp::span<sample::Sample> output)
       -> Result<OutputInfo> override;
 
   auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
       -> Result<void> override;
 
  private:
-  OpusDecoder *opus_;
-  float *sample_buffer_;
-  std::size_t sample_buffer_len_;
+  OpusDecoder* opus_;
+  cpp::span<int16_t> sample_buffer_;
+  int32_t pos_in_buffer_;
+  int32_t samples_in_buffer_;
+
+};
+
 }  // namespace codecs

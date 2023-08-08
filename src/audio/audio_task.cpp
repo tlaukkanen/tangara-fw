@@ -125,7 +125,7 @@ AudioTask::AudioTask(IAudioSource* source, IAudioSink* sink)
       has_begun_decoding_(false),
       current_input_format_(),
       current_output_format_(),
-      codec_buffer_(new RawStream(kSampleBufferSize)) {}
+      codec_buffer_(new RawStream(kSampleBufferSize, MALLOC_CAP_8BIT)) {}
 
 void AudioTask::Main() {
   for (;;) {

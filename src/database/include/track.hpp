@@ -43,6 +43,7 @@ enum class Encoding {
   kWav = 2,
   kOgg = 3,
   kFlac = 4,
+  kOpus = 5,
 };
 
 enum class Tag {

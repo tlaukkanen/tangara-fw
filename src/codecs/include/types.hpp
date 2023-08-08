@@ -13,8 +13,8 @@ namespace codecs {
 enum class StreamType {
   kMp3,
   kPcm,
-  kVorbis,
   kFlac,
+  kOpus,
 };
 
 }  // namespace codecs
