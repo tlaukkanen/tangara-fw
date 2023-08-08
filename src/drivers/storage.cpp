@@ -63,7 +63,7 @@ auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
   // Will return ESP_ERR_INVALID_RESPONSE if there is no card
   esp_err_t err = sdmmc_card_init(host.get(), card.get());
   if (err != ESP_OK) {
-    ESP_LOGW(kTag, "Failed to read, err: %d", err);
+    ESP_LOGW(kTag, "Failed to read, err: %s", esp_err_to_name(err));
     return cpp::fail(Error::FAILED_TO_READ);
   }
 
@@ -74,7 +74,21 @@ auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
   // Mount right now, not on first operation.
   FRESULT ferr = f_mount(fs, "", 1);
   if (ferr != FR_OK) {
-    ESP_LOGW(kTag, "Failed to mount, err: %d", ferr);
+    std::string err_str;
+    switch (ferr) {
+      case FR_DISK_ERR:
+        err_str = "FR_DISK_ERR";
+        break;
+      case FR_NOT_READY:
+        err_str = "FR_NOT_READY";
+        break;
+      case FR_NO_FILESYSTEM:
+        err_str = "FR_NO_FILESYSTEM";
+        break;
+      default:
+        err_str = std::to_string(ferr);
+    }
+    ESP_LOGW(kTag, "Failed to mount, err: %s", err_str.c_str());
     return cpp::fail(Error::FAILED_TO_MOUNT);
   }
 
