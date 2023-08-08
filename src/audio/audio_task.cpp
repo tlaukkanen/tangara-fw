@@ -109,7 +109,10 @@ auto Timer::bytes_to_samples(uint32_t bytes) -> uint32_t {
 
 auto AudioTask::Start(IAudioSource* source, IAudioSink* sink) -> AudioTask* {
   AudioTask* task = new AudioTask(source, sink);
-  tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
+  // Pin to CORE1 because codecs should be fixed point anyway, and being on
+  // the opposite core to the mixer maximises throughput in the worst case
+  // (some heavy codec like opus + resampling for bluetooth).
+  tasks::StartPersistent<tasks::Type::kAudio>(1, [=]() { task->Main(); });
   return task;
 }
 

@@ -1,4 +1,17 @@
+/*
+ * Copyright 2023 jacqueline <me@jacqueline.id.au>
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 #include "resample.hpp"
+/*
+ * This file contains the implementation for a 32-bit floating point resampler.
+ * It is largely based on David Bryant's ART resampler, which is BSD-licensed,
+ * and available at https://github.com/dbry/audio-resampler/.
+ *
+ * This resampler uses windowed sinc interpolation filters, with an additional
+ * lowpass filter to reduce aliasing.
+ */
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -14,13 +27,11 @@
 
 namespace audio {
 
-static constexpr char kTag[] = "resample";
-
 static constexpr double kLowPassRatio = 0.5;
 static constexpr size_t kNumFilters = 64;
-static constexpr size_t kTapsPerFilter = 16;
+static constexpr size_t kFilterSize = 16;
 
-typedef std::array<float, kTapsPerFilter> Filter;
+typedef std::array<float, kFilterSize> Filter;
 static std::array<Filter, kNumFilters + 1> sFilters{};
 static bool sFiltersInitialised = false;
 
@@ -35,15 +46,15 @@ Resampler::Resampler(uint32_t source_sample_rate,
               static_cast<double>(source_sample_rate)),
       num_channels_(num_channels) {
   channel_buffers_.resize(num_channels);
-  channel_buffer_size_ = kTapsPerFilter * 16;
+  channel_buffer_size_ = kFilterSize * 16;
 
   for (int i = 0; i < num_channels; i++) {
     channel_buffers_[i] =
         static_cast<float*>(calloc(sizeof(float), channel_buffer_size_));
   }
 
-  output_offset_ = kTapsPerFilter / 2.0f;
-  input_index_ = kTapsPerFilter;
+  output_offset_ = kFilterSize / 2.0f;
+  input_index_ = kFilterSize;
 
   if (!sFiltersInitialised) {
     sFiltersInitialised = true;
@@ -64,7 +75,7 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
   size_t input_frames = input.size() / num_channels_;
   size_t output_frames = output.size() / num_channels_;
 
-  int half_taps = kTapsPerFilter / 2;
+  int half_taps = kFilterSize / 2;
   while (output_frames > 0) {
     if (output_offset_ >= input_index_ - half_taps) {
       if (input_frames > 0) {
@@ -74,12 +85,12 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
         if (input_index_ == channel_buffer_size_) {
           for (int i = 0; i < num_channels_; ++i) {
             memmove(channel_buffers_[i],
-                    channel_buffers_[i] + channel_buffer_size_ - kTapsPerFilter,
-                    kTapsPerFilter * sizeof(float));
+                    channel_buffers_[i] + channel_buffer_size_ - kFilterSize,
+                    kFilterSize * sizeof(float));
           }
 
-          output_offset_ -= channel_buffer_size_ - kTapsPerFilter;
-          input_index_ -= channel_buffer_size_ - kTapsPerFilter;
+          output_offset_ -= channel_buffer_size_ - kFilterSize;
+          input_index_ -= channel_buffer_size_ - kFilterSize;
         }
 
         for (int i = 0; i < num_channels_; ++i) {
@@ -97,7 +108,11 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
         output[samples_produced++] = sample::FromFloat(Subsample(i));
       }
 
-      output_offset_ += (1.0f / factor_);
+      // NOTE: floating point division here is potentially slow due to FPU
+      // limitations. Consider explicitly bunding the xtensa libgcc divsion via
+      // reciprocal implementation if we care about portability between
+      // compilers.
+      output_offset_ += 1.0f / factor_;
       output_frames--;
     }
   }
@@ -105,36 +120,34 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
   return {samples_used, samples_produced};
 }
 
+/*
+ * Constructs the filter in-place for the given index of sFilters. This only
+ * needs to be done once, per-filter. 64-bit math is okay here, because filters
+ * will not be initialised within a performance critical path.
+ */
 auto InitFilter(int index) -> void {
-  const double a0 = 0.35875;
-  const double a1 = 0.48829;
-  const double a2 = 0.14128;
-  const double a3 = 0.01168;
+  Filter& filter = sFilters[index];
+  std::array<double, kFilterSize> working_buffer{};
 
-  double fraction =
-      static_cast<double>(index) / static_cast<double>(kNumFilters);
+  double fraction = index / static_cast<double>(kNumFilters);
   double filter_sum = 0.0;
 
-  // "dist" is the absolute distance from the sinc maximum to the filter tap to
-  // be calculated, in radians "ratio" is that distance divided by half the tap
-  // count such that it reaches π at the window extremes
+  for (int i = 0; i < kFilterSize; ++i) {
+    // "dist" is the absolute distance from the sinc maximum to the filter tap
+    //  to be calculated, in radians.
+    double dist = fabs((kFilterSize / 2.0 - 1.0) + fraction - i) * M_PI;
+    // "ratio" is that distance divided by half the tap count such that it
+    // reaches π at the window extremes
+    double ratio = dist / (kFilterSize / 2.0);
 
-  // Note that with this scaling, the odd terms of the Blackman-Harris
-  // calculation appear to be negated with respect to the reference formula
-  // version.
-
-  Filter& filter = sFilters[index];
-  std::array<double, kTapsPerFilter> working_buffer{};
-  for (int i = 0; i < kTapsPerFilter; ++i) {
-    double dist = fabs((kTapsPerFilter / 2.0 - 1.0) + fraction - i) * M_PI;
-    double ratio = dist / (kTapsPerFilter / 2.0);
     double value;
-
     if (dist != 0.0) {
       value = sin(dist * kLowPassRatio) / (dist * kLowPassRatio);
 
-      // Blackman-Harris window
-      value *= a0 + a1 * cos(ratio) + a2 * cos(2 * ratio) + a3 * cos(3 * ratio);
+      // Hann window. We could alternatively use a Blackman Harris window,
+      // however our unusually small filter size makes the Hann window's
+      // steeper cutoff more important.
+      value *= 0.5 * (1.0 + cos(ratio));
     } else {
       value = 1.0;
     }
@@ -143,50 +156,39 @@ auto InitFilter(int index) -> void {
     filter_sum += value;
   }
 
-  // filter should have unity DC gain
-
+  // Filter should have unity DC gain
   double scaler = 1.0 / filter_sum;
   double error = 0.0;
 
-  for (int i = kTapsPerFilter / 2; i < kTapsPerFilter;
-       i = kTapsPerFilter - i - (i >= kTapsPerFilter / 2)) {
+  for (int i = kFilterSize / 2; i < kFilterSize;
+       i = kFilterSize - i - (i >= kFilterSize / 2)) {
     working_buffer[i] *= scaler;
     filter[i] = working_buffer[i] - error;
     error += static_cast<double>(filter[i]) - working_buffer[i];
   }
 }
 
+/*
+ * Performs sub-sampling with interpolation for the given channel. Assumes that
+ * the channel buffer has already been filled with samples.
+ */
 auto Resampler::Subsample(int channel) -> float {
-  float sum1, sum2;
-
   cpp::span<float> source{channel_buffers_[channel], channel_buffer_size_};
 
   int offset_integral = std::floor(output_offset_);
   source = source.subspan(offset_integral);
   float offset_fractional = output_offset_ - offset_integral;
 
-  /*
-// no interpolate
-size_t filter_index = std::floor(offset_fractional * kNumFilters + 0.5f);
-//ESP_LOGI(kTag, "selected filter %u of %u", filter_index, kNumFilters);
-int start_offset = kTapsPerFilter / 2 + 1;
-//ESP_LOGI(kTag, "using offset of %i, length %u", start_offset, kTapsPerFilter);
-
-return ApplyFilter(
-    sFilters[filter_index],
-    {source.data() - start_offset, kTapsPerFilter});
-  */
-
   offset_fractional *= kNumFilters;
   int filter_index = std::floor(offset_fractional);
 
-  sum1 = ApplyFilter(sFilters[filter_index],
-                     {source.data() - kTapsPerFilter / 2 + 1, kTapsPerFilter});
+  float sum1 = ApplyFilter(sFilters[filter_index],
+                           {source.data() - kFilterSize / 2 + 1, kFilterSize});
 
   offset_fractional -= filter_index;
 
-  sum2 = ApplyFilter(sFilters[filter_index + 1],
-                     {source.data() - kTapsPerFilter / 2 + 1, kTapsPerFilter});
+  float sum2 = ApplyFilter(sFilters[filter_index + 1],
+                           {source.data() - kFilterSize / 2 + 1, kFilterSize});
 
   return (sum2 * offset_fractional) + (sum1 * (1.0f - offset_fractional));
 }
@@ -194,7 +196,7 @@ return ApplyFilter(
 auto Resampler::ApplyFilter(cpp::span<float> filter, cpp::span<float> input)
     -> float {
   float sum = 0.0;
-  for (int i = 0; i < kTapsPerFilter; i++) {
+  for (int i = 0; i < kFilterSize; i++) {
     sum += filter[i] * input[i];
   }
   return sum;

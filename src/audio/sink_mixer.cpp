@@ -38,7 +38,10 @@ SinkMixer::SinkMixer(StreamBufferHandle_t dest)
   input_stream_.reset(new RawStream(kSampleBufferLength));
   resampled_stream_.reset(new RawStream(kSampleBufferLength));
 
-  tasks::StartPersistent<tasks::Type::kMixer>(1, [&]() { Main(); });
+  // Pin to CORE0 because we need the FPU.
+  // FIXME: A fixed point implementation could run freely on either core,
+  // which should lead to a big performance increase.
+  tasks::StartPersistent<tasks::Type::kMixer>(0, [&]() { Main(); });
 }
 
 SinkMixer::~SinkMixer() {

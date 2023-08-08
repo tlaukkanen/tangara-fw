@@ -19,6 +19,7 @@
 #include <sstream>
 #include <string>
 
+#include "FreeRTOSConfig.h"
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
 #include "database.hpp"
@@ -27,6 +28,7 @@
 #include "esp_log.h"
 #include "event_queue.hpp"
 #include "ff.h"
+#include "freertos/FreeRTOSConfig_arch.h"
 #include "freertos/projdefs.h"
 #include "index.hpp"
 #include "track.hpp"
@@ -328,6 +330,12 @@ void RegisterDbDump() {
 }
 
 int CmdTaskStats(int argc, char** argv) {
+  if (!configUSE_TRACE_FACILITY) {
+    std::cout << "configUSE_TRACE_FACILITY must be enabled" << std::endl;
+    std::cout << "also consider configTASKLIST_USE_COREID" << std::endl;
+    return 1;
+  }
+
   static const std::string usage = "usage: task_stats";
   if (argc != 1) {
     std::cout << usage << std::endl;
@@ -379,6 +387,14 @@ int CmdTaskStats(int argc, char** argv) {
         str << "\t";
       }
 
+      if (configTASKLIST_INCLUDE_COREID) {
+        if (start_status[i].xCoreID == tskNO_AFFINITY) {
+          str << "any\t";
+        } else {
+          str << start_status[i].xCoreID << "\t";
+        }
+      }
+
       str << std::fixed << std::setprecision(1) << depth_kib;
       str << " KiB";
       if (depth_kib >= 10) {
@@ -399,7 +415,11 @@ int CmdTaskStats(int argc, char** argv) {
               return first.first >= second.first;
             });
 
-  std::cout << "name\t\tfree stack\trun time" << std::endl;
+  std::cout << "name\t\t";
+  if (configTASKLIST_INCLUDE_COREID) {
+    std::cout << "core\t";
+  }
+  std::cout << "free stack\trun time" << std::endl;
   for (const auto& i : info_strings) {
     std::cout << i.second << std::endl;
   }
