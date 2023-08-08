@@ -7,5 +7,5 @@ idf_component_register(
   "spi.cpp" "display.cpp" "display_init.cpp" "samd.cpp" "relative_wheel.cpp" "wm8523.cpp"
   "nvs.cpp" "bluetooth.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "esp_adc" "fatfs" "result" "lvgl" "span" "tasks" "nvs_flash" "bt")
+  REQUIRES "esp_adc" "fatfs" "result" "lvgl" "span" "tasks" "nvs_flash" "bt" "tinyfsm")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
