@@ -17,8 +17,8 @@ namespace audio {
 static constexpr char kTag[] = "resample";
 
 static constexpr double kLowPassRatio = 0.5;
-static constexpr size_t kNumFilters = 8;
-static constexpr size_t kTapsPerFilter = 8;
+static constexpr size_t kNumFilters = 64;
+static constexpr size_t kTapsPerFilter = 16;
 
 typedef std::array<float, kTapsPerFilter> Filter;
 static std::array<Filter, kNumFilters + 1> sFilters{};
@@ -64,12 +64,15 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
   size_t input_frames = input.size() / num_channels_;
   size_t output_frames = output.size() / num_channels_;
 
-  int half_taps = kTapsPerFilter / 2, i;
+  int half_taps = kTapsPerFilter / 2;
   while (output_frames > 0) {
     if (output_offset_ >= input_index_ - half_taps) {
       if (input_frames > 0) {
+        // Check whether the channel buffers will overflow with the addition of
+        // this sample. If so, we need to move the remaining contents back to
+        // the beginning of the buffer.
         if (input_index_ == channel_buffer_size_) {
-          for (i = 0; i < num_channels_; ++i) {
+          for (int i = 0; i < num_channels_; ++i) {
             memmove(channel_buffers_[i],
                     channel_buffers_[i] + channel_buffer_size_ - kTapsPerFilter,
                     kTapsPerFilter * sizeof(float));
@@ -79,21 +82,23 @@ auto Resampler::Process(cpp::span<const sample::Sample> input,
           input_index_ -= channel_buffer_size_ - kTapsPerFilter;
         }
 
-        for (i = 0; i < num_channels_; ++i) {
+        for (int i = 0; i < num_channels_; ++i) {
           channel_buffers_[i][input_index_] =
               sample::ToFloat(input[samples_used++]);
         }
 
         input_index_++;
         input_frames--;
-      } else
+      } else {
         break;
+      }
     } else {
-      for (i = 0; i < num_channels_; i++) {
+      for (int i = 0; i < num_channels_; i++) {
         output[samples_produced++] = sample::FromFloat(Subsample(i));
       }
 
       output_offset_ += (1.0f / factor_);
+      output_frames--;
     }
   }
 
@@ -160,8 +165,20 @@ auto Resampler::Subsample(int channel) -> float {
   source = source.subspan(offset_integral);
   float offset_fractional = output_offset_ - offset_integral;
 
-  int filter_index = offset_fractional * kNumFilters;
+  /*
+// no interpolate
+size_t filter_index = std::floor(offset_fractional * kNumFilters + 0.5f);
+//ESP_LOGI(kTag, "selected filter %u of %u", filter_index, kNumFilters);
+int start_offset = kTapsPerFilter / 2 + 1;
+//ESP_LOGI(kTag, "using offset of %i, length %u", start_offset, kTapsPerFilter);
+
+return ApplyFilter(
+    sFilters[filter_index],
+    {source.data() - start_offset, kTapsPerFilter});
+  */
+
   offset_fractional *= kNumFilters;
+  int filter_index = std::floor(offset_fractional);
 
   sum1 = ApplyFilter(sFilters[filter_index],
                      {source.data() - kTapsPerFilter / 2 + 1, kTapsPerFilter});

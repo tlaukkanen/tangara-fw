@@ -195,7 +195,7 @@ auto SinkMixer::Resample(InputStream& in, OutputStream& out) -> bool {
                                  out.data_as<sample::Sample>(), false);
 
   in.consume(res.first * sizeof(sample::Sample));
-  out.add(res.first * sizeof(sample::Sample));
+  out.add(res.second * sizeof(sample::Sample));
 
   return res.first == 0 && res.second == 0;
 }
