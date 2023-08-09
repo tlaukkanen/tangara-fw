@@ -20,6 +20,7 @@
 #include "esp_log.h"
 #include "ogg/ogg.h"
 #include "opus.h"
+#include "opus_defines.h"
 #include "opus_types.h"
 #include "result.hpp"
 #include "sample.hpp"
@@ -49,12 +50,13 @@ XiphOpusDecoder::~XiphOpusDecoder() {
 
 auto XiphOpusDecoder::BeginStream(const cpp::span<const std::byte> input)
     -> Result<OutputFormat> {
-  ogg_.AddBytes(input);
-  if (!ogg_.HasNextPacket()) {
+  if (!ogg_.AddBytes(input)) {
+    ESP_LOGI(kTag, "need more input to begin");
     return {input.size(), cpp::fail(Error::kOutOfInput)};
   }
-  auto packet = ogg_.NextPacket();
+  auto packet = ogg_.Current();
   int num_channels = opus_packet_get_nb_channels(packet.data());
+  ESP_LOGI(kTag, "opus stream has %i channels", num_channels);
   if (num_channels > 2) {
     // Too many channels; we can't handle this.
     // TODO: better error
@@ -78,24 +80,51 @@ auto XiphOpusDecoder::ContinueStream(cpp::span<const std::byte> input,
     -> Result<OutputInfo> {
   size_t bytes_used = 0;
   if (pos_in_buffer_ >= samples_in_buffer_) {
-    ESP_LOGI(kTag, "sample buffer is empty. parsing more.");
-    if (!ogg_.HasNextPacket()) {
+    if (!ogg_.HasPacket()) {
       bytes_used = input.size();
-      ogg_.AddBytes(input);
-    }
-    if (!ogg_.HasNextPacket()) {
-      return {bytes_used, cpp::fail(Error::kOutOfInput)};
+      if (!ogg_.AddBytes(input)) {
+        return {bytes_used, cpp::fail(Error::kOutOfInput)};
+      }
     }
 
-    auto packet = ogg_.NextPacket();
-
+    auto packet = ogg_.Current();
     pos_in_buffer_ = 0;
-    samples_in_buffer_ =
-        opus_decode(opus_, packet.data(), packet.size_bytes(),
-                    sample_buffer_.data(), sample_buffer_.size(), 0);
+    samples_in_buffer_ = 0;
+    while (samples_in_buffer_ <= 0 && ogg_.HasPacket()) {
+      samples_in_buffer_ =
+          opus_decode(opus_, packet.data(), packet.size_bytes(),
+                      sample_buffer_.data(), sample_buffer_.size(), 0);
+      ogg_.Next();
+    }
 
     if (samples_in_buffer_ < 0) {
-      ESP_LOGE(kTag, "error decoding stream");
+      std::string err_str;
+      switch (samples_in_buffer_) {
+        case OPUS_BAD_ARG:
+          err_str = "OPUS_BAD_ARG";
+          break;
+        case OPUS_BUFFER_TOO_SMALL:
+          err_str = "OPUS_BUFFER_TOO_SMALL";
+          break;
+        case OPUS_INTERNAL_ERROR:
+          err_str = "OPUS_INTERNAL_ERROR";
+          break;
+        case OPUS_INVALID_PACKET:
+          err_str = "OPUS_INVALID_PACKET";
+          break;
+        case OPUS_UNIMPLEMENTED:
+          err_str = "OPUS_UNIMPLEMENTED";
+          break;
+        case OPUS_INVALID_STATE:
+          err_str = "OPUS_INVALID_STATE";
+          break;
+        case OPUS_ALLOC_FAIL:
+          err_str = "OPUS_ALLOC_FAIL";
+          break;
+        default:
+          err_str = "unknown";
+      }
+      ESP_LOGE(kTag, "error decoding stream, err %s", err_str.c_str());
       return {bytes_used, cpp::fail(Error::kMalformedData)};
     }
   }

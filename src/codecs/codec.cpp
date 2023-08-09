@@ -12,6 +12,7 @@
 #include "foxenflac.hpp"
 #include "opus.hpp"
 #include "mad.hpp"
+#include "vorbis.hpp"
 #include "types.hpp"
 
 namespace codecs {
@@ -20,6 +21,8 @@ auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
   switch (type) {
     case StreamType::kMp3:
       return new MadMp3Decoder();
+    case StreamType::kVorbis:
+      return new TremorVorbisDecoder();
     case StreamType::kFlac:
       return new FoxenFlacDecoder();
     case StreamType::kOpus:

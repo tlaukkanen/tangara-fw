@@ -21,16 +21,23 @@ class OggContainer {
   OggContainer();
   ~OggContainer();
 
-  auto AddBytes(cpp::span<const std::byte>) -> void;
-  auto HasNextPacket() -> bool;
-  auto NextPacket() -> cpp::span<uint8_t>;
-  auto PeekPacket() -> cpp::span<uint8_t>;
+  auto AddBytes(cpp::span<const std::byte>) -> bool;
+
+  auto Next() -> bool;
+  auto Current() -> cpp::span<uint8_t>;
+  auto HasPacket() -> bool;
 
  private:
+  auto AdvancePage() -> bool;
+  auto AdvancePacket() -> bool;
+
   ogg_sync_state sync_;
   ogg_stream_state stream_;
   ogg_page page_;
   ogg_packet packet_;
+
+  bool has_stream_;
+  bool has_packet_;
 };
 
 }  // namespace codecs

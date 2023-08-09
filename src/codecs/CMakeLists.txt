@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 idf_component_register(
-  SRCS "codec.cpp" "mad.cpp" "foxenflac.cpp" "opus.cpp"
+  SRCS "codec.cpp" "mad.cpp" "foxenflac.cpp" "opus.cpp" "ogg.cpp" "vorbis.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "result" "span" "libmad" "libfoxenflac" "tremor" "ogg")
 

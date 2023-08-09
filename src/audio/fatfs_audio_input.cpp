@@ -311,6 +311,8 @@ auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
       return codecs::StreamType::kMp3;
     case database::Encoding::kWav:
       return codecs::StreamType::kPcm;
+    case database::Encoding::kOgg:
+      return codecs::StreamType::kVorbis;
     case database::Encoding::kFlac:
       return codecs::StreamType::kFlac;
     case database::Encoding::kOpus:
