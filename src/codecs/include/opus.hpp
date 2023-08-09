@@ -13,9 +13,7 @@
 #include <string>
 #include <utility>
 
-#include "ogg.hpp"
-#include "ogg/ogg.h"
-#include "opus.h"
+#include "opusfile.h"
 #include "sample.hpp"
 #include "span.hpp"
 
@@ -45,13 +43,13 @@ class XiphOpusDecoder : public ICodec {
   auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
       -> Result<void> override;
 
- private:
-  OggContainer ogg_;
-  OpusDecoder* opus_;
-  cpp::span<int16_t> sample_buffer_;
-  int32_t pos_in_buffer_;
-  int32_t samples_in_buffer_;
+  auto ReadCallback() -> cpp::span<const std::byte>;
+  auto AfterReadCallback(size_t bytes_read) -> void;
 
+ private:
+  OggOpusFile* opus_;
+  cpp::span<const std::byte> input_;
+  size_t pos_in_input_;
 };
 
 }  // namespace codecs

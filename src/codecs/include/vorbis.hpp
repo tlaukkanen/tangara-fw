@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "ivorbisfile.h"
-#include "ogg.hpp"
 #include "ogg/ogg.h"
 #include "opus.h"
 #include "sample.hpp"
