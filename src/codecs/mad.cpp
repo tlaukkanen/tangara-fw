@@ -92,7 +92,9 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
 
   auto vbr_length = GetVbrLength(header);
   if (vbr_length) {
-    output.total_samples = vbr_length;
+    output.total_samples = vbr_length.value() * channels;
+  } else {
+    // FIXME: calculate length using the filesize, assuming CBR.
   }
   return output;
 }

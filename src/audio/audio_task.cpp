@@ -56,18 +56,20 @@ static const char* kTag = "audio_dec";
 
 static constexpr std::size_t kCodecBufferLength = 240 * 4;
 
-Timer::Timer(uint32_t sample_rate, uint32_t total_samples)
-    : sample_rate_(sample_rate),
+Timer::Timer(const codecs::ICodec::OutputFormat& format)
+    : format_(format),
       current_seconds_(0),
       current_sample_in_second_(0),
-      total_duration_seconds_(total_samples / sample_rate) {}
+      total_duration_seconds_(format.total_samples.value_or(0) /
+                              format.num_channels / format.sample_rate_hz) {}
 
 auto Timer::AddSamples(std::size_t samples) -> void {
   bool incremented = false;
   current_sample_in_second_ += samples;
-  while (current_sample_in_second_ >= sample_rate_) {
+  while (current_sample_in_second_ >=
+         format_.sample_rate_hz * format_.num_channels) {
     current_seconds_++;
-    current_sample_in_second_ -= sample_rate_;
+    current_sample_in_second_ -= format_.sample_rate_hz * format_.num_channels;
     incremented = true;
   }
 
@@ -138,8 +140,7 @@ auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
   }
 
   if (open_res->total_samples) {
-    timer_.reset(
-        new Timer(open_res->sample_rate_hz, open_res->total_samples.value()));
+    timer_.reset(new Timer(open_res.value()));
   } else {
     timer_.reset();
   }

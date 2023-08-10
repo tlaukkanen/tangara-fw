@@ -125,15 +125,7 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input)
   auto l = op_pcm_total(opus_, -1);
   std::optional<uint32_t> length;
   if (l > 0) {
-    // Output is always downmixed to two channels, but the pcm count does not
-    // reflect this.
-    int channels = op_channel_count(opus_, -1);
-    if (channels == 1) {
-      l *= 2;
-    } else if (channels > 2) {
-      l /= channels * 2;
-    }
-    length = l;
+    length = l * 2;
   }
 
   return OutputFormat{

@@ -23,12 +23,12 @@ namespace audio {
 
 class Timer {
  public:
-  Timer(uint32_t sample_rate, uint32_t total_samples);
+  Timer(const codecs::ICodec::OutputFormat& format);
 
   auto AddSamples(std::size_t) -> void;
 
  private:
-  uint32_t sample_rate_;
+  codecs::ICodec::OutputFormat format_;
 
   uint32_t current_seconds_;
   uint32_t current_sample_in_second_;
