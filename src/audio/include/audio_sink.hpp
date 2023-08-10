@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <cstdint>
 #include "audio_element.hpp"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
@@ -37,8 +38,16 @@ class IAudioSink {
   virtual auto AdjustVolumeUp() -> bool = 0;
   virtual auto AdjustVolumeDown() -> bool = 0;
 
-  virtual auto PrepareFormat(const StreamInfo::Pcm&) -> StreamInfo::Pcm = 0;
-  virtual auto Configure(const StreamInfo::Pcm& format) -> void = 0;
+  struct Format {
+    uint32_t sample_rate;
+    uint_fast8_t num_channels;
+    uint_fast8_t bits_per_sample;
+
+    bool operator==(const Format&) const = default;
+  };
+
+  virtual auto PrepareFormat(const Format&) -> Format = 0;
+  virtual auto Configure(const Format& format) -> void = 0;
 
   auto stream() -> StreamBufferHandle_t { return stream_; }
 };

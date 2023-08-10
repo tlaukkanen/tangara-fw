@@ -46,6 +46,7 @@
 #include "stream_message.hpp"
 #include "sys/_stdint.h"
 #include "tasks.hpp"
+#include "track.hpp"
 #include "types.hpp"
 #include "ui_fsm.hpp"
 
@@ -53,7 +54,7 @@ namespace audio {
 
 static const char* kTag = "audio_dec";
 
-static constexpr std::size_t kSampleBufferSize = 16 * 1024;
+static constexpr std::size_t kCodecBufferLength = 240 * 4;
 
 Timer::Timer(const StreamInfo::Pcm& format, const Duration& duration)
     : format_(format), current_seconds_(0), current_sample_in_second_(0) {
@@ -120,260 +121,69 @@ AudioTask::AudioTask(IAudioSource* source, IAudioSink* sink)
     : source_(source),
       sink_(sink),
       codec_(),
-      mixer_(new SinkMixer(sink->stream())),
+      mixer_(new SinkMixer(sink)),
       timer_(),
-      has_begun_decoding_(false),
-      current_input_format_(),
-      current_output_format_(),
-      codec_buffer_(new RawStream(kSampleBufferSize, MALLOC_CAP_8BIT)) {}
+      current_format_() {
+  codec_buffer_ = {
+      reinterpret_cast<sample::Sample*>(heap_caps_calloc(
+          kCodecBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
+      kCodecBufferLength};
+}
 
 void AudioTask::Main() {
   for (;;) {
-    source_->Read(
-        [this](IAudioSource::Flags flags, InputStream& stream) -> void {
-          if (flags.is_start()) {
-            has_begun_decoding_ = false;
-            if (!HandleNewStream(stream)) {
-              return;
-            }
-          }
-
-          auto pcm = stream.info().format_as<StreamInfo::Pcm>();
-          if (pcm) {
-            if (ForwardPcmStream(*pcm, stream.data())) {
-              stream.consume(stream.data().size_bytes());
-            }
-            return;
-          }
-
-          if (!stream.info().format_as<StreamInfo::Encoded>() || !codec_) {
-            // Either unknown stream format, or it's encoded but we don't have
-            // a decoder that supports it. Either way, bail out.
-            return;
-          }
-
-          if (!has_begun_decoding_) {
-            if (BeginDecoding(stream)) {
-              has_begun_decoding_ = true;
-            } else {
-              return;
-            }
-          }
-
-          // At this point the decoder has been initialised, and the sink has
-          // been correctly configured. All that remains is to throw samples
-          // into the sink as fast as possible.
-          if (!ContinueDecoding(stream)) {
-            codec_.reset();
-          }
-
-          if (flags.is_end()) {
-            FinishDecoding(stream);
-            events::Audio().Dispatch(internal::InputFileFinished{});
-          }
-        },
-        portMAX_DELAY);
-  }
-}
-
-auto AudioTask::HandleNewStream(const InputStream& stream) -> bool {
-  // This must be a new stream of data. Reset everything to prepare to
-  // handle it.
-  current_input_format_ = stream.info().format();
-  codec_.reset();
-
-  // What kind of data does this new stream contain?
-  auto pcm = stream.info().format_as<StreamInfo::Pcm>();
-  auto encoded = stream.info().format_as<StreamInfo::Encoded>();
-  if (pcm) {
-    // It's already decoded! We can always handle this.
-    return true;
-  } else if (encoded) {
-    // The stream has some kind of encoding. Whether or not we can
-    // handle it is entirely down to whether or not we have a codec for
-    // it.
-    has_begun_decoding_ = false;
-    auto codec = codecs::CreateCodecForType(encoded->type);
-    if (codec) {
-      ESP_LOGI(kTag, "successfully created codec for stream");
-      codec_.reset(*codec);
-      return true;
-    } else {
-      ESP_LOGE(kTag, "stream has unknown encoding");
-      return false;
-    }
-  } else {
-    // programmer error / skill issue :(
-    ESP_LOGE(kTag, "stream has unknown format");
-    return false;
-  }
-}
-
-auto AudioTask::BeginDecoding(InputStream& stream) -> bool {
-  auto res = codec_->BeginStream(stream.data());
-  stream.consume(res.first);
-
-  if (res.second.has_error()) {
-    if (res.second.error() == codecs::ICodec::Error::kOutOfInput) {
-      // Running out of input is fine; just return and we will try beginning the
-      // stream again when we have more data.
-      return false;
-    }
-    // Decoding the header failed, so we can't actually deal with this stream
-    // after all. It could be malformed.
-    ESP_LOGE(kTag, "error beginning stream");
-    codec_.reset();
-    return false;
-  }
-
-  codecs::ICodec::OutputFormat format = res.second.value();
-  StreamInfo::Pcm new_format{
-      .channels = format.num_channels,
-      .bits_per_sample = 32,
-      .sample_rate = format.sample_rate_hz,
-  };
-
-  Duration duration;
-  if (format.duration_seconds) {
-    duration.src = Duration::Source::kCodec;
-    duration.duration = *format.duration_seconds;
-  } else if (stream.info().total_length_seconds()) {
-    duration.src = Duration::Source::kLibTags;
-    duration.duration = *stream.info().total_length_seconds();
-  } else {
-    duration.src = Duration::Source::kFileSize;
-    duration.duration = *stream.info().total_length_bytes();
-  }
-
-  if (!ConfigureSink(new_format, duration)) {
-    return false;
-  }
-
-  OutputStream writer{codec_buffer_.get()};
-  writer.prepare(new_format, {});
-
-  return true;
-}
-
-auto AudioTask::ContinueDecoding(InputStream& stream) -> bool {
-  while (!stream.data().empty()) {
-    OutputStream writer{codec_buffer_.get()};
-
-    auto res =
-        codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
-
-    stream.consume(res.first);
-
-    if (res.second.has_error()) {
-      if (res.second.error() == codecs::ICodec::Error::kOutOfInput) {
-        return true;
+    if (source_->HasNewStream() || !stream_) {
+      std::shared_ptr<codecs::IStream> new_stream = source_->NextStream();
+      if (new_stream && BeginDecoding(new_stream)) {
+        stream_ = new_stream;
       } else {
-        return false;
+        continue;
       }
-    } else {
-      writer.add(res.second->samples_written * sizeof(sample::Sample));
+    }
 
-      InputStream reader{codec_buffer_.get()};
-      SendToSink(reader);
+    if (ContinueDecoding()) {
+      events::Audio().Dispatch(internal::InputFileFinished{});
+      stream_.reset();
     }
   }
+}
+
+auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
+  codec_.reset(codecs::CreateCodecForType(stream->type()).value_or(nullptr));
+  if (!codec_) {
+    ESP_LOGE(kTag, "no codec found");
+    return false;
+  }
+
+  auto open_res = codec_->OpenStream(stream);
+  if (open_res.has_error()) {
+    ESP_LOGE(kTag, "codec failed to start: %s",
+             codecs::ICodec::ErrorString(open_res.error()).c_str());
+    return false;
+  }
+
+  current_sink_format_ = IAudioSink::Format{
+      .sample_rate = open_res->sample_rate_hz,
+      .num_channels = open_res->num_channels,
+      .bits_per_sample = 32,
+  };
+  ESP_LOGI(kTag, "stream started ok");
+  events::Audio().Dispatch(internal::InputFileOpened{});
   return true;
 }
 
-auto AudioTask::FinishDecoding(InputStream& stream) -> void {
-  // HACK: libmad requires each frame passed to it to have an additional
-  // MAD_HEADER_GUARD (8) bytes after the end of the frame. Without these extra
-  // bytes, it will not decode the frame.
-  // The is fine for most of the stream, but at the end of the stream we don't
-  // get a trailing 8 bytes for free.
-  if (stream.info().format_as<StreamInfo::Encoded>()->type ==
-      codecs::StreamType::kMp3) {
-    ESP_LOGI(kTag, "applying MAD_HEADER_GUARD fix");
-
-    std::unique_ptr<RawStream> mad_buffer;
-    mad_buffer.reset(new RawStream(stream.data().size_bytes() + 8));
-
-    OutputStream mad_writer{mad_buffer.get()};
-    std::copy(stream.data().begin(), stream.data().end(),
-              mad_writer.data().begin());
-    std::fill(mad_writer.data().begin(), mad_writer.data().end(), std::byte{0});
-    InputStream padded_stream{mad_buffer.get()};
-
-    OutputStream writer{codec_buffer_.get()};
-    auto res =
-        codec_->ContinueStream(stream.data(), writer.data_as<sample::Sample>());
-    if (res.second.has_error()) {
-      return;
-    }
-
-    writer.add(res.second->samples_written * sizeof(sample::Sample));
-
-    InputStream reader{codec_buffer_.get()};
-    SendToSink(reader);
-  }
-}
-
-auto AudioTask::ForwardPcmStream(StreamInfo::Pcm& format,
-                                 cpp::span<const std::byte> samples) -> bool {
-  // First we need to reconfigure the sink for this sample format.
-  if (format != current_output_format_) {
-    Duration d{
-        .src = Duration::Source::kFileSize,
-        .duration = samples.size_bytes(),
-    };
-    if (!ConfigureSink(format, d)) {
-      return false;
-    }
+auto AudioTask::ContinueDecoding() -> bool {
+  auto res = codec_->DecodeTo(codec_buffer_);
+  if (res.has_error()) {
+    return true;
   }
 
-  // Stream the raw samples directly to the sink.
-  xStreamBufferSend(sink_->stream(), samples.data(), samples.size_bytes(),
-                    portMAX_DELAY);
-  timer_->AddBytes(samples.size_bytes());
-  InputStream reader{codec_buffer_.get()};
-  SendToSink(reader);
-
-  return true;
-}
-
-auto AudioTask::ConfigureSink(const StreamInfo::Pcm& format,
-                              const Duration& duration) -> bool {
-  if (format != current_output_format_) {
-    current_output_format_ = format;
-    StreamInfo::Pcm new_sink_format = sink_->PrepareFormat(format);
-    if (new_sink_format != current_sink_format_) {
-      current_sink_format_ = new_sink_format;
-
-      // The new format is different to the old one. Wait for the sink to drain
-      // before continuing.
-      while (!xStreamBufferIsEmpty(sink_->stream())) {
-        ESP_LOGI(kTag, "waiting for sink stream to drain...");
-        // TODO(jacqueline): Get the sink drain ISR to notify us of this
-        // via semaphore instead of busy-ish waiting.
-        vTaskDelay(pdMS_TO_TICKS(10));
-      }
-
-      ESP_LOGI(kTag, "configuring sink");
-      sink_->Configure(new_sink_format);
-    }
+  if (res->samples_written > 0) {
+    mixer_->MixAndSend(codec_buffer_.first(res->samples_written),
+                       current_sink_format_.value(), res->is_stream_finished);
   }
 
-  current_output_format_ = format;
-  timer_.reset(new Timer(format, duration));
-  return true;
-}
-
-auto AudioTask::SendToSink(InputStream& stream) -> void {
-  std::size_t bytes_to_send = stream.data().size_bytes();
-  std::size_t bytes_sent;
-  if (stream.info().format_as<StreamInfo::Pcm>() == current_sink_format_) {
-    bytes_sent = xStreamBufferSend(sink_->stream(), stream.data().data(),
-                                   bytes_to_send, portMAX_DELAY);
-    stream.consume(bytes_sent);
-  } else {
-    bytes_sent = mixer_->MixAndSend(stream, current_sink_format_.value());
-  }
-  timer_->AddBytes(bytes_sent);
+  return res->is_stream_finished;
 }
 
 }  // namespace audio

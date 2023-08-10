@@ -19,23 +19,34 @@ namespace codecs {
 static const char kTag[] = "flac";
 
 FoxenFlacDecoder::FoxenFlacDecoder()
-    : flac_(FX_FLAC_ALLOC(FLAC_MAX_BLOCK_SIZE, 2)) {}
+    : input_(), buffer_(), flac_(FX_FLAC_ALLOC(FLAC_MAX_BLOCK_SIZE, 2)) {}
 
 FoxenFlacDecoder::~FoxenFlacDecoder() {
   free(flac_);
 }
 
-auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
-    -> Result<OutputFormat> {
-  uint32_t bytes_used = input.size_bytes();
-  fx_flac_state_t state =
-      fx_flac_process(flac_, reinterpret_cast<const uint8_t*>(input.data()),
-                      &bytes_used, NULL, NULL);
+auto FoxenFlacDecoder::OpenStream(std::shared_ptr<IStream> input)
+    -> cpp::result<OutputFormat, Error> {
+  input_ = input;
+
+  bool eof = false;
+  fx_flac_state_t state;
+  do {
+    eof = buffer_.Refill(input_.get());
+    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+      uint32_t bytes_used = buf.size();
+      state =
+          fx_flac_process(flac_, reinterpret_cast<const uint8_t*>(buf.data()),
+                          &bytes_used, NULL, NULL);
+      return bytes_used;
+    });
+  } while (state != FLAC_END_OF_METADATA && !eof);
+
   if (state != FLAC_END_OF_METADATA) {
     if (state == FLAC_ERR) {
-      return {bytes_used, cpp::fail(Error::kMalformedData)};
+      return cpp::fail(Error::kMalformedData);
     } else {
-      return {bytes_used, cpp::fail(Error::kOutOfInput)};
+      return cpp::fail(Error::kOutOfInput);
     }
   }
 
@@ -43,14 +54,12 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
   int64_t fs = fx_flac_get_streaminfo(flac_, FLAC_KEY_SAMPLE_RATE);
   if (channels == FLAC_INVALID_METADATA_KEY ||
       fs == FLAC_INVALID_METADATA_KEY) {
-    return {bytes_used, cpp::fail(Error::kMalformedData)};
+    return cpp::fail(Error::kMalformedData);
   }
 
   OutputFormat format{
       .num_channels = static_cast<uint8_t>(channels),
       .sample_rate_hz = static_cast<uint32_t>(fs),
-      .duration_seconds = {},
-      .bits_per_second = {},
   };
 
   uint64_t num_samples = fx_flac_get_streaminfo(flac_, FLAC_KEY_N_SAMPLES);
@@ -58,38 +67,32 @@ auto FoxenFlacDecoder::BeginStream(const cpp::span<const std::byte> input)
     format.duration_seconds = num_samples / fs;
   }
 
-  return {bytes_used, format};
+  return format;
 }
 
-auto FoxenFlacDecoder::ContinueStream(cpp::span<const std::byte> input,
-                                      cpp::span<sample::Sample> output)
-    -> Result<OutputInfo> {
-  cpp::span<int32_t> output_as_samples{
-      reinterpret_cast<int32_t*>(output.data()), output.size_bytes() / 4};
-  uint32_t bytes_read = input.size_bytes();
-  uint32_t samples_written = output_as_samples.size();
+auto FoxenFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
+    -> cpp::result<OutputInfo, Error> {
+  bool is_eof = buffer_.Refill(input_.get());
 
-  fx_flac_state_t state =
-      fx_flac_process(flac_, reinterpret_cast<const uint8_t*>(input.data()),
-                      &bytes_read, output_as_samples.data(), &samples_written);
+  fx_flac_state_t state;
+  uint32_t samples_written = output.size();
+
+  buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+    uint32_t bytes_read = buf.size_bytes();
+    state = fx_flac_process(flac_, reinterpret_cast<const uint8_t*>(buf.data()),
+                            &bytes_read, output.data(), &samples_written);
+    return bytes_read;
+  });
   if (state == FLAC_ERR) {
-    return {bytes_read, cpp::fail(Error::kMalformedData)};
+    return cpp::fail(Error::kMalformedData);
   }
 
-  if (samples_written > 0) {
-    return {bytes_read,
-            OutputInfo{.samples_written = samples_written,
-                       .is_finished_writing = state == FLAC_END_OF_FRAME}};
-  }
-
-  // No error, but no samples written. We must be out of data.
-  return {bytes_read, cpp::fail(Error::kOutOfInput)};
+  return OutputInfo{.samples_written = samples_written,
+                    .is_stream_finished = samples_written == 0 && is_eof};
 }
 
-auto FoxenFlacDecoder::SeekStream(cpp::span<const std::byte> input,
-                                  std::size_t target_sample) -> Result<void> {
-  // TODO(jacqueline): Implement me.
-  return {0, {}};
+auto FoxenFlacDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
+  return {};
 }
 
 }  // namespace codecs

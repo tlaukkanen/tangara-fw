@@ -95,6 +95,7 @@ class Playback : public AudioState {
   void entry() override;
   void exit() override;
 
+  void react(const PlayFile&) override;
   void react(const QueueUpdate&) override;
   void react(const PlaybackUpdate&) override;
 

@@ -24,6 +24,34 @@
 namespace codecs {
 
 /*
+ * Interface for an abstract source of file-like data.
+ */
+class IStream {
+ public:
+  IStream(StreamType t) : t_(t) {}
+  virtual ~IStream() {}
+
+  auto type() -> StreamType { return t_; }
+
+  virtual auto Read(cpp::span<std::byte> dest) -> ssize_t = 0;
+
+  virtual auto CanSeek() -> bool = 0;
+
+  enum class SeekFrom {
+    kStartOfStream,
+    kEndOfStream,
+    kCurrentPosition,
+  };
+
+  virtual auto SeekTo(int64_t destination, SeekFrom from) -> void = 0;
+
+  virtual auto CurrentPosition() -> int64_t = 0;
+
+ protected:
+  StreamType t_;
+};
+
+/*
  * Common interface to be implemented by all audio decoders.
  */
 class ICodec {
@@ -63,32 +91,30 @@ class ICodec {
   struct OutputFormat {
     uint8_t num_channels;
     uint32_t sample_rate_hz;
-
     std::optional<uint32_t> duration_seconds;
-    std::optional<uint32_t> bits_per_second;
+
+    bool operator==(const OutputFormat&) const = default;
   };
 
   /*
    * Decodes metadata or headers from the given input stream, and returns the
    * format for the samples that will be decoded from it.
    */
-  virtual auto BeginStream(cpp::span<const std::byte> input)
-      -> Result<OutputFormat> = 0;
+  virtual auto OpenStream(std::shared_ptr<IStream> input)
+      -> cpp::result<OutputFormat, Error> = 0;
 
   struct OutputInfo {
     std::size_t samples_written;
-    bool is_finished_writing;
+    bool is_stream_finished;
   };
 
   /*
    * Writes PCM samples to the given output buffer.
    */
-  virtual auto ContinueStream(cpp::span<const std::byte> input,
-                              cpp::span<sample::Sample> output)
-      -> Result<OutputInfo> = 0;
+  virtual auto DecodeTo(cpp::span<sample::Sample> destination)
+      -> cpp::result<OutputInfo, Error> = 0;
 
-  virtual auto SeekStream(cpp::span<const std::byte> input,
-                          std::size_t target_sample) -> Result<void> = 0;
+  virtual auto SeekTo(size_t target_sample) -> cpp::result<void, Error> = 0;
 };
 
 auto CreateCodecForType(StreamType type) -> std::optional<ICodec*>;

@@ -35,8 +35,8 @@ class I2SAudioOutput : public IAudioSink {
   auto AdjustVolumeUp() -> bool override;
   auto AdjustVolumeDown() -> bool override;
 
-  auto PrepareFormat(const StreamInfo::Pcm&) -> StreamInfo::Pcm override;
-  auto Configure(const StreamInfo::Pcm& format) -> void override;
+  auto PrepareFormat(const Format&) -> Format override;
+  auto Configure(const Format& format) -> void override;
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
@@ -45,7 +45,7 @@ class I2SAudioOutput : public IAudioSink {
   drivers::IGpios* expander_;
   std::shared_ptr<drivers::I2SDac> dac_;
 
-  std::optional<StreamInfo::Pcm> current_config_;
+  std::optional<Format> current_config_;
   int_fast8_t left_difference_;
   uint16_t current_volume_;
   uint16_t max_volume_;

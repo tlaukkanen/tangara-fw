@@ -37,7 +37,7 @@ typedef uint32_t TrackId;
  * Values of this enum are persisted in this database, so it is probably never a
  * good idea to change the int representation of an existing value.
  */
-enum class Encoding {
+enum class Container {
   kUnsupported = 0,
   kMp3 = 1,
   kWav = 2,
@@ -61,10 +61,10 @@ enum class Tag {
  */
 class TrackTags {
  public:
-  auto encoding() const -> Encoding { return encoding_; };
-  auto encoding(Encoding e) -> void { encoding_ = e; };
+  auto encoding() const -> Container { return encoding_; };
+  auto encoding(Container e) -> void { encoding_ = e; };
 
-  TrackTags() : encoding_(Encoding::kUnsupported) {}
+  TrackTags() : encoding_(Container::kUnsupported) {}
 
   std::optional<int> channels;
   std::optional<int> sample_rate;
@@ -89,7 +89,7 @@ class TrackTags {
   TrackTags(const TrackTags&) = default;
 
  private:
-  Encoding encoding_;
+  Container encoding_;
   std::unordered_map<Tag, shared_string> tags_;
 };
 

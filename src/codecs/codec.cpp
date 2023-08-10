@@ -10,10 +10,10 @@
 #include <optional>
 
 #include "foxenflac.hpp"
-#include "opus.hpp"
 #include "mad.hpp"
-#include "vorbis.hpp"
+#include "opus.hpp"
 #include "types.hpp"
+#include "vorbis.hpp"
 
 namespace codecs {
 

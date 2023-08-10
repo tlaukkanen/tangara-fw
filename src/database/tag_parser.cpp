@@ -142,22 +142,22 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
 
   switch (ctx.format) {
     case Fmp3:
-      out->encoding(Encoding::kMp3);
+      out->encoding(Container::kMp3);
       break;
     case Fogg:
-      out->encoding(Encoding::kOgg);
+      out->encoding(Container::kOgg);
       break;
     case Fflac:
-      out->encoding(Encoding::kFlac);
+      out->encoding(Container::kFlac);
       break;
     case Fwav:
-      out->encoding(Encoding::kWav);
+      out->encoding(Container::kWav);
       break;
     case Fopus:
-      out->encoding(Encoding::kOpus);
+      out->encoding(Container::kOpus);
       break;
     default:
-      out->encoding(Encoding::kUnsupported);
+      out->encoding(Container::kUnsupported);
   }
 
   if (ctx.channels > 0) {

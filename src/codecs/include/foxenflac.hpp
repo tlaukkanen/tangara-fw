@@ -15,6 +15,7 @@
 
 #include "foxen/flac.h"
 #include "sample.hpp"
+#include "source_buffer.hpp"
 #include "span.hpp"
 
 #include "codec.hpp"
@@ -26,13 +27,21 @@ class FoxenFlacDecoder : public ICodec {
   FoxenFlacDecoder();
   ~FoxenFlacDecoder();
 
-  auto BeginStream(cpp::span<const std::byte>) -> Result<OutputFormat> override;
-  auto ContinueStream(cpp::span<const std::byte>, cpp::span<sample::Sample>)
-      -> Result<OutputInfo> override;
-  auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
-      -> Result<void> override;
+  auto OpenStream(std::shared_ptr<IStream> input)
+      -> cpp::result<OutputFormat, Error> override;
+
+  auto DecodeTo(cpp::span<sample::Sample> destination)
+      -> cpp::result<OutputInfo, Error> override;
+
+  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
+
+  FoxenFlacDecoder(const FoxenFlacDecoder&) = delete;
+  FoxenFlacDecoder& operator=(const FoxenFlacDecoder&) = delete;
 
  private:
+  std::shared_ptr<IStream> input_;
+  SourceBuffer buffer_;
+
   fx_flac_t* flac_;
 };
 

@@ -16,6 +16,8 @@
 #include "pipeline.hpp"
 #include "sink_mixer.hpp"
 #include "stream_info.hpp"
+#include "track.hpp"
+#include "types.hpp"
 
 namespace audio {
 
@@ -52,32 +54,27 @@ class AudioTask {
 
   auto Main() -> void;
 
+  AudioTask(const AudioTask&) = delete;
+  AudioTask& operator=(const AudioTask&) = delete;
+
  private:
   AudioTask(IAudioSource* source, IAudioSink* sink);
 
-  auto HandleNewStream(const InputStream&) -> bool;
-
-  auto BeginDecoding(InputStream&) -> bool;
-  auto ContinueDecoding(InputStream&) -> bool;
-  auto FinishDecoding(InputStream&) -> void;
-
-  auto ForwardPcmStream(StreamInfo::Pcm&, cpp::span<const std::byte>) -> bool;
-
-  auto ConfigureSink(const StreamInfo::Pcm&, const Duration&) -> bool;
-  auto SendToSink(InputStream&) -> void;
+  auto BeginDecoding(std::shared_ptr<codecs::IStream>) -> bool;
+  auto ContinueDecoding() -> bool;
 
   IAudioSource* source_;
   IAudioSink* sink_;
+
+  std::shared_ptr<codecs::IStream> stream_;
   std::unique_ptr<codecs::ICodec> codec_;
   std::unique_ptr<SinkMixer> mixer_;
   std::unique_ptr<Timer> timer_;
 
-  bool has_begun_decoding_;
-  std::optional<StreamInfo::Format> current_input_format_;
-  std::optional<StreamInfo::Pcm> current_output_format_;
-  std::optional<StreamInfo::Pcm> current_sink_format_;
+  std::optional<codecs::ICodec::OutputFormat> current_format_;
+  std::optional<IAudioSink::Format> current_sink_format_;
 
-  std::unique_ptr<RawStream> codec_buffer_;
+  cpp::span<sample::Sample> codec_buffer_;
 };
 
 }  // namespace audio

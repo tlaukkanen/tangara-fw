@@ -19,8 +19,10 @@
 #include <string>
 #include <variant>
 
+#include "codec.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "fatfs_source.hpp"
 #include "ff.h"
 
 #include "audio_events.hpp"
@@ -41,294 +43,124 @@ static const char* kTag = "SRC";
 
 namespace audio {
 
-static constexpr UINT kFileBufferSize = 8 * 1024;
-static constexpr UINT kStreamerBufferSize = 64 * 1024;
-
-static StreamBufferHandle_t sForwardDest = nullptr;
-
-auto forward_cb(const BYTE* buf, UINT buf_length) -> UINT {
-  if (buf_length == 0) {
-    return !xStreamBufferIsFull(sForwardDest);
-  } else {
-    return xStreamBufferSend(sForwardDest, buf, buf_length, 0);
-  }
-}
-
-FileStreamer::FileStreamer(StreamBufferHandle_t dest,
-                           SemaphoreHandle_t data_was_read)
-    : control_(xQueueCreate(1, sizeof(Command))),
-      destination_(dest),
-      data_was_read_(data_was_read),
-      has_data_(false),
-      file_(),
-      next_file_() {
-  assert(sForwardDest == nullptr);
-  sForwardDest = dest;
-  tasks::StartPersistent<tasks::Type::kFileStreamer>([this]() { Main(); });
-}
-
-FileStreamer::~FileStreamer() {
-  sForwardDest = nullptr;
-  Command quit = kQuit;
-  xQueueSend(control_, &quit, portMAX_DELAY);
-  vQueueDelete(control_);
-}
-
-auto FileStreamer::Main() -> void {
-  for (;;) {
-    Command cmd;
-    xQueueReceive(control_, &cmd, portMAX_DELAY);
-
-    if (cmd == kQuit) {
-      break;
-    } else if (cmd == kRestart) {
-      CloseFile();
-      xStreamBufferReset(destination_);
-      file_ = std::move(next_file_);
-      has_data_ = file_ != nullptr;
-    } else if (cmd == kRefillBuffer && file_) {
-      UINT bytes_sent = 0;  // Unused.
-      // Use f_forward to push bytes directly from FATFS internal buffers into
-      // the destination. This has the nice side effect of letting FATFS decide
-      // the most efficient way to pull in data from disk; usually one whole
-      // sector at a time. Consult the FATFS lib application notes if changing
-      // this to use f_read.
-      FRESULT res = f_forward(file_.get(), forward_cb, UINT_MAX, &bytes_sent);
-      if (res != FR_OK || f_eof(file_.get())) {
-        CloseFile();
-        has_data_ = false;
-      }
-      if (bytes_sent > 0) {
-        xSemaphoreGive(data_was_read_);
-      }
-    }
-  }
-
-  ESP_LOGW(kTag, "quit file streamer");
-  CloseFile();
-  vTaskDelete(NULL);
-}
-
-auto FileStreamer::Fetch() -> void {
-  if (!has_data_.load()) {
-    return;
-  }
-  Command refill = kRefillBuffer;
-  xQueueSend(control_, &refill, portMAX_DELAY);
-}
-
-auto FileStreamer::HasFinished() -> bool {
-  return !has_data_.load();
-}
-
-auto FileStreamer::Restart(std::unique_ptr<FIL> new_file) -> void {
-  next_file_ = std::move(new_file);
-  Command restart = kRestart;
-  xQueueSend(control_, &restart, portMAX_DELAY);
-  Command fill = kRefillBuffer;
-  xQueueSend(control_, &fill, portMAX_DELAY);
-}
-
-auto FileStreamer::CloseFile() -> void {
-  if (!file_) {
-    return;
-  }
-  ESP_LOGI(kTag, "closing file");
-  f_close(file_.get());
-  file_ = {};
-  events::Audio().Dispatch(internal::InputFileClosed{});
-}
-
 FatfsAudioInput::FatfsAudioInput(
     std::shared_ptr<database::ITagParser> tag_parser)
     : IAudioSource(),
       tag_parser_(tag_parser),
-      has_data_(xSemaphoreCreateBinary()),
-      streamer_buffer_(xStreamBufferCreateWithCaps(kStreamerBufferSize,
-                                                   1,
-                                                   MALLOC_CAP_SPIRAM)),
-      streamer_(new FileStreamer(streamer_buffer_, has_data_)),
-      input_buffer_(new RawStream(kFileBufferSize)),
-      source_mutex_(),
-      pending_path_(),
-      is_first_read_(false) {}
+      new_stream_mutex_(),
+      new_stream_(),
+      has_new_stream_(xSemaphoreCreateBinary()),
+      pending_path_() {}
 
 FatfsAudioInput::~FatfsAudioInput() {
-  streamer_.reset();
-  vStreamBufferDelete(streamer_buffer_);
-  vSemaphoreDelete(has_data_);
+  vSemaphoreDelete(has_new_stream_);
 }
 
 auto FatfsAudioInput::SetPath(std::future<std::optional<std::string>> fut)
     -> void {
-  std::lock_guard<std::mutex> lock{source_mutex_};
-
-  CloseCurrentFile();
+  std::lock_guard<std::mutex> guard{new_stream_mutex_};
   pending_path_.reset(
       new database::FutureFetcher<std::optional<std::string>>(std::move(fut)));
 
-  xSemaphoreGive(has_data_);
+  xSemaphoreGive(has_new_stream_);
 }
 
 auto FatfsAudioInput::SetPath(const std::string& path) -> void {
-  std::lock_guard<std::mutex> lock{source_mutex_};
-
-  CloseCurrentFile();
-  OpenFile(path);
+  std::lock_guard<std::mutex> guard{new_stream_mutex_};
+  if (OpenFile(path)) {
+    xSemaphoreGive(has_new_stream_);
+  }
 }
 
 auto FatfsAudioInput::SetPath() -> void {
-  std::lock_guard<std::mutex> lock{source_mutex_};
-  CloseCurrentFile();
+  std::lock_guard<std::mutex> guard{new_stream_mutex_};
+  new_stream_.reset();
+  xSemaphoreGive(has_new_stream_);
 }
 
-auto FatfsAudioInput::Read(std::function<void(Flags, InputStream&)> read_cb,
-                           TickType_t max_wait) -> void {
-  // Wait until we have data to return.
-  xSemaphoreTake(has_data_, portMAX_DELAY);
-
-  // Ensure the file doesn't change whilst we're trying to get data about it.
-  std::lock_guard<std::mutex> source_lock{source_mutex_};
-
-  // If the path is a future, then wait for it to complete.
-  // TODO(jacqueline): We should really make some kind of FreeRTOS-integrated
-  // way to block a task whilst awaiting a future.
-  if (pending_path_) {
-    while (!pending_path_->Finished()) {
-      vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    auto res = pending_path_->Result();
-    pending_path_.reset();
-
-    if (res && *res) {
-      OpenFile(**res);
-    }
-
-    // Bail out now that we've resolved the future. If we end up successfully
-    // readinig from the path, then has_data will be flagged again.
-    return;
+auto FatfsAudioInput::HasNewStream() -> bool {
+  bool res = xSemaphoreTake(has_new_stream_, 0);
+  if (res) {
+    xSemaphoreGive(has_new_stream_);
   }
+  return res;
+}
 
-  // Move data from the file streamer's buffer into our file buffer. We need our
-  // own buffer so that we can handle concatenating smaller file chunks into
-  // complete frames for the decoder.
-  OutputStream writer{input_buffer_.get()};
-  std::size_t bytes_added =
-      xStreamBufferReceive(streamer_buffer_, writer.data().data(),
-                           writer.data().size_bytes(), pdMS_TO_TICKS(0));
-  writer.add(bytes_added);
+auto FatfsAudioInput::NextStream() -> std::shared_ptr<codecs::IStream> {
+  while (true) {
+    xSemaphoreTake(has_new_stream_, portMAX_DELAY);
 
-  bool has_data_remaining = HasDataRemaining();
+    {
+      std::lock_guard<std::mutex> guard{new_stream_mutex_};
+      // If the path is a future, then wait for it to complete.
+      // TODO(jacqueline): We should really make some kind of
+      // FreeRTOS-integrated way to block a task whilst awaiting a future.
+      if (pending_path_) {
+        while (!pending_path_->Finished()) {
+          vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        auto res = pending_path_->Result();
+        pending_path_.reset();
 
-  InputStream reader{input_buffer_.get()};
-  auto data_for_cb = reader.data();
-  if (!data_for_cb.empty()) {
-    std::invoke(read_cb, Flags{is_first_read_, !has_data_remaining}, reader);
-    is_first_read_ = false;
-  }
+        if (res && *res) {
+          OpenFile(**res);
+        }
+      }
 
-  if (!has_data_remaining) {
-    // Out of data. We're finished. Note we don't care about anything left in
-    // the file buffer at this point; the callback as seen it, so if it didn't
-    // consume it then presumably whatever is left isn't enough to form a
-    // complete frame.
-    ESP_LOGI(kTag, "finished streaming file");
-    CloseCurrentFile();
-  } else {
-    // There is still data to be read, or sitting in the buffer.
-    streamer_->Fetch();
-    xSemaphoreGive(has_data_);
+      if (new_stream_ == nullptr) {
+        continue;
+      }
+
+      auto stream = new_stream_;
+      new_stream_ = nullptr;
+      return stream;
+    }
   }
 }
 
-auto FatfsAudioInput::OpenFile(const std::string& path) -> void {
+auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
-
-  FILINFO info;
-  if (f_stat(path.c_str(), &info) != FR_OK) {
-    ESP_LOGE(kTag, "failed to stat file");
-    return;
-  }
 
   database::TrackTags tags;
   if (!tag_parser_->ReadAndParseTags(path, &tags)) {
     ESP_LOGE(kTag, "failed to read tags");
-    return;
+    return false;
   }
 
   auto stream_type = ContainerToStreamType(tags.encoding());
   if (!stream_type.has_value()) {
     ESP_LOGE(kTag, "couldn't match container to stream");
-    return;
-  }
-
-  StreamInfo::Format format;
-  if (*stream_type == codecs::StreamType::kPcm) {
-    if (tags.channels && tags.bits_per_sample && tags.channels) {
-      format = StreamInfo::Pcm{
-          .channels = static_cast<uint8_t>(*tags.channels),
-          .bits_per_sample = static_cast<uint8_t>(*tags.bits_per_sample),
-          .sample_rate = static_cast<uint32_t>(*tags.sample_rate)};
-    } else {
-      ESP_LOGW(kTag, "pcm stream missing format info");
-      return;
-    }
-  } else {
-    format = StreamInfo::Encoded{.type = *stream_type};
+    return false;
   }
 
   std::unique_ptr<FIL> file = std::make_unique<FIL>();
   FRESULT res = f_open(file.get(), path.c_str(), FA_READ);
   if (res != FR_OK) {
     ESP_LOGE(kTag, "failed to open file! res: %i", res);
-    return;
+    return false;
   }
 
-  OutputStream writer{input_buffer_.get()};
-  writer.prepare(format, info.fsize);
-  if (tags.duration) {
-    writer.info().total_length_seconds() = *tags.duration;
-  }
-
-  streamer_->Restart(std::move(file));
-  is_first_read_ = true;
-  events::Audio().Dispatch(internal::InputFileOpened{});
+  new_stream_.reset(new FatfsSource(stream_type.value(), std::move(file)));
+  return true;
 }
 
-auto FatfsAudioInput::CloseCurrentFile() -> void {
-  streamer_->Restart({});
-  xStreamBufferReset(streamer_buffer_);
-}
-
-auto FatfsAudioInput::HasDataRemaining() -> bool {
-  return !streamer_->HasFinished() || !xStreamBufferIsEmpty(streamer_buffer_);
-}
-
-auto FatfsAudioInput::ContainerToStreamType(database::Encoding enc)
+auto FatfsAudioInput::ContainerToStreamType(database::Container enc)
     -> std::optional<codecs::StreamType> {
   switch (enc) {
-    case database::Encoding::kMp3:
+    case database::Container::kMp3:
       return codecs::StreamType::kMp3;
-    case database::Encoding::kWav:
+    case database::Container::kWav:
       return codecs::StreamType::kPcm;
-    case database::Encoding::kOgg:
+    case database::Container::kOgg:
       return codecs::StreamType::kVorbis;
-    case database::Encoding::kFlac:
+    case database::Container::kFlac:
       return codecs::StreamType::kFlac;
-    case database::Encoding::kOpus:
+    case database::Container::kOpus:
       return codecs::StreamType::kOpus;
-    case database::Encoding::kUnsupported:
+    case database::Container::kUnsupported:
     default:
       return {};
   }
-}
-
-auto FatfsAudioInput::IsCurrentFormatMp3() -> bool {
-  auto format = input_buffer_->info().format_as<StreamInfo::Encoded>();
-  if (!format) {
-    return false;
-  }
-  return format->type == codecs::StreamType::kMp3;
 }
 
 }  // namespace audio

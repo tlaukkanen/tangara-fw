@@ -14,6 +14,7 @@
 
 #include "mad.h"
 #include "sample.hpp"
+#include "source_buffer.hpp"
 #include "span.hpp"
 
 #include "codec.hpp"
@@ -25,33 +26,31 @@ class MadMp3Decoder : public ICodec {
   MadMp3Decoder();
   ~MadMp3Decoder();
 
-  /*
-   * Returns the output format for the next frame in the stream. MP3 streams
-   * may represent multiple distinct tracks, with different bitrates, and so we
-   * handle the stream only on a frame-by-frame basis.
-   */
-  auto BeginStream(cpp::span<const std::byte>) -> Result<OutputFormat> override;
+  auto OpenStream(std::shared_ptr<IStream> input)
+      -> cpp::result<OutputFormat, Error> override;
 
-  /*
-   * Writes samples for the current frame.
-   */
-  auto ContinueStream(cpp::span<const std::byte> input,
-                      cpp::span<sample::Sample> output)
-      -> Result<OutputInfo> override;
+  auto DecodeTo(cpp::span<sample::Sample> destination)
+      -> cpp::result<OutputInfo, Error> override;
 
-  auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
-      -> Result<void> override;
+  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
+
+  MadMp3Decoder(const MadMp3Decoder&) = delete;
+  MadMp3Decoder& operator=(const MadMp3Decoder&) = delete;
 
  private:
   auto GetVbrLength(const mad_header& header) -> std::optional<uint32_t>;
+  auto GetBytesUsed() -> std::size_t;
+
+  std::shared_ptr<IStream> input_;
+  SourceBuffer buffer_;
 
   mad_stream stream_;
   mad_frame frame_;
   mad_synth synth_;
 
   int current_sample_;
-
-  auto GetBytesUsed(std::size_t) -> std::size_t;
+  bool is_eof_;
+  bool is_eos_;
 };
 
 }  // namespace codecs

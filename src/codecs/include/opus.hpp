@@ -26,30 +26,21 @@ class XiphOpusDecoder : public ICodec {
   XiphOpusDecoder();
   ~XiphOpusDecoder();
 
-  /*
-   * Returns the output format for the next frame in the stream. MP3 streams
-   * may represent multiple distinct tracks, with different bitrates, and so we
-   * handle the stream only on a frame-by-frame basis.
-   */
-  auto BeginStream(cpp::span<const std::byte>) -> Result<OutputFormat> override;
+  auto OpenStream(std::shared_ptr<IStream> input)
+      -> cpp::result<OutputFormat, Error> override;
 
-  /*
-   * Writes samples for the current frame.
-   */
-  auto ContinueStream(cpp::span<const std::byte> input,
-                      cpp::span<sample::Sample> output)
-      -> Result<OutputInfo> override;
+  auto DecodeTo(cpp::span<sample::Sample> destination)
+      -> cpp::result<OutputInfo, Error> override;
 
-  auto SeekStream(cpp::span<const std::byte> input, std::size_t target_sample)
-      -> Result<void> override;
+  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
 
-  auto ReadCallback() -> cpp::span<const std::byte>;
-  auto AfterReadCallback(size_t bytes_read) -> void;
+  XiphOpusDecoder(const XiphOpusDecoder&) = delete;
+  XiphOpusDecoder& operator=(const XiphOpusDecoder&) = delete;
 
  private:
+  std::shared_ptr<IStream> input_;
   OggOpusFile* opus_;
-  cpp::span<const std::byte> input_;
-  size_t pos_in_input_;
+  uint8_t num_channels_;
 };
 
 }  // namespace codecs

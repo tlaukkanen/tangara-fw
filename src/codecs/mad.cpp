@@ -22,7 +22,10 @@
 
 namespace codecs {
 
-MadMp3Decoder::MadMp3Decoder() {
+static constexpr char kTag[] = "mad";
+
+MadMp3Decoder::MadMp3Decoder()
+    : input_(), buffer_(), current_sample_(-1), is_eof_(false), is_eos_(false) {
   mad_stream_init(&stream_);
   mad_frame_init(&frame_);
   mad_synth_init(&synth_);
@@ -33,185 +36,145 @@ MadMp3Decoder::~MadMp3Decoder() {
   mad_synth_finish(&synth_);
 }
 
-auto MadMp3Decoder::GetBytesUsed(std::size_t buffer_size) -> std::size_t {
+auto MadMp3Decoder::GetBytesUsed() -> std::size_t {
   if (stream_.next_frame) {
-    std::size_t remaining = stream_.bufend - stream_.next_frame;
-    return buffer_size - remaining;
+    return stream_.next_frame - stream_.buffer;
   } else {
     return stream_.bufend - stream_.buffer;
   }
 }
 
-auto MadMp3Decoder::BeginStream(const cpp::span<const std::byte> input)
-    -> Result<OutputFormat> {
-  mad_stream_buffer(&stream_,
-                    reinterpret_cast<const unsigned char*>(input.data()),
-                    input.size_bytes());
-  // Whatever was last synthesized is now invalid, so ensure we don't try to
-  // send it.
-  current_sample_ = -1;
+auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
+    -> cpp::result<OutputFormat, ICodec::Error> {
+  input_ = input;
 
   // To get the output format for MP3 streams, we simply need to decode the
   // first frame header.
   mad_header header;
   mad_header_init(&header);
-  while (mad_header_decode(&header, &stream_) < 0) {
-    if (MAD_RECOVERABLE(stream_.error)) {
-      // Recoverable errors are usually malformed parts of the stream.
-      // We can recover from them by just retrying the decode.
-      continue;
-    }
-    if (stream_.error == MAD_ERROR_BUFLEN) {
-      return {GetBytesUsed(input.size_bytes()), cpp::fail(Error::kOutOfInput)};
-    }
-    return {GetBytesUsed(input.size_bytes()), cpp::fail(Error::kMalformedData)};
+  bool eof = false;
+  bool got_header = false;
+  while (!eof && !got_header) {
+    eof = buffer_.Refill(input_.get());
+
+    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+      mad_stream_buffer(&stream_,
+                        reinterpret_cast<const unsigned char*>(buf.data()),
+                        buf.size_bytes());
+
+      while (mad_header_decode(&header, &stream_) < 0) {
+        if (MAD_RECOVERABLE(stream_.error)) {
+          // Recoverable errors are usually malformed parts of the stream.
+          // We can recover from them by just retrying the decode.
+          continue;
+        }
+        if (stream_.error == MAD_ERROR_BUFLEN) {
+          return GetBytesUsed();
+        }
+        eof = true;
+        return 0;
+      }
+
+      got_header = true;
+      return GetBytesUsed();
+    });
+  }
+
+  if (!got_header) {
+    return cpp::fail(ICodec::Error::kMalformedData);
   }
 
   uint8_t channels = MAD_NCHANNELS(&header);
   OutputFormat output{
       .num_channels = channels,
       .sample_rate_hz = header.samplerate,
-      .duration_seconds = {},
-      .bits_per_second = {},
   };
 
   auto vbr_length = GetVbrLength(header);
   if (vbr_length) {
     output.duration_seconds = vbr_length;
-  } else {
-    output.bits_per_second = header.bitrate;
   }
-
-  return {GetBytesUsed(input.size_bytes()), output};
+  return output;
 }
 
-auto MadMp3Decoder::ContinueStream(cpp::span<const std::byte> input,
-                                   cpp::span<sample::Sample> output)
-    -> Result<OutputInfo> {
-  std::size_t bytes_read = 0;
-  if (current_sample_ < 0) {
-    mad_stream_buffer(&stream_,
-                      reinterpret_cast<const unsigned char*>(input.data()),
-                      input.size());
-
-    // Decode the next frame. To signal errors, this returns -1 and
-    // stashes an error code in the stream structure.
-    while (mad_frame_decode(&frame_, &stream_) < 0) {
-      if (MAD_RECOVERABLE(stream_.error)) {
-        // Recoverable errors are usually malformed parts of the stream.
-        // We can recover from them by just retrying the decode.
-        continue;
+auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
+    -> cpp::result<OutputInfo, Error> {
+  if (current_sample_ < 0 && !is_eos_) {
+    if (!is_eof_) {
+      is_eof_ = buffer_.Refill(input_.get());
+      if (is_eof_) {
+        buffer_.AddBytes([&](cpp::span<std::byte> buf) -> size_t {
+          if (buf.size() < 8) {
+            is_eof_ = false;
+            return 0;
+          }
+          ESP_LOGI(kTag, "adding MAD_HEADER_GUARD");
+          std::fill_n(buf.begin(), 8, std::byte(0));
+          return 8;
+        });
       }
-      if (stream_.error == MAD_ERROR_BUFLEN) {
-        // The decoder ran out of bytes before it completed a frame. We
-        // need to return back to the caller to give us more data.
-        return {GetBytesUsed(input.size_bytes()),
-                cpp::fail(Error::kOutOfInput)};
-      }
-      // The error is unrecoverable. Give up.
-      return {GetBytesUsed(input.size_bytes()),
-              cpp::fail(Error::kMalformedData)};
     }
 
-    // We've successfully decoded a frame! Now synthesize samples to write out.
-    mad_synth_frame(&synth_, &frame_);
-    current_sample_ = 0;
-    bytes_read = GetBytesUsed(input.size_bytes());
+    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+      mad_stream_buffer(&stream_,
+                        reinterpret_cast<const unsigned char*>(buf.data()),
+                        buf.size());
+
+      // Decode the next frame. To signal errors, this returns -1 and
+      // stashes an error code in the stream structure.
+      while (mad_frame_decode(&frame_, &stream_) < 0) {
+        if (MAD_RECOVERABLE(stream_.error)) {
+          // Recoverable errors are usually malformed parts of the stream.
+          // We can recover from them by just retrying the decode.
+          continue;
+        }
+        if (stream_.error == MAD_ERROR_BUFLEN) {
+          if (is_eof_) {
+            ESP_LOGI(kTag, "BUFLEN while eof; this is eos");
+            is_eos_ = true;
+          }
+          return GetBytesUsed();
+        }
+        // The error is unrecoverable. Give up.
+        is_eof_ = true;
+        is_eos_ = true;
+        return 0;
+      }
+
+      // We've successfully decoded a frame! Now synthesize samples to write
+      // out.
+      mad_synth_frame(&synth_, &frame_);
+      current_sample_ = 0;
+      return GetBytesUsed();
+    });
   }
 
   size_t output_sample = 0;
-  while (current_sample_ < synth_.pcm.length) {
-    if (output_sample + synth_.pcm.channels >= output.size()) {
-      // We can't fit the next full frame into the buffer.
-      return {bytes_read, OutputInfo{.samples_written = output_sample,
-                                     .is_finished_writing = false}};
-    }
+  if (current_sample_ >= 0) {
+    while (current_sample_ < synth_.pcm.length) {
+      if (output_sample + synth_.pcm.channels >= output.size()) {
+        // We can't fit the next full frame into the buffer.
+        return OutputInfo{.samples_written = output_sample,
+                          .is_stream_finished = false};
+      }
 
-    for (int channel = 0; channel < synth_.pcm.channels; channel++) {
-      output[output_sample++] =
-          sample::FromMad(synth_.pcm.samples[channel][current_sample_]);
+      for (int channel = 0; channel < synth_.pcm.channels; channel++) {
+        output[output_sample++] =
+            sample::FromMad(synth_.pcm.samples[channel][current_sample_]);
+      }
+      current_sample_++;
     }
-    current_sample_++;
   }
 
   // We wrote everything! Reset, ready for the next frame.
   current_sample_ = -1;
-  return {bytes_read, OutputInfo{.samples_written = output_sample,
-                                 .is_finished_writing = true}};
+  return OutputInfo{.samples_written = output_sample,
+                    .is_stream_finished = is_eos_};
 }
 
-auto MadMp3Decoder::SeekStream(cpp::span<const std::byte> input,
-                               std::size_t target_sample) -> Result<void> {
-  mad_stream_buffer(&stream_,
-                    reinterpret_cast<const unsigned char*>(input.data()),
-                    input.size());
-  std::size_t current_sample = 0;
-  std::size_t samples_per_frame = 0;
-  while (true) {
-    current_sample += samples_per_frame;
-
-    // First, decode the header for this frame.
-    mad_header header;
-    mad_header_init(&header);
-    while (mad_header_decode(&header, &stream_) < 0) {
-      if (MAD_RECOVERABLE(stream_.error)) {
-        // Recoverable errors are usually malformed parts of the stream.
-        // We can recover from them by just retrying the decode.
-        continue;
-      } else {
-        // Don't bother checking for other errors; if the first part of the
-        // stream doesn't even contain a header then something's gone wrong.
-        return {GetBytesUsed(input.size_bytes()),
-                cpp::fail(Error::kMalformedData)};
-      }
-    }
-
-    // Calculate samples per frame if we haven't already.
-    if (samples_per_frame == 0) {
-      samples_per_frame = 32 * MAD_NSBSAMPLES(&header);
-    }
-
-    // Work out how close we are to the target.
-    std::size_t samples_to_go = target_sample - current_sample;
-    std::size_t frames_to_go = samples_to_go / samples_per_frame;
-    if (frames_to_go > 3) {
-      // The target is far in the distance. Keep skipping through headers only.
-      continue;
-    }
-
-    // The target is within the next few frames. We should decode these, as per
-    // the LAME FAQ (https://lame.sourceforge.io/tech-FAQ.txt):
-    // > The MP3 data for frame N is not stored in frame N, but can be spread
-    // > over several frames.  In a typical case, the data for frame N will
-    // > have 20% of it stored in frame N-1 and 80% stored in frame N.
-    while (mad_frame_decode(&frame_, &stream_) < 0) {
-      if (MAD_RECOVERABLE(stream_.error)) {
-        continue;
-      }
-      if (stream_.error == MAD_ERROR_BUFLEN) {
-        return {GetBytesUsed(input.size_bytes()),
-                cpp::fail(Error::kOutOfInput)};
-      }
-      // The error is unrecoverable. Give up.
-      return {GetBytesUsed(input.size_bytes()),
-              cpp::fail(Error::kMalformedData)};
-    }
-
-    if (frames_to_go <= 1) {
-      // The target is within the next couple of frames. We should start
-      // synthesizing a frame early because this guy says so:
-      // https://lists.mars.org/hyperkitty/list/mad-dev@lists.mars.org/message/UZSHXZTIZEF7FZ4KFOR65DUCKAY2OCUT/
-      mad_synth_frame(&synth_, &frame_);
-    }
-
-    if (frames_to_go == 0) {
-      // The target is actually within this frame! Set up for the ContinueStream
-      // call.
-      current_sample_ =
-          (target_sample > current_sample) ? target_sample - current_sample : 0;
-      return {GetBytesUsed(input.size_bytes()), {}};
-    }
-  }
+auto MadMp3Decoder::SeekTo(std::size_t target_sample)
+    -> cpp::result<void, Error> {
+  return {};
 }
 
 /*

@@ -97,6 +97,10 @@ void Standby::react(const PlayFile& ev) {
   sFileSource->SetPath(ev.filename);
 }
 
+void Playback::react(const PlayFile& ev) {
+  sFileSource->SetPath(ev.filename);
+}
+
 void Standby::react(const internal::InputFileOpened& ev) {
   transit<Playback>();
 }

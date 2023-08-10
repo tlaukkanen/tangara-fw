@@ -115,26 +115,25 @@ auto I2SAudioOutput::AdjustVolumeDown() -> bool {
   return true;
 }
 
-auto I2SAudioOutput::PrepareFormat(const StreamInfo::Pcm& orig)
-    -> StreamInfo::Pcm {
-  return StreamInfo::Pcm{
-      .channels = std::min<uint8_t>(orig.channels, 2),
-      .bits_per_sample = std::clamp<uint8_t>(orig.bits_per_sample, 16, 32),
+auto I2SAudioOutput::PrepareFormat(const Format& orig) -> Format {
+  return Format{
       .sample_rate = std::clamp<uint32_t>(orig.sample_rate, 8000, 96000),
+      .num_channels = std::min<uint8_t>(orig.num_channels, 2),
+      .bits_per_sample = std::clamp<uint8_t>(orig.bits_per_sample, 16, 32),
   };
 }
 
-auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> void {
-  if (current_config_ && pcm == *current_config_) {
+auto I2SAudioOutput::Configure(const Format& fmt) -> void {
+  if (current_config_ && fmt == *current_config_) {
     ESP_LOGI(kTag, "ignoring unchanged format");
     return;
   }
 
-  ESP_LOGI(kTag, "incoming audio stream: %u ch %u bpp @ %lu Hz", pcm.channels,
-           pcm.bits_per_sample, pcm.sample_rate);
+  ESP_LOGI(kTag, "incoming audio stream: %u ch %u bpp @ %lu Hz",
+           fmt.num_channels, fmt.bits_per_sample, fmt.sample_rate);
 
   drivers::I2SDac::Channels ch;
-  switch (pcm.channels) {
+  switch (fmt.num_channels) {
     case 1:
       ch = drivers::I2SDac::CHANNELS_MONO;
       break;
@@ -147,7 +146,7 @@ auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> void {
   }
 
   drivers::I2SDac::BitsPerSample bps;
-  switch (pcm.bits_per_sample) {
+  switch (fmt.bits_per_sample) {
     case 16:
       bps = drivers::I2SDac::BPS_16;
       break;
@@ -163,7 +162,7 @@ auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> void {
   }
 
   drivers::I2SDac::SampleRate sample_rate;
-  switch (pcm.sample_rate) {
+  switch (fmt.sample_rate) {
     case 8000:
       sample_rate = drivers::I2SDac::SAMPLE_RATE_8;
       break;
@@ -188,7 +187,7 @@ auto I2SAudioOutput::Configure(const StreamInfo::Pcm& pcm) -> void {
   }
 
   dac_->Reconfigure(ch, bps, sample_rate);
-  current_config_ = pcm;
+  current_config_ = fmt;
 }
 
 }  // namespace audio

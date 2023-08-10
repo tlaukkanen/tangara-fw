@@ -28,44 +28,42 @@ namespace audio {
  */
 class SinkMixer {
  public:
-  SinkMixer(StreamBufferHandle_t dest);
+  SinkMixer(IAudioSink* sink);
   ~SinkMixer();
 
-  auto MixAndSend(InputStream&, const StreamInfo::Pcm&) -> std::size_t;
+  auto MixAndSend(cpp::span<sample::Sample>,
+                  const IAudioSink::Format& format,
+                  bool is_eos) -> void;
 
  private:
   auto Main() -> void;
 
   auto SetTargetFormat(const StreamInfo::Pcm& format) -> void;
-  auto HandleBytes() -> void;
+  auto HandleSamples(cpp::span<sample::Sample>, bool) -> size_t;
 
-  auto Resample(InputStream&, OutputStream&) -> bool;
   auto ApplyDither(cpp::span<sample::Sample> samples, uint_fast8_t bits)
       -> void;
-  auto Downscale(cpp::span<sample::Sample>, cpp::span<int16_t>) -> void;
-
-  enum class Command {
-    kReadBytes,
-    kSetSourceFormat,
-    kSetTargetFormat,
-  };
 
   struct Args {
-    Command cmd;
-    StreamInfo::Pcm format;
+    IAudioSink::Format format;
+    size_t samples_available;
+    bool is_end_of_stream;
   };
-
   QueueHandle_t commands_;
-  SemaphoreHandle_t is_idle_;
 
   std::unique_ptr<Resampler> resampler_;
 
-  std::unique_ptr<RawStream> input_stream_;
-  std::unique_ptr<RawStream> resampled_stream_;
-
-  StreamInfo::Pcm target_format_;
   StreamBufferHandle_t source_;
-  StreamBufferHandle_t sink_;
+  cpp::span<sample::Sample> input_buffer_;
+  cpp::span<std::byte> input_buffer_as_bytes_;
+
+  cpp::span<sample::Sample> resampled_buffer_;
+
+  IAudioSink* sink_;
+  IAudioSink::Format source_format_;
+  IAudioSink::Format target_format_;
+  size_t leftover_bytes_;
+  size_t leftover_offset_;
 };
 
 }  // namespace audio

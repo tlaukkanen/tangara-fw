@@ -173,7 +173,7 @@ auto Database::Update() -> std::future<void> {
 
         TrackTags tags{};
         if (!tag_parser_->ReadAndParseTags(track->filepath(), &tags) ||
-            tags.encoding() == Encoding::kUnsupported) {
+            tags.encoding() == Container::kUnsupported) {
           // We couldn't read the tags for this track. Either they were
           // malformed, or perhaps the file is missing. Either way, tombstone
           // this record.
@@ -209,7 +209,7 @@ auto Database::Update() -> std::future<void> {
     file_gatherer_->FindFiles("", [&](const std::string& path) {
       TrackTags tags;
       if (!tag_parser_->ReadAndParseTags(path, &tags) ||
-          tags.encoding() == Encoding::kUnsupported) {
+          tags.encoding() == Container::kUnsupported) {
         // No parseable tags; skip this fiile.
         return;
       }

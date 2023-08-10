@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <sys/_stdint.h>
+#include <sys/unistd.h>
 
 #include <cstdint>
 #include <cstring>
@@ -27,23 +28,49 @@ namespace codecs {
 
 static constexpr char kTag[] = "opus";
 
-int read_cb(void* instance, unsigned char* ptr, int nbytes) {
-  XiphOpusDecoder* dec = reinterpret_cast<XiphOpusDecoder*>(instance);
-  auto input = dec->ReadCallback();
-  size_t amount_to_read = std::min<size_t>(nbytes, input.size_bytes());
-  std::memcpy(ptr, input.data(), amount_to_read);
-  dec->AfterReadCallback(amount_to_read);
-  return amount_to_read;
+static int read_cb(void* src, unsigned char* ptr, int nbytes) {
+  IStream* source = reinterpret_cast<IStream*>(src);
+  return source->Read(
+      {reinterpret_cast<std::byte*>(ptr), static_cast<size_t>(nbytes)});
+}
+
+static int seek_cb(void* src, int64_t offset, int whence) {
+  IStream* source = reinterpret_cast<IStream*>(src);
+  if (!source->CanSeek()) {
+    return -1;
+  }
+  IStream::SeekFrom from;
+  switch (whence) {
+    case SEEK_CUR:
+      from = IStream::SeekFrom::kCurrentPosition;
+      break;
+    case SEEK_END:
+      from = IStream::SeekFrom::kEndOfStream;
+      break;
+    case SEEK_SET:
+      from = IStream::SeekFrom::kStartOfStream;
+      break;
+    default:
+      return -1;
+  }
+  source->SeekTo(offset, from);
+  return 0;
+}
+
+static int64_t tell_cb(void* src) {
+  IStream* source = reinterpret_cast<IStream*>(src);
+  return source->CurrentPosition();
 }
 
 static const OpusFileCallbacks kCallbacks{
     .read = read_cb,
-    .seek = NULL,
-    .tell = NULL,  // Not seekable
+    .seek = seek_cb,
+    .tell = tell_cb,
     .close = NULL,
 };
 
-XiphOpusDecoder::XiphOpusDecoder() : opus_(nullptr) {}
+XiphOpusDecoder::XiphOpusDecoder()
+    : input_(nullptr), opus_(nullptr), num_channels_() {}
 
 XiphOpusDecoder::~XiphOpusDecoder() {
   if (opus_ != nullptr) {
@@ -51,12 +78,12 @@ XiphOpusDecoder::~XiphOpusDecoder() {
   }
 }
 
-auto XiphOpusDecoder::BeginStream(const cpp::span<const std::byte> input)
-    -> Result<OutputFormat> {
+auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input)
+    -> cpp::result<OutputFormat, Error> {
+  input_ = input;
+
   int res;
-  opus_ = op_open_callbacks(
-      this, &kCallbacks, reinterpret_cast<const unsigned char*>(input.data()),
-      input.size(), &res);
+  opus_ = op_open_callbacks(input.get(), &kCallbacks, nullptr, 0, &res);
 
   if (res < 0) {
     std::string err;
@@ -64,60 +91,72 @@ auto XiphOpusDecoder::BeginStream(const cpp::span<const std::byte> input)
       case OP_EREAD:
         err = "OP_EREAD";
         break;
+      case OP_EFAULT:
+        err = "OP_EFAULT";
+        break;
+      case OP_EIMPL:
+        err = "OP_EIMPL";
+        break;
+      case OP_EINVAL:
+        err = "OP_EINVAL";
+        break;
+      case OP_ENOTFORMAT:
+        err = "OP_ENOTFORMAT";
+        break;
+      case OP_EBADHEADER:
+        err = "OP_EBADHEADER";
+        break;
+      case OP_EVERSION:
+        err = "OP_EVERSION";
+        break;
+      case OP_EBADLINK:
+        err = "OP_EBADLINK";
+        break;
+      case OP_EBADTIMESTAMP:
+        err = "OP_BADTIMESTAMP";
+        break;
       default:
         err = "unknown";
     }
     ESP_LOGE(kTag, "error beginning stream: %s", err.c_str());
-    return {input.size(), cpp::fail(Error::kMalformedData)};
+    return cpp::fail(Error::kMalformedData);
   }
 
-  return {input.size(), OutputFormat{
-                            .num_channels = 2,
-                            .sample_rate_hz = 48000,
-                        }};
+  num_channels_ = std::min<uint8_t>(2, op_channel_count(opus_, -1));
+
+  return OutputFormat{
+      .num_channels = num_channels_,
+      .sample_rate_hz = 48000,
+  };
 }
 
-auto XiphOpusDecoder::ContinueStream(cpp::span<const std::byte> input,
-                                     cpp::span<sample::Sample> output)
-    -> Result<OutputInfo> {
+auto XiphOpusDecoder::DecodeTo(cpp::span<sample::Sample> output)
+    -> cpp::result<OutputInfo, Error> {
   cpp::span<int16_t> staging_buffer{
       reinterpret_cast<int16_t*>(output.subspan(output.size() / 2).data()),
       output.size_bytes() / 2};
 
-  input_ = input;
-  pos_in_input_ = 0;
-
-  int bytes_written =
+  int samples_written =
       op_read_stereo(opus_, staging_buffer.data(), staging_buffer.size());
-  if (bytes_written < 0) {
-    ESP_LOGE(kTag, "read failed %i", bytes_written);
-    return {pos_in_input_, cpp::fail(Error::kMalformedData)};
-  } else if (bytes_written == 0) {
-    return {pos_in_input_, cpp::fail(Error::kOutOfInput)};
+
+  if (samples_written < 0) {
+    ESP_LOGE(kTag, "read failed %i", samples_written);
+    return cpp::fail(Error::kMalformedData);
   }
 
-  for (int i = 0; i < bytes_written / 2; i++) {
+  samples_written *= num_channels_;
+  for (int i = 0; i < samples_written; i++) {
     output[i] = sample::FromSigned(staging_buffer[i], 16);
   }
 
-  return {pos_in_input_,
-          OutputInfo{
-              .samples_written = static_cast<size_t>(bytes_written / 2),
-              .is_finished_writing = bytes_written == 0,
-          }};
+  return OutputInfo{
+      .samples_written = static_cast<size_t>(samples_written / 2),
+      .is_stream_finished = samples_written == 0,
+  };
 }
 
-auto XiphOpusDecoder::SeekStream(cpp::span<const std::byte> input,
-                                 std::size_t target_sample) -> Result<void> {
+auto XiphOpusDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
   return {};
-}
-
-auto XiphOpusDecoder::ReadCallback() -> cpp::span<const std::byte> {
-  return input_.subspan(pos_in_input_);
-}
-
-auto XiphOpusDecoder::AfterReadCallback(size_t bytes_read) -> void {
-  pos_in_input_ += bytes_read;
 }
 
 }  // namespace codecs

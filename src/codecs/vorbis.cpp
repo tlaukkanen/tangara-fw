@@ -34,43 +34,59 @@ namespace codecs {
 
 static constexpr char kTag[] = "vorbis";
 
-size_t read_cb(void* ptr, size_t size, size_t nmemb, void* instance) {
-  TremorVorbisDecoder* dec = reinterpret_cast<TremorVorbisDecoder*>(instance);
-  auto input = dec->ReadCallback();
-  size_t amount_to_read = std::min<size_t>(size * nmemb, input.size_bytes());
-  std::memcpy(ptr, input.data(), amount_to_read);
-  dec->AfterReadCallback(amount_to_read);
-  return amount_to_read;
+static size_t read_cb(void* ptr, size_t size, size_t nmemb, void* instance) {
+  IStream* source = reinterpret_cast<IStream*>(instance);
+  return source->Read({reinterpret_cast<std::byte*>(ptr), size * nmemb});
 }
 
-int seek_cb(void* instance, ogg_int64_t offset, int whence) {
-  // Seeking is handled separately.
-  return -1;
-}
-
-int close_cb(void* instance) {
+static int seek_cb(void* instance, ogg_int64_t offset, int whence) {
+  IStream* source = reinterpret_cast<IStream*>(instance);
+  if (!source->CanSeek()) {
+    return -1;
+  }
+  IStream::SeekFrom from;
+  switch (whence) {
+    case SEEK_CUR:
+      from = IStream::SeekFrom::kCurrentPosition;
+      break;
+    case SEEK_END:
+      from = IStream::SeekFrom::kEndOfStream;
+      break;
+    case SEEK_SET:
+      from = IStream::SeekFrom::kStartOfStream;
+      break;
+    default:
+      return -1;
+  }
+  source->SeekTo(offset, from);
   return 0;
+}
+
+static int close_cb(void* src) {
+  return 0;
+}
+
+static long tell_cb(void* src) {
+  IStream* source = reinterpret_cast<IStream*>(src);
+  return source->CurrentPosition();
 }
 
 static const ov_callbacks kCallbacks{
     .read_func = read_cb,
     .seek_func = seek_cb,
     .close_func = close_cb,
-    .tell_func = NULL,  // Not seekable
+    .tell_func = tell_cb,  // Not seekable
 };
 
-TremorVorbisDecoder::TremorVorbisDecoder()
-    : vorbis_(), input_(), pos_in_input_(0) {}
+TremorVorbisDecoder::TremorVorbisDecoder() : input_(), vorbis_() {}
 
 TremorVorbisDecoder::~TremorVorbisDecoder() {
   ov_clear(&vorbis_);
 }
 
-auto TremorVorbisDecoder::BeginStream(const cpp::span<const std::byte> input)
-    -> Result<OutputFormat> {
-  int res = ov_open_callbacks(this, &vorbis_,
-                              reinterpret_cast<const char*>(input.data()),
-                              input.size(), kCallbacks);
+auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
+    -> cpp::result<OutputFormat, Error> {
+  int res = ov_open_callbacks(input.get(), &vorbis_, NULL, 0, kCallbacks);
   if (res < 0) {
     std::string err;
     switch (res) {
@@ -93,32 +109,26 @@ auto TremorVorbisDecoder::BeginStream(const cpp::span<const std::byte> input)
         err = "unknown";
     }
     ESP_LOGE(kTag, "error beginning stream: %s", err.c_str());
-    return {input.size(), cpp::fail(Error::kMalformedData)};
+    return cpp::fail(Error::kMalformedData);
   }
 
   vorbis_info* info = ov_info(&vorbis_, -1);
   if (info == NULL) {
     ESP_LOGE(kTag, "failed to get stream info");
-    return {input.size(), cpp::fail(Error::kMalformedData)};
+    return cpp::fail(Error::kMalformedData);
   }
 
-  return {input.size(),
-          OutputFormat{
-              .num_channels = static_cast<uint8_t>(info->channels),
-              .sample_rate_hz = static_cast<uint32_t>(info->rate),
-              .bits_per_second = info->bitrate_nominal,
-          }};
+  return OutputFormat{
+      .num_channels = static_cast<uint8_t>(info->channels),
+      .sample_rate_hz = static_cast<uint32_t>(info->rate),
+  };
 }
 
-auto TremorVorbisDecoder::ContinueStream(cpp::span<const std::byte> input,
-                                         cpp::span<sample::Sample> output)
-    -> Result<OutputInfo> {
+auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
+    -> cpp::result<OutputInfo, Error> {
   cpp::span<int16_t> staging_buffer{
       reinterpret_cast<int16_t*>(output.subspan(output.size() / 2).data()),
       output.size_bytes() / 2};
-
-  input_ = input;
-  pos_in_input_ = 0;
 
   int bitstream;
   long bytes_written =
@@ -126,37 +136,24 @@ auto TremorVorbisDecoder::ContinueStream(cpp::span<const std::byte> input,
               staging_buffer.size_bytes(), &bitstream);
   if (bytes_written == OV_HOLE) {
     ESP_LOGE(kTag, "got OV_HOLE");
-    return {pos_in_input_, cpp::fail(Error::kMalformedData)};
+    return cpp::fail(Error::kMalformedData);
   } else if (bytes_written == OV_EBADLINK) {
     ESP_LOGE(kTag, "got OV_EBADLINK");
-    return {pos_in_input_, cpp::fail(Error::kMalformedData)};
-  } else if (bytes_written == 0) {
-    return {pos_in_input_, cpp::fail(Error::kOutOfInput)};
+    return cpp::fail(Error::kMalformedData);
   }
 
   for (int i = 0; i < bytes_written / 2; i++) {
     output[i] = sample::FromSigned(staging_buffer[i], 16);
   }
 
-  return {pos_in_input_,
-          OutputInfo{
-              .samples_written = static_cast<size_t>(bytes_written / 2),
-              .is_finished_writing = bytes_written == 0,
-          }};
+  return OutputInfo{
+      .samples_written = static_cast<size_t>(bytes_written / 2),
+      .is_stream_finished = bytes_written == 0,
+  };
 }
 
-auto TremorVorbisDecoder::SeekStream(cpp::span<const std::byte> input,
-                                     std::size_t target_sample)
-    -> Result<void> {
+auto TremorVorbisDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
   return {};
-}
-
-auto TremorVorbisDecoder::ReadCallback() -> cpp::span<const std::byte> {
-  return input_.subspan(pos_in_input_);
-}
-
-auto TremorVorbisDecoder::AfterReadCallback(size_t bytes_read) -> void {
-  pos_in_input_ += bytes_read;
 }
 
 }  // namespace codecs

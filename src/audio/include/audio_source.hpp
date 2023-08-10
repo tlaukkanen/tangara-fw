@@ -15,7 +15,10 @@
 #include "freertos/portmacro.h"
 #include "freertos/semphr.h"
 
+#include "codec.hpp"
 #include "stream_info.hpp"
+#include "track.hpp"
+#include "types.hpp"
 
 namespace audio {
 
@@ -23,25 +26,8 @@ class IAudioSource {
  public:
   virtual ~IAudioSource() {}
 
-  class Flags {
-   public:
-    Flags(bool is_start, bool is_end) {
-      flags_[0] = is_start;
-      flags_[1] = is_end;
-    }
-
-    auto is_start() -> bool { return flags_[0]; }
-    auto is_end() -> bool { return flags_[1]; }
-
-   private:
-    std::bitset<2> flags_;
-  };
-
-  /*
-   * Synchronously fetches data from this source.
-   */
-  virtual auto Read(std::function<void(Flags, InputStream&)>, TickType_t)
-      -> void = 0;
+  virtual auto HasNewStream() -> bool = 0;
+  virtual auto NextStream() -> std::shared_ptr<codecs::IStream> = 0;
 };
 
 }  // namespace audio
