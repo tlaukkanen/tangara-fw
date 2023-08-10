@@ -403,7 +403,7 @@ int CmdTaskStats(int argc, char** argv) {
         str << "\t\t";
       }
 
-      str << std::fixed << std::setprecision(1) << time_percent * 100;
+      str << std::fixed << std::setprecision(1) << (time_percent * 100);
       str << "%";
 
       info_strings.push_back({run_time, str.str()});

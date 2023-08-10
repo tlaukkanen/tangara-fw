@@ -8,6 +8,7 @@ idf_component_register(
   "stream_event.cpp" "stream_info.cpp" "audio_fsm.cpp" "sink_mixer.cpp" "resample.cpp"
   "fatfs_source.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory" "tinyfsm" "database" "system_fsm" "playlist")
+  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory" "tinyfsm"
+  "database" "system_fsm" "playlist" "speexdsp")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

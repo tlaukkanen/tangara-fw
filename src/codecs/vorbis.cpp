@@ -126,14 +126,9 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
 
 auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
-  cpp::span<int16_t> staging_buffer{
-      reinterpret_cast<int16_t*>(output.subspan(output.size() / 2).data()),
-      output.size_bytes() / 2};
-
-  int bitstream;
-  long bytes_written =
-      ov_read(&vorbis_, reinterpret_cast<char*>(staging_buffer.data()),
-              staging_buffer.size_bytes(), &bitstream);
+  int bitstream = 0;
+  long bytes_written = ov_read(&vorbis_, reinterpret_cast<char*>(output.data()),
+                               output.size_bytes(), &bitstream);
   if (bytes_written == OV_HOLE) {
     ESP_LOGE(kTag, "got OV_HOLE");
     return cpp::fail(Error::kMalformedData);
@@ -142,12 +137,9 @@ auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
     return cpp::fail(Error::kMalformedData);
   }
 
-  for (int i = 0; i < bytes_written / 2; i++) {
-    output[i] = sample::FromSigned(staging_buffer[i], 16);
-  }
-
   return OutputInfo{
-      .samples_written = static_cast<size_t>(bytes_written / 2),
+      .samples_written =
+          static_cast<size_t>(bytes_written / sizeof(sample::Sample)),
       .is_stream_finished = bytes_written == 0,
   };
 }

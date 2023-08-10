@@ -122,35 +122,24 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input)
     return cpp::fail(Error::kMalformedData);
   }
 
-  num_channels_ = std::min<uint8_t>(2, op_channel_count(opus_, -1));
-
   return OutputFormat{
-      .num_channels = num_channels_,
+      .num_channels = 2,
       .sample_rate_hz = 48000,
   };
 }
 
 auto XiphOpusDecoder::DecodeTo(cpp::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
-  cpp::span<int16_t> staging_buffer{
-      reinterpret_cast<int16_t*>(output.subspan(output.size() / 2).data()),
-      output.size_bytes() / 2};
-
-  int samples_written =
-      op_read_stereo(opus_, staging_buffer.data(), staging_buffer.size());
+  int samples_written = op_read_stereo(opus_, output.data(), output.size());
 
   if (samples_written < 0) {
     ESP_LOGE(kTag, "read failed %i", samples_written);
     return cpp::fail(Error::kMalformedData);
   }
 
-  samples_written *= num_channels_;
-  for (int i = 0; i < samples_written; i++) {
-    output[i] = sample::FromSigned(staging_buffer[i], 16);
-  }
-
+  samples_written *= 2;  // Fixed to stereo
   return OutputInfo{
-      .samples_written = static_cast<size_t>(samples_written / 2),
+      .samples_written = static_cast<size_t>(samples_written),
       .is_stream_finished = samples_written == 0,
   };
 }

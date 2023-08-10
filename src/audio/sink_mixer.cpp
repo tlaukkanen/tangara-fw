@@ -47,10 +47,7 @@ SinkMixer::SinkMixer(IAudioSink* sink)
           kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
       kSampleBufferLength};
 
-  // Pin to CORE0 because we need the FPU.
-  // FIXME: A fixed point implementation could run freely on either core,
-  // which should lead to a big performance increase.
-  tasks::StartPersistent<tasks::Type::kMixer>(0, [&]() { Main(); });
+  tasks::StartPersistent<tasks::Type::kMixer>([&]() { Main(); });
 }
 
 SinkMixer::~SinkMixer() {
@@ -100,7 +97,6 @@ auto SinkMixer::Main() -> void {
           vTaskDelay(pdMS_TO_TICKS(10));
         }
 
-        ESP_LOGI(kTag, "configuring sink");
         sink_->Configure(new_target);
       }
       target_format_ = new_target;
@@ -136,6 +132,7 @@ auto SinkMixer::Main() -> void {
       // bytes we read were half a frame. Either way, we need to calculate the
       // size of the remainder in bytes.
       size_t bytes_used = samples_used * sizeof(sample::Sample);
+      assert(bytes_used <= bytes_in_buffer);
       leftover_bytes_ = bytes_in_buffer - bytes_used;
       if (leftover_bytes_ == 0) {
         leftover_offset_ = 0;
@@ -157,20 +154,22 @@ auto SinkMixer::HandleSamples(cpp::span<sample::Sample> input, bool is_eos)
   }
 
   size_t samples_used = 0;
-  while (input.size() < samples_used) {
+  while (samples_used < input.size()) {
     cpp::span<sample::Sample> output_source;
     if (source_format_.sample_rate != target_format_.sample_rate) {
       if (resampler_ == nullptr) {
-        ESP_LOGI(kTag, "creating new resampler");
+        ESP_LOGI(kTag, "creating new resampler for %lu -> %lu",
+                 source_format_.sample_rate, target_format_.sample_rate);
         resampler_.reset(new Resampler(source_format_.sample_rate,
                                        target_format_.sample_rate,
                                        source_format_.num_channels));
       }
 
       size_t read, written;
-      std::tie(read, written) =
-          resampler_->Process(input, resampled_buffer_, is_eos);
+      std::tie(read, written) = resampler_->Process(input.subspan(samples_used),
+                                                    resampled_buffer_, is_eos);
       samples_used += read;
+
       if (read == 0 && written == 0) {
         // Zero samples used or written. We need more input.
         break;
@@ -181,19 +180,21 @@ auto SinkMixer::HandleSamples(cpp::span<sample::Sample> input, bool is_eos)
       samples_used = input.size();
     }
 
-    if (target_format_.bits_per_sample == 16) {
-      // FIXME: The source should have some kind of hint indicating whether it
-      // needs dither, since some codecs (e.g. opus) apply their own dither.
-      ApplyDither(output_source, 16);
+    /*
+  if (target_format_.bits_per_sample == 16) {
+    // FIXME: The source should have some kind of hint indicating whether it
+    // needs dither, since some codecs (e.g. opus) apply their own dither.
+    ApplyDither(output_source, 16);
 
-      cpp::span<int16_t> dest{reinterpret_cast<int16_t*>(output_source.data()),
-                              output_source.size()};
-      for (size_t i = 0; i < output_source.size(); i++) {
-        dest[i] = sample::ToSigned16Bit(output_source[i]);
-      }
-
-      output_source = output_source.first(output_source.size() / 2);
+    cpp::span<int16_t> dest{reinterpret_cast<int16_t*>(output_source.data()),
+                            output_source.size()};
+    for (size_t i = 0; i < output_source.size(); i++) {
+      dest[i] = sample::ToSigned16Bit(output_source[i]);
     }
+
+    output_source = output_source.first(output_source.size() / 2);
+  }
+    */
 
     size_t bytes_sent = 0;
     size_t bytes_to_send = output_source.size_bytes();

@@ -74,17 +74,23 @@ auto FoxenFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
   bool is_eof = buffer_.Refill(input_.get());
 
-  fx_flac_state_t state;
-  uint32_t samples_written = output.size();
+  cpp::span<int32_t> output32{reinterpret_cast<int32_t*>(output.data()),
+                              output.size() / 2};
+  uint32_t samples_written = output32.size();
 
+  fx_flac_state_t state;
   buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
     uint32_t bytes_read = buf.size_bytes();
     state = fx_flac_process(flac_, reinterpret_cast<const uint8_t*>(buf.data()),
-                            &bytes_read, output.data(), &samples_written);
+                            &bytes_read, output32.data(), &samples_written);
     return bytes_read;
   });
   if (state == FLAC_ERR) {
     return cpp::fail(Error::kMalformedData);
+  }
+
+  for (size_t i = 0; i < samples_written; i++) {
+    output[i] = output32[i] >> 16;
   }
 
   return OutputInfo{.samples_written = samples_written,

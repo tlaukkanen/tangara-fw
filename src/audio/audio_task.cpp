@@ -165,7 +165,7 @@ auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
   current_sink_format_ = IAudioSink::Format{
       .sample_rate = open_res->sample_rate_hz,
       .num_channels = open_res->num_channels,
-      .bits_per_sample = 32,
+      .bits_per_sample = 16,
   };
   ESP_LOGI(kTag, "stream started ok");
   events::Audio().Dispatch(internal::InputFileOpened{});

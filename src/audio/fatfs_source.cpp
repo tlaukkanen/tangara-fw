@@ -31,7 +31,6 @@ FatfsSource::~FatfsSource() {
 
 auto FatfsSource::Read(cpp::span<std::byte> dest) -> ssize_t {
   if (f_eof(file_.get())) {
-    ESP_LOGI(kTag, "read from empty file");
     return 0;
   }
   UINT bytes_read = 0;
@@ -40,8 +39,6 @@ auto FatfsSource::Read(cpp::span<std::byte> dest) -> ssize_t {
     ESP_LOGE(kTag, "error reading from file");
     return -1;
   }
-  ESP_LOGI(kTag, "read %u bytes into %p (%u)", bytes_read, dest.data(),
-           dest.size_bytes());
   return bytes_read;
 }
 
@@ -50,7 +47,6 @@ auto FatfsSource::CanSeek() -> bool {
 }
 
 auto FatfsSource::SeekTo(int64_t destination, SeekFrom from) -> void {
-  ESP_LOGI(kTag, "seeking to %llu", destination);
   switch (from) {
     case SeekFrom::kStartOfStream:
       f_lseek(file_.get(), destination);
