@@ -7,6 +7,7 @@
 #include "audio_task.hpp"
 
 #include <stdlib.h>
+#include <sys/_stdint.h>
 
 #include <algorithm>
 #include <cmath>
@@ -17,34 +18,28 @@
 #include <memory>
 #include <variant>
 
-#include "audio_decoder.hpp"
-#include "audio_events.hpp"
-#include "audio_fsm.hpp"
-#include "audio_sink.hpp"
-#include "audio_source.hpp"
 #include "cbor.h"
-#include "codec.hpp"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "event_queue.hpp"
-#include "fatfs_audio_input.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
-#include "pipeline.hpp"
-#include "sample.hpp"
-#include "sink_mixer.hpp"
 #include "span.hpp"
 
-#include "arena.hpp"
+#include "audio_decoder.hpp"
 #include "audio_element.hpp"
+#include "audio_events.hpp"
+#include "audio_fsm.hpp"
+#include "audio_sink.hpp"
+#include "audio_source.hpp"
 #include "chunk.hpp"
-#include "stream_event.hpp"
-#include "stream_info.hpp"
-#include "stream_message.hpp"
-#include "sys/_stdint.h"
+#include "codec.hpp"
+#include "event_queue.hpp"
+#include "fatfs_audio_input.hpp"
+#include "sample.hpp"
+#include "sink_mixer.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
 #include "types.hpp"
@@ -57,19 +52,18 @@ static const char* kTag = "audio_dec";
 static constexpr std::size_t kCodecBufferLength = 240 * 4;
 
 Timer::Timer(const codecs::ICodec::OutputFormat& format)
-    : format_(format),
-      current_seconds_(0),
+    : current_seconds_(0),
       current_sample_in_second_(0),
+      samples_per_second_(format.sample_rate_hz * format.num_channels),
       total_duration_seconds_(format.total_samples.value_or(0) /
                               format.num_channels / format.sample_rate_hz) {}
 
 auto Timer::AddSamples(std::size_t samples) -> void {
   bool incremented = false;
   current_sample_in_second_ += samples;
-  while (current_sample_in_second_ >=
-         format_.sample_rate_hz * format_.num_channels) {
+  while (current_sample_in_second_ >= samples_per_second_) {
     current_seconds_++;
-    current_sample_in_second_ -= format_.sample_rate_hz * format_.num_channels;
+    current_sample_in_second_ -= samples_per_second_;
     incremented = true;
   }
 
@@ -87,10 +81,7 @@ auto Timer::AddSamples(std::size_t samples) -> void {
 
 auto AudioTask::Start(IAudioSource* source, IAudioSink* sink) -> AudioTask* {
   AudioTask* task = new AudioTask(source, sink);
-  // Pin to CORE1 because codecs should be fixed point anyway, and being on
-  // the opposite core to the mixer maximises throughput in the worst case
-  // (some heavy codec like opus + resampling for bluetooth).
-  tasks::StartPersistent<tasks::Type::kAudio>(1, [=]() { task->Main(); });
+  tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
   return task;
 }
 

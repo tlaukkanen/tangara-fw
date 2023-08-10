@@ -1,3 +1,9 @@
+/*
+ * Copyright 2023 jacqueline <me@jacqueline.id.au>
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #pragma once
 
 #include <stdint.h>
@@ -8,7 +14,14 @@
 
 namespace sample {
 
-// A signed, 32-bit PCM sample.
+// A signed, 16-bit PCM sample. All decoder output should be normalised to this
+// format, in order to simplify resampling and/or re-encoding for bluetooth.
+// Why 'only' 16 bits?
+//  1. It's the lowest common bits per sample amongst our codecs. A higher bits
+//     per sample would require us to uselessly scale up those outputs.
+//  2. With appropriate dithering, you're not going to hear a difference
+//     between 16 bit samples and higher bits anyway.
+//  3. Monty from Xiph.org reckons it's all you need.
 typedef int16_t Sample;
 
 constexpr auto Clip(int64_t v) -> Sample {
@@ -21,7 +34,6 @@ constexpr auto Clip(int64_t v) -> Sample {
 
 constexpr auto FromSigned(int32_t src, uint_fast8_t bits) -> Sample {
   if (bits > 16) {
-    // Left-align samples, effectively scaling them up to 32 bits.
     return src << (sizeof(Sample) * 8 - bits);
   } else if (bits < 16) {
     return src << (bits - (sizeof(Sample) * 8));

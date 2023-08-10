@@ -7,15 +7,15 @@
 #pragma once
 
 #include <sys/_stdint.h>
+
 #include <cstdint>
 #include <memory>
+
 #include "audio_decoder.hpp"
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
 #include "codec.hpp"
-#include "pipeline.hpp"
 #include "sink_mixer.hpp"
-#include "stream_info.hpp"
 #include "track.hpp"
 #include "types.hpp"
 
@@ -28,10 +28,9 @@ class Timer {
   auto AddSamples(std::size_t) -> void;
 
  private:
-  codecs::ICodec::OutputFormat format_;
-
   uint32_t current_seconds_;
   uint32_t current_sample_in_second_;
+  uint32_t samples_per_second_;
 
   uint32_t total_duration_seconds_;
 };
