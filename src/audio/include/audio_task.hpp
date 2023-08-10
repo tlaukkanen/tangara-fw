@@ -21,26 +21,14 @@
 
 namespace audio {
 
-struct Duration {
-  enum class Source {
-    kLibTags,
-    kCodec,
-    kFileSize,
-  };
-  Source src;
-  uint32_t duration;
-};
-
 class Timer {
  public:
-  Timer(const StreamInfo::Pcm&, const Duration&);
+  Timer(uint32_t sample_rate, uint32_t total_samples);
 
-  auto AddBytes(std::size_t) -> void;
+  auto AddSamples(std::size_t) -> void;
 
  private:
-  auto bytes_to_samples(uint32_t) -> uint32_t;
-
-  StreamInfo::Pcm format_;
+  uint32_t sample_rate_;
 
   uint32_t current_seconds_;
   uint32_t current_sample_in_second_;

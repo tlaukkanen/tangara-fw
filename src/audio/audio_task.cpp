@@ -56,31 +56,18 @@ static const char* kTag = "audio_dec";
 
 static constexpr std::size_t kCodecBufferLength = 240 * 4;
 
-Timer::Timer(const StreamInfo::Pcm& format, const Duration& duration)
-    : format_(format), current_seconds_(0), current_sample_in_second_(0) {
-  switch (duration.src) {
-    case Duration::Source::kLibTags:
-      ESP_LOGI(kTag, "using duration from libtags");
-      total_duration_seconds_ = duration.duration;
-      break;
-    case Duration::Source::kCodec:
-      ESP_LOGI(kTag, "using duration from decoder");
-      total_duration_seconds_ = duration.duration;
-      break;
-    case Duration::Source::kFileSize:
-      ESP_LOGW(kTag, "calculating duration from filesize");
-      total_duration_seconds_ =
-          bytes_to_samples(duration.duration) / format_.sample_rate;
-      break;
-  }
-}
+Timer::Timer(uint32_t sample_rate, uint32_t total_samples)
+    : sample_rate_(sample_rate),
+      current_seconds_(0),
+      current_sample_in_second_(0),
+      total_duration_seconds_(total_samples / sample_rate) {}
 
-auto Timer::AddBytes(std::size_t bytes) -> void {
+auto Timer::AddSamples(std::size_t samples) -> void {
   bool incremented = false;
-  current_sample_in_second_ += bytes_to_samples(bytes);
-  while (current_sample_in_second_ >= format_.sample_rate) {
+  current_sample_in_second_ += samples;
+  while (current_sample_in_second_ >= sample_rate_) {
     current_seconds_++;
-    current_sample_in_second_ -= format_.sample_rate;
+    current_sample_in_second_ -= sample_rate_;
     incremented = true;
   }
 
@@ -94,18 +81,6 @@ auto Timer::AddBytes(std::size_t bytes) -> void {
     events::Audio().Dispatch(ev);
     events::Ui().Dispatch(ev);
   }
-}
-
-auto Timer::bytes_to_samples(uint32_t bytes) -> uint32_t {
-  uint32_t samples = bytes;
-  samples /= format_.channels;
-
-  // Samples must be aligned to 16 bits. The number of actual bytes per
-  // sample is therefore the bps divided by 16, rounded up (align to word),
-  // times two (convert to bytes).
-  uint8_t bytes_per_sample = ((format_.bits_per_sample + 16 - 1) / 16) * 2;
-  samples /= bytes_per_sample;
-  return samples;
 }
 
 auto AudioTask::Start(IAudioSource* source, IAudioSink* sink) -> AudioTask* {
@@ -162,6 +137,13 @@ auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
     return false;
   }
 
+  if (open_res->total_samples) {
+    timer_.reset(
+        new Timer(open_res->sample_rate_hz, open_res->total_samples.value()));
+  } else {
+    timer_.reset();
+  }
+
   current_sink_format_ = IAudioSink::Format{
       .sample_rate = open_res->sample_rate_hz,
       .num_channels = open_res->num_channels,
@@ -181,6 +163,10 @@ auto AudioTask::ContinueDecoding() -> bool {
   if (res->samples_written > 0) {
     mixer_->MixAndSend(codec_buffer_.first(res->samples_written),
                        current_sink_format_.value(), res->is_stream_finished);
+  }
+
+  if (timer_) {
+    timer_->AddSamples(res->samples_written);
   }
 
   return res->is_stream_finished;

@@ -118,9 +118,16 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
     return cpp::fail(Error::kMalformedData);
   }
 
+  auto l = ov_pcm_total(&vorbis_, -1);
+  std::optional<uint32_t> length;
+  if (l > 0) {
+    length = l;
+  }
+
   return OutputFormat{
       .num_channels = static_cast<uint8_t>(info->channels),
       .sample_rate_hz = static_cast<uint32_t>(info->rate),
+      .total_samples = length,
   };
 }
 

@@ -92,7 +92,7 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
 
   auto vbr_length = GetVbrLength(header);
   if (vbr_length) {
-    output.duration_seconds = vbr_length;
+    output.total_samples = vbr_length;
   }
   return output;
 }
@@ -234,7 +234,7 @@ auto MadMp3Decoder::GetVbrLength(const mad_header& header)
     return {};
   }
 
-  return (double)(frames_count * samples_per_frame) / header.samplerate;
+  return (double)(frames_count * samples_per_frame);
 }
 
 }  // namespace codecs

@@ -122,9 +122,24 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input)
     return cpp::fail(Error::kMalformedData);
   }
 
+  auto l = op_pcm_total(opus_, -1);
+  std::optional<uint32_t> length;
+  if (l > 0) {
+    // Output is always downmixed to two channels, but the pcm count does not
+    // reflect this.
+    int channels = op_channel_count(opus_, -1);
+    if (channels == 1) {
+      l *= 2;
+    } else if (channels > 2) {
+      l /= channels * 2;
+    }
+    length = l;
+  }
+
   return OutputFormat{
       .num_channels = 2,
       .sample_rate_hz = 48000,
+      .total_samples = length,
   };
 }
 
