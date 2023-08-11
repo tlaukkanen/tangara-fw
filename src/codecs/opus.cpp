@@ -152,6 +152,9 @@ auto XiphOpusDecoder::DecodeTo(cpp::span<sample::Sample> output)
 }
 
 auto XiphOpusDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
+  if (op_pcm_seek(opus_, target) != 0) {
+    return cpp::fail(Error::kInternalError);
+  }
   return {};
 }
 

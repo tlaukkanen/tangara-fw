@@ -152,6 +152,9 @@ auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
 }
 
 auto TremorVorbisDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
+  if (ov_pcm_seek(&vorbis_, target) != 0) {
+    return cpp::fail(Error::kInternalError);
+  }
   return {};
 }
 

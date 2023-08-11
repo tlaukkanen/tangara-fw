@@ -106,12 +106,12 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
       is_eof_ = buffer_.Refill(input_.get());
       if (is_eof_) {
         buffer_.AddBytes([&](cpp::span<std::byte> buf) -> size_t {
-          if (buf.size() < 8) {
+          if (buf.size() < MAD_BUFFER_GUARD) {
             is_eof_ = false;
             return 0;
           }
-          ESP_LOGI(kTag, "adding MAD_HEADER_GUARD");
-          std::fill_n(buf.begin(), 8, std::byte(0));
+          ESP_LOGI(kTag, "adding MAD_BUFFER_GUARD");
+          std::fill_n(buf.begin(), MAD_BUFFER_GUARD, std::byte(0));
           return 8;
         });
       }
@@ -132,7 +132,6 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
         }
         if (stream_.error == MAD_ERROR_BUFLEN) {
           if (is_eof_) {
-            ESP_LOGI(kTag, "BUFLEN while eof; this is eos");
             is_eos_ = true;
           }
           return GetBytesUsed();
