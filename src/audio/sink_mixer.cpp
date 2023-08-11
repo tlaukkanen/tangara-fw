@@ -180,22 +180,6 @@ auto SinkMixer::HandleSamples(cpp::span<sample::Sample> input, bool is_eos)
       samples_used = input.size();
     }
 
-    /*
-  if (target_format_.bits_per_sample == 16) {
-    // FIXME: The source should have some kind of hint indicating whether it
-    // needs dither, since some codecs (e.g. opus) apply their own dither.
-    ApplyDither(output_source, 16);
-
-    cpp::span<int16_t> dest{reinterpret_cast<int16_t*>(output_source.data()),
-                            output_source.size()};
-    for (size_t i = 0; i < output_source.size(); i++) {
-      dest[i] = sample::ToSigned16Bit(output_source[i]);
-    }
-
-    output_source = output_source.first(output_source.size() / 2);
-  }
-    */
-
     size_t bytes_sent = 0;
     size_t bytes_to_send = output_source.size_bytes();
     while (bytes_sent < bytes_to_send) {
@@ -206,17 +190,6 @@ auto SinkMixer::HandleSamples(cpp::span<sample::Sample> input, bool is_eos)
     }
   }
   return samples_used;
-}
-
-auto SinkMixer::ApplyDither(cpp::span<sample::Sample> samples,
-                            uint_fast8_t bits) -> void {
-  static uint32_t prnd;
-  for (auto& s : samples) {
-    prnd = (prnd * 0x19660dL + 0x3c6ef35fL) & 0xffffffffL;
-    s = sample::Clip(
-        static_cast<int64_t>(s) +
-        (static_cast<int>(prnd) >> (sizeof(sample::Sample) - bits)));
-  }
 }
 
 }  // namespace audio

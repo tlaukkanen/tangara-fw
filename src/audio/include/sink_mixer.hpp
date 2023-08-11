@@ -41,9 +41,6 @@ class SinkMixer {
   auto SetTargetFormat(const StreamInfo::Pcm& format) -> void;
   auto HandleSamples(cpp::span<sample::Sample>, bool) -> size_t;
 
-  auto ApplyDither(cpp::span<sample::Sample> samples, uint_fast8_t bits)
-      -> void;
-
   struct Args {
     IAudioSink::Format format;
     size_t samples_available;
