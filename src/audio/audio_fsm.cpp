@@ -59,7 +59,7 @@ auto AudioState::Init(drivers::IGpios* gpio_expander,
 
   sFileSource.reset(new FatfsAudioInput(tag_parser));
   sI2SOutput.reset(new I2SAudioOutput(sIGpios, sDac));
-  // sBtOutput.reset(new BluetoothAudioOutput(bluetooth));
+  sBtOutput.reset(new BluetoothAudioOutput(bluetooth));
 
   AudioTask::Start(sFileSource.get(), sI2SOutput.get());
   // AudioTask::Start(sFileSource.get(), sBtOutput.get());

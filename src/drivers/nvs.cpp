@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "bluetooth.hpp"
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -20,6 +21,7 @@ static constexpr char kTag[] = "nvm";
 static constexpr uint8_t kSchemaVersion = 1;
 
 static constexpr char kKeyVersion[] = "ver";
+static constexpr char kKeyBluetooth[] = "bt";
 
 auto NvsStorage::Open() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -68,6 +70,26 @@ auto NvsStorage::SchemaVersion() -> uint8_t {
     return UINT8_MAX;
   }
   return ret;
+}
+
+auto NvsStorage::PreferredBluetoothDevice()
+    -> std::optional<bluetooth::mac_addr_t> {
+  bluetooth::mac_addr_t out{0};
+  size_t size = out.size();
+  if (nvs_get_blob(handle_, kKeyBluetooth, out.data(), &size) != ESP_OK) {
+    return {};
+  }
+  return out;
+}
+auto NvsStorage::PreferredBluetoothDevice(
+    std::optional<bluetooth::mac_addr_t> addr) -> void {
+  if (!addr) {
+    nvs_erase_key(handle_, kKeyBluetooth);
+  } else {
+    nvs_set_blob(handle_, kKeyBluetooth, addr.value().data(),
+                 addr.value().size());
+  }
+  nvs_commit(handle_);
 }
 
 }  // namespace drivers

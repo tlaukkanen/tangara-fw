@@ -62,7 +62,8 @@ auto Booting::entry() -> void {
   }
 
   ESP_LOGI(kTag, "starting bluetooth");
-  sBluetooth.reset(new drivers::Bluetooth());
+  sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
+  // sBluetooth->Enable();
 
   // At this point we've done all of the essential boot tasks. Start remaining
   // state machines and inform them that the system is ready.

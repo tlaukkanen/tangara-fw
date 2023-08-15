@@ -11,32 +11,22 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
+#include "bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "esp_gap_bt_api.h"
+#include "nvs.hpp"
 #include "tinyfsm.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
 namespace drivers {
-
-namespace bluetooth {
-
-typedef std::array<uint8_t, 6> mac_addr_t;
-
-struct Device {
-  mac_addr_t address;
-  std::string name;
-  uint32_t class_of_device;
-  int8_t signal_strength;
-};
-}  // namespace bluetooth
 
 /*
  * A handle used to interact with the bluetooth state machine.
  */
 class Bluetooth {
  public:
-  Bluetooth();
+  Bluetooth(NvsStorage* storage);
 
   auto Enable() -> bool;
   auto Disable() -> void;
@@ -74,6 +64,8 @@ struct Avrc : public tinyfsm::Event {
 
 class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
  public:
+  static auto Init(NvsStorage* storage) -> void;
+
   static auto devices() -> std::vector<Device>;
   static auto preferred_device() -> std::optional<mac_addr_t>;
   static auto preferred_device(const mac_addr_t&) -> void;
@@ -96,6 +88,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(const events::internal::Avrc& ev){};
 
  protected:
+  static NvsStorage* sStorage_;
+
   static std::mutex sDevicesMutex_;
   static std::map<mac_addr_t, Device> sDevices_;
   static std::optional<mac_addr_t> sPreferredDevice_;

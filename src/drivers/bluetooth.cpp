@@ -20,6 +20,7 @@
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
 #include "freertos/portmacro.h"
+#include "nvs.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
 namespace drivers {
@@ -55,8 +56,8 @@ auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   return xStreamBufferReceive(stream, buf, buf_size, 0);
 }
 
-Bluetooth::Bluetooth() {
-  tinyfsm::FsmList<bluetooth::BluetoothState>::start();
+Bluetooth::Bluetooth(NvsStorage* storage) {
+  bluetooth::BluetoothState::Init(storage);
 }
 
 auto Bluetooth::Enable() -> bool {
@@ -101,11 +102,14 @@ auto DeviceName() -> std::string {
   uint8_t mac[8]{0};
   esp_efuse_mac_get_default(mac);
   std::ostringstream name;
-  name << "TANGARA " << std::hex << mac[0] << mac[1];
+  name << "TANGARA " << std::hex << static_cast<int>(mac[0])
+       << static_cast<int>(mac[1]);
   return name.str();
 }
 
 namespace bluetooth {
+
+NvsStorage* BluetoothState::sStorage_;
 
 std::mutex BluetoothState::sDevicesMutex_;
 std::map<mac_addr_t, Device> BluetoothState::sDevices_;
@@ -113,6 +117,12 @@ std::optional<mac_addr_t> BluetoothState::sPreferredDevice_;
 mac_addr_t BluetoothState::sCurrentDevice_;
 
 std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
+
+auto BluetoothState::Init(NvsStorage* storage) -> void {
+  sStorage_ = storage;
+  sPreferredDevice_ = storage->PreferredBluetoothDevice();
+  tinyfsm::FsmList<bluetooth::BluetoothState>::start();
+}
 
 auto BluetoothState::devices() -> std::vector<Device> {
   std::lock_guard lock{sDevicesMutex_};
@@ -417,6 +427,11 @@ void Connecting::react(const events::internal::A2dp& ev) {
 
 void Connected::entry() {
   ESP_LOGI(kTag, "entering connected state");
+
+  auto stored_pref = sStorage_->PreferredBluetoothDevice();
+  if (stored_pref != sPreferredDevice_) {
+    sStorage_->PreferredBluetoothDevice(sPreferredDevice_);
+  }
   // TODO: if we already have a source, immediately start playing
 }
 
