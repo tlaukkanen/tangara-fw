@@ -10,6 +10,7 @@
 
 #include "app_console.hpp"
 #include "battery.hpp"
+#include "bluetooth.hpp"
 #include "database.hpp"
 #include "display.hpp"
 #include "gpios.hpp"
@@ -62,6 +63,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   static std::shared_ptr<drivers::Battery> sBattery;
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;
+  static std::shared_ptr<drivers::Bluetooth> sBluetooth;
 
   static std::shared_ptr<database::Database> sDatabase;
   static std::shared_ptr<database::TagParserImpl> sTagParser;

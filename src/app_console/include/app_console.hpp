@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "bluetooth.hpp"
 #include "console.hpp"
 #include "database.hpp"
 #include "track_queue.hpp"
@@ -18,6 +19,7 @@ class AppConsole : public Console {
  public:
   static std::weak_ptr<database::Database> sDatabase;
   static audio::TrackQueue* sTrackQueue;
+  static drivers::Bluetooth* sBluetooth;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

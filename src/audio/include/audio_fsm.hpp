@@ -12,6 +12,7 @@
 
 #include "audio_events.hpp"
 #include "audio_task.hpp"
+#include "bt_audio_output.hpp"
 #include "database.hpp"
 #include "display.hpp"
 #include "fatfs_audio_input.hpp"
@@ -33,6 +34,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static auto Init(drivers::IGpios* gpio_expander,
                    std::weak_ptr<database::Database>,
                    std::shared_ptr<database::ITagParser>,
+                   drivers::Bluetooth* bluetooth,
                    TrackQueue* queue) -> bool;
 
   virtual ~AudioState() {}
@@ -68,6 +70,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::unique_ptr<AudioTask> sTask;
   static std::unique_ptr<FatfsAudioInput> sFileSource;
   static std::unique_ptr<I2SAudioOutput> sI2SOutput;
+  static std::unique_ptr<BluetoothAudioOutput> sBtOutput;
 
   static TrackQueue* sTrackQueue;
   static std::optional<database::TrackId> sCurrentTrack;

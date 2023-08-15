@@ -18,15 +18,11 @@ namespace audio {
 
 class IAudioSink {
  private:
-  static const std::size_t kDrainBufferSize = 24 * 1024;
   StreamBufferHandle_t stream_;
 
  public:
-  IAudioSink()
-      : stream_(xStreamBufferCreateWithCaps(
-            kDrainBufferSize,
-            1,
-            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)) {}
+  IAudioSink(size_t buffer_size, uint32_t caps)
+      : stream_(xStreamBufferCreateWithCaps(buffer_size, 1, caps)) {}
 
   virtual ~IAudioSink() { vStreamBufferDeleteWithCaps(stream_); }
 

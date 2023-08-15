@@ -24,6 +24,7 @@ std::shared_ptr<drivers::RelativeWheel> SystemState::sRelativeTouch;
 std::shared_ptr<drivers::Battery> SystemState::sBattery;
 std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
 std::shared_ptr<drivers::Display> SystemState::sDisplay;
+std::shared_ptr<drivers::Bluetooth> SystemState::sBluetooth;
 
 std::shared_ptr<database::Database> SystemState::sDatabase;
 std::shared_ptr<database::TagParserImpl> SystemState::sTagParser;

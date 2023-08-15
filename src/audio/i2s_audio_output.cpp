@@ -14,7 +14,9 @@
 #include <memory>
 #include <variant>
 
+#include "audio_sink.hpp"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 
 #include "audio_element.hpp"
@@ -41,9 +43,12 @@ static constexpr uint16_t kMaxVolumeBeforeClipping = 0x185;
 static constexpr uint16_t kLineLevelVolume = 0x13d;
 static constexpr uint16_t kDefaultVolume = 0x128;
 
+static constexpr size_t kDrainBufferSize = 8 * 1024;
+
 I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
                                std::weak_ptr<drivers::I2SDac> dac)
-    : expander_(expander),
+    : IAudioSink(kDrainBufferSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+      expander_(expander),
       dac_(dac.lock()),
       current_config_(),
       left_difference_(0),

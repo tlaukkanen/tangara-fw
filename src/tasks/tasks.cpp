@@ -62,7 +62,7 @@ auto AllocateStack<Type::kAudio>() -> cpp::span<StackType_t> {
 template <>
 auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
   std::size_t size = 32 * 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
+  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
 // UI flushes *must* be done from internal RAM. Thankfully, there is very little
@@ -84,8 +84,7 @@ auto AllocateStack<Type::kFileStreamer>() -> cpp::span<StackType_t> {
 template <>
 auto AllocateStack<Type::kMixer>() -> cpp::span<StackType_t> {
   std::size_t size = 4 * 1024;
-  return {static_cast<StackType_t*>(
-              heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
 

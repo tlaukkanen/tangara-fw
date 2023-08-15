@@ -37,6 +37,7 @@ namespace console {
 
 std::weak_ptr<database::Database> AppConsole::sDatabase;
 audio::TrackQueue* AppConsole::sTrackQueue;
+drivers::Bluetooth* AppConsole::sBluetooth;
 
 int CmdListDir(int argc, char** argv) {
   auto lock = AppConsole::sDatabase.lock();
@@ -439,6 +440,47 @@ void RegisterTaskStates() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdBtList(int argc, char** argv) {
+  static const std::string usage = "usage: bt_list <index>";
+  if (argc > 2) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  auto devices = AppConsole::sBluetooth->KnownDevices();
+  if (argc == 2) {
+    int index = std::atoi(argv[1]);
+    if (index < 0 || index >= devices.size()) {
+      std::cout << "index out of range" << std::endl;
+      return -1;
+    }
+    AppConsole::sBluetooth->SetPreferredDevice(devices[index].address);
+  } else {
+    std::cout << "mac\t\trssi\tname" << std::endl;
+    for (const auto& device : devices) {
+      for (size_t i = 0; i < device.address.size(); i++) {
+        std::cout << std::hex << std::setfill('0') << std::setw(2)
+                  << static_cast<int>(device.address[i]);
+      }
+      float perc =
+          (static_cast<double>(device.signal_strength) + 127.0) / 256.0 * 100;
+      std::cout << "\t" << std::fixed << std::setprecision(0) << perc << "%";
+      std::cout << "\t" << device.name << std::endl;
+    }
+  }
+
+  return 0;
+}
+
+void RegisterBtList() {
+  esp_console_cmd_t cmd{.command = "bt_list",
+                        .help = "lists and connects to bluetooth devices",
+                        .hint = NULL,
+                        .func = &CmdBtList,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -452,6 +494,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterDbIndex();
   RegisterDbDump();
   RegisterTaskStates();
+  RegisterBtList();
 }
 
 }  // namespace console

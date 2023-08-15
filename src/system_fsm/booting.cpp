@@ -6,6 +6,7 @@
 
 #include "assert.h"
 #include "audio_fsm.hpp"
+#include "bluetooth.hpp"
 #include "core/lv_obj.h"
 #include "display_init.hpp"
 #include "esp_err.h"
@@ -60,12 +61,15 @@ auto Booting::entry() -> void {
     return;
   }
 
+  ESP_LOGI(kTag, "starting bluetooth");
+  sBluetooth.reset(new drivers::Bluetooth());
+
   // At this point we've done all of the essential boot tasks. Start remaining
   // state machines and inform them that the system is ready.
 
   ESP_LOGI(kTag, "starting audio");
   if (!audio::AudioState::Init(sGpios.get(), sDatabase, sTagParser,
-                               sTrackQueue.get())) {
+                               sBluetooth.get(), sTrackQueue.get())) {
     events::System().Dispatch(FatalError{});
     events::Ui().Dispatch(FatalError{});
     return;
@@ -80,6 +84,7 @@ auto Booting::exit() -> void {
   // TODO(jacqueline): Gate this on something. Debug flag? Flashing mode?
   sAppConsole = new console::AppConsole();
   sAppConsole->sTrackQueue = sTrackQueue.get();
+  sAppConsole->sBluetooth = sBluetooth.get();
   sAppConsole->Launch();
 }
 

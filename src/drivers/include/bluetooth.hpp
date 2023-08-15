@@ -1,6 +1,11 @@
 
 #pragma once
 
+#include <array>
+#include <atomic>
+#include <map>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +19,18 @@
 
 namespace drivers {
 
+namespace bluetooth {
+
+typedef std::array<uint8_t, 6> mac_addr_t;
+
+struct Device {
+  mac_addr_t address;
+  std::string name;
+  uint32_t class_of_device;
+  int8_t signal_strength;
+};
+}  // namespace bluetooth
+
 /*
  * A handle used to interact with the bluetooth state machine.
  */
@@ -24,6 +41,9 @@ class Bluetooth {
   auto Enable() -> bool;
   auto Disable() -> void;
 
+  auto KnownDevices() -> std::vector<bluetooth::Device>;
+  auto SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void;
+
   auto SetSource(StreamBufferHandle_t) -> void;
 };
 
@@ -32,6 +52,9 @@ namespace bluetooth {
 namespace events {
 struct Enable : public tinyfsm::Event {};
 struct Disable : public tinyfsm::Event {};
+
+struct PreferredDeviceChanged : public tinyfsm::Event {};
+struct SourceChanged : public tinyfsm::Event {};
 
 namespace internal {
 struct Gap : public tinyfsm::Event {
@@ -51,6 +74,13 @@ struct Avrc : public tinyfsm::Event {
 
 class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
  public:
+  static auto devices() -> std::vector<Device>;
+  static auto preferred_device() -> std::optional<mac_addr_t>;
+  static auto preferred_device(const mac_addr_t&) -> void;
+
+  static auto source() -> StreamBufferHandle_t;
+  static auto source(StreamBufferHandle_t) -> void;
+
   virtual ~BluetoothState(){};
 
   virtual void entry() {}
@@ -58,13 +88,24 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
   virtual void react(const events::Enable& ev){};
   virtual void react(const events::Disable& ev) = 0;
+  virtual void react(const events::PreferredDeviceChanged& ev){};
+  virtual void react(const events::SourceChanged& ev){};
 
   virtual void react(const events::internal::Gap& ev) = 0;
-  virtual void react(const events::internal::A2dp& ev) = 0;
+  virtual void react(const events::internal::A2dp& ev){};
   virtual void react(const events::internal::Avrc& ev){};
+
+ protected:
+  static std::mutex sDevicesMutex_;
+  static std::map<mac_addr_t, Device> sDevices_;
+  static std::optional<mac_addr_t> sPreferredDevice_;
+  static mac_addr_t sCurrentDevice_;
+
+  static std::atomic<StreamBufferHandle_t> sSource_;
 };
 
 class Disabled : public BluetoothState {
+ public:
   void entry() override;
 
   void react(const events::Enable& ev) override;
@@ -72,35 +113,53 @@ class Disabled : public BluetoothState {
 
   void react(const events::internal::Gap& ev) override {}
   void react(const events::internal::A2dp& ev) override {}
+  using BluetoothState::react;
 };
 
 class Scanning : public BluetoothState {
+ public:
   void entry() override;
   void exit() override;
 
   void react(const events::Disable& ev) override;
+  void react(const events::PreferredDeviceChanged& ev) override;
 
   void react(const events::internal::Gap& ev) override;
-  void react(const events::internal::A2dp& ev) override;
+
+  using BluetoothState::react;
+
+ private:
+  auto OnDeviceDiscovered(esp_bt_gap_cb_param_t*) -> void;
 };
 
 class Connecting : public BluetoothState {
+ public:
   void entry() override;
   void exit() override;
+
+  void react(const events::PreferredDeviceChanged& ev) override;
 
   void react(const events::Disable& ev) override;
   void react(const events::internal::Gap& ev) override;
   void react(const events::internal::A2dp& ev) override;
+
+  using BluetoothState::react;
 };
 
 class Connected : public BluetoothState {
+ public:
   void entry() override;
   void exit() override;
+
+  void react(const events::PreferredDeviceChanged& ev) override;
+  void react(const events::SourceChanged& ev) override;
 
   void react(const events::Disable& ev) override;
   void react(const events::internal::Gap& ev) override;
   void react(const events::internal::A2dp& ev) override;
   void react(const events::internal::Avrc& ev) override;
+
+  using BluetoothState::react;
 };
 
 }  // namespace bluetooth

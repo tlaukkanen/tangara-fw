@@ -11,6 +11,8 @@
 #include "audio_decoder.hpp"
 #include "audio_events.hpp"
 #include "audio_task.hpp"
+#include "bluetooth.hpp"
+#include "bt_audio_output.hpp"
 #include "esp_log.h"
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
@@ -35,6 +37,7 @@ std::weak_ptr<database::Database> AudioState::sDatabase;
 std::unique_ptr<AudioTask> AudioState::sTask;
 std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
+std::unique_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 
 TrackQueue* AudioState::sTrackQueue;
 std::optional<database::TrackId> AudioState::sCurrentTrack;
@@ -42,6 +45,7 @@ std::optional<database::TrackId> AudioState::sCurrentTrack;
 auto AudioState::Init(drivers::IGpios* gpio_expander,
                       std::weak_ptr<database::Database> database,
                       std::shared_ptr<database::ITagParser> tag_parser,
+                      drivers::Bluetooth* bluetooth,
                       TrackQueue* queue) -> bool {
   sIGpios = gpio_expander;
   sTrackQueue = queue;
@@ -55,8 +59,10 @@ auto AudioState::Init(drivers::IGpios* gpio_expander,
 
   sFileSource.reset(new FatfsAudioInput(tag_parser));
   sI2SOutput.reset(new I2SAudioOutput(sIGpios, sDac));
+  // sBtOutput.reset(new BluetoothAudioOutput(bluetooth));
 
   AudioTask::Start(sFileSource.get(), sI2SOutput.get());
+  // AudioTask::Start(sFileSource.get(), sBtOutput.get());
 
   return true;
 }
@@ -125,6 +131,7 @@ void Standby::react(const QueueUpdate& ev) {
 void Playback::entry() {
   ESP_LOGI(kTag, "beginning playback");
   sI2SOutput->SetInUse(true);
+  // sBtOutput->SetInUse(true);
 }
 
 void Playback::exit() {
@@ -133,6 +140,7 @@ void Playback::exit() {
   // to drain.
   vTaskDelay(pdMS_TO_TICKS(250));
   sI2SOutput->SetInUse(false);
+  // sBtOutput->SetInUse(false);
 }
 
 void Playback::react(const QueueUpdate& ev) {
