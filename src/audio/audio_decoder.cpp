@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "audio_task.hpp"
+#include "audio_decoder.hpp"
 
 #include <cstdint>
 #include <cstdlib>
@@ -28,6 +28,7 @@
 #include "freertos/ringbuf.h"
 #include "span.hpp"
 
+#include "audio_converter.hpp"
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
 #include "audio_sink.hpp"
@@ -36,7 +37,6 @@
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
 #include "sample.hpp"
-#include "sink_mixer.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
 #include "types.hpp"
@@ -76,23 +76,27 @@ auto Timer::AddSamples(std::size_t samples) -> void {
   }
 }
 
-auto AudioTask::Start(std::shared_ptr<IAudioSource> source,
-                      std::shared_ptr<SinkMixer> sink) -> AudioTask* {
-  AudioTask* task = new AudioTask(source, sink);
+auto Decoder::Start(std::shared_ptr<IAudioSource> source,
+                    std::shared_ptr<SampleConverter> sink) -> Decoder* {
+  Decoder* task = new Decoder(source, sink);
   tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
   return task;
 }
 
-AudioTask::AudioTask(std::shared_ptr<IAudioSource> source,
-                     std::shared_ptr<SinkMixer> mixer)
-    : source_(source), mixer_(mixer), codec_(), timer_(), current_format_() {
+Decoder::Decoder(std::shared_ptr<IAudioSource> source,
+                 std::shared_ptr<SampleConverter> mixer)
+    : source_(source),
+      converter_(mixer),
+      codec_(),
+      timer_(),
+      current_format_() {
   codec_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
           kCodecBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
       kCodecBufferLength};
 }
 
-void AudioTask::Main() {
+void Decoder::Main() {
   for (;;) {
     if (source_->HasNewStream() || !stream_) {
       std::shared_ptr<codecs::IStream> new_stream = source_->NextStream();
@@ -110,7 +114,7 @@ void AudioTask::Main() {
   }
 }
 
-auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
+auto Decoder::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
   codec_.reset(codecs::CreateCodecForType(stream->type()).value_or(nullptr));
   if (!codec_) {
     ESP_LOGE(kTag, "no codec found");
@@ -140,15 +144,16 @@ auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
   return true;
 }
 
-auto AudioTask::ContinueDecoding() -> bool {
+auto Decoder::ContinueDecoding() -> bool {
   auto res = codec_->DecodeTo(codec_buffer_);
   if (res.has_error()) {
     return true;
   }
 
   if (res->samples_written > 0) {
-    mixer_->MixAndSend(codec_buffer_.first(res->samples_written),
-                       current_sink_format_.value(), res->is_stream_finished);
+    converter_->ConvertSamples(codec_buffer_.first(res->samples_written),
+                               current_sink_format_.value(),
+                               res->is_stream_finished);
   }
 
   if (timer_) {

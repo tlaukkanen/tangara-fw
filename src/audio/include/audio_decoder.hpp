@@ -9,15 +9,18 @@
 #include <cstdint>
 #include <memory>
 
+#include "audio_converter.hpp"
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
 #include "codec.hpp"
-#include "sink_mixer.hpp"
 #include "track.hpp"
 #include "types.hpp"
 
 namespace audio {
 
+/*
+ * Sample-based timer for the current elapsed playback time.
+ */
 class Timer {
  public:
   Timer(const codecs::ICodec::OutputFormat& format);
@@ -32,25 +35,30 @@ class Timer {
   uint32_t total_duration_seconds_;
 };
 
-class AudioTask {
+/*
+ * Handle to a persistent task that takes bytes from the given source, decodes
+ * them into sample::Sample (normalised to 16 bit signed PCM), and then
+ * forwards the resulting stream to the given converter.
+ */
+class Decoder {
  public:
   static auto Start(std::shared_ptr<IAudioSource> source,
-                    std::shared_ptr<SinkMixer> mixer) -> AudioTask*;
+                    std::shared_ptr<SampleConverter> converter) -> Decoder*;
 
   auto Main() -> void;
 
-  AudioTask(const AudioTask&) = delete;
-  AudioTask& operator=(const AudioTask&) = delete;
+  Decoder(const Decoder&) = delete;
+  Decoder& operator=(const Decoder&) = delete;
 
  private:
-  AudioTask(std::shared_ptr<IAudioSource> source,
-            std::shared_ptr<SinkMixer> mixer);
+  Decoder(std::shared_ptr<IAudioSource> source,
+          std::shared_ptr<SampleConverter> converter);
 
   auto BeginDecoding(std::shared_ptr<codecs::IStream>) -> bool;
   auto ContinueDecoding() -> bool;
 
   std::shared_ptr<IAudioSource> source_;
-  std::shared_ptr<SinkMixer> mixer_;
+  std::shared_ptr<SampleConverter> converter_;
 
   std::shared_ptr<codecs::IStream> stream_;
   std::unique_ptr<codecs::ICodec> codec_;

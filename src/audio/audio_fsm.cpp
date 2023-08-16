@@ -15,8 +15,9 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 
+#include "audio_converter.hpp"
+#include "audio_decoder.hpp"
 #include "audio_events.hpp"
-#include "audio_task.hpp"
 #include "bluetooth.hpp"
 #include "bt_audio_output.hpp"
 #include "event_queue.hpp"
@@ -24,7 +25,6 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
-#include "sink_mixer.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
@@ -37,10 +37,9 @@ drivers::IGpios* AudioState::sIGpios;
 std::shared_ptr<drivers::I2SDac> AudioState::sDac;
 std::weak_ptr<database::Database> AudioState::sDatabase;
 
-std::unique_ptr<AudioTask> AudioState::sTask;
-
 std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
-std::shared_ptr<SinkMixer> AudioState::sMixer;
+std::unique_ptr<Decoder> AudioState::sDecoder;
+std::shared_ptr<SampleConverter> AudioState::sSampleConverter;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 TrackQueue* AudioState::sTrackQueue;
@@ -65,10 +64,10 @@ auto AudioState::Init(drivers::IGpios* gpio_expander,
   sOutput.reset(new I2SAudioOutput(sIGpios, sDac));
   // sOutput.reset(new BluetoothAudioOutput(bluetooth));
 
-  sMixer.reset(new SinkMixer());
-  sMixer->SetOutput(sOutput);
+  sSampleConverter.reset(new SampleConverter());
+  sSampleConverter->SetOutput(sOutput);
 
-  AudioTask::Start(sFileSource, sMixer);
+  Decoder::Start(sFileSource, sSampleConverter);
 
   return true;
 }

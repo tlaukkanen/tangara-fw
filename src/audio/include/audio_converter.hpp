@@ -18,19 +18,21 @@
 namespace audio {
 
 /*
- * Handles the final downmix + resample + quantisation stage of audio,
- * generation sending the result directly to an IAudioOutput.
+ * Handle to a persistent task that converts samples between formats (sample
+ * rate, channels, bits per sample), in order to put samples in the preferred
+ * format of the current output device. The resulting samples are forwarded
+ * to the output device's sink stream.
  */
-class SinkMixer {
+class SampleConverter {
  public:
-  SinkMixer();
-  ~SinkMixer();
+  SampleConverter();
+  ~SampleConverter();
 
   auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
 
-  auto MixAndSend(cpp::span<sample::Sample>,
-                  const IAudioOutput::Format& format,
-                  bool is_eos) -> void;
+  auto ConvertSamples(cpp::span<sample::Sample>,
+                      const IAudioOutput::Format& format,
+                      bool is_eos) -> void;
 
  private:
   auto Main() -> void;

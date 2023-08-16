@@ -13,8 +13,8 @@
 #include "audio_sink.hpp"
 #include "tinyfsm.hpp"
 
+#include "audio_decoder.hpp"
 #include "audio_events.hpp"
-#include "audio_task.hpp"
 #include "bt_audio_output.hpp"
 #include "database.hpp"
 #include "display.hpp"
@@ -68,9 +68,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<drivers::I2SDac> sDac;
   static std::weak_ptr<database::Database> sDatabase;
 
-  static std::unique_ptr<AudioTask> sTask;
   static std::shared_ptr<FatfsAudioInput> sFileSource;
-  static std::shared_ptr<SinkMixer> sMixer;
+  static std::unique_ptr<Decoder> sDecoder;
+  static std::shared_ptr<SampleConverter> sSampleConverter;
   static std::shared_ptr<IAudioOutput> sOutput;
 
   static TrackQueue* sTrackQueue;

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "sink_mixer.hpp"
+#include "audio_converter.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -28,7 +28,7 @@ static constexpr std::size_t kSampleBufferLength = 240 * 2;
 
 namespace audio {
 
-SinkMixer::SinkMixer()
+SampleConverter::SampleConverter()
     : commands_(xQueueCreate(1, sizeof(Args))),
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
@@ -49,21 +49,21 @@ SinkMixer::SinkMixer()
   tasks::StartPersistent<tasks::Type::kMixer>([&]() { Main(); });
 }
 
-SinkMixer::~SinkMixer() {
+SampleConverter::~SampleConverter() {
   vQueueDelete(commands_);
   vStreamBufferDelete(source_);
 }
 
-auto SinkMixer::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
+auto SampleConverter::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
   // FIXME: We should add synchronisation here, but we should be careful about
   // not impacting performance given that the output will change only very
   // rarely (if ever).
   sink_ = output;
 }
 
-auto SinkMixer::MixAndSend(cpp::span<sample::Sample> input,
-                           const IAudioOutput::Format& format,
-                           bool is_eos) -> void {
+auto SampleConverter::ConvertSamples(cpp::span<sample::Sample> input,
+                                     const IAudioOutput::Format& format,
+                                     bool is_eos) -> void {
   Args args{
       .format = format,
       .samples_available = input.size(),
@@ -81,7 +81,7 @@ auto SinkMixer::MixAndSend(cpp::span<sample::Sample> input,
   }
 }
 
-auto SinkMixer::Main() -> void {
+auto SampleConverter::Main() -> void {
   for (;;) {
     Args args;
     while (!xQueueReceive(commands_, &args, portMAX_DELAY)) {
@@ -149,8 +149,8 @@ auto SinkMixer::Main() -> void {
   }
 }
 
-auto SinkMixer::HandleSamples(cpp::span<sample::Sample> input, bool is_eos)
-    -> size_t {
+auto SampleConverter::HandleSamples(cpp::span<sample::Sample> input,
+                                    bool is_eos) -> size_t {
   if (source_format_ == target_format_) {
     // The happiest possible case: the input format matches the output
     // format already.
