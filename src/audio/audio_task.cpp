@@ -6,8 +6,8 @@
 
 #include "audio_task.hpp"
 
-#include <stdlib.h>
-#include <sys/_stdint.h>
+#include <cstdint>
+#include <cstdlib>
 
 #include <algorithm>
 #include <cmath>
@@ -28,13 +28,10 @@
 #include "freertos/ringbuf.h"
 #include "span.hpp"
 
-#include "audio_decoder.hpp"
-#include "audio_element.hpp"
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
-#include "chunk.hpp"
 #include "codec.hpp"
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"

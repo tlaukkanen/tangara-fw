@@ -12,13 +12,12 @@
 #include <memory>
 #include <string>
 
-#include "codec.hpp"
 #include "ff.h"
+#include "freertos/portmacro.h"
 
 #include "audio_source.hpp"
-#include "freertos/portmacro.h"
+#include "codec.hpp"
 #include "future_fetcher.hpp"
-#include "stream_info.hpp"
 #include "tag_parser.hpp"
 #include "types.hpp"
 

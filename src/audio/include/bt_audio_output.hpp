@@ -6,20 +6,16 @@
 
 #pragma once
 
-#include <sys/_stdint.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "audio_element.hpp"
-#include "audio_sink.hpp"
-#include "bluetooth.hpp"
-#include "chunk.hpp"
 #include "result.hpp"
 
+#include "audio_sink.hpp"
+#include "bluetooth.hpp"
 #include "gpios.hpp"
 #include "i2s_dac.hpp"
-#include "stream_info.hpp"
 
 namespace audio {
 

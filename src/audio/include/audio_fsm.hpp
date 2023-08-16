@@ -10,6 +10,8 @@
 #include <memory>
 #include <vector>
 
+#include "tinyfsm.hpp"
+
 #include "audio_events.hpp"
 #include "audio_task.hpp"
 #include "bt_audio_output.hpp"
@@ -20,11 +22,9 @@
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
 #include "storage.hpp"
-#include "tag_parser.hpp"
-#include "tinyfsm.hpp"
-#include "track.hpp"
-
 #include "system_events.hpp"
+#include "tag_parser.hpp"
+#include "track.hpp"
 #include "track_queue.hpp"
 
 namespace audio {

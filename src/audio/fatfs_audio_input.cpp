@@ -6,8 +6,6 @@
 
 #include "fatfs_audio_input.hpp"
 
-#include <stdint.h>
-
 #include <algorithm>
 #include <climits>
 #include <cstddef>
@@ -19,22 +17,21 @@
 #include <string>
 #include <variant>
 
-#include "codec.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "fatfs_source.hpp"
 #include "ff.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+#include "idf_additions.h"
+#include "span.hpp"
 
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
 #include "audio_source.hpp"
+#include "codec.hpp"
 #include "event_queue.hpp"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
+#include "fatfs_source.hpp"
 #include "future_fetcher.hpp"
-#include "idf_additions.h"
-#include "span.hpp"
-#include "stream_info.hpp"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
 #include "types.hpp"

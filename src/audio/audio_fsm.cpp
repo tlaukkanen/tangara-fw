@@ -5,23 +5,24 @@
  */
 
 #include "audio_fsm.hpp"
+
 #include <future>
 #include <memory>
 #include <variant>
-#include "audio_decoder.hpp"
+
+#include "esp_log.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+
 #include "audio_events.hpp"
 #include "audio_task.hpp"
 #include "bluetooth.hpp"
 #include "bt_audio_output.hpp"
-#include "esp_log.h"
 #include "event_queue.hpp"
 #include "fatfs_audio_input.hpp"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
-#include "pipeline.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"

@@ -4,27 +4,18 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 #include "resample.hpp"
-/*
- * This file contains the implementation for a 32-bit floating point resampler.
- * It is largely based on David Bryant's ART resampler, which is BSD-licensed,
- * and available at https://github.com/dbry/audio-resampler/.
- *
- * This resampler uses windowed sinc interpolation filters, with an additional
- * lowpass filter to reduce aliasing.
- */
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <numeric>
 
 #include "esp_log.h"
+#include "speex/speex_resampler.h"
 
 #include "sample.hpp"
-#include "speex/speex_resampler.h"
-#include "stream_info.hpp"
 
 namespace audio {
 

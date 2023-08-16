@@ -6,19 +6,15 @@
 
 #pragma once
 
-#include <sys/_stdint.h>
 #include <cstdint>
 #include <memory>
 
 #include "resample.hpp"
 #include "sample.hpp"
 
-#include "audio_decoder.hpp"
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
 #include "codec.hpp"
-#include "pipeline.hpp"
-#include "stream_info.hpp"
 
 namespace audio {
 
@@ -38,7 +34,7 @@ class SinkMixer {
  private:
   auto Main() -> void;
 
-  auto SetTargetFormat(const StreamInfo::Pcm& format) -> void;
+  auto SetTargetFormat(const IAudioSink::Format& format) -> void;
   auto HandleSamples(cpp::span<sample::Sample>, bool) -> size_t;
 
   struct Args {

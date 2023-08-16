@@ -6,19 +6,7 @@
 
 #pragma once
 
-#include <stdint.h>
-
-#include <bitset>
-#include <memory>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
-#include "freertos/semphr.h"
-
 #include "codec.hpp"
-#include "stream_info.hpp"
-#include "track.hpp"
-#include "types.hpp"
 
 namespace audio {
 

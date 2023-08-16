@@ -6,19 +6,18 @@
 
 #include "sink_mixer.hpp"
 
-#include <stdint.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "idf_additions.h"
+
 #include "resample.hpp"
 #include "sample.hpp"
-
-#include "stream_info.hpp"
 #include "tasks.hpp"
 
 static constexpr char kTag[] = "mixer";

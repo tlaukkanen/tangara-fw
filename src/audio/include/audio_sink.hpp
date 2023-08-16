@@ -8,11 +8,10 @@
 
 #include <stdint.h>
 #include <cstdint>
-#include "audio_element.hpp"
+
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "idf_additions.h"
-#include "stream_info.hpp"
 
 namespace audio {
 

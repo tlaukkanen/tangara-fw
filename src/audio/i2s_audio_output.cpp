@@ -5,8 +5,6 @@
  */
 
 #include "i2s_audio_output.hpp"
-#include <stdint.h>
-#include <sys/_stdint.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -14,18 +12,16 @@
 #include <memory>
 #include <variant>
 
-#include "audio_sink.hpp"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
-
-#include "audio_element.hpp"
 #include "freertos/projdefs.h"
+
+#include "audio_sink.hpp"
 #include "gpios.hpp"
 #include "i2c.hpp"
 #include "i2s_dac.hpp"
 #include "result.hpp"
-#include "stream_info.hpp"
 #include "wm8523.hpp"
 
 static const char* kTag = "I2SOUT";

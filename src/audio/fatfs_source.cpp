@@ -5,7 +5,6 @@
  */
 
 #include "fatfs_source.hpp"
-#include <sys/_stdint.h>
 
 #include <cstddef>
 #include <cstdint>
