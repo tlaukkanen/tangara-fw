@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <optional>
 
 #include "esp_err.h"
@@ -23,6 +24,13 @@ class NvsStorage {
 
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::mac_addr_t>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::mac_addr_t>) -> void;
+
+  enum class Output : uint8_t {
+    kHeadphones = 0,
+    kBluetooth = 1,
+  };
+  auto OutputMode() -> Output;
+  auto OutputMode(Output) -> void;
 
   explicit NvsStorage(nvs_handle_t);
   ~NvsStorage();

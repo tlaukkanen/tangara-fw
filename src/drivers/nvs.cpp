@@ -22,6 +22,7 @@ static constexpr uint8_t kSchemaVersion = 1;
 
 static constexpr char kKeyVersion[] = "ver";
 static constexpr char kKeyBluetooth[] = "bt";
+static constexpr char kKeyOutput[] = "out";
 
 auto NvsStorage::Open() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -81,6 +82,7 @@ auto NvsStorage::PreferredBluetoothDevice()
   }
   return out;
 }
+
 auto NvsStorage::PreferredBluetoothDevice(
     std::optional<bluetooth::mac_addr_t> addr) -> void {
   if (!addr) {
@@ -89,6 +91,23 @@ auto NvsStorage::PreferredBluetoothDevice(
     nvs_set_blob(handle_, kKeyBluetooth, addr.value().data(),
                  addr.value().size());
   }
+  nvs_commit(handle_);
+}
+
+auto NvsStorage::OutputMode() -> Output {
+  uint8_t out = 0;
+  nvs_get_u8(handle_, kKeyOutput, &out);
+  switch (out) {
+    case static_cast<uint8_t>(Output::kBluetooth):
+      return Output::kHeadphones;
+    case static_cast<uint8_t>(Output::kHeadphones):
+    default:
+      return Output::kHeadphones;
+  }
+}
+
+auto NvsStorage::OutputMode(Output out) -> void {
+  nvs_set_u8(handle_, kKeyOutput, static_cast<uint8_t>(out));
   nvs_commit(handle_);
 }
 
