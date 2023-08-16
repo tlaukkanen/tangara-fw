@@ -34,7 +34,8 @@ class Timer {
 
 class AudioTask {
  public:
-  static auto Start(IAudioSource* source, IAudioSink* sink) -> AudioTask*;
+  static auto Start(std::shared_ptr<IAudioSource> source,
+                    std::shared_ptr<SinkMixer> mixer) -> AudioTask*;
 
   auto Main() -> void;
 
@@ -42,21 +43,21 @@ class AudioTask {
   AudioTask& operator=(const AudioTask&) = delete;
 
  private:
-  AudioTask(IAudioSource* source, IAudioSink* sink);
+  AudioTask(std::shared_ptr<IAudioSource> source,
+            std::shared_ptr<SinkMixer> mixer);
 
   auto BeginDecoding(std::shared_ptr<codecs::IStream>) -> bool;
   auto ContinueDecoding() -> bool;
 
-  IAudioSource* source_;
-  IAudioSink* sink_;
+  std::shared_ptr<IAudioSource> source_;
+  std::shared_ptr<SinkMixer> mixer_;
 
   std::shared_ptr<codecs::IStream> stream_;
   std::unique_ptr<codecs::ICodec> codec_;
-  std::unique_ptr<SinkMixer> mixer_;
   std::unique_ptr<Timer> timer_;
 
   std::optional<codecs::ICodec::OutputFormat> current_format_;
-  std::optional<IAudioSink::Format> current_sink_format_;
+  std::optional<IAudioOutput::Format> current_sink_format_;
 
   cpp::span<sample::Sample> codec_buffer_;
 };

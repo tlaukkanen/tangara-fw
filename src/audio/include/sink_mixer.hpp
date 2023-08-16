@@ -9,36 +9,37 @@
 #include <cstdint>
 #include <memory>
 
-#include "resample.hpp"
-#include "sample.hpp"
-
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
 #include "codec.hpp"
+#include "resample.hpp"
+#include "sample.hpp"
 
 namespace audio {
 
 /*
  * Handles the final downmix + resample + quantisation stage of audio,
- * generation sending the result directly to an IAudioSink.
+ * generation sending the result directly to an IAudioOutput.
  */
 class SinkMixer {
  public:
-  SinkMixer(IAudioSink* sink);
+  SinkMixer();
   ~SinkMixer();
 
+  auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
+
   auto MixAndSend(cpp::span<sample::Sample>,
-                  const IAudioSink::Format& format,
+                  const IAudioOutput::Format& format,
                   bool is_eos) -> void;
 
  private:
   auto Main() -> void;
 
-  auto SetTargetFormat(const IAudioSink::Format& format) -> void;
+  auto SetTargetFormat(const IAudioOutput::Format& format) -> void;
   auto HandleSamples(cpp::span<sample::Sample>, bool) -> size_t;
 
   struct Args {
-    IAudioSink::Format format;
+    IAudioOutput::Format format;
     size_t samples_available;
     bool is_end_of_stream;
   };
@@ -52,9 +53,9 @@ class SinkMixer {
 
   cpp::span<sample::Sample> resampled_buffer_;
 
-  IAudioSink* sink_;
-  IAudioSink::Format source_format_;
-  IAudioSink::Format target_format_;
+  std::shared_ptr<IAudioOutput> sink_;
+  IAudioOutput::Format source_format_;
+  IAudioOutput::Format target_format_;
   size_t leftover_bytes_;
   size_t leftover_offset_;
 };

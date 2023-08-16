@@ -43,7 +43,7 @@ static constexpr size_t kDrainBufferSize = 8 * 1024;
 
 I2SAudioOutput::I2SAudioOutput(drivers::IGpios* expander,
                                std::weak_ptr<drivers::I2SDac> dac)
-    : IAudioSink(kDrainBufferSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+    : IAudioOutput(kDrainBufferSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
       expander_(expander),
       dac_(dac.lock()),
       current_config_(),

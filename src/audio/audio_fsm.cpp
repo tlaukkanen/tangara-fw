@@ -10,6 +10,7 @@
 #include <memory>
 #include <variant>
 
+#include "audio_sink.hpp"
 #include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -23,6 +24,7 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
+#include "sink_mixer.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
@@ -36,9 +38,10 @@ std::shared_ptr<drivers::I2SDac> AudioState::sDac;
 std::weak_ptr<database::Database> AudioState::sDatabase;
 
 std::unique_ptr<AudioTask> AudioState::sTask;
-std::unique_ptr<FatfsAudioInput> AudioState::sFileSource;
-std::unique_ptr<I2SAudioOutput> AudioState::sI2SOutput;
-std::unique_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
+
+std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
+std::shared_ptr<SinkMixer> AudioState::sMixer;
+std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 TrackQueue* AudioState::sTrackQueue;
 std::optional<database::TrackId> AudioState::sCurrentTrack;
@@ -59,11 +62,13 @@ auto AudioState::Init(drivers::IGpios* gpio_expander,
   sDatabase = database;
 
   sFileSource.reset(new FatfsAudioInput(tag_parser));
-  sI2SOutput.reset(new I2SAudioOutput(sIGpios, sDac));
-  sBtOutput.reset(new BluetoothAudioOutput(bluetooth));
+  sOutput.reset(new I2SAudioOutput(sIGpios, sDac));
+  // sOutput.reset(new BluetoothAudioOutput(bluetooth));
 
-  AudioTask::Start(sFileSource.get(), sI2SOutput.get());
-  // AudioTask::Start(sFileSource.get(), sBtOutput.get());
+  sMixer.reset(new SinkMixer());
+  sMixer->SetOutput(sOutput);
+
+  AudioTask::Start(sFileSource, sMixer);
 
   return true;
 }
@@ -73,14 +78,14 @@ void AudioState::react(const system_fsm::StorageMounted& ev) {
 }
 
 void AudioState::react(const system_fsm::KeyUpChanged& ev) {
-  if (ev.falling && sI2SOutput->AdjustVolumeUp()) {
+  if (ev.falling && sOutput->AdjustVolumeUp()) {
     ESP_LOGI(kTag, "volume up!");
     events::Ui().Dispatch(VolumeChanged{});
   }
 }
 
 void AudioState::react(const system_fsm::KeyDownChanged& ev) {
-  if (ev.falling && sI2SOutput->AdjustVolumeDown()) {
+  if (ev.falling && sOutput->AdjustVolumeDown()) {
     ESP_LOGI(kTag, "volume down!");
     events::Ui().Dispatch(VolumeChanged{});
   }
@@ -131,8 +136,7 @@ void Standby::react(const QueueUpdate& ev) {
 
 void Playback::entry() {
   ESP_LOGI(kTag, "beginning playback");
-  sI2SOutput->SetInUse(true);
-  // sBtOutput->SetInUse(true);
+  sOutput->SetInUse(true);
 }
 
 void Playback::exit() {
@@ -140,8 +144,7 @@ void Playback::exit() {
   // TODO(jacqueline): Second case where it's useful to wait for the i2s buffer
   // to drain.
   vTaskDelay(pdMS_TO_TICKS(250));
-  sI2SOutput->SetInUse(false);
-  // sBtOutput->SetInUse(false);
+  sOutput->SetInUse(false);
 }
 
 void Playback::react(const QueueUpdate& ev) {

@@ -30,7 +30,7 @@ namespace audio {
 static constexpr size_t kDrainBufferSize = 48 * 1024;
 
 BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth* bt)
-    : IAudioSink(kDrainBufferSize, MALLOC_CAP_SPIRAM), bluetooth_(bt) {}
+    : IAudioOutput(kDrainBufferSize, MALLOC_CAP_SPIRAM), bluetooth_(bt) {}
 
 BluetoothAudioOutput::~BluetoothAudioOutput() {}
 

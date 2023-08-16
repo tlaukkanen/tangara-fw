@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "audio_sink.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/portmacro.h"
@@ -27,13 +28,12 @@ static constexpr std::size_t kSampleBufferLength = 240 * 2;
 
 namespace audio {
 
-SinkMixer::SinkMixer(IAudioSink* sink)
+SinkMixer::SinkMixer()
     : commands_(xQueueCreate(1, sizeof(Args))),
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
                                           1,
-                                          MALLOC_CAP_SPIRAM)),
-      sink_(sink) {
+                                          MALLOC_CAP_SPIRAM)) {
   input_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
           kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
@@ -54,8 +54,15 @@ SinkMixer::~SinkMixer() {
   vStreamBufferDelete(source_);
 }
 
+auto SinkMixer::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
+  // FIXME: We should add synchronisation here, but we should be careful about
+  // not impacting performance given that the output will change only very
+  // rarely (if ever).
+  sink_ = output;
+}
+
 auto SinkMixer::MixAndSend(cpp::span<sample::Sample> input,
-                           const IAudioSink::Format& format,
+                           const IAudioOutput::Format& format,
                            bool is_eos) -> void {
   Args args{
       .format = format,

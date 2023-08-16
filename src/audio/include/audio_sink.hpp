@@ -15,17 +15,28 @@
 
 namespace audio {
 
-class IAudioSink {
+/*
+ * Interface for classes that use PCM samples to create noises for the user.
+ *
+ * These classes do not generally have any specific task for their work, and
+ * simply help to mediate working out the correct PCM format, and then sending
+ * those samples to the appropriate hardware driver.
+ */
+class IAudioOutput {
  private:
   StreamBufferHandle_t stream_;
 
  public:
-  IAudioSink(size_t buffer_size, uint32_t caps)
+  IAudioOutput(size_t buffer_size, uint32_t caps)
       : stream_(xStreamBufferCreateWithCaps(buffer_size, 1, caps)) {}
 
-  virtual ~IAudioSink() { vStreamBufferDeleteWithCaps(stream_); }
+  virtual ~IAudioOutput() { vStreamBufferDeleteWithCaps(stream_); }
 
-  virtual auto SetInUse(bool) -> void {}
+  /*
+   * Indicates whether this output is currently being sent samples. If this is
+   * false, the output should place itself into a low power state.
+   */
+  virtual auto SetInUse(bool) -> void = 0;
 
   virtual auto SetVolumeImbalance(int_fast8_t balance) -> void = 0;
   virtual auto SetVolume(uint_fast8_t percent) -> void = 0;

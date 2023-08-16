@@ -76,19 +76,16 @@ auto Timer::AddSamples(std::size_t samples) -> void {
   }
 }
 
-auto AudioTask::Start(IAudioSource* source, IAudioSink* sink) -> AudioTask* {
+auto AudioTask::Start(std::shared_ptr<IAudioSource> source,
+                      std::shared_ptr<SinkMixer> sink) -> AudioTask* {
   AudioTask* task = new AudioTask(source, sink);
   tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
   return task;
 }
 
-AudioTask::AudioTask(IAudioSource* source, IAudioSink* sink)
-    : source_(source),
-      sink_(sink),
-      codec_(),
-      mixer_(new SinkMixer(sink)),
-      timer_(),
-      current_format_() {
+AudioTask::AudioTask(std::shared_ptr<IAudioSource> source,
+                     std::shared_ptr<SinkMixer> mixer)
+    : source_(source), mixer_(mixer), codec_(), timer_(), current_format_() {
   codec_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
           kCodecBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
@@ -133,7 +130,7 @@ auto AudioTask::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
     timer_.reset();
   }
 
-  current_sink_format_ = IAudioSink::Format{
+  current_sink_format_ = IAudioOutput::Format{
       .sample_rate = open_res->sample_rate_hz,
       .num_channels = open_res->num_channels,
       .bits_per_sample = 16,

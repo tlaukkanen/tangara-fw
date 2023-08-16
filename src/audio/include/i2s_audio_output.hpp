@@ -17,7 +17,7 @@
 
 namespace audio {
 
-class I2SAudioOutput : public IAudioSink {
+class I2SAudioOutput : public IAudioOutput {
  public:
   I2SAudioOutput(drivers::IGpios* expander, std::weak_ptr<drivers::I2SDac> dac);
   ~I2SAudioOutput();
