@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 idf_component_register(
-  SRCS "env_esp.cpp" "database.cpp" "track.cpp" "records.cpp" "file_gatherer.cpp" "tag_parser.cpp" "index.cpp"
+  SRCS "env_esp.cpp" "database.cpp" "track.cpp" "records.cpp"
+  "file_gatherer.cpp" "tag_parser.cpp" "index.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "result" "span" "esp_psram" "fatfs" "libtags" "komihash" "cbor" "tasks" "shared_string" "util")
+  REQUIRES "result" "span" "esp_psram" "fatfs" "libtags" "komihash" "cbor"
+  "tasks" "shared_string" "util" "tinyfsm" "events")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
 

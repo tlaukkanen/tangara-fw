@@ -27,7 +27,9 @@
 #include "leveldb/slice.h"
 #include "leveldb/write_batch.h"
 
+#include "db_events.hpp"
 #include "env_esp.hpp"
+#include "event_queue.hpp"
 #include "file_gatherer.hpp"
 #include "records.hpp"
 #include "result.hpp"
@@ -131,6 +133,7 @@ Database::~Database() {
 }
 
 auto Database::Update() -> std::future<void> {
+  events::Ui().Dispatch(event::UpdateStarted{});
   return worker_task_->Dispatch<void>([&]() -> void {
     leveldb::ReadOptions read_options;
     read_options.fill_cache = false;
@@ -151,6 +154,9 @@ auto Database::Update() -> std::future<void> {
 
     // Stage 1: verify all existing tracks are still valid.
     ESP_LOGI(kTag, "verifying existing tracks");
+    events::Ui().Dispatch(event::UpdateProgress{
+        .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
+    });
     {
       leveldb::Iterator* it = db_->NewIterator(read_options);
       OwningSlice prefix = EncodeDataPrefix();
@@ -206,6 +212,9 @@ auto Database::Update() -> std::future<void> {
 
     // Stage 2: search for newly added files.
     ESP_LOGI(kTag, "scanning for new tracks");
+    events::Ui().Dispatch(event::UpdateProgress{
+        .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
+    });
     file_gatherer_->FindFiles("", [&](const std::string& path) {
       TrackTags tags;
       if (!tag_parser_->ReadAndParseTags(path, &tags) ||
@@ -254,6 +263,7 @@ auto Database::Update() -> std::future<void> {
                  existing_data->filepath().c_str(), path.c_str());
       }
     });
+    events::Ui().Dispatch(event::UpdateFinished{});
   });
 }
 

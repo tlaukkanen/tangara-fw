@@ -79,6 +79,13 @@ class Splash : public UiState {
   using UiState::react;
 };
 
+class Onboarding : public UiState {
+ public:
+  void entry() override;
+
+  using UiState::react;
+};
+
 class Browse : public UiState {
   void entry() override;
 
