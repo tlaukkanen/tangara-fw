@@ -16,6 +16,7 @@
 #include "lvgl/lvgl.h"
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
+#include "samd.hpp"
 #include "spi.hpp"
 #include "system_events.hpp"
 #include "system_fsm.hpp"
@@ -86,6 +87,7 @@ auto Booting::exit() -> void {
   sAppConsole = new console::AppConsole();
   sAppConsole->sTrackQueue = sTrackQueue.get();
   sAppConsole->sBluetooth = sBluetooth.get();
+  sAppConsole->sSamd = sSamd.get();
   sAppConsole->Launch();
 }
 
@@ -94,8 +96,8 @@ auto Booting::react(const BootComplete& ev) -> void {
 
   // It's possible that the SAMD is currently exposing the SD card as a USB
   // device. Make sure we don't immediately try to claim it.
-  if (sSamd && sSamd->ReadUsbMscStatus() ==
-                   drivers::Samd::UsbMscStatus::kAttachedMounted) {
+  if (sSamd &&
+      sSamd->ReadUsbStatus() == drivers::Samd::UsbStatus::kAttachedMounted) {
     transit<Unmounted>();
   }
   transit<Running>();

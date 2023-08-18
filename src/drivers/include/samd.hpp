@@ -34,7 +34,7 @@ class Samd {
 
   auto ReadChargeStatus() -> std::optional<ChargeStatus>;
 
-  enum class UsbMscStatus {
+  enum class UsbStatus {
     // There is no compatible usb host attached.
     kDetached,
     // There is a compatible usb host attached, but USB MSC is not currently
@@ -44,11 +44,9 @@ class Samd {
     kAttachedMounted,
   };
 
-  auto WriteAllowUsbMsc(bool is_allowed) -> void;
-  auto ReadUsbMscStatus() -> UsbMscStatus;
+  auto ReadUsbStatus() -> UsbStatus;
 
-  auto ReadFlashingEnabled() -> bool;
-  auto WriteFlashingEnabled(bool) -> void;
+  auto ResetToFlashSamd() -> void;
 };
 
 }  // namespace drivers

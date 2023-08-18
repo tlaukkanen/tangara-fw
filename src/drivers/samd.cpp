@@ -13,11 +13,12 @@
 #include "hal/i2c_types.h"
 #include "i2c.hpp"
 
-enum Registers {
-  kRegisterVersion = 0,
-  kRegisterCharge = 1,
-  kRegisterUsbMsc = 2,
-  kRegisterFlashing = 3,
+enum Registers : uint8_t {
+  kSamdFirmwareVersion = 0,
+  kChargeStatus = 1,
+  kUsbStatus = 2,
+  kPowerControl = 3,
+  kUsbControl = 4,
 };
 
 static const uint8_t kAddress = 0x45;
@@ -33,13 +34,13 @@ Samd::Samd() {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(kRegisterVersion)
+      .write_ack(Registers::kSamdFirmwareVersion)
+      .start()
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  ESP_LOGI(kTag, "checking samd firmware rev");
-  transaction.Execute();
-  ESP_LOGI(kTag, "samd firmware: %u", raw_res);
+  ESP_ERROR_CHECK(transaction.Execute());
+  ESP_LOGI(kTag, "samd firmware rev: %u", raw_res);
 }
 Samd::~Samd() {}
 
@@ -48,12 +49,13 @@ auto Samd::ReadChargeStatus() -> std::optional<ChargeStatus> {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(kRegisterCharge)
+      .write_ack(Registers::kChargeStatus)
+      .start()
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
   ESP_LOGI(kTag, "checking charge status");
-  transaction.Execute();
+  ESP_ERROR_CHECK(transaction.Execute());
   ESP_LOGI(kTag, "raw charge status: %x", raw_res);
 
   uint8_t usb_state = raw_res & 0b11;
@@ -77,37 +79,32 @@ auto Samd::ReadChargeStatus() -> std::optional<ChargeStatus> {
   }
 }
 
-auto Samd::WriteAllowUsbMsc(bool is_allowed) -> void {
-  I2CTransaction transaction;
-  transaction.start()
-      .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(kRegisterUsbMsc, is_allowed)
-      .stop();
-  transaction.Execute();
-}
-
-auto Samd::ReadUsbMscStatus() -> UsbMscStatus {
-  return UsbMscStatus::kDetached;
-}
-
-auto Samd::ReadFlashingEnabled() -> bool {
+auto Samd::ReadUsbStatus() -> UsbStatus {
   uint8_t raw_res;
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(kRegisterVersion)
+      .write_ack(Registers::kUsbStatus)
+      .start()
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
+  ESP_LOGI(kTag, "checking usb status");
   ESP_ERROR_CHECK(transaction.Execute());
-  return raw_res;
+  ESP_LOGI(kTag, "raw usb status: %x", raw_res);
+
+  if (!(raw_res & 0b1)) {
+    return UsbStatus::kDetached;
+  }
+  return (raw_res & 0b10) ? UsbStatus::kAttachedMounted
+                          : UsbStatus::kAttachedIdle;
 }
 
-auto Samd::WriteFlashingEnabled(bool is_enabled) -> void {
+auto Samd::ResetToFlashSamd() -> void {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(kRegisterFlashing, is_enabled)
+      .write_ack(Registers::kUsbControl, 0b100)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute());
 }

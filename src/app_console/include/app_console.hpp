@@ -11,6 +11,7 @@
 #include "bluetooth.hpp"
 #include "console.hpp"
 #include "database.hpp"
+#include "samd.hpp"
 #include "track_queue.hpp"
 
 namespace console {
@@ -20,6 +21,7 @@ class AppConsole : public Console {
   static std::weak_ptr<database::Database> sDatabase;
   static audio::TrackQueue* sTrackQueue;
   static drivers::Bluetooth* sBluetooth;
+  static drivers::Samd* sSamd;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;

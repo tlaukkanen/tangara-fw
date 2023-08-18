@@ -38,6 +38,7 @@ namespace console {
 std::weak_ptr<database::Database> AppConsole::sDatabase;
 audio::TrackQueue* AppConsole::sTrackQueue;
 drivers::Bluetooth* AppConsole::sBluetooth;
+drivers::Samd* AppConsole::sSamd;
 
 int CmdListDir(int argc, char** argv) {
   auto lock = AppConsole::sDatabase.lock();
@@ -481,6 +482,62 @@ void RegisterBtList() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdSamd(int argc, char** argv) {
+  static const std::string usage = "usage: samd [flash|charge]";
+  if (argc != 2) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  std::string cmd{argv[1]};
+  if (cmd == "flash") {
+    std::cout << "resetting samd..." << std::endl;
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    AppConsole::sSamd->ResetToFlashSamd();
+  } else if (cmd == "charge") {
+    auto res = AppConsole::sSamd->ReadChargeStatus();
+    if (res) {
+      switch (res.value()) {
+        case drivers::Samd::ChargeStatus::kNoBattery:
+          std::cout << "kNoBattery" << std::endl;
+          break;
+        case drivers::Samd::ChargeStatus::kBatteryCritical:
+          std::cout << "kBatteryCritical" << std::endl;
+          break;
+        case drivers::Samd::ChargeStatus::kDischarging:
+          std::cout << "kDischarging" << std::endl;
+          break;
+        case drivers::Samd::ChargeStatus::kChargingRegular:
+          std::cout << "kChargingRegular" << std::endl;
+          break;
+        case drivers::Samd::ChargeStatus::kChargingFast:
+          std::cout << "kChargingFast" << std::endl;
+          break;
+        case drivers::Samd::ChargeStatus::kFullCharge:
+          std::cout << "kFullCharge" << std::endl;
+          break;
+      }
+    } else {
+      std::cout << "unknown" << std::endl;
+    }
+  } else {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  return 0;
+}
+
+void RegisterSamd() {
+  esp_console_cmd_t cmd{.command = "samd",
+                        .help = "",
+                        .hint = NULL,
+                        .func = &CmdSamd,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -495,6 +552,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterDbDump();
   RegisterTaskStates();
   RegisterBtList();
+  RegisterSamd();
 }
 
 }  // namespace console
