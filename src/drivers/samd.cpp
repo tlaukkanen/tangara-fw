@@ -56,24 +56,23 @@ auto Samd::ReadChargeStatus() -> std::optional<ChargeStatus> {
       .stop();
   ESP_LOGI(kTag, "checking charge status");
   ESP_ERROR_CHECK(transaction.Execute());
-  ESP_LOGI(kTag, "raw charge status: %x", raw_res);
+  ESP_LOGI(kTag, "raw charge status: 0x%x", raw_res);
 
   uint8_t usb_state = raw_res & 0b11;
   uint8_t charge_state = (raw_res >> 2) & 0b111;
   switch (charge_state) {
-    case 0:
+    case 0b000:
+    case 0b011:
       return ChargeStatus::kNoBattery;
-    case 1:
+    case 0b001:
       return usb_state == 1 ? ChargeStatus::kChargingRegular
                             : ChargeStatus::kChargingFast;
-    case 2:
+    case 0b010:
       return ChargeStatus::kFullCharge;
-    case 4:
+    case 0b100:
       return ChargeStatus::kBatteryCritical;
-    case 5:
+    case 0b101:
       return ChargeStatus::kDischarging;
-    case 3:
-      // Fall-through.
     default:
       return {};
   }
@@ -91,7 +90,7 @@ auto Samd::ReadUsbStatus() -> UsbStatus {
       .stop();
   ESP_LOGI(kTag, "checking usb status");
   ESP_ERROR_CHECK(transaction.Execute());
-  ESP_LOGI(kTag, "raw usb status: %x", raw_res);
+  ESP_LOGI(kTag, "raw usb status: 0x%x", raw_res);
 
   if (!(raw_res & 0b1)) {
     return UsbStatus::kDetached;
