@@ -496,7 +496,7 @@ int CmdSamd(int argc, char** argv) {
 
     AppConsole::sSamd->ResetToFlashSamd();
   } else if (cmd == "charge") {
-    auto res = AppConsole::sSamd->ReadChargeStatus();
+    auto res = AppConsole::sSamd->GetChargeStatus();
     if (res) {
       switch (res.value()) {
         case drivers::Samd::ChargeStatus::kNoBattery:

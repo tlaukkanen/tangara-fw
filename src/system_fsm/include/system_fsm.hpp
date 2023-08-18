@@ -35,8 +35,6 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
  public:
   virtual ~SystemState() {}
 
-  static auto early_init_gpios() -> drivers::Gpios*;
-
   virtual void entry() {}
   virtual void exit() {}
 
@@ -45,6 +43,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
 
   void react(const FatalError&);
   void react(const internal::GpioInterrupt&);
+  void react(const internal::SamdInterrupt&);
 
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}

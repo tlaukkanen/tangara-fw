@@ -58,7 +58,9 @@ constexpr std::pair<uint8_t, uint8_t> unpack(uint16_t ba) {
   return std::pair((uint8_t)ba, (uint8_t)(ba >> 8));
 }
 
-void interrupt_isr(void* arg) {
+SemaphoreHandle_t Gpios::sReadPending;
+
+static void interrupt_isr(void* arg) {
   SemaphoreHandle_t sem = reinterpret_cast<SemaphoreHandle_t>(arg);
   xSemaphoreGive(sem);
 }
@@ -73,10 +75,7 @@ auto Gpios::Create() -> Gpios* {
   return instance;
 }
 
-Gpios::Gpios()
-    : ports_(pack(kPortADefault, kPortBDefault)),
-      inputs_(0),
-      read_pending_(xSemaphoreCreateBinary()) {
+Gpios::Gpios() : ports_(pack(kPortADefault, kPortBDefault)), inputs_(0) {
   gpio_config_t config{
       .pin_bit_mask = static_cast<uint64_t>(1) << GPIO_NUM_34,
       .mode = GPIO_MODE_INPUT,
@@ -87,6 +86,7 @@ Gpios::Gpios()
   gpio_config(&config);
   gpio_install_isr_service(ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_SHARED |
                            ESP_INTR_FLAG_IRAM);
+  gpio_isr_handler_add(GPIO_NUM_34, &interrupt_isr, sReadPending);
 }
 
 Gpios::~Gpios() {
@@ -141,8 +141,9 @@ auto Gpios::Read() -> bool {
   return true;
 }
 
-auto Gpios::InstallReadPendingISR() -> void {
-  gpio_isr_handler_add(GPIO_NUM_34, &interrupt_isr, read_pending_);
+auto Gpios::CreateReadPending() -> SemaphoreHandle_t {
+  sReadPending = xSemaphoreCreateBinary();
+  return sReadPending;
 }
 
 }  // namespace drivers

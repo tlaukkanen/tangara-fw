@@ -13,6 +13,8 @@
 #include "tag_parser.hpp"
 #include "track_queue.hpp"
 
+static const char kTag[] = "system";
+
 namespace system_fsm {
 
 std::shared_ptr<drivers::Gpios> SystemState::sGpios;
@@ -32,11 +34,6 @@ std::shared_ptr<database::TagParserImpl> SystemState::sTagParser;
 std::shared_ptr<audio::TrackQueue> SystemState::sTrackQueue;
 
 console::AppConsole* SystemState::sAppConsole;
-
-auto SystemState::early_init_gpios() -> drivers::Gpios* {
-  sGpios.reset(drivers::Gpios::Create());
-  return sGpios.get();
-}
 
 void SystemState::react(const FatalError& err) {
   if (!is_in_state<states::Error>()) {
@@ -75,6 +72,26 @@ void SystemState::react(const internal::GpioInterrupt&) {
   if (has_headphones != prev_has_headphones) {
     HasPhonesChanged ev{.falling = prev_has_headphones};
     events::Audio().Dispatch(ev);
+  }
+}
+
+void SystemState::react(const internal::SamdInterrupt&) {
+  auto prev_charge_status = sSamd->GetChargeStatus();
+  auto prev_usb_status = sSamd->GetUsbStatus();
+
+  sSamd->UpdateChargeStatus();
+  sSamd->UpdateUsbStatus();
+
+  auto charge_status = sSamd->GetChargeStatus();
+  auto usb_status = sSamd->GetUsbStatus();
+
+  if (charge_status != prev_charge_status) {
+    ChargingStatusChanged ev{};
+    events::System().Dispatch(ev);
+    events::Ui().Dispatch(ev);
+  }
+  if (usb_status != prev_usb_status) {
+    ESP_LOGI(kTag, "usb status changed");
   }
 }
 

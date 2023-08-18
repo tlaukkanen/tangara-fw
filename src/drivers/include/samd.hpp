@@ -8,6 +8,9 @@
 
 #include <optional>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 namespace drivers {
 
 class Samd {
@@ -32,7 +35,8 @@ class Samd {
     kFullCharge,
   };
 
-  auto ReadChargeStatus() -> std::optional<ChargeStatus>;
+  auto GetChargeStatus() -> std::optional<ChargeStatus>;
+  auto UpdateChargeStatus() -> void;
 
   enum class UsbStatus {
     // There is no compatible usb host attached.
@@ -44,9 +48,23 @@ class Samd {
     kAttachedMounted,
   };
 
-  auto ReadUsbStatus() -> UsbStatus;
+  auto GetUsbStatus() -> UsbStatus;
+  auto UpdateUsbStatus() -> void;
 
   auto ResetToFlashSamd() -> void;
+
+  static auto CreateReadPending() -> SemaphoreHandle_t;
+
+  // Not copyable or movable. There should usually only ever be once instance
+  // of this class, and that instance will likely have a static lifetime.
+  Samd(const Samd&) = delete;
+  Samd& operator=(const Samd&) = delete;
+
+ private:
+  std::optional<ChargeStatus> charge_status_;
+  UsbStatus usb_status_;
+
+  static SemaphoreHandle_t sReadPending;
 };
 
 }  // namespace drivers

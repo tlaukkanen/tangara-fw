@@ -26,7 +26,24 @@ static const char kTag[] = "SAMD";
 
 namespace drivers {
 
+SemaphoreHandle_t Samd::sReadPending;
+
+static void interrupt_isr(void* arg) {
+  SemaphoreHandle_t sem = reinterpret_cast<SemaphoreHandle_t>(arg);
+  xSemaphoreGive(sem);
+}
+
 Samd::Samd() {
+  gpio_config_t config{
+      .pin_bit_mask = static_cast<uint64_t>(1) << GPIO_NUM_35,
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_NEGEDGE,
+  };
+  gpio_config(&config);
+  gpio_isr_handler_add(GPIO_NUM_35, &interrupt_isr, sReadPending);
+
   // Being able to interface with the SAMD properly is critical. To ensure we
   // will be able to, we begin by checking the I2C protocol version is
   // compatible, and throw if it's not.
@@ -41,10 +58,17 @@ Samd::Samd() {
       .stop();
   ESP_ERROR_CHECK(transaction.Execute());
   ESP_LOGI(kTag, "samd firmware rev: %u", raw_res);
+
+  UpdateChargeStatus();
+  UpdateUsbStatus();
 }
 Samd::~Samd() {}
 
-auto Samd::ReadChargeStatus() -> std::optional<ChargeStatus> {
+auto Samd::GetChargeStatus() -> std::optional<ChargeStatus> {
+  return charge_status_;
+}
+
+auto Samd::UpdateChargeStatus() -> void {
   uint8_t raw_res;
   I2CTransaction transaction;
   transaction.start()
@@ -54,31 +78,39 @@ auto Samd::ReadChargeStatus() -> std::optional<ChargeStatus> {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  ESP_LOGI(kTag, "checking charge status");
   ESP_ERROR_CHECK(transaction.Execute());
-  ESP_LOGI(kTag, "raw charge status: 0x%x", raw_res);
 
   uint8_t usb_state = raw_res & 0b11;
   uint8_t charge_state = (raw_res >> 2) & 0b111;
   switch (charge_state) {
     case 0b000:
     case 0b011:
-      return ChargeStatus::kNoBattery;
+      charge_status_ = ChargeStatus::kNoBattery;
+      break;
     case 0b001:
-      return usb_state == 1 ? ChargeStatus::kChargingRegular
-                            : ChargeStatus::kChargingFast;
+      charge_status_ = usb_state == 1 ? ChargeStatus::kChargingRegular
+                                      : ChargeStatus::kChargingFast;
+      break;
     case 0b010:
-      return ChargeStatus::kFullCharge;
+      charge_status_ = ChargeStatus::kFullCharge;
+      break;
     case 0b100:
-      return ChargeStatus::kBatteryCritical;
+      charge_status_ = ChargeStatus::kBatteryCritical;
+      break;
     case 0b101:
-      return ChargeStatus::kDischarging;
+      charge_status_ = ChargeStatus::kDischarging;
+      break;
     default:
-      return {};
+      charge_status_ = {};
+      break;
   }
 }
 
-auto Samd::ReadUsbStatus() -> UsbStatus {
+auto Samd::GetUsbStatus() -> UsbStatus {
+  return usb_status_;
+}
+
+auto Samd::UpdateUsbStatus() -> void {
   uint8_t raw_res;
   I2CTransaction transaction;
   transaction.start()
@@ -88,15 +120,13 @@ auto Samd::ReadUsbStatus() -> UsbStatus {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  ESP_LOGI(kTag, "checking usb status");
   ESP_ERROR_CHECK(transaction.Execute());
-  ESP_LOGI(kTag, "raw usb status: 0x%x", raw_res);
 
   if (!(raw_res & 0b1)) {
-    return UsbStatus::kDetached;
+    usb_status_ = UsbStatus::kDetached;
   }
-  return (raw_res & 0b10) ? UsbStatus::kAttachedMounted
-                          : UsbStatus::kAttachedIdle;
+  usb_status_ =
+      (raw_res & 0b10) ? UsbStatus::kAttachedMounted : UsbStatus::kAttachedIdle;
 }
 
 auto Samd::ResetToFlashSamd() -> void {
@@ -106,6 +136,11 @@ auto Samd::ResetToFlashSamd() -> void {
       .write_ack(Registers::kUsbControl, 0b100)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute());
+}
+
+auto Samd::CreateReadPending() -> SemaphoreHandle_t {
+  sReadPending = xSemaphoreCreateBinary();
+  return sReadPending;
 }
 
 }  // namespace drivers

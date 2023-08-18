@@ -39,7 +39,7 @@ auto Booting::entry() -> void {
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
   ESP_ERROR_CHECK(drivers::init_spi());
-  sGpios->InstallReadPendingISR();
+  sGpios.reset(drivers::Gpios::Create());
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
   sTrackQueue.reset(new audio::TrackQueue());
@@ -97,7 +97,7 @@ auto Booting::react(const BootComplete& ev) -> void {
   // It's possible that the SAMD is currently exposing the SD card as a USB
   // device. Make sure we don't immediately try to claim it.
   if (sSamd &&
-      sSamd->ReadUsbStatus() == drivers::Samd::UsbStatus::kAttachedMounted) {
+      sSamd->GetUsbStatus() == drivers::Samd::UsbStatus::kAttachedMounted) {
     transit<Unmounted>();
   }
   transit<Running>();

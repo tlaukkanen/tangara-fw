@@ -60,6 +60,8 @@ struct HasPhonesChanged : tinyfsm::Event {
   bool falling;
 };
 
+struct ChargingStatusChanged : tinyfsm::Event {};
+
 namespace internal {
 
 /*
@@ -68,11 +70,8 @@ namespace internal {
  */
 struct ReadyToUnmount : tinyfsm::Event {};
 
-/*
- * Sent when the actual unmount operation should be performed. Always dispatched
- * by SysState in response to StoragePrepareToUnmount.
- */
 struct GpioInterrupt : tinyfsm::Event {};
+struct SamdInterrupt : tinyfsm::Event {};
 
 }  // namespace internal
 
