@@ -52,6 +52,7 @@ class Samd {
   auto UpdateUsbStatus() -> void;
 
   auto ResetToFlashSamd() -> void;
+  auto PowerDown() -> void;
 
   static auto CreateReadPending() -> SemaphoreHandle_t;
 

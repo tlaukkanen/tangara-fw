@@ -138,6 +138,15 @@ auto Samd::ResetToFlashSamd() -> void {
   ESP_ERROR_CHECK(transaction.Execute());
 }
 
+auto Samd::PowerDown() -> void {
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kAddress, I2C_MASTER_WRITE)
+      .write_ack(Registers::kPowerControl, 0b1)
+      .stop();
+  ESP_ERROR_CHECK(transaction.Execute());
+}
+
 auto Samd::CreateReadPending() -> SemaphoreHandle_t {
   sReadPending = xSemaphoreCreateBinary();
   return sReadPending;

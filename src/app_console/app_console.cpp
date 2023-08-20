@@ -483,7 +483,7 @@ void RegisterBtList() {
 }
 
 int CmdSamd(int argc, char** argv) {
-  static const std::string usage = "usage: samd [flash|charge]";
+  static const std::string usage = "usage: samd [flash|charge|off]";
   if (argc != 2) {
     std::cout << usage << std::endl;
     return 1;
@@ -493,7 +493,6 @@ int CmdSamd(int argc, char** argv) {
   if (cmd == "flash") {
     std::cout << "resetting samd..." << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));
-
     AppConsole::sSamd->ResetToFlashSamd();
   } else if (cmd == "charge") {
     auto res = AppConsole::sSamd->GetChargeStatus();
@@ -521,6 +520,10 @@ int CmdSamd(int argc, char** argv) {
     } else {
       std::cout << "unknown" << std::endl;
     }
+  } else if (cmd == "off") {
+    std::cout << "bye !!!" << std::endl;
+    vTaskDelay(pdMS_TO_TICKS(5));
+    AppConsole::sSamd->PowerDown();
   } else {
     std::cout << usage << std::endl;
     return 1;
