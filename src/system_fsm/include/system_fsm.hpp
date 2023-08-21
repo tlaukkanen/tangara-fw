@@ -22,6 +22,9 @@
 #include "tinyfsm.hpp"
 #include "touchwheel.hpp"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+
 #include "system_events.hpp"
 #include "track_queue.hpp"
 
@@ -47,10 +50,10 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
 
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}
-  virtual void react(const StorageUnmountRequested&) {}
-  virtual void react(const internal::ReadyToUnmount&) {}
   virtual void react(const StorageMounted&) {}
   virtual void react(const StorageError&) {}
+  virtual void react(const KeyLockChanged&) {}
+  virtual void react(const internal::IdleTimeout&) {}
 
  protected:
   static std::shared_ptr<drivers::Gpios> sGpios;
@@ -95,13 +98,24 @@ class Running : public SystemState {
   void entry() override;
   void exit() override;
 
-  void react(const StorageUnmountRequested&) override;
-  void react(const internal::ReadyToUnmount&) override;
+  void react(const KeyLockChanged&) override;
   void react(const StorageError&) override;
   using SystemState::react;
 };
 
-class Unmounted : public SystemState {};
+class Idle : public SystemState {
+ public:
+  void entry() override;
+  void exit() override;
+
+  void react(const KeyLockChanged&) override;
+  void react(const internal::IdleTimeout&) override;
+
+  using SystemState::react;
+
+ private:
+  TimerHandle_t sIdleTimeout;
+};
 
 /*
  * Something unrecoverably bad went wrong. Shows an error (if possible), awaits

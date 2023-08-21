@@ -67,17 +67,15 @@ void Running::exit() {
   sStorage.reset();
 }
 
-void Running::react(const StorageUnmountRequested& ev) {
-  events::System().Dispatch(internal::ReadyToUnmount{});
-}
-
-void Running::react(const internal::ReadyToUnmount& ev) {
-  transit<Unmounted>();
+void Running::react(const KeyLockChanged& ev) {
+  if (!ev.falling && audio::AudioState::is_in_state<audio::states::Standby>()) {
+    transit<Idle>();
+  }
 }
 
 void Running::react(const StorageError& ev) {
   ESP_LOGW(kTag, "error loading storage");
-  transit<Unmounted>();
+  // TODO.
 }
 
 }  // namespace states

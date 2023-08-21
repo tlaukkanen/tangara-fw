@@ -10,6 +10,7 @@
 #include "core/lv_obj.h"
 #include "display.hpp"
 #include "event_queue.hpp"
+#include "gpios.hpp"
 #include "lvgl_task.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
@@ -92,7 +93,7 @@ namespace states {
 
 void Splash::exit() {
   if (sDisplay != nullptr) {
-    sDisplay->SetDisplayOn(true);
+    sDisplay->SetDisplayOn(sIGpios->Get(drivers::IGpios::Pin::kKeyLock));
   }
 }
 

@@ -22,6 +22,8 @@
 
 namespace drivers {
 
+// Touch wheel implementation using a Microchip AT42QT2120
+
 static const char* kTag = "TOUCHWHEEL";
 static const uint8_t kTouchWheelAddress = 0x1C;
 static const gpio_num_t kIntPin = GPIO_NUM_25;
@@ -119,6 +121,10 @@ void TouchWheel::Update() {
 
 TouchWheelData TouchWheel::GetTouchWheelData() const {
   return data_;
+}
+
+auto TouchWheel::PowerDown() -> void {
+  WriteRegister(LOW_POWER, 0);
 }
 
 }  // namespace drivers

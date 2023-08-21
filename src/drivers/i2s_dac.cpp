@@ -91,9 +91,7 @@ I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
   // Reset all registers back to their default values.
   wm8523::WriteRegister(wm8523::Register::kReset, 1);
   vTaskDelay(pdMS_TO_TICKS(10));
-
-  // Power up the charge pump.
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
 }
 
 I2SDac::~I2SDac() {
@@ -102,24 +100,28 @@ I2SDac::~I2SDac() {
 }
 
 auto I2SDac::Start() -> void {
+  // Ramp up the amplifier power supply.
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, true);
+
+  // Wait for voltage to stabilise
   vTaskDelay(pdMS_TO_TICKS(1));
+
+  // Ensure the DAC powers up to a muted state.
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
 
-  uint8_t zeroes[256]{0};
-  size_t bytes_loaded = 0;
-  esp_err_t res = ESP_OK;
-  do {
-    res = i2s_channel_preload_data(i2s_handle_, zeroes, 256, &bytes_loaded);
-  } while (bytes_loaded > 0 && res == ESP_OK);
-
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
+  // Enable MCLK; this has the side effect of triggering the DAC's startup
+  // sequence.
   i2s_channel_enable(i2s_handle_);
+
+  // Wait for DAC output lines to stabilise
+  vTaskDelay(pdMS_TO_TICKS(1));
+
+  // FIXME: Pull the amp's EN pin here.
   i2s_active_ = true;
 }
 
 auto I2SDac::Stop() -> void {
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
   i2s_channel_disable(i2s_handle_);
 
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);

@@ -94,13 +94,11 @@ auto Booting::exit() -> void {
 auto Booting::react(const BootComplete& ev) -> void {
   ESP_LOGI(kTag, "bootup completely successfully");
 
-  // It's possible that the SAMD is currently exposing the SD card as a USB
-  // device. Make sure we don't immediately try to claim it.
-  if (sSamd &&
-      sSamd->GetUsbStatus() == drivers::Samd::UsbStatus::kAttachedMounted) {
-    transit<Unmounted>();
+  if (sGpios->Get(drivers::Gpios::Pin::kKeyLock)) {
+    transit<Running>();
+  } else {
+    transit<Idle>();
   }
-  transit<Running>();
 }
 
 }  // namespace states

@@ -28,15 +28,7 @@ struct BootComplete : tinyfsm::Event {};
  */
 struct FatalError : tinyfsm::Event {};
 
-/*
- * Sent before unmounting the system storage. Storage will not be unmounted
- * until each reaction to this even has returned. FSMs should immediately cease
- * their usage of storage.
- *
- * May be emitted either by UiState in response to user action, or by SysState
- * as a part of either entering low-power standby or powering off.
- */
-struct StorageUnmountRequested : tinyfsm::Event {};
+struct OnIdle : tinyfsm::Event {};
 
 /*
  * Sent by SysState when the system storage has been successfully mounted.
@@ -64,14 +56,10 @@ struct ChargingStatusChanged : tinyfsm::Event {};
 
 namespace internal {
 
-/*
- * Sent when the actual unmount operation should be performed. Always dispatched
- * by SysState in response to StoragePrepareToUnmount.
- */
-struct ReadyToUnmount : tinyfsm::Event {};
-
 struct GpioInterrupt : tinyfsm::Event {};
 struct SamdInterrupt : tinyfsm::Event {};
+
+struct IdleTimeout : tinyfsm::Event {};
 
 }  // namespace internal
 

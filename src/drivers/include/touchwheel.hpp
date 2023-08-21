@@ -35,6 +35,8 @@ class TouchWheel {
   auto Update() -> void;
   auto GetTouchWheelData() const -> TouchWheelData;
 
+  auto PowerDown() -> void;
+
  private:
   TouchWheelData data_;
 
