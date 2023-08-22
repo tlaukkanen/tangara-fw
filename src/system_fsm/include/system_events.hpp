@@ -53,6 +53,7 @@ struct HasPhonesChanged : tinyfsm::Event {
 };
 
 struct ChargingStatusChanged : tinyfsm::Event {};
+struct BatteryPercentChanged : tinyfsm::Event {};
 
 namespace internal {
 
@@ -60,6 +61,8 @@ struct GpioInterrupt : tinyfsm::Event {};
 struct SamdInterrupt : tinyfsm::Event {};
 
 struct IdleTimeout : tinyfsm::Event {};
+
+struct BatteryTimerFired : tinyfsm::Event {};
 
 }  // namespace internal
 

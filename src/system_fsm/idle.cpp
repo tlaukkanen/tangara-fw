@@ -72,7 +72,6 @@ void Idle::react(const internal::IdleTimeout& ev) {
   sGpios->WriteBuffered(drivers::IGpios::Pin::kSdMuxSwitch, true);
   sGpios->WriteBuffered(drivers::IGpios::Pin::kSdMuxDisable, true);
 
-
   // Pull down to prevent sourcing current uselessly from input pins.
   sGpios->WriteBuffered(drivers::IGpios::Pin::kSdCardDetect, false);
   sGpios->WriteBuffered(drivers::IGpios::Pin::kKeyUp, false);

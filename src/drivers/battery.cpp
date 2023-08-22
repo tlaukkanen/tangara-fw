@@ -14,6 +14,21 @@
 
 namespace drivers {
 
+/*
+ * Battery voltage, in millivolts, at which the battery charger IC will stop
+ * charging.
+ */
+static const uint32_t kFullChargeMilliVolts = 4200;
+
+/*
+ * Battery voltage, in millivolts, at which *we* will consider the battery to
+ * be completely discharged. This is intentionally higher than the charger IC
+ * cut-off and the protection on the battery itself; we want to make sure we
+ * finish up and have everything unmounted and snoozing before the BMS cuts us
+ * off.
+ */
+static const uint32_t kEmptyChargeMilliVolts = 3200;  // BMS limit is 3100.
+
 static const adc_bitwidth_t kAdcBitWidth = ADC_BITWIDTH_12;
 static const adc_unit_t kAdcUnit = ADC_UNIT_1;
 // Max battery voltage should be a little over 2V due to our divider, so we need
@@ -44,6 +59,8 @@ Battery::Battery() {
   };
   ESP_ERROR_CHECK(adc_cali_create_scheme_line_fitting(
       &calibration_config, &adc_calibration_handle_));
+
+  UpdatePercent();
 }
 
 Battery::~Battery() {
@@ -60,7 +77,21 @@ auto Battery::Millivolts() -> uint32_t {
   ESP_ERROR_CHECK(
       adc_cali_raw_to_voltage(adc_calibration_handle_, raw, &voltage));
 
-  return voltage;
+  // Voltage divider halves the battery voltage to get it into the ADC's range.
+  return voltage * 2;
+}
+
+auto Battery::UpdatePercent() -> bool {
+  auto old_percent = percent_;
+  // FIXME: So what we *should* do here is measure the actual real-life
+  // time from full battery -> empty battery, store it in NVS, then rely on
+  // that. If someone could please do this, it would be lovely. Thanks!
+  uint32_t mV = std::max(Millivolts(), kEmptyChargeMilliVolts);
+  percent_ = static_cast<uint_fast8_t>(std::min<double>(
+      std::max<double>(0.0, mV - kEmptyChargeMilliVolts) /
+          (kFullChargeMilliVolts - kEmptyChargeMilliVolts) * 100.0,
+      100.0));
+  return old_percent != percent_;
 }
 
 }  // namespace drivers

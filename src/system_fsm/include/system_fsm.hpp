@@ -47,6 +47,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   void react(const FatalError&);
   void react(const internal::GpioInterrupt&);
   void react(const internal::SamdInterrupt&);
+  void react(const internal::BatteryTimerFired&);
 
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}

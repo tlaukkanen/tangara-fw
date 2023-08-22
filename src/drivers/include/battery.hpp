@@ -26,9 +26,14 @@ class Battery {
    */
   auto Millivolts() -> uint32_t;
 
+  auto UpdatePercent() -> bool;
+  auto Percent() -> uint_fast8_t { return percent_; }
+
  private:
   adc_oneshot_unit_handle_t adc_handle_;
   adc_cali_handle_t adc_calibration_handle_;
+
+  uint_fast8_t percent_;
 };
 
 }  // namespace drivers

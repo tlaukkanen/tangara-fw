@@ -95,6 +95,16 @@ void SystemState::react(const internal::SamdInterrupt&) {
   }
 }
 
+void SystemState::react(const internal::BatteryTimerFired&) {
+  ESP_LOGI(kTag, "checking battery");
+  if (sBattery->UpdatePercent()) {
+    ESP_LOGI(kTag, "battery now at %u%%", sBattery->Percent());
+    BatteryPercentChanged ev{};
+    events::Ui().Dispatch(ev);
+    events::System().Dispatch(ev);
+  }
+}
+
 }  // namespace system_fsm
 
 FSM_INITIAL_STATE(system_fsm::SystemState, system_fsm::states::Booting)

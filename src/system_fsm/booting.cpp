@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include <stdint.h>
+
 #include "assert.h"
 #include "audio_fsm.hpp"
 #include "bluetooth.hpp"
@@ -12,6 +14,10 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+#include "freertos/timers.h"
 #include "gpios.hpp"
 #include "lvgl/lvgl.h"
 #include "nvs.hpp"
@@ -31,6 +37,12 @@ namespace system_fsm {
 namespace states {
 
 static const char kTag[] = "BOOT";
+
+static const TickType_t kBatteryCheckPeriod = pdMS_TO_TICKS(60 * 1000);
+
+static void battery_timer_cb(TimerHandle_t timer) {
+  events::System().Dispatch(internal::BatteryTimerFired{});
+}
 
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
@@ -61,6 +73,12 @@ auto Booting::entry() -> void {
     events::Ui().Dispatch(FatalError{});
     return;
   }
+
+  ESP_LOGI(kTag, "battery is at %u%% (= %lu mV)", sBattery->Percent(),
+           sBattery->Millivolts());
+  TimerHandle_t battery_timer = xTimerCreate("battery", kBatteryCheckPeriod,
+                                             true, NULL, battery_timer_cb);
+  xTimerStart(battery_timer, portMAX_DELAY);
 
   ESP_LOGI(kTag, "starting bluetooth");
   sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
