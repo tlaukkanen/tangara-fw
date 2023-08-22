@@ -117,6 +117,7 @@ auto I2SDac::Start() -> void {
   vTaskDelay(pdMS_TO_TICKS(1));
 
   // FIXME: Pull the amp's EN pin here.
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
   i2s_active_ = true;
 }
 
