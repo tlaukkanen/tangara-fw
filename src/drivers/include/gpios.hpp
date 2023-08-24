@@ -54,7 +54,8 @@ class IGpios {
     kPhoneDetect = 8,
     kAmplifierEnable = 9,
     kSdCardDetect = 10,
-    // 11 through 15 are unused
+    kAmplifierUnmute = 11,
+    // 12 through 15 are unused
   };
 
   /* Nicer value names for use with kSdMuxSwitch. */

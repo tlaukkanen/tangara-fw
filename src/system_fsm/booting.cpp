@@ -80,8 +80,8 @@ auto Booting::entry() -> void {
                                              true, NULL, battery_timer_cb);
   xTimerStart(battery_timer, portMAX_DELAY);
 
-  ESP_LOGI(kTag, "starting bluetooth");
-  sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
+  // ESP_LOGI(kTag, "starting bluetooth");
+  // sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
   // sBluetooth->Enable();
 
   // At this point we've done all of the essential boot tasks. Start remaining

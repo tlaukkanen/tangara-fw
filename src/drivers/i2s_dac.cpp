@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 
 #include "assert.h"
 #include "driver/i2c.h"
@@ -100,11 +101,14 @@ I2SDac::~I2SDac() {
 }
 
 auto I2SDac::Start() -> void {
+  std::lock_guard<std::mutex> lock(configure_mutex_);
+
+  gpio_->WriteSync(IGpios::Pin::kAmplifierUnmute, false);
   // Ramp up the amplifier power supply.
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, true);
 
   // Wait for voltage to stabilise
-  vTaskDelay(pdMS_TO_TICKS(1));
+  vTaskDelay(pdMS_TO_TICKS(5));
 
   // Ensure the DAC powers up to a muted state.
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
@@ -112,26 +116,40 @@ auto I2SDac::Start() -> void {
   // Enable MCLK; this has the side effect of triggering the DAC's startup
   // sequence.
   i2s_channel_enable(i2s_handle_);
+  i2s_active_ = true;
 
   // Wait for DAC output lines to stabilise
-  vTaskDelay(pdMS_TO_TICKS(1));
+  vTaskDelay(pdMS_TO_TICKS(5));
 
-  // FIXME: Pull the amp's EN pin here.
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
-  i2s_active_ = true;
+
+  vTaskDelay(pdMS_TO_TICKS(5));
+  gpio_->WriteSync(IGpios::Pin::kAmplifierUnmute, true);
 }
 
 auto I2SDac::Stop() -> void {
+  std::lock_guard<std::mutex> lock(configure_mutex_);
+
+  // Mute the DAC.
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
+  vTaskDelay(pdMS_TO_TICKS(5));
+  // Silence the output.
+  gpio_->WriteSync(IGpios::Pin::kAmplifierUnmute, false);
+
+  vTaskDelay(pdMS_TO_TICKS(5));
+
+  // Turn everything off.
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
   i2s_channel_disable(i2s_handle_);
+  i2s_active_ = false;
 
   gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
-
-  i2s_active_ = false;
 }
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
+  std::lock_guard<std::mutex> lock(configure_mutex_);
+
   if (i2s_active_) {
     // Ramp down into mute instead of just outright stopping to minimise any
     // clicks and pops.

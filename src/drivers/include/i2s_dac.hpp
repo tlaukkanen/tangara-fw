@@ -73,6 +73,7 @@ class I2SDac {
   i2s_chan_handle_t i2s_handle_;
   bool i2s_active_;
   StreamBufferHandle_t buffer_;
+  std::mutex configure_mutex_;
 
   i2s_std_clk_config_t clock_config_;
   i2s_std_slot_config_t slot_config_;
