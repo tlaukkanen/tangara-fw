@@ -49,9 +49,12 @@ class TouchWheel {
     CALIBRATE = 6,
     RESET = 7,
     LOW_POWER = 8,
+    RECALIBRATION_DELAY = 12,
     SLIDER_OPTIONS = 14,
     CHARGE_TIME = 15,
+    DETECT_THRESHOLD_BASE = 16,
     KEY_CONTROL_BASE = 28,
+    PULSE_SCALE_BASE = 40,
   };
 
   void WriteRegister(uint8_t reg, uint8_t val);

@@ -46,15 +46,20 @@ TouchWheel::TouchWheel() {
   WriteRegister(Register::KEY_CONTROL_BASE + 0, 0b100);
   WriteRegister(Register::KEY_CONTROL_BASE + 1, 0b100);
   WriteRegister(Register::KEY_CONTROL_BASE + 2, 0b100);
-  // Centre button. Set to channel 1.
-  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b100);
+  // Centre button. AKS disabled.
+  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b000);
   // Touch guard. Set as a guard, in channel 1.
   WriteRegister(Register::KEY_CONTROL_BASE + 4, 0b10100);
+
+  // It's normal to press the wheel for a long time. Disable auto recalibration
+  // so that the user's finger isn't calibrated away.
+  WriteRegister(Register::RECALIBRATION_DELAY, 0);
 
   // Unused extra keys. All disabled.
   for (int i = 5; i < 12; i++) {
     WriteRegister(Register::KEY_CONTROL_BASE + i, 1);
   }
+
 }
 
 TouchWheel::~TouchWheel() {}
@@ -67,7 +72,10 @@ void TouchWheel::WriteRegister(uint8_t reg, uint8_t val) {
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
       .write_ack(reg, val)
       .stop();
-  transaction.Execute();
+  esp_err_t res = transaction.Execute();
+  if (res != ESP_OK) {
+    ESP_LOGW(kTag, "write failed: %s", esp_err_to_name(res));
+  }
 }
 
 uint8_t TouchWheel::ReadRegister(uint8_t reg) {
