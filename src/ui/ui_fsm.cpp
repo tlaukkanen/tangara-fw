@@ -97,6 +97,7 @@ void UiState::PopScreen() {
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
+  sRelativeWheel->SetEnabled(ev.falling);
 }
 
 void UiState::react(const system_fsm::BatteryPercentChanged&) {

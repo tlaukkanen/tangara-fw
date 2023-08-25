@@ -109,7 +109,7 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
 auto StartLvgl(std::weak_ptr<drivers::RelativeWheel> touch_wheel,
                std::weak_ptr<drivers::Display> display) -> void {
   tasks::StartPersistent<tasks::Type::kUi>(
-      [=]() { LvglMain(touch_wheel, display); });
+      0, [=]() { LvglMain(touch_wheel, display); });
 }
 
 }  // namespace ui

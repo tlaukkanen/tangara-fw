@@ -177,6 +177,7 @@ auto TrackBrowser::AddResults(
       text = "[ no data ]";
     }
     lv_obj_t* item = lv_list_add_btn(list_, NULL, text->c_str());
+    lv_label_set_long_mode(lv_obj_get_child(item, -1), LV_LABEL_LONG_DOT);
     lv_obj_add_event_cb(item, item_click_cb, LV_EVENT_CLICKED, this);
     lv_obj_add_event_cb(item, item_select_cb, LV_EVENT_FOCUSED, this);
 

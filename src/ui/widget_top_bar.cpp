@@ -66,15 +66,15 @@ auto TopBar::Update(const State& state) -> void {
   }
 
   if (state.battery_percent >= 95) {
-    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_FULL);
+    lv_label_set_text(battery_, "100");
   } else if (state.battery_percent >= 70) {
-    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_1);
+    lv_label_set_text(battery_, ">70");
   } else if (state.battery_percent >= 40) {
-    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_2);
+    lv_label_set_text(battery_, ">40");
   } else if (state.battery_percent >= 10) {
-    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_3);
+    lv_label_set_text(battery_, ">10");
   } else {
-    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_EMPTY);
+    lv_label_set_text(battery_, "0");
   }
 }
 

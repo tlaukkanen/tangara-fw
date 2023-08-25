@@ -15,6 +15,7 @@ namespace drivers {
 
 RelativeWheel::RelativeWheel(TouchWheel* touch)
     : touch_(touch),
+      is_enabled_(true),
       is_clicking_(false),
       was_clicking_(false),
       is_first_read_(true),
@@ -60,17 +61,24 @@ auto RelativeWheel::Update() -> void {
   }
 }
 
+auto RelativeWheel::SetEnabled(bool en) -> void {
+  is_enabled_ = en;
+}
+
 auto RelativeWheel::is_clicking() -> bool {
+  if (!is_enabled_) {
+    return false;
+  }
   bool ret = is_clicking_;
   is_clicking_ = 0;
   return ret;
 }
 
 auto RelativeWheel::ticks() -> std::int_fast16_t {
-  int_fast16_t t = ticks_;
-  if (t != 0) {
-    ESP_LOGI("teeks", "ticks %d", t);
+  if (!is_enabled_) {
+    return 0;
   }
+  int_fast16_t t = ticks_;
   ticks_ = 0;
   return t;
 }

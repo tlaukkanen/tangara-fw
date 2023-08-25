@@ -26,17 +26,21 @@ class RelativeWheel {
 
   explicit RelativeWheel(TouchWheel* touch);
 
-  // Not copyable or movable.
-  RelativeWheel(const RelativeWheel&) = delete;
-  RelativeWheel& operator=(const RelativeWheel&) = delete;
-
   auto Update() -> void;
+  auto SetEnabled(bool) -> void;
 
   auto is_clicking() -> bool;
   auto ticks() -> std::int_fast16_t;
 
+  // Not copyable or movable.
+  RelativeWheel(const RelativeWheel&) = delete;
+  RelativeWheel& operator=(const RelativeWheel&) = delete;
+
  private:
   TouchWheel* touch_;
+
+  bool is_enabled_;
+
   bool is_clicking_;
   bool was_clicking_;
   bool is_first_read_;
