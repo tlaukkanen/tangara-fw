@@ -109,7 +109,7 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
   lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
   lv_group_set_wrap(group_, false);
 
-  lv_obj_set_size(content_, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_size(content_, lv_pct(100), lv_disp_get_ver_res(NULL));
   lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);

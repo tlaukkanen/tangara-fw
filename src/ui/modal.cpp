@@ -33,7 +33,6 @@ Modal::Modal(Screen* host)
       group_(lv_group_create()),
       host_(host) {
   lv_obj_set_style_bg_opa(host->modal_content(), LV_OPA_40, 0);
-  lv_obj_set_style_bg_color(host->modal_content(), lv_color_black(), 0);
 
   lv_obj_set_size(root_, 120, LV_SIZE_CONTENT);
   lv_obj_center(root_);

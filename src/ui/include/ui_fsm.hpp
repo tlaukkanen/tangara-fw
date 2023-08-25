@@ -52,6 +52,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const internal::RecordSelected&) {}
   virtual void react(const internal::IndexSelected&) {}
   virtual void react(const internal::BackPressed&) {}
+  virtual void react(const internal::ShowNowPlaying&){};
+  virtual void react(const internal::ShowSettingsPage&){};
   virtual void react(const internal::ModalCancelPressed&) {
     sCurrentModal.reset();
   }
@@ -103,6 +105,9 @@ class Browse : public UiState {
   void react(const internal::RecordSelected&) override;
   void react(const internal::IndexSelected&) override;
   void react(const internal::BackPressed&) override;
+
+  void react(const internal::ShowNowPlaying&) override;
+  void react(const internal::ShowSettingsPage&) override;
 
   void react(const system_fsm::StorageMounted&) override;
   using UiState::react;

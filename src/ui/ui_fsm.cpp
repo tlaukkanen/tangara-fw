@@ -21,6 +21,7 @@
 #include "screen.hpp"
 #include "screen_menu.hpp"
 #include "screen_playing.hpp"
+#include "screen_settings.hpp"
 #include "screen_splash.hpp"
 #include "screen_track_browser.hpp"
 #include "source.hpp"
@@ -135,6 +136,14 @@ void Browse::react(const system_fsm::StorageMounted& ev) {
     return;
   }
   PushScreen(std::make_shared<screens::Menu>(db->GetIndexes()));
+}
+
+void Browse::react(const internal::ShowNowPlaying& ev) {
+  transit<Playing>();
+}
+
+void Browse::react(const internal::ShowSettingsPage& ev) {
+  PushScreen(ev.screen);
 }
 
 void Browse::react(const internal::RecordSelected& ev) {

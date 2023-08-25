@@ -6,7 +6,7 @@ idf_component_register(
   SRCS "lvgl_task.cpp" "ui_fsm.cpp" "screen_splash.cpp" "screen_menu.cpp"
   "wheel_encoder.cpp" "screen_track_browser.cpp" "screen_playing.cpp"
   "themes.cpp" "widget_top_bar.cpp" "screen.cpp" "screen_onboarding.cpp"
-  "modal_progress.cpp" "modal.cpp" "modal_confirm.cpp"
+  "modal_progress.cpp" "modal.cpp" "modal_confirm.cpp" "screen_settings.cpp"
   "splash.c" "font_fusion.c" "font_symbols.c"
   INCLUDE_DIRS "include"
   REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "esp_timer")

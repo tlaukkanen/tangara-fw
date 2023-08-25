@@ -57,4 +57,28 @@ auto Screen::CreateTopBar(lv_obj_t* parent,
   return top_bar_.get();
 }
 
+MenuScreen::MenuScreen(const std::string& title, bool show_back_button)
+    : Screen() {
+  lv_group_set_wrap(group_, false);
+
+  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
+
+  widgets::TopBar::Configuration config{
+      .show_back_button = show_back_button,
+      .title = title.c_str(),
+  };
+  CreateTopBar(content_, config);
+
+  content_ = lv_obj_create(content_);
+  lv_obj_set_flex_grow(content_, 1);
+  lv_obj_set_width(content_, lv_pct(100));
+  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START);
+}
+
 }  // namespace ui

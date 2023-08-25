@@ -52,14 +52,19 @@ class Screen {
       -> widgets::TopBar*;
 
   lv_obj_t* const root_;
-  lv_obj_t* const content_;
-  lv_obj_t* const modal_content_;
+  lv_obj_t* content_;
+  lv_obj_t* modal_content_;
 
   lv_group_t* const group_;
   lv_group_t* modal_group_;
 
  private:
   std::unique_ptr<widgets::TopBar> top_bar_;
+};
+
+class MenuScreen : public Screen {
+ public:
+  MenuScreen(const std::string& title, bool show_back_button = true);
 };
 
 }  // namespace ui

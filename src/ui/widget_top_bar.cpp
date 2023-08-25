@@ -55,7 +55,7 @@ TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {
 auto TopBar::Update(const State& state) -> void {
   switch (state.playback_state) {
     case PlaybackState::kIdle:
-      lv_label_set_text(playback_, "");
+      lv_label_set_text(playback_, "-");
       break;
     case PlaybackState::kPaused:
       lv_label_set_text(playback_, "");

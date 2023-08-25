@@ -9,6 +9,7 @@
 #include <memory>
 #include "database.hpp"
 #include "index.hpp"
+#include "screen.hpp"
 #include "tinyfsm.hpp"
 
 namespace ui {
@@ -36,6 +37,10 @@ struct IndexSelected : tinyfsm::Event {
 };
 
 struct BackPressed : tinyfsm::Event {};
+struct ShowNowPlaying : tinyfsm::Event {};
+struct ShowSettingsPage : tinyfsm::Event {
+  std::shared_ptr<Screen> screen;
+};
 
 struct ModalConfirmPressed : tinyfsm::Event {};
 struct ModalCancelPressed : tinyfsm::Event {};

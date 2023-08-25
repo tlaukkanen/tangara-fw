@@ -13,11 +13,12 @@
 #include "lvgl.h"
 
 #include "screen.hpp"
+#include "screen_settings.hpp"
 
 namespace ui {
 namespace screens {
 
-class Menu : public Screen {
+class Menu : public MenuScreen {
  public:
   explicit Menu(std::vector<database::IndexInfo> indexes);
   ~Menu();
