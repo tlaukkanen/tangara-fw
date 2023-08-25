@@ -37,7 +37,7 @@ static constexpr uint16_t kMaxVolume = 0x1ff;
 static constexpr uint16_t kMinVolume = 0b0;
 static constexpr uint16_t kMaxVolumeBeforeClipping = 0x185;
 static constexpr uint16_t kLineLevelVolume = 0x13d;
-static constexpr uint16_t kDefaultVolume = 0x128;
+static constexpr uint16_t kDefaultVolume = 0x100;
 
 static constexpr size_t kDrainBufferSize = 8 * 1024;
 

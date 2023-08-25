@@ -24,7 +24,7 @@
 static constexpr char kTag[] = "mixer";
 
 static constexpr std::size_t kSourceBufferLength = 8 * 1024;
-static constexpr std::size_t kSampleBufferLength = 240 * 2;
+static constexpr std::size_t kSampleBufferLength = 240 * 2 * 4;
 
 namespace audio {
 

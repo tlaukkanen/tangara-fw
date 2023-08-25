@@ -46,7 +46,7 @@ namespace audio {
 
 static const char* kTag = "audio_dec";
 
-static constexpr std::size_t kCodecBufferLength = 240 * 4;
+static constexpr std::size_t kCodecBufferLength = 240 * 4 * 4;
 
 Timer::Timer(const codecs::ICodec::OutputFormat& format)
     : current_seconds_(0),
@@ -79,7 +79,7 @@ auto Timer::AddSamples(std::size_t samples) -> void {
 auto Decoder::Start(std::shared_ptr<IAudioSource> source,
                     std::shared_ptr<SampleConverter> sink) -> Decoder* {
   Decoder* task = new Decoder(source, sink);
-  tasks::StartPersistent<tasks::Type::kAudio>([=]() { task->Main(); });
+  tasks::StartPersistent<tasks::Type::kAudio>(1, [=]() { task->Main(); });
   return task;
 }
 

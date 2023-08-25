@@ -49,7 +49,7 @@
 namespace ui {
 
 static const char* kTag = "lv_task";
-static const TickType_t kMaxFrameRate = pdMS_TO_TICKS(66);
+static const TickType_t kMaxFrameRate = pdMS_TO_TICKS(100);
 
 static int sTimerId;
 static SemaphoreHandle_t sFrameSemaphore;

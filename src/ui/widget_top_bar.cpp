@@ -58,23 +58,23 @@ auto TopBar::Update(const State& state) -> void {
       lv_label_set_text(playback_, "-");
       break;
     case PlaybackState::kPaused:
-      lv_label_set_text(playback_, "");
+      lv_label_set_text(playback_, LV_SYMBOL_PAUSE);
       break;
     case PlaybackState::kPlaying:
-      lv_label_set_text(playback_, "");
+      lv_label_set_text(playback_, LV_SYMBOL_PLAY);
       break;
   }
 
   if (state.battery_percent >= 95) {
-    lv_label_set_text(battery_, "");
+    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_FULL);
   } else if (state.battery_percent >= 70) {
-    lv_label_set_text(battery_, "");
+    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_1);
   } else if (state.battery_percent >= 40) {
-    lv_label_set_text(battery_, "");
+    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_2);
   } else if (state.battery_percent >= 10) {
-    lv_label_set_text(battery_, "");
+    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_3);
   } else {
-    lv_label_set_text(battery_, "");
+    lv_label_set_text(battery_, LV_SYMBOL_BATTERY_EMPTY);
   }
 }
 
