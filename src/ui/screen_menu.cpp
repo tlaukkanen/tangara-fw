@@ -37,18 +37,18 @@ static void item_click_cb(lv_event_t* ev) {
 }
 
 Menu::Menu(std::vector<database::IndexInfo> indexes) : indexes_(indexes) {
-  lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER);
 
   widgets::TopBar::Configuration config{
       .show_back_button = false,
       .title = "",
   };
-  CreateTopBar(root_, config);
+  CreateTopBar(content_, config);
 
-  lv_obj_t* list = lv_list_create(root_);
+  lv_obj_t* list = lv_list_create(content_);
   lv_obj_set_size(list, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
   lv_obj_center(list);
 

@@ -5,13 +5,18 @@
  */
 
 #include "ui_fsm.hpp"
+
 #include <memory>
-#include "audio_events.hpp"
+
 #include "core/lv_obj.h"
+#include "misc/lv_gc.h"
+
+#include "audio_events.hpp"
 #include "display.hpp"
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
+#include "modal_confirm.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "screen_menu.hpp"
@@ -23,6 +28,7 @@
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
+#include "widget_top_bar.hpp"
 
 namespace ui {
 
@@ -40,6 +46,7 @@ std::weak_ptr<database::Database> UiState::sDb;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
+std::shared_ptr<Modal> UiState::sCurrentModal;
 
 auto UiState::Init(drivers::IGpios* gpio_expander, audio::TrackQueue* queue)
     -> bool {
@@ -75,6 +82,7 @@ void UiState::PushScreen(std::shared_ptr<Screen> screen) {
     sScreens.push(sCurrentScreen);
   }
   sCurrentScreen = screen;
+  UpdateTopBar();
 }
 
 void UiState::PopScreen() {
@@ -83,10 +91,26 @@ void UiState::PopScreen() {
   }
   sCurrentScreen = sScreens.top();
   sScreens.pop();
+  UpdateTopBar();
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
+}
+
+void UiState::react(const system_fsm::BatteryPercentChanged&) {
+  UpdateTopBar();
+}
+
+void UiState::UpdateTopBar() {
+  widgets::TopBar::State state{
+      .playback_state = widgets::TopBar::PlaybackState::kIdle,
+      .battery_percent = 50,
+      .is_charging = true,
+  };
+  if (sCurrentScreen) {
+    sCurrentScreen->UpdateTopBar(state);
+  }
 }
 
 namespace states {

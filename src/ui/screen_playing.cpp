@@ -106,17 +106,17 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
       next_tracks_(),
       new_track_(),
       new_next_tracks_() {
-  lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
+  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
   lv_group_set_wrap(group_, false);
 
-  lv_obj_set_size(root_, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+  lv_obj_set_size(content_, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);
 
-  lv_obj_set_scrollbar_mode(root_, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
 
-  lv_obj_t* above_fold_container = lv_obj_create(root_);
+  lv_obj_t* above_fold_container = lv_obj_create(content_);
   lv_obj_set_layout(above_fold_container, LV_LAYOUT_FLEX);
   lv_obj_set_size(above_fold_container, lv_pct(100), lv_disp_get_ver_res(NULL));
   lv_obj_set_flex_flow(above_fold_container, LV_FLEX_FLOW_COLUMN);
@@ -182,7 +182,7 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
   lv_obj_set_style_text_font(next_up_hint_, &font_symbols, 0);
   lv_obj_set_size(next_up_hint_, LV_SIZE_CONTENT, lv_pct(100));
 
-  next_up_container_ = lv_list_create(root_);
+  next_up_container_ = lv_list_create(content_);
   lv_obj_set_layout(next_up_container_, LV_LAYOUT_FLEX);
   lv_obj_set_size(next_up_container_, lv_pct(100), lv_disp_get_ver_res(NULL));
   lv_obj_set_flex_flow(next_up_container_, LV_FLEX_FLOW_COLUMN);
@@ -295,12 +295,12 @@ auto Playing::ApplyNextUp(const std::vector<database::Track>& tracks) -> void {
 }
 
 auto Playing::OnFocusAboveFold() -> void {
-  lv_obj_scroll_to_y(root_, 0, LV_ANIM_ON);
+  lv_obj_scroll_to_y(content_, 0, LV_ANIM_ON);
 }
 
 auto Playing::OnFocusBelowFold() -> void {
-  if (lv_obj_get_scroll_y(root_) < lv_obj_get_y(next_up_header_)) {
-    lv_obj_scroll_to_y(root_, lv_obj_get_y(next_up_header_), LV_ANIM_ON);
+  if (lv_obj_get_scroll_y(content_) < lv_obj_get_y(next_up_header_)) {
+    lv_obj_scroll_to_y(content_, lv_obj_get_y(next_up_header_), LV_ANIM_ON);
   }
 }
 

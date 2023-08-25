@@ -7,6 +7,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "core/lv_group.h"
 #include "core/lv_obj.h"
@@ -23,14 +24,8 @@ namespace ui {
  */
 class Screen {
  public:
-  Screen() : root_(lv_obj_create(NULL)), group_(lv_group_create()) {}
-
-  virtual ~Screen() {
-    // The group *must* be deleted first. Otherwise, focus events will be
-    // generated whilst deleting the object tree, which causes a big mess.
-    lv_group_del(group_);
-    lv_obj_del(root_);
-  }
+  Screen();
+  virtual ~Screen();
 
   /*
    * Called periodically to allow the screen to update itself, e.g. to handle
@@ -41,14 +36,27 @@ class Screen {
   auto UpdateTopBar(const widgets::TopBar::State& state) -> void;
 
   auto root() -> lv_obj_t* { return root_; }
-  auto group() -> lv_group_t* { return group_; }
+  auto content() -> lv_obj_t* { return content_; }
+
+  auto modal_content() -> lv_obj_t* { return modal_content_; }
+  auto modal_group(lv_group_t* g) -> void { modal_group_ = g; }
+  auto group() -> lv_group_t* {
+    if (modal_group_) {
+      return modal_group_;
+    }
+    return group_;
+  }
 
  protected:
   auto CreateTopBar(lv_obj_t* parent, const widgets::TopBar::Configuration&)
       -> widgets::TopBar*;
 
   lv_obj_t* const root_;
+  lv_obj_t* const content_;
+  lv_obj_t* const modal_content_;
+
   lv_group_t* const group_;
+  lv_group_t* modal_group_;
 
  private:
   std::unique_ptr<widgets::TopBar> top_bar_;

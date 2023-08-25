@@ -35,6 +35,7 @@
 #include "misc/lv_color.h"
 #include "misc/lv_style.h"
 #include "misc/lv_timer.h"
+#include "modal.hpp"
 #include "relative_wheel.hpp"
 #include "tasks.hpp"
 #include "touchwheel.hpp"
@@ -75,6 +76,7 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
   TouchWheelEncoder encoder(weak_touch_wheel);
 
   std::shared_ptr<Screen> current_screen;
+  lv_group_t* current_group = nullptr;
   auto* events = events::queues::Ui();
   while (1) {
     while (events->Service(0)) {
@@ -86,6 +88,11 @@ void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
       lv_scr_load(screen->root());
       lv_indev_set_group(encoder.registration(), screen->group());
       current_screen = screen;
+    }
+
+    if (current_screen->group() != current_group) {
+      current_group = current_screen->group();
+      lv_indev_set_group(encoder.registration(), current_group);
     }
 
     if (current_screen) {

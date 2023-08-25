@@ -59,7 +59,6 @@ TouchWheel::TouchWheel() {
   for (int i = 5; i < 12; i++) {
     WriteRegister(Register::KEY_CONTROL_BASE + i, 1);
   }
-
 }
 
 TouchWheel::~TouchWheel() {}

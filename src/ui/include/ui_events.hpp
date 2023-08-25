@@ -37,6 +37,9 @@ struct IndexSelected : tinyfsm::Event {
 
 struct BackPressed : tinyfsm::Event {};
 
+struct ModalConfirmPressed : tinyfsm::Event {};
+struct ModalCancelPressed : tinyfsm::Event {};
+
 }  // namespace internal
 
 }  // namespace ui

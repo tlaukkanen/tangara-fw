@@ -69,14 +69,13 @@ TrackBrowser::TrackBrowser(
       loading_page_(move(initial_page)),
       initial_page_(),
       current_pages_() {
-  lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
-  lv_obj_set_size(root_, lv_pct(100), lv_pct(100));
-  lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER);
 
   // The default scrollbar is deceptive because we load in items progressively.
-  lv_obj_set_scrollbar_mode(root_, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
   // Wrapping behaves in surprising ways, again due to progressing loading.
   lv_group_set_wrap(group_, false);
 
@@ -84,10 +83,10 @@ TrackBrowser::TrackBrowser(
       .show_back_button = true,
       .title = title,
   };
-  auto top_bar = CreateTopBar(root_, config);
+  auto top_bar = CreateTopBar(content_, config);
   back_button_ = top_bar->button();
 
-  list_ = lv_list_create(root_);
+  list_ = lv_list_create(content_);
   lv_obj_set_width(list_, lv_pct(100));
   lv_obj_set_flex_grow(list_, 1);
   lv_obj_center(list_);

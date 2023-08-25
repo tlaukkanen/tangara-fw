@@ -15,6 +15,7 @@
 #include "tinyfsm.hpp"
 
 #include "display.hpp"
+#include "modal.hpp"
 #include "screen.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
@@ -40,6 +41,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  void react(const system_fsm::BatteryPercentChanged&);
+
   virtual void react(const audio::PlaybackStarted&) {}
   virtual void react(const audio::PlaybackUpdate&) {}
   virtual void react(const audio::QueueUpdate&) {}
@@ -49,6 +52,12 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const internal::RecordSelected&) {}
   virtual void react(const internal::IndexSelected&) {}
   virtual void react(const internal::BackPressed&) {}
+  virtual void react(const internal::ModalCancelPressed&) {
+    sCurrentModal.reset();
+  }
+  virtual void react(const internal::ModalConfirmPressed&) {
+    sCurrentModal.reset();
+  }
 
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}
@@ -57,6 +66,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
  protected:
   void PushScreen(std::shared_ptr<Screen>);
   void PopScreen();
+  void UpdateTopBar();
 
   static drivers::IGpios* sIGpios;
   static audio::TrackQueue* sQueue;
@@ -68,6 +78,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
+  static std::shared_ptr<Modal> sCurrentModal;
 };
 
 namespace states {
