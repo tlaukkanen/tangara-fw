@@ -21,14 +21,15 @@ class Settings : public MenuScreen {
  public:
   Settings();
   ~Settings();
-   private:
-   std::shared_ptr<Screen> bluetooth_;
-   std::shared_ptr<Screen> headphones_;
-   std::shared_ptr<Screen> appearance_;
-   std::shared_ptr<Screen> input_method_;
-   std::shared_ptr<Screen> storage_;
-   std::shared_ptr<Screen> firmware_update_;
-   std::shared_ptr<Screen> about_;
+
+ private:
+  std::shared_ptr<Screen> bluetooth_;
+  std::shared_ptr<Screen> headphones_;
+  std::shared_ptr<Screen> appearance_;
+  std::shared_ptr<Screen> input_method_;
+  std::shared_ptr<Screen> storage_;
+  std::shared_ptr<Screen> firmware_update_;
+  std::shared_ptr<Screen> about_;
 };
 
 class Bluetooth : public MenuScreen {
@@ -36,32 +37,32 @@ class Bluetooth : public MenuScreen {
   Bluetooth();
 };
 
-class Headphones : public MenuScreen  {
+class Headphones : public MenuScreen {
  public:
   Headphones();
 };
 
-class Appearance : public MenuScreen  {
+class Appearance : public MenuScreen {
  public:
   Appearance();
 };
 
-class InputMethod : public MenuScreen  {
+class InputMethod : public MenuScreen {
  public:
   InputMethod();
 };
 
-class Storage : public MenuScreen  {
+class Storage : public MenuScreen {
  public:
   Storage();
 };
 
-class FirmwareUpdate : public MenuScreen  {
+class FirmwareUpdate : public MenuScreen {
  public:
   FirmwareUpdate();
 };
 
-class About : public MenuScreen  {
+class About : public MenuScreen {
  public:
   About();
 };

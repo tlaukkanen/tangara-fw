@@ -9,5 +9,5 @@ idf_component_register(
   "modal_progress.cpp" "modal.cpp" "modal_confirm.cpp" "screen_settings.cpp"
   "splash.c" "font_fusion.c" "font_symbols.c"
   INCLUDE_DIRS "include"
-  REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "esp_timer")
+  REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "esp_timer" "battery")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

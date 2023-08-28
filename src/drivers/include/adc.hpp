@@ -15,25 +15,23 @@
 
 namespace drivers {
 
-class Battery {
+/*
+ * Handles measuring the battery's current voltage.
+ */
+class AdcBattery {
  public:
-  static auto Create() -> Battery* { return new Battery(); }
-  Battery();
-  ~Battery();
+  static auto Create() -> AdcBattery* { return new AdcBattery(); }
+  AdcBattery();
+  ~AdcBattery();
 
   /**
    * Returns the current battery level in millivolts.
    */
   auto Millivolts() -> uint32_t;
 
-  auto UpdatePercent() -> bool;
-  auto Percent() -> uint_fast8_t { return percent_; }
-
  private:
   adc_oneshot_unit_handle_t adc_handle_;
   adc_cali_handle_t adc_calibration_handle_;
-
-  uint_fast8_t percent_;
 };
 
 }  // namespace drivers

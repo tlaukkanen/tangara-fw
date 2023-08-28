@@ -133,6 +133,12 @@ void Standby::react(const QueueUpdate& ev) {
   sFileSource->SetPath(db->GetTrackPath(*current_track));
 }
 
+void Standby::react(const TogglePlayPause& ev) {
+  if (sCurrentTrack) {
+    transit<Playback>();
+  }
+}
+
 void Playback::entry() {
   ESP_LOGI(kTag, "beginning playback");
   sOutput->SetInUse(true);
@@ -142,8 +148,10 @@ void Playback::exit() {
   ESP_LOGI(kTag, "finishing playback");
   // TODO(jacqueline): Second case where it's useful to wait for the i2s buffer
   // to drain.
-  vTaskDelay(pdMS_TO_TICKS(250));
+  vTaskDelay(pdMS_TO_TICKS(10));
   sOutput->SetInUse(false);
+
+  events::System().Dispatch(PlaybackFinished{});
 }
 
 void Playback::react(const QueueUpdate& ev) {
@@ -166,6 +174,10 @@ void Playback::react(const QueueUpdate& ev) {
   }
 
   sFileSource->SetPath(db->GetTrackPath(*current_track));
+}
+
+void Playback::react(const TogglePlayPause& ev) {
+  transit<Standby>();
 }
 
 void Playback::react(const PlaybackUpdate& ev) {

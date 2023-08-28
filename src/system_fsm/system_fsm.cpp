@@ -23,7 +23,8 @@ std::shared_ptr<drivers::NvsStorage> SystemState::sNvs;
 
 std::shared_ptr<drivers::TouchWheel> SystemState::sTouch;
 std::shared_ptr<drivers::RelativeWheel> SystemState::sRelativeTouch;
-std::shared_ptr<drivers::Battery> SystemState::sBattery;
+std::shared_ptr<drivers::AdcBattery> SystemState::sAdc;
+std::shared_ptr<battery::Battery> SystemState::sBattery;
 std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
 std::shared_ptr<drivers::Display> SystemState::sDisplay;
 std::shared_ptr<drivers::Bluetooth> SystemState::sBluetooth;
@@ -95,14 +96,9 @@ void SystemState::react(const internal::SamdInterrupt&) {
   }
 }
 
-void SystemState::react(const internal::BatteryTimerFired&) {
-  ESP_LOGI(kTag, "checking battery");
-  if (sBattery->UpdatePercent()) {
-    ESP_LOGI(kTag, "battery now at %u%%", sBattery->Percent());
-    BatteryPercentChanged ev{};
-    events::Ui().Dispatch(ev);
-    events::System().Dispatch(ev);
-  }
+auto SystemState::IdleCondition() -> bool {
+  return !sGpios->Get(drivers::IGpios::Pin::kKeyLock) &&
+         audio::AudioState::is_in_state<audio::states::Standby>();
 }
 
 }  // namespace system_fsm

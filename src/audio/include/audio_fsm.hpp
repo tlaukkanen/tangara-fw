@@ -57,6 +57,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const PlayFile&) {}
   virtual void react(const QueueUpdate&) {}
   virtual void react(const PlaybackUpdate&) {}
+  virtual void react(const TogglePlayPause&) {}
 
   virtual void react(const internal::InputFileOpened&) {}
   virtual void react(const internal::InputFileClosed&) {}
@@ -90,6 +91,7 @@ class Standby : public AudioState {
   void react(const PlayFile&) override;
   void react(const internal::InputFileOpened&) override;
   void react(const QueueUpdate&) override;
+  void react(const TogglePlayPause&) override;
 
   using AudioState::react;
 };
@@ -102,6 +104,7 @@ class Playback : public AudioState {
   void react(const PlayFile&) override;
   void react(const QueueUpdate&) override;
   void react(const PlaybackUpdate&) override;
+  void react(const TogglePlayPause&) override;
 
   void react(const internal::InputFileOpened&) override;
   void react(const internal::InputFileClosed&) override;

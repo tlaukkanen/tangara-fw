@@ -10,6 +10,7 @@
 #include <stack>
 
 #include "audio_events.hpp"
+#include "battery.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
 #include "tinyfsm.hpp"
@@ -27,7 +28,9 @@ namespace ui {
 
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
-  static auto Init(drivers::IGpios*, audio::TrackQueue*) -> bool;
+  static auto Init(drivers::IGpios*,
+                   audio::TrackQueue*,
+                   std::shared_ptr<battery::Battery>) -> bool;
 
   virtual ~UiState() {}
 
@@ -41,7 +44,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
-  void react(const system_fsm::BatteryPercentChanged&);
+  void react(const system_fsm::BatteryStateChanged&);
 
   virtual void react(const audio::PlaybackStarted&) {}
   virtual void react(const audio::PlaybackUpdate&) {}
@@ -76,6 +79,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::shared_ptr<drivers::TouchWheel> sTouchWheel;
   static std::shared_ptr<drivers::RelativeWheel> sRelativeWheel;
   static std::shared_ptr<drivers::Display> sDisplay;
+  static std::shared_ptr<battery::Battery> sBattery;
   static std::weak_ptr<database::Database> sDb;
 
   static std::stack<std::shared_ptr<Screen>> sScreens;

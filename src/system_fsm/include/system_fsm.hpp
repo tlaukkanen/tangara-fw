@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "app_console.hpp"
+#include "audio_events.hpp"
 #include "battery.hpp"
 #include "bluetooth.hpp"
 #include "database.hpp"
@@ -47,23 +48,26 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   void react(const FatalError&);
   void react(const internal::GpioInterrupt&);
   void react(const internal::SamdInterrupt&);
-  void react(const internal::BatteryTimerFired&);
 
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}
   virtual void react(const StorageMounted&) {}
   virtual void react(const StorageError&) {}
   virtual void react(const KeyLockChanged&) {}
+  virtual void react(const audio::PlaybackFinished&) {}
   virtual void react(const internal::IdleTimeout&) {}
 
  protected:
+  auto IdleCondition() -> bool;
+
   static std::shared_ptr<drivers::Gpios> sGpios;
   static std::shared_ptr<drivers::Samd> sSamd;
   static std::shared_ptr<drivers::NvsStorage> sNvs;
 
   static std::shared_ptr<drivers::TouchWheel> sTouch;
   static std::shared_ptr<drivers::RelativeWheel> sRelativeTouch;
-  static std::shared_ptr<drivers::Battery> sBattery;
+  static std::shared_ptr<drivers::AdcBattery> sAdc;
+  static std::shared_ptr<battery::Battery> sBattery;
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;
   static std::shared_ptr<drivers::Bluetooth> sBluetooth;
@@ -101,6 +105,8 @@ class Running : public SystemState {
 
   void react(const KeyLockChanged&) override;
   void react(const StorageError&) override;
+  void react(const audio::PlaybackFinished&) override;
+
   using SystemState::react;
 };
 

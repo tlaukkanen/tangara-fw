@@ -5,6 +5,7 @@
  */
 
 #include "app_console.hpp"
+#include "audio_events.hpp"
 #include "file_gatherer.hpp"
 #include "freertos/projdefs.h"
 #include "result.hpp"
@@ -68,7 +69,13 @@ void Running::exit() {
 }
 
 void Running::react(const KeyLockChanged& ev) {
-  if (!ev.falling && audio::AudioState::is_in_state<audio::states::Standby>()) {
+  if (IdleCondition()) {
+    transit<Idle>();
+  }
+}
+
+void Running::react(const audio::PlaybackFinished& ev) {
+  if (IdleCondition()) {
     transit<Idle>();
   }
 }
