@@ -144,6 +144,8 @@ void Playback::exit() {
   // to drain.
   vTaskDelay(pdMS_TO_TICKS(250));
   sOutput->SetInUse(false);
+
+  events::System().Dispatch(PlaybackFinished{});
 }
 
 void Playback::react(const QueueUpdate& ev) {

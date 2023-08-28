@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "app_console.hpp"
+#include "audio_events.hpp"
 #include "battery.hpp"
 #include "bluetooth.hpp"
 #include "database.hpp"
@@ -54,9 +55,12 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const StorageMounted&) {}
   virtual void react(const StorageError&) {}
   virtual void react(const KeyLockChanged&) {}
+  virtual void react(const audio::PlaybackFinished&) {}
   virtual void react(const internal::IdleTimeout&) {}
 
  protected:
+  auto IdleCondition() -> bool;
+
   static std::shared_ptr<drivers::Gpios> sGpios;
   static std::shared_ptr<drivers::Samd> sSamd;
   static std::shared_ptr<drivers::NvsStorage> sNvs;
@@ -101,6 +105,8 @@ class Running : public SystemState {
 
   void react(const KeyLockChanged&) override;
   void react(const StorageError&) override;
+  void react(const audio::PlaybackFinished&) override;
+
   using SystemState::react;
 };
 

@@ -25,6 +25,8 @@ struct PlaybackUpdate : tinyfsm::Event {
   uint32_t seconds_total;
 };
 
+struct PlaybackFinished : tinyfsm::Event {};
+
 struct QueueUpdate : tinyfsm::Event {
   bool current_changed;
 };

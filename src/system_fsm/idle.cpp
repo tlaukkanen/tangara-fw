@@ -49,12 +49,17 @@ void Idle::exit() {
 }
 
 void Idle::react(const KeyLockChanged& ev) {
-  if (!ev.falling) {
+  if (ev.falling) {
     transit<Running>();
   }
 }
 
 void Idle::react(const internal::IdleTimeout& ev) {
+  if (!IdleCondition()) {
+    // Defensively ensure that we didn't miss an idle-ending event.
+    transit<Running>();
+    return;
+  }
   ESP_LOGI(kTag, "system shutting down");
 
   // FIXME: It would be neater to just free a bunch of our pointers, deinit the
@@ -79,7 +84,12 @@ void Idle::react(const internal::IdleTimeout& ev) {
 
   sGpios->Flush();
 
-  sSamd->PowerDown();
+  // Retry shutting down in case of a transient failure with the SAMD. e.g. i2c
+  // timeouts. This guards against a buggy SAMD firmware preventing idle.
+  for (;;) {
+    sSamd->PowerDown();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
 }
 
 }  // namespace states

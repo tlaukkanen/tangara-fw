@@ -105,6 +105,11 @@ void SystemState::react(const internal::BatteryTimerFired&) {
   }
 }
 
+auto SystemState::IdleCondition() -> bool {
+  return !sGpios->Get(drivers::IGpios::Pin::kKeyLock) &&
+         audio::AudioState::is_in_state<audio::states::Standby>();
+}
+
 }  // namespace system_fsm
 
 FSM_INITIAL_STATE(system_fsm::SystemState, system_fsm::states::Booting)
