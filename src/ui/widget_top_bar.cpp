@@ -15,6 +15,7 @@
 #include "ui_fsm.hpp"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
+#include "themes.hpp"
 
 LV_IMG_DECLARE(battery_empty);
 LV_IMG_DECLARE(battery_20);
@@ -32,10 +33,12 @@ static void back_click_cb(lv_event_t* ev) {
 
 TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {
   container_ = lv_obj_create(parent);
-  lv_obj_set_size(container_, lv_pct(100), 14);
+  lv_obj_set_size(container_, lv_pct(100), 18);
   lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+  lv_obj_set_flex_align(container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_END);
+  
+  themes::Theme::instance()->ApplyStyle(container_, themes::Style::kTopBar);
 
   if (config.show_back_button) {
     back_button_ = lv_btn_create(container_);
