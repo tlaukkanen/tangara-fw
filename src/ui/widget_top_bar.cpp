@@ -16,6 +16,13 @@
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
 
+LV_IMG_DECLARE(battery_empty);
+LV_IMG_DECLARE(battery_20);
+LV_IMG_DECLARE(battery_40);
+LV_IMG_DECLARE(battery_60);
+LV_IMG_DECLARE(battery_80);
+LV_IMG_DECLARE(battery_full);
+
 namespace ui {
 namespace widgets {
 
@@ -48,8 +55,7 @@ TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {
   playback_ = lv_label_create(container_);
   lv_label_set_text(playback_, "");
 
-  battery_ = lv_label_create(container_);
-  lv_label_set_text(battery_, "");
+  battery_ = lv_img_create(container_);
 }
 
 auto TopBar::Update(const State& state) -> void {
@@ -65,18 +71,21 @@ auto TopBar::Update(const State& state) -> void {
       break;
   }
 
-  lv_label_set_text(battery_, std::to_string(state.battery_percent).c_str());
-  // if (state.battery_percent >= 95) {
-  //   lv_label_set_text(battery_, "100");
-  // } else if (state.battery_percent >= 70) {
-  //   lv_label_set_text(battery_, ">70");
-  // } else if (state.battery_percent >= 40) {
-  //   lv_label_set_text(battery_, ">40");
-  // } else if (state.battery_percent >= 10) {
-  //   lv_label_set_text(battery_, ">10");
-  // } else {
-  //   lv_label_set_text(battery_, "0");
-  // }
+  if (state.battery_percent >= 95) {
+    lv_img_set_src(battery_, &battery_full);
+  } else if (state.battery_percent >= 75) {
+    lv_img_set_src(battery_, &battery_80);
+    lv_label_set_text(battery_, ">70");
+  } else if (state.battery_percent >= 55) {
+    lv_img_set_src(battery_, &battery_60);
+    lv_label_set_text(battery_, ">40");
+  } else if (state.battery_percent >= 35) {
+    lv_img_set_src(battery_, &battery_40);
+  } else if (state.battery_percent >= 15) {
+    lv_img_set_src(battery_, &battery_20);
+  } else {
+    lv_img_set_src(battery_, &battery_empty);
+  }
 }
 
 }  // namespace widgets
