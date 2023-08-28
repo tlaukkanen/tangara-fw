@@ -48,7 +48,6 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   void react(const FatalError&);
   void react(const internal::GpioInterrupt&);
   void react(const internal::SamdInterrupt&);
-  void react(const internal::BatteryTimerFired&);
 
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}
@@ -67,7 +66,8 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
 
   static std::shared_ptr<drivers::TouchWheel> sTouch;
   static std::shared_ptr<drivers::RelativeWheel> sRelativeTouch;
-  static std::shared_ptr<drivers::Battery> sBattery;
+  static std::shared_ptr<drivers::AdcBattery> sAdc;
+  static std::shared_ptr<battery::Battery> sBattery;
   static std::shared_ptr<drivers::SdStorage> sStorage;
   static std::shared_ptr<drivers::Display> sDisplay;
   static std::shared_ptr<drivers::Bluetooth> sBluetooth;

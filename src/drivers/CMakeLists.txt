@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 idf_component_register(
-  SRCS "touchwheel.cpp" "i2s_dac.cpp" "gpios.cpp" "battery.cpp" "storage.cpp" "i2c.cpp"
+  SRCS "touchwheel.cpp" "i2s_dac.cpp" "gpios.cpp" "adc.cpp" "storage.cpp" "i2c.cpp"
   "spi.cpp" "display.cpp" "display_init.cpp" "samd.cpp" "relative_wheel.cpp" "wm8523.cpp"
   "nvs.cpp" "bluetooth.cpp"
   INCLUDE_DIRS "include"

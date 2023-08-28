@@ -65,17 +65,18 @@ auto TopBar::Update(const State& state) -> void {
       break;
   }
 
-  if (state.battery_percent >= 95) {
-    lv_label_set_text(battery_, "100");
-  } else if (state.battery_percent >= 70) {
-    lv_label_set_text(battery_, ">70");
-  } else if (state.battery_percent >= 40) {
-    lv_label_set_text(battery_, ">40");
-  } else if (state.battery_percent >= 10) {
-    lv_label_set_text(battery_, ">10");
-  } else {
-    lv_label_set_text(battery_, "0");
-  }
+  lv_label_set_text(battery_, std::to_string(state.battery_percent).c_str());
+  // if (state.battery_percent >= 95) {
+  //   lv_label_set_text(battery_, "100");
+  // } else if (state.battery_percent >= 70) {
+  //   lv_label_set_text(battery_, ">70");
+  // } else if (state.battery_percent >= 40) {
+  //   lv_label_set_text(battery_, ">40");
+  // } else if (state.battery_percent >= 10) {
+  //   lv_label_set_text(battery_, ">10");
+  // } else {
+  //   lv_label_set_text(battery_, "0");
+  // }
 }
 
 }  // namespace widgets

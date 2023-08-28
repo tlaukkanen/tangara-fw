@@ -23,7 +23,8 @@ std::shared_ptr<drivers::NvsStorage> SystemState::sNvs;
 
 std::shared_ptr<drivers::TouchWheel> SystemState::sTouch;
 std::shared_ptr<drivers::RelativeWheel> SystemState::sRelativeTouch;
-std::shared_ptr<drivers::Battery> SystemState::sBattery;
+std::shared_ptr<drivers::AdcBattery> SystemState::sAdc;
+std::shared_ptr<battery::Battery> SystemState::sBattery;
 std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
 std::shared_ptr<drivers::Display> SystemState::sDisplay;
 std::shared_ptr<drivers::Bluetooth> SystemState::sBluetooth;
@@ -92,16 +93,6 @@ void SystemState::react(const internal::SamdInterrupt&) {
   }
   if (usb_status != prev_usb_status) {
     ESP_LOGI(kTag, "usb status changed");
-  }
-}
-
-void SystemState::react(const internal::BatteryTimerFired&) {
-  ESP_LOGI(kTag, "checking battery");
-  if (sBattery->UpdatePercent()) {
-    ESP_LOGI(kTag, "battery now at %u%%", sBattery->Percent());
-    BatteryPercentChanged ev{};
-    events::Ui().Dispatch(ev);
-    events::System().Dispatch(ev);
   }
 }
 

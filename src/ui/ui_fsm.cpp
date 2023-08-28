@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "battery.hpp"
 #include "core/lv_obj.h"
 #include "misc/lv_gc.h"
 
@@ -43,16 +44,19 @@ audio::TrackQueue* UiState::sQueue;
 std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
 std::shared_ptr<drivers::Display> UiState::sDisplay;
+std::shared_ptr<battery::Battery> UiState::sBattery;
 std::weak_ptr<database::Database> UiState::sDb;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 std::shared_ptr<Modal> UiState::sCurrentModal;
 
-auto UiState::Init(drivers::IGpios* gpio_expander, audio::TrackQueue* queue)
-    -> bool {
+auto UiState::Init(drivers::IGpios* gpio_expander,
+                   audio::TrackQueue* queue,
+                   std::shared_ptr<battery::Battery> battery) -> bool {
   sIGpios = gpio_expander;
   sQueue = queue;
+  sBattery = battery;
 
   lv_init();
   sDisplay.reset(
@@ -100,15 +104,17 @@ void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sRelativeWheel->SetEnabled(ev.falling);
 }
 
-void UiState::react(const system_fsm::BatteryPercentChanged&) {
+void UiState::react(const system_fsm::BatteryStateChanged&) {
   UpdateTopBar();
 }
 
 void UiState::UpdateTopBar() {
+  auto battery_state = sBattery->State();
   widgets::TopBar::State state{
       .playback_state = widgets::TopBar::PlaybackState::kIdle,
-      .battery_percent = 50,
-      .is_charging = true,
+      .battery_percent = static_cast<uint_fast8_t>(
+          battery_state.has_value() ? battery_state->percent : 100),
+      .is_charging = !battery_state.has_value() || battery_state->is_charging,
   };
   if (sCurrentScreen) {
     sCurrentScreen->UpdateTopBar(state);

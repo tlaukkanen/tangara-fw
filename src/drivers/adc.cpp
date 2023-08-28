@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "battery.hpp"
+#include "adc.hpp"
 #include <cstdint>
 
 #include "esp_adc/adc_cali.h"
@@ -14,21 +14,6 @@
 
 namespace drivers {
 
-/*
- * Battery voltage, in millivolts, at which the battery charger IC will stop
- * charging.
- */
-static const uint32_t kFullChargeMilliVolts = 4200;
-
-/*
- * Battery voltage, in millivolts, at which *we* will consider the battery to
- * be completely discharged. This is intentionally higher than the charger IC
- * cut-off and the protection on the battery itself; we want to make sure we
- * finish up and have everything unmounted and snoozing before the BMS cuts us
- * off.
- */
-static const uint32_t kEmptyChargeMilliVolts = 3200;  // BMS limit is 3100.
-
 static const adc_bitwidth_t kAdcBitWidth = ADC_BITWIDTH_12;
 static const adc_unit_t kAdcUnit = ADC_UNIT_1;
 // Max battery voltage should be a little over 2V due to our divider, so we need
@@ -37,7 +22,7 @@ static const adc_atten_t kAdcAttenuation = ADC_ATTEN_DB_11;
 // Corresponds to SENSOR_VP.
 static const adc_channel_t kAdcChannel = ADC_CHANNEL_0;
 
-Battery::Battery() {
+AdcBattery::AdcBattery() {
   adc_oneshot_unit_init_cfg_t unit_config = {
       .unit_id = kAdcUnit,
   };
@@ -59,16 +44,14 @@ Battery::Battery() {
   };
   ESP_ERROR_CHECK(adc_cali_create_scheme_line_fitting(
       &calibration_config, &adc_calibration_handle_));
-
-  UpdatePercent();
 }
 
-Battery::~Battery() {
+AdcBattery::~AdcBattery() {
   adc_cali_delete_scheme_line_fitting(adc_calibration_handle_);
   ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle_));
 }
 
-auto Battery::Millivolts() -> uint32_t {
+auto AdcBattery::Millivolts() -> uint32_t {
   // GPIO 34
   int raw = 0;
   ESP_ERROR_CHECK(adc_oneshot_read(adc_handle_, kAdcChannel, &raw));
@@ -79,19 +62,6 @@ auto Battery::Millivolts() -> uint32_t {
 
   // Voltage divider halves the battery voltage to get it into the ADC's range.
   return voltage * 2;
-}
-
-auto Battery::UpdatePercent() -> bool {
-  auto old_percent = percent_;
-  // FIXME: So what we *should* do here is measure the actual real-life
-  // time from full battery -> empty battery, store it in NVS, then rely on
-  // that. If someone could please do this, it would be lovely. Thanks!
-  uint32_t mV = std::max(Millivolts(), kEmptyChargeMilliVolts);
-  percent_ = static_cast<uint_fast8_t>(std::min<double>(
-      std::max<double>(0.0, mV - kEmptyChargeMilliVolts) /
-          (kFullChargeMilliVolts - kEmptyChargeMilliVolts) * 100.0,
-      100.0));
-  return old_percent != percent_;
 }
 
 }  // namespace drivers

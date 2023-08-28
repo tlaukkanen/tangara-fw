@@ -38,12 +38,6 @@ namespace states {
 
 static const char kTag[] = "BOOT";
 
-static const TickType_t kBatteryCheckPeriod = pdMS_TO_TICKS(60 * 1000);
-
-static void battery_timer_cb(TimerHandle_t timer) {
-  events::System().Dispatch(internal::BatteryTimerFired{});
-}
-
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
   ESP_LOGI(kTag, "installing early drivers");
@@ -53,32 +47,30 @@ auto Booting::entry() -> void {
   ESP_ERROR_CHECK(drivers::init_spi());
   sGpios.reset(drivers::Gpios::Create());
 
+  sSamd.reset(drivers::Samd::Create());
+  sAdc.reset(drivers::AdcBattery::Create());
+  assert(sSamd.get() && sAdc.get());
+
+  sBattery.reset(new battery::Battery(sSamd.get(), sAdc.get()));
+
   // Start bringing up LVGL now, since we have all of its prerequisites.
   sTrackQueue.reset(new audio::TrackQueue());
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::Init(sGpios.get(), sTrackQueue.get())) {
+  if (!ui::UiState::Init(sGpios.get(), sTrackQueue.get(), sBattery)) {
     events::System().Dispatch(FatalError{});
     return;
   }
 
   // Install everything else that is certain to be needed.
   ESP_LOGI(kTag, "installing remaining drivers");
-  sSamd.reset(drivers::Samd::Create());
-  sBattery.reset(drivers::Battery::Create());
   sNvs.reset(drivers::NvsStorage::Open());
   sTagParser.reset(new database::TagParserImpl());
 
-  if (!sSamd || !sBattery || !sNvs) {
+  if (!sNvs) {
     events::System().Dispatch(FatalError{});
     events::Ui().Dispatch(FatalError{});
     return;
   }
-
-  ESP_LOGI(kTag, "battery is at %u%% (= %lu mV)", sBattery->Percent(),
-           sBattery->Millivolts());
-  TimerHandle_t battery_timer = xTimerCreate("battery", kBatteryCheckPeriod,
-                                             true, NULL, battery_timer_cb);
-  xTimerStart(battery_timer, portMAX_DELAY);
 
   // ESP_LOGI(kTag, "starting bluetooth");
   // sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
