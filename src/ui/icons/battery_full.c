@@ -41,7 +41,7 @@ const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_BATTERY_F
   0x54, 0x00, 0x15, 
 };
 
-const lv_img_dsc_t battery_full = {
+const lv_img_dsc_t kIconBatteryFull = {
   .header.cf = LV_IMG_CF_INDEXED_2BIT,
   .header.always_zero = 0,
   .header.reserved = 0,

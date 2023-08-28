@@ -9,7 +9,8 @@ idf_component_register(
   "modal_progress.cpp" "modal.cpp" "modal_confirm.cpp" "screen_settings.cpp"
   "splash.c" "font_fusion.c" "font_symbols.c"
   "icons/battery_empty.c" "icons/battery_full.c" "icons/battery_20.c"
-  "icons/battery_40.c" "icons/battery_60.c" "icons/battery_80.c"
+  "icons/battery_40.c" "icons/battery_60.c" "icons/battery_80.c" "icons/play.c"
+  "icons/pause.c" "icons/bluetooth.c"
   INCLUDE_DIRS "include"
   REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "esp_timer" "battery")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

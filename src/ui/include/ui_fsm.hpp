@@ -48,6 +48,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   virtual void react(const audio::PlaybackStarted&) {}
   virtual void react(const audio::PlaybackUpdate&) {}
+  virtual void react(const audio::PlaybackFinished&) {}
   virtual void react(const audio::QueueUpdate&) {}
 
   virtual void react(const system_fsm::KeyLockChanged&);
@@ -125,6 +126,7 @@ class Playing : public UiState {
 
   void react(const audio::PlaybackStarted&) override;
   void react(const audio::PlaybackUpdate&) override;
+  void react(const audio::PlaybackFinished&) override;
   void react(const audio::QueueUpdate&) override;
   using UiState::react;
 };

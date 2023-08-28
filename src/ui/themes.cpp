@@ -35,7 +35,6 @@ void Theme::Apply(void) {
 }
 
 void Theme::Callback(lv_obj_t* obj) {
-  ESP_LOGI("Theme", "Callback called on object %p", obj);
   lv_obj_set_style_text_font(obj, &font_fusion, 0);
   lv_obj_set_style_text_color(obj, lv_color_black(), 0);
 
@@ -47,7 +46,6 @@ void Theme::Callback(lv_obj_t* obj) {
 }
 
 void Theme::ApplyStyle(lv_obj_t* obj, Style style) {
-  ESP_LOGI("Theme", "Apply style called on object %p", obj);
   if (style == Style::kTopBar) {
     lv_obj_set_style_border_color(obj, lv_palette_darken(LV_PALETTE_BLUE_GREY, 2), LV_PART_MAIN);
     lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);

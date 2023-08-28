@@ -21,7 +21,7 @@
 #define LV_ATTRIBUTE_IMG_BATTERY_40
 #endif
 
-const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_BATTERY_40 uint8_t battery_40_map[] = {
+static const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_BATTERY_40 uint8_t battery_40_map[] = {
   0x00, 0x00, 0x00, 0xff, 	/*Color of index 0*/
   0xfd, 0xfe, 0xfd, 0xff, 	/*Color of index 1*/
   0x26, 0xc1, 0x38, 0xff, 	/*Color of index 2*/
@@ -41,7 +41,7 @@ const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_BATTERY_4
   0x54, 0x00, 0x15, 
 };
 
-const lv_img_dsc_t battery_40 = {
+const lv_img_dsc_t kIconBattery40 = {
   .header.cf = LV_IMG_CF_INDEXED_2BIT,
   .header.always_zero = 0,
   .header.reserved = 0,

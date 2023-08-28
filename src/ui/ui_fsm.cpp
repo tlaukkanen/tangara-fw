@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "audio_fsm.hpp"
 #include "battery.hpp"
 #include "core/lv_obj.h"
 #include "misc/lv_gc.h"
@@ -110,12 +111,21 @@ void UiState::react(const system_fsm::BatteryStateChanged&) {
 
 void UiState::UpdateTopBar() {
   auto battery_state = sBattery->State();
+  bool has_queue = sQueue->GetCurrent().has_value();
+  bool is_playing = audio::AudioState::is_in_state<audio::states::Playback>();
+
   widgets::TopBar::State state{
       .playback_state = widgets::TopBar::PlaybackState::kIdle,
       .battery_percent = static_cast<uint_fast8_t>(
           battery_state.has_value() ? battery_state->percent : 100),
       .is_charging = !battery_state.has_value() || battery_state->is_charging,
   };
+
+  if (has_queue) {
+    state.playback_state = is_playing ? widgets::TopBar::PlaybackState::kPlaying
+                                      : widgets::TopBar::PlaybackState::kPaused;
+  }
+
   if (sCurrentScreen) {
     sCurrentScreen->UpdateTopBar(state);
   }
@@ -208,11 +218,16 @@ void Playing::exit() {
 }
 
 void Playing::react(const audio::PlaybackStarted& ev) {
+  UpdateTopBar();
   sPlayingScreen->OnTrackUpdate();
 }
 
 void Playing::react(const audio::PlaybackUpdate& ev) {
   sPlayingScreen->OnPlaybackUpdate(ev.seconds_elapsed, ev.seconds_total);
+}
+
+void Playing::react(const audio::PlaybackFinished& ev) {
+  UpdateTopBar();
 }
 
 void Playing::react(const audio::QueueUpdate& ev) {

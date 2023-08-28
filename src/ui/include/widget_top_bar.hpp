@@ -48,6 +48,7 @@ class TopBar {
   lv_obj_t* title_;
   lv_obj_t* playback_;
   lv_obj_t* battery_;
+  lv_obj_t* charging_;
 };
 
 }  // namespace widgets
