@@ -100,9 +100,9 @@ auto Display::Create(IGpios* expander,
 
   ledc_timer_config_t led_config{
       .speed_mode = LEDC_LOW_SPEED_MODE,
-      .duty_resolution = LEDC_TIMER_13_BIT,
+      .duty_resolution = LEDC_TIMER_8_BIT,
       .timer_num = LEDC_TIMER_0,
-      .freq_hz = 5000,
+      .freq_hz = 50000,
       .clk_cfg = LEDC_AUTO_CLK,
   };
   ESP_ERROR_CHECK(ledc_timer_config(&led_config));
