@@ -37,6 +37,8 @@ struct PlayFile : tinyfsm::Event {
 
 struct VolumeChanged : tinyfsm::Event {};
 
+struct TogglePlayPause : tinyfsm::Event {};
+
 namespace internal {
 
 struct InputFileOpened : tinyfsm::Event {};

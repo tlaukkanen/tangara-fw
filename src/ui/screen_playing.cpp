@@ -8,6 +8,7 @@
 #include <sys/_stdint.h>
 #include <memory>
 
+#include "audio_events.hpp"
 #include "core/lv_event.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_scroll.h"
@@ -61,6 +62,10 @@ static void below_fold_focus_cb(lv_event_t* ev) {
   }
   Playing* instance = reinterpret_cast<Playing*>(ev->user_data);
   instance->OnFocusBelowFold();
+}
+
+static void play_pause_cb(lv_event_t* ev) {
+  events::Audio().Dispatch(audio::TogglePlayPause{});
 }
 
 static lv_style_t scrubber_style;
@@ -159,7 +164,10 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   play_pause_control_ = control_button(controls_container, LV_SYMBOL_PLAY);
+  lv_obj_add_event_cb(play_pause_control_, play_pause_cb, LV_EVENT_CLICKED,
+                      NULL);
   lv_group_add_obj(group_, play_pause_control_);
+
   lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_PREV));
   lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_NEXT));
   lv_group_add_obj(group_,
