@@ -37,6 +37,7 @@ class Display {
   ~Display();
 
   auto SetDisplayOn(bool) -> void;
+  auto SetBrightness(uint_fast8_t) -> void;
 
   /* Driver callback invoked by LVGL when there is new data to display. */
   void OnLvglFlush(lv_disp_drv_t* disp_drv,
@@ -54,7 +55,7 @@ class Display {
   std::unique_ptr<tasks::Worker> worker_task_;
 
   bool display_on_;
-  uint32_t brightness_;
+  uint_fast8_t brightness_;
 
   lv_disp_draw_buf_t buffers_;
   lv_disp_drv_t driver_;
@@ -74,6 +75,8 @@ class Display {
   void SendTransaction(TransactionType type,
                        const uint8_t* data,
                        size_t length);
+
+  auto SetDutyCycle(uint_fast8_t) -> void;
 };
 
 }  // namespace drivers

@@ -6,6 +6,7 @@
 
 #include "display.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -100,7 +101,7 @@ auto Display::Create(IGpios* expander,
 
   ledc_timer_config_t led_config{
       .speed_mode = LEDC_LOW_SPEED_MODE,
-      .duty_resolution = LEDC_TIMER_8_BIT,
+      .duty_resolution = LEDC_TIMER_10_BIT,
       .timer_num = LEDC_TIMER_0,
       .freq_hz = 50000,
       .clk_cfg = LEDC_AUTO_CLK,
@@ -186,7 +187,9 @@ Display::Display(IGpios* gpio, spi_device_handle_t handle)
       handle_(handle),
       worker_task_(tasks::Worker::Start<tasks::Type::kUiFlush>()),
       display_on_(false),
-      brightness_(4096) {}
+      brightness_(0) {
+  SetBrightness(50);
+}
 
 Display::~Display() {
   ledc_fade_func_uninstall();
@@ -194,8 +197,19 @@ Display::~Display() {
 
 auto Display::SetDisplayOn(bool enabled) -> void {
   display_on_ = enabled;
-
   int new_duty = display_on_ ? brightness_ : 0;
+  SetDutyCycle(new_duty);
+}
+
+auto Display::SetBrightness(uint_fast8_t percent) -> void {
+  brightness_ =
+      std::pow(static_cast<double>(percent) / 100.0, 2.8) * 1024.0 + 0.5;
+  if (display_on_) {
+    SetDutyCycle(brightness_);
+  }
+}
+
+auto Display::SetDutyCycle(uint_fast8_t new_duty) -> void {
   ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 100);
   ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
 }
