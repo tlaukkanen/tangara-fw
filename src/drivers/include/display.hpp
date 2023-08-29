@@ -76,7 +76,7 @@ class Display {
                        const uint8_t* data,
                        size_t length);
 
-  auto SetDutyCycle(uint_fast8_t) -> void;
+  auto SetDutyCycle(uint_fast8_t, bool) -> void;
 };
 
 }  // namespace drivers

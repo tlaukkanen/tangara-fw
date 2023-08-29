@@ -198,20 +198,26 @@ Display::~Display() {
 auto Display::SetDisplayOn(bool enabled) -> void {
   display_on_ = enabled;
   int new_duty = display_on_ ? brightness_ : 0;
-  SetDutyCycle(new_duty);
+  SetDutyCycle(new_duty, true);
 }
 
 auto Display::SetBrightness(uint_fast8_t percent) -> void {
   brightness_ =
       std::pow(static_cast<double>(percent) / 100.0, 2.8) * 1024.0 + 0.5;
   if (display_on_) {
-    SetDutyCycle(brightness_);
+    SetDutyCycle(brightness_, false);
   }
 }
 
-auto Display::SetDutyCycle(uint_fast8_t new_duty) -> void {
-  ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 100);
-  ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
+auto Display::SetDutyCycle(uint_fast8_t new_duty, bool fade) -> void {
+  if (fade) {
+    ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty, 100);
+    ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
+  } else {
+    ESP_ERROR_CHECK(
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, new_duty));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+  }
 }
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
