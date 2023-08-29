@@ -49,7 +49,7 @@ auto Booting::entry() -> void {
 
   sSamd.reset(drivers::Samd::Create());
   sAdc.reset(drivers::AdcBattery::Create());
-  sNvs.reset(drivers::NvsStorage::Open());
+  sNvs.reset(drivers::NvsStorage::OpenSync());
   assert(sSamd.get() && sAdc.get() && sNvs.get());
 
   sBattery.reset(new battery::Battery(sSamd.get(), sAdc.get()));

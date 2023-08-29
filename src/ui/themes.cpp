@@ -1,7 +1,7 @@
 #include "themes.hpp"
 #include "core/lv_obj.h"
-#include "misc/lv_color.h"
 #include "esp_log.h"
+#include "misc/lv_color.h"
 
 LV_FONT_DECLARE(font_fusion);
 
@@ -19,7 +19,8 @@ Theme::Theme() {
   lv_style_set_bg_color(&button_style_, lv_color_white());
 
   lv_style_init(&button_style_focused_);
-  lv_style_set_bg_color(&button_style_focused_, lv_palette_lighten(LV_PALETTE_BLUE_GREY, 2));
+  lv_style_set_bg_color(&button_style_focused_,
+                        lv_palette_lighten(LV_PALETTE_BLUE_GREY, 2));
 
   lv_theme_t* parent_theme = lv_disp_get_theme(NULL);
   theme_ = *parent_theme;
@@ -41,15 +42,18 @@ void Theme::Callback(lv_obj_t* obj) {
   if (lv_obj_check_type(obj, &lv_btn_class) ||
       lv_obj_check_type(obj, &lv_list_btn_class)) {
     lv_obj_add_style(obj, &button_style_, LV_PART_MAIN);
-    lv_obj_add_style(obj, &button_style_focused_, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_add_style(obj, &button_style_focused_,
+                     LV_PART_MAIN | LV_STATE_FOCUSED);
   }
 }
 
 void Theme::ApplyStyle(lv_obj_t* obj, Style style) {
   if (style == Style::kTopBar) {
-    lv_obj_set_style_border_color(obj, lv_palette_darken(LV_PALETTE_BLUE_GREY, 2), LV_PART_MAIN);
+    lv_obj_set_style_border_color(
+        obj, lv_palette_darken(LV_PALETTE_BLUE_GREY, 2), LV_PART_MAIN);
     lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_side(obj, LV_BORDER_SIDE_BOTTOM|LV_BORDER_SIDE_TOP, LV_PART_MAIN);
+    lv_obj_set_style_border_side(
+        obj, LV_BORDER_SIDE_BOTTOM | LV_BORDER_SIDE_TOP, LV_PART_MAIN);
     lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN);
   }

@@ -69,6 +69,7 @@ auto UiState::Init(drivers::IGpios* gpio_expander,
   if (sDisplay == nullptr) {
     return false;
   }
+  sDisplay->SetBrightness(nvs->ScreenBrightness().get());
 
   sTouchWheel.reset(drivers::TouchWheel::Create());
   if (sTouchWheel != nullptr) {

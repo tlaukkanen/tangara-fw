@@ -5,6 +5,7 @@
  */
 
 #include "screen_settings.hpp"
+#include <string>
 
 #include "core/lv_event.h"
 #include "core/lv_obj.h"
@@ -151,6 +152,15 @@ static void change_brightness_cb(lv_event_t* ev) {
   instance->ChangeBrightness(lv_slider_get_value(ev->target));
 }
 
+static void release_brightness_cb(lv_event_t* ev) {
+  Appearance* instance = reinterpret_cast<Appearance*>(ev->user_data);
+  instance->CommitBrightness();
+}
+
+static auto brightness_str(uint_fast8_t percent) -> std::string {
+  return std::to_string(percent) + "%";
+}
+
 Appearance::Appearance(drivers::NvsStorage* nvs, drivers::Display* display)
     : MenuScreen("Appearance"), nvs_(nvs), display_(display) {
   lv_obj_t* toggle_container = settings_container(content_);
@@ -160,25 +170,35 @@ Appearance::Appearance(drivers::NvsStorage* nvs, drivers::Display* display)
   lv_obj_t* toggle = lv_switch_create(toggle_container);
   lv_group_add_obj(group_, toggle);
 
+  uint_fast8_t initial_brightness = nvs_->ScreenBrightness().get();
+
   lv_obj_t* brightness_label = lv_label_create(content_);
   lv_label_set_text(brightness_label, "Brightness");
   lv_obj_t* brightness = lv_slider_create(content_);
   lv_obj_set_width(brightness, lv_pct(100));
   lv_slider_set_range(brightness, 10, 100);
-  lv_slider_set_value(brightness, 50, LV_ANIM_OFF);
+  lv_slider_set_value(brightness, initial_brightness, LV_ANIM_OFF);
   lv_group_add_obj(group_, brightness);
   current_brightness_label_ = lv_label_create(content_);
-  lv_label_set_text(current_brightness_label_, "50%");
+  lv_label_set_text(current_brightness_label_,
+                    brightness_str(initial_brightness).c_str());
   lv_obj_set_size(current_brightness_label_, lv_pct(100), LV_SIZE_CONTENT);
 
   lv_obj_add_event_cb(brightness, change_brightness_cb, LV_EVENT_VALUE_CHANGED,
                       this);
+  lv_obj_add_event_cb(brightness, release_brightness_cb, LV_EVENT_RELEASED,
+                      this);
 }
 
 auto Appearance::ChangeBrightness(uint_fast8_t new_level) -> void {
+  current_brightness_ = new_level;
   display_->SetBrightness(new_level);
-  std::string new_str = std::to_string(new_level) + "%";
-  lv_label_set_text(current_brightness_label_, new_str.c_str());
+  lv_label_set_text(current_brightness_label_,
+                    brightness_str(new_level).c_str());
+}
+
+auto Appearance::CommitBrightness() -> void {
+  nvs_->ScreenBrightness(current_brightness_);
 }
 
 InputMethod::InputMethod() : MenuScreen("Input Method") {

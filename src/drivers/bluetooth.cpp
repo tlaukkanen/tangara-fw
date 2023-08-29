@@ -120,7 +120,7 @@ std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
 
 auto BluetoothState::Init(NvsStorage* storage) -> void {
   sStorage_ = storage;
-  sPreferredDevice_ = storage->PreferredBluetoothDevice();
+  sPreferredDevice_ = storage->PreferredBluetoothDevice().get();
   tinyfsm::FsmList<bluetooth::BluetoothState>::start();
 }
 
@@ -428,7 +428,7 @@ void Connecting::react(const events::internal::A2dp& ev) {
 void Connected::entry() {
   ESP_LOGI(kTag, "entering connected state");
 
-  auto stored_pref = sStorage_->PreferredBluetoothDevice();
+  auto stored_pref = sStorage_->PreferredBluetoothDevice().get();
   if (stored_pref != sPreferredDevice_) {
     sStorage_->PreferredBluetoothDevice(sPreferredDevice_);
   }

@@ -45,6 +45,10 @@ template <>
 auto Name<Type::kDatabaseBackground>() -> std::string {
   return "DB_BG";
 }
+template <>
+auto Name<Type::kNvsWriter>() -> std::string {
+  return "NVS";
+}
 
 template <Type t>
 auto AllocateStack() -> cpp::span<StackType_t>;
@@ -102,6 +106,13 @@ auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
+template <>
+auto AllocateStack<Type::kNvsWriter>() -> cpp::span<StackType_t> {
+  std::size_t size = 2 * 1024;
+  return {static_cast<StackType_t*>(
+              heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+          size};
+}
 
 // 2048 bytes in internal ram
 // 302 KiB in external ram.
@@ -113,6 +124,12 @@ auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
 template <Type t>
 auto Priority() -> UBaseType_t;
 
+// NVS writing requires suspending one of our cores, and disabling tasks with
+// their stacks in PSRAM. Get it over and done with as soon as possible.
+template <>
+auto Priority<Type::kNvsWriter>() -> UBaseType_t {
+  return 13;
+}
 // Realtime audio is the entire point of this device, so give this task the
 // highest priority.
 template <>
@@ -169,6 +186,10 @@ auto WorkerQueueSize<Type::kDatabaseBackground>() -> std::size_t {
 
 template <>
 auto WorkerQueueSize<Type::kUiFlush>() -> std::size_t {
+  return 2;
+}
+template <>
+auto WorkerQueueSize<Type::kNvsWriter>() -> std::size_t {
   return 2;
 }
 

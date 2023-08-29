@@ -5,13 +5,9 @@
 namespace ui {
 namespace themes {
 
-  enum class Style {
-    kMenuItem,
-    kTopBar
-  };
+enum class Style { kMenuItem, kTopBar };
 class Theme {
  public:
-
   void Apply(void);
   void Callback(lv_obj_t* obj);
   void ApplyStyle(lv_obj_t* obj, Style style);
