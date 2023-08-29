@@ -19,6 +19,7 @@
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
 #include "modal_confirm.hpp"
+#include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "screen_menu.hpp"
@@ -46,6 +47,7 @@ std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
 std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
 std::shared_ptr<drivers::Display> UiState::sDisplay;
 std::shared_ptr<battery::Battery> UiState::sBattery;
+std::shared_ptr<drivers::NvsStorage> UiState::sNvs;
 std::weak_ptr<database::Database> UiState::sDb;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
@@ -53,9 +55,11 @@ std::shared_ptr<Screen> UiState::sCurrentScreen;
 std::shared_ptr<Modal> UiState::sCurrentModal;
 
 auto UiState::Init(drivers::IGpios* gpio_expander,
+                   std::shared_ptr<drivers::NvsStorage> nvs,
                    audio::TrackQueue* queue,
                    std::shared_ptr<battery::Battery> battery) -> bool {
   sIGpios = gpio_expander;
+  sNvs = nvs;
   sQueue = queue;
   sBattery = battery;
 
@@ -160,7 +164,36 @@ void Browse::react(const internal::ShowNowPlaying& ev) {
 }
 
 void Browse::react(const internal::ShowSettingsPage& ev) {
-  PushScreen(ev.screen);
+  std::shared_ptr<Screen> screen;
+  switch (ev.page) {
+    case internal::ShowSettingsPage::Page::kRoot:
+      screen.reset(new screens::Settings());
+      break;
+    case internal::ShowSettingsPage::Page::kBluetooth:
+      screen.reset(new screens::Bluetooth());
+      break;
+    case internal::ShowSettingsPage::Page::kHeadphones:
+      screen.reset(new screens::Headphones());
+      break;
+    case internal::ShowSettingsPage::Page::kAppearance:
+      screen.reset(new screens::Appearance(sNvs.get(), sDisplay.get()));
+      break;
+    case internal::ShowSettingsPage::Page::kInput:
+      screen.reset(new screens::InputMethod());
+      break;
+    case internal::ShowSettingsPage::Page::kStorage:
+      screen.reset(new screens::Storage());
+      break;
+    case internal::ShowSettingsPage::Page::kFirmwareUpdate:
+      screen.reset(new screens::FirmwareUpdate());
+      break;
+    case internal::ShowSettingsPage::Page::kAbout:
+      screen.reset(new screens::About());
+      break;
+  }
+  if (screen) {
+    PushScreen(screen);
+  }
 }
 
 void Browse::react(const internal::RecordSelected& ev) {

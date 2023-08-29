@@ -39,7 +39,16 @@ struct IndexSelected : tinyfsm::Event {
 struct BackPressed : tinyfsm::Event {};
 struct ShowNowPlaying : tinyfsm::Event {};
 struct ShowSettingsPage : tinyfsm::Event {
-  std::shared_ptr<Screen> screen;
+  enum class Page {
+    kRoot,
+    kBluetooth,
+    kHeadphones,
+    kAppearance,
+    kInput,
+    kStorage,
+    kFirmwareUpdate,
+    kAbout,
+  } page;
 };
 
 struct ModalConfirmPressed : tinyfsm::Event {};

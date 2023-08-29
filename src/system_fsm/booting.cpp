@@ -49,28 +49,22 @@ auto Booting::entry() -> void {
 
   sSamd.reset(drivers::Samd::Create());
   sAdc.reset(drivers::AdcBattery::Create());
-  assert(sSamd.get() && sAdc.get());
+  sNvs.reset(drivers::NvsStorage::Open());
+  assert(sSamd.get() && sAdc.get() && sNvs.get());
 
   sBattery.reset(new battery::Battery(sSamd.get(), sAdc.get()));
 
   // Start bringing up LVGL now, since we have all of its prerequisites.
   sTrackQueue.reset(new audio::TrackQueue());
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::Init(sGpios.get(), sTrackQueue.get(), sBattery)) {
+  if (!ui::UiState::Init(sGpios.get(), sNvs, sTrackQueue.get(), sBattery)) {
     events::System().Dispatch(FatalError{});
     return;
   }
 
   // Install everything else that is certain to be needed.
   ESP_LOGI(kTag, "installing remaining drivers");
-  sNvs.reset(drivers::NvsStorage::Open());
   sTagParser.reset(new database::TagParserImpl());
-
-  if (!sNvs) {
-    events::System().Dispatch(FatalError{});
-    events::Ui().Dispatch(FatalError{});
-    return;
-  }
 
   // ESP_LOGI(kTag, "starting bluetooth");
   // sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));

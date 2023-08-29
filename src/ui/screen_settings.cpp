@@ -8,6 +8,7 @@
 
 #include "core/lv_event.h"
 #include "core/lv_obj.h"
+#include "display.hpp"
 #include "esp_log.h"
 
 #include "core/lv_group.h"
@@ -21,6 +22,7 @@
 #include "index.hpp"
 #include "misc/lv_anim.h"
 #include "misc/lv_area.h"
+#include "nvs.hpp"
 #include "screen.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
@@ -35,50 +37,42 @@
 namespace ui {
 namespace screens {
 
+using Page = internal::ShowSettingsPage::Page;
+
 static void open_sub_menu_cb(lv_event_t* e) {
-  std::shared_ptr<Screen>* next_screen =
-      reinterpret_cast<std::shared_ptr<Screen>*>(e->user_data);
+  Page next_page = static_cast<Page>(reinterpret_cast<uintptr_t>(e->user_data));
   events::Ui().Dispatch(internal::ShowSettingsPage{
-      .screen = *next_screen,
+      .page = next_page,
   });
 }
 
 static void sub_menu(lv_obj_t* list,
                      lv_group_t* group,
                      const std::string& text,
-                     std::shared_ptr<Screen>* screen) {
+                     Page page) {
   lv_obj_t* item = lv_list_add_btn(list, NULL, text.c_str());
   lv_group_add_obj(group, item);
-  lv_obj_add_event_cb(item, open_sub_menu_cb, LV_EVENT_CLICKED, screen);
+  lv_obj_add_event_cb(item, open_sub_menu_cb, LV_EVENT_CLICKED,
+                      reinterpret_cast<void*>(static_cast<uintptr_t>(page)));
 }
 
-Settings::Settings()
-    : MenuScreen("Settings"),
-      bluetooth_(new Bluetooth()),
-      headphones_(new Headphones()),
-      appearance_(new Appearance()),
-      input_method_(new InputMethod()),
-      storage_(new Storage()),
-      firmware_update_(new FirmwareUpdate()),
-      about_(new About()) {
+Settings::Settings() : MenuScreen("Settings") {
   lv_obj_t* list = lv_list_create(content_);
   lv_obj_set_size(list, lv_pct(100), lv_pct(100));
 
   lv_list_add_text(list, "Audio");
-  sub_menu(list, group_, "Bluetooth", &bluetooth_);
-  sub_menu(list, group_, "Headphones", &headphones_);
+  sub_menu(list, group_, "Bluetooth", Page::kBluetooth);
+  sub_menu(list, group_, "Headphones", Page::kBluetooth);
 
   lv_list_add_text(list, "Interface");
-  sub_menu(list, group_, "Appearance", &appearance_);
-  sub_menu(list, group_, "Input Method", &input_method_);
+  sub_menu(list, group_, "Appearance", Page::kAppearance);
+  sub_menu(list, group_, "Input Method", Page::kInput);
 
   lv_list_add_text(list, "System");
-  sub_menu(list, group_, "Storage", &storage_);
-  sub_menu(list, group_, "Firmware Update", &firmware_update_);
-  sub_menu(list, group_, "About", &about_);
+  sub_menu(list, group_, "Storage", Page::kStorage);
+  sub_menu(list, group_, "Firmware Update", Page::kFirmwareUpdate);
+  sub_menu(list, group_, "About", Page::kAbout);
 }
-
-Settings::~Settings() {}
 
 static auto settings_container(lv_obj_t* parent) -> lv_obj_t* {
   lv_obj_t* res = lv_obj_create(parent);
@@ -152,13 +146,39 @@ Headphones::Headphones() : MenuScreen("Headphones") {
   lv_obj_set_size(current_balance_label, lv_pct(100), LV_SIZE_CONTENT);
 }
 
-Appearance::Appearance() : MenuScreen("Appearance") {
+static void change_brightness_cb(lv_event_t* ev) {
+  Appearance* instance = reinterpret_cast<Appearance*>(ev->user_data);
+  instance->ChangeBrightness(lv_slider_get_value(ev->target));
+}
+
+Appearance::Appearance(drivers::NvsStorage* nvs, drivers::Display* display)
+    : MenuScreen("Appearance"), nvs_(nvs), display_(display) {
   lv_obj_t* toggle_container = settings_container(content_);
   lv_obj_t* toggle_label = lv_label_create(toggle_container);
   lv_obj_set_flex_grow(toggle_label, 1);
   lv_label_set_text(toggle_label, "Dark Mode");
   lv_obj_t* toggle = lv_switch_create(toggle_container);
   lv_group_add_obj(group_, toggle);
+
+  lv_obj_t* brightness_label = lv_label_create(content_);
+  lv_label_set_text(brightness_label, "Brightness");
+  lv_obj_t* brightness = lv_slider_create(content_);
+  lv_obj_set_width(brightness, lv_pct(100));
+  lv_slider_set_range(brightness, 10, 100);
+  lv_slider_set_value(brightness, 50, LV_ANIM_OFF);
+  lv_group_add_obj(group_, brightness);
+  current_brightness_label_ = lv_label_create(content_);
+  lv_label_set_text(current_brightness_label_, "50%");
+  lv_obj_set_size(current_brightness_label_, lv_pct(100), LV_SIZE_CONTENT);
+
+  lv_obj_add_event_cb(brightness, change_brightness_cb, LV_EVENT_VALUE_CHANGED,
+                      this);
+}
+
+auto Appearance::ChangeBrightness(uint_fast8_t new_level) -> void {
+  display_->SetBrightness(new_level);
+  std::string new_str = std::to_string(new_level) + "%";
+  lv_label_set_text(current_brightness_label_, new_str.c_str());
 }
 
 InputMethod::InputMethod() : MenuScreen("Input Method") {

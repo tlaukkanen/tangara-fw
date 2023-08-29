@@ -11,6 +11,7 @@
 
 #include "audio_events.hpp"
 #include "battery.hpp"
+#include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
 #include "tinyfsm.hpp"
@@ -29,6 +30,7 @@ namespace ui {
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
   static auto Init(drivers::IGpios*,
+                   std::shared_ptr<drivers::NvsStorage>,
                    audio::TrackQueue*,
                    std::shared_ptr<battery::Battery>) -> bool;
 
@@ -81,6 +83,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::shared_ptr<drivers::RelativeWheel> sRelativeWheel;
   static std::shared_ptr<drivers::Display> sDisplay;
   static std::shared_ptr<battery::Battery> sBattery;
+  static std::shared_ptr<drivers::NvsStorage> sNvs;
   static std::weak_ptr<database::Database> sDb;
 
   static std::stack<std::shared_ptr<Screen>> sScreens;

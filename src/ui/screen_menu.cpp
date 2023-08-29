@@ -31,8 +31,8 @@ static void now_playing_click_cb(lv_event_t* ev) {
 }
 
 static void settings_click_callback(lv_event_t* ev) {
-  std::shared_ptr<Screen> settings{new Settings()};
-  events::Ui().Dispatch(internal::ShowSettingsPage{.screen = settings});
+  events::Ui().Dispatch(internal::ShowSettingsPage{
+      .page = internal::ShowSettingsPage::Page::kRoot});
 }
 
 static void index_click_cb(lv_event_t* ev) {
