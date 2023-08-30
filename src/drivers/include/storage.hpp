@@ -31,9 +31,9 @@ class SdStorage {
     FAILED_TO_MOUNT,
   };
 
-  static auto Create(IGpios* gpio) -> cpp::result<SdStorage*, Error>;
+  static auto Create(IGpios& gpio) -> cpp::result<SdStorage*, Error>;
 
-  SdStorage(IGpios* gpio,
+  SdStorage(IGpios& gpio,
             sdspi_dev_handle_t handle_,
             std::unique_ptr<sdmmc_host_t> host_,
             std::unique_ptr<sdmmc_card_t> card_,
@@ -50,7 +50,7 @@ class SdStorage {
   SdStorage& operator=(const SdStorage&) = delete;
 
  private:
-  IGpios* gpio_;
+  IGpios& gpio_;
 
   // SPI and SD driver info
   sdspi_dev_handle_t handle_;

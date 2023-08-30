@@ -64,30 +64,32 @@ void Idle::react(const internal::IdleTimeout& ev) {
 
   // FIXME: It would be neater to just free a bunch of our pointers, deinit the
   // other state machines, etc.
-  if (sTouch) {
-    sTouch->PowerDown();
+  auto touchwheel = sServices->touchwheel();
+  if (touchwheel) {
+    touchwheel.value()->PowerDown();
   }
 
+  auto& gpios = sServices->gpios();
   // Pull down to turn things off
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kAmplifierEnable, false);
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kSdPowerEnable, false);
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kDisplayEnable, false);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kAmplifierEnable, false);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kSdPowerEnable, false);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kDisplayEnable, false);
 
   // Leave up to match the external pullups
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kSdMuxSwitch, true);
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kSdMuxDisable, true);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kSdMuxSwitch, true);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kSdMuxDisable, true);
 
   // Pull down to prevent sourcing current uselessly from input pins.
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kSdCardDetect, false);
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kKeyUp, false);
-  sGpios->WriteBuffered(drivers::IGpios::Pin::kKeyDown, false);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kSdCardDetect, false);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kKeyUp, false);
+  gpios.WriteBuffered(drivers::IGpios::Pin::kKeyDown, false);
 
-  sGpios->Flush();
+  gpios.Flush();
 
   // Retry shutting down in case of a transient failure with the SAMD. e.g. i2c
   // timeouts. This guards against a buggy SAMD firmware preventing idle.
   for (;;) {
-    sSamd->PowerDown();
+    sServices->samd().PowerDown();
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }

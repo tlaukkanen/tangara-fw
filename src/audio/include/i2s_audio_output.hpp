@@ -19,7 +19,8 @@ namespace audio {
 
 class I2SAudioOutput : public IAudioOutput {
  public:
-  I2SAudioOutput(drivers::IGpios* expander, std::weak_ptr<drivers::I2SDac> dac);
+  I2SAudioOutput(drivers::IGpios& expander,
+                 std::unique_ptr<drivers::I2SDac> dac);
   ~I2SAudioOutput();
 
   auto SetInUse(bool) -> void override;
@@ -37,8 +38,8 @@ class I2SAudioOutput : public IAudioOutput {
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
 
  private:
-  drivers::IGpios* expander_;
-  std::shared_ptr<drivers::I2SDac> dac_;
+  drivers::IGpios& expander_;
+  std::unique_ptr<drivers::I2SDac> dac_;
 
   std::optional<Format> current_config_;
   int_fast8_t left_difference_;

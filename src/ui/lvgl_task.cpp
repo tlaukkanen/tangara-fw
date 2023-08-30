@@ -48,67 +48,74 @@
 
 namespace ui {
 
-static const char* kTag = "lv_task";
+static const char* kTag = "ui_task";
 static const TickType_t kMaxFrameRate = pdMS_TO_TICKS(100);
 
-static int sTimerId;
-static SemaphoreHandle_t sFrameSemaphore;
-
-auto next_frame(TimerHandle_t) {
-  xSemaphoreGive(sFrameSemaphore);
+static auto next_frame(TimerHandle_t t) {
+  SemaphoreHandle_t sem =
+      reinterpret_cast<SemaphoreHandle_t>(pvTimerGetTimerID(t));
+  xSemaphoreGive(sem);
 }
 
-void LvglMain(std::weak_ptr<drivers::RelativeWheel> weak_touch_wheel,
-              std::weak_ptr<drivers::Display> weak_display) {
-  ESP_LOGI(kTag, "init lvgl");
-  lv_init();
+UiTask::UiTask()
+    : quit_(false),
+      frame_semaphore_(xSemaphoreCreateBinary()),
+      frame_timer_(xTimerCreate("ui_frame",
+                                kMaxFrameRate,
+                                pdTRUE,
+                                frame_semaphore_,
+                                next_frame)) {
+  xTimerStart(frame_timer_, portMAX_DELAY);
+}
 
-  sFrameSemaphore = xSemaphoreCreateBinary();
-  auto timer =
-      xTimerCreate("lvgl_frame", kMaxFrameRate, pdTRUE, &sTimerId, next_frame);
-  xTimerStart(timer, portMAX_DELAY);
+UiTask::~UiTask() {
+  assert(false);
+}
 
-  lv_theme_t* base_theme = lv_theme_basic_init(NULL);
-  lv_disp_set_theme(NULL, base_theme);
-  themes::Theme::instance()->Apply();
-
-  TouchWheelEncoder encoder(weak_touch_wheel);
-
-  std::shared_ptr<Screen> current_screen;
+auto UiTask::Main() -> void {
+  ESP_LOGI(kTag, "start ui task");
   lv_group_t* current_group = nullptr;
   auto* events = events::queues::Ui();
-  while (1) {
+  while (true) {
     while (events->Service(0)) {
     }
 
     std::shared_ptr<Screen> screen = UiState::current_screen();
-    if (screen != current_screen && screen != nullptr) {
-      // TODO(jacqueline): animate this sometimes
+    if (screen != current_screen_ && screen != nullptr) {
       lv_scr_load(screen->root());
-      lv_indev_set_group(encoder.registration(), screen->group());
-      current_screen = screen;
+      if (input_device_) {
+        lv_indev_set_group(input_device_->registration(), screen->group());
+      }
+      current_screen_ = screen;
     }
 
-    if (current_screen->group() != current_group) {
-      current_group = current_screen->group();
-      lv_indev_set_group(encoder.registration(), current_group);
+    if (input_device_ && current_screen_->group() != current_group) {
+      current_group = current_screen_->group();
+      lv_indev_set_group(input_device_->registration(), current_group);
     }
 
-    if (current_screen) {
-      current_screen->Tick();
+    if (current_screen_) {
+      current_screen_->Tick();
     }
 
     lv_task_handler();
 
     // Wait for the signal to loop again.
-    xSemaphoreTake(sFrameSemaphore, portMAX_DELAY);
+    xSemaphoreTake(frame_semaphore_, portMAX_DELAY);
   }
 }
 
-auto StartLvgl(std::weak_ptr<drivers::RelativeWheel> touch_wheel,
-               std::weak_ptr<drivers::Display> display) -> void {
-  tasks::StartPersistent<tasks::Type::kUi>(
-      0, [=]() { LvglMain(touch_wheel, display); });
+auto UiTask::SetInputDevice(std::shared_ptr<TouchWheelEncoder> dev) -> void {
+  input_device_ = std::move(dev);
+  if (current_screen_ && input_device_) {
+    lv_indev_set_group(input_device_->registration(), current_screen_->group());
+  }
+}
+
+auto UiTask::Start() -> UiTask* {
+  UiTask* ret = new UiTask();
+  tasks::StartPersistent<tasks::Type::kUi>(0, [=]() { ret->Main(); });
+  return ret;
 }
 
 }  // namespace ui

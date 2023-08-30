@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "audio_sink.hpp"
+#include "service_locator.hpp"
 #include "tinyfsm.hpp"
 
 #include "audio_decoder.hpp"
@@ -32,12 +33,6 @@ namespace audio {
 
 class AudioState : public tinyfsm::Fsm<AudioState> {
  public:
-  static auto Init(drivers::IGpios* gpio_expander,
-                   std::weak_ptr<database::Database>,
-                   std::shared_ptr<database::ITagParser>,
-                   drivers::Bluetooth* bluetooth,
-                   TrackQueue* queue) -> bool;
-
   virtual ~AudioState() {}
 
   virtual void entry() {}
@@ -45,8 +40,6 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
-
-  void react(const system_fsm::StorageMounted&);
 
   void react(const system_fsm::KeyUpChanged&);
   void react(const system_fsm::KeyDownChanged&);
@@ -65,16 +58,13 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const internal::AudioPipelineIdle&) {}
 
  protected:
-  static drivers::IGpios* sIGpios;
-  static std::shared_ptr<drivers::I2SDac> sDac;
-  static std::weak_ptr<database::Database> sDatabase;
+  static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
   static std::shared_ptr<FatfsAudioInput> sFileSource;
   static std::unique_ptr<Decoder> sDecoder;
   static std::shared_ptr<SampleConverter> sSampleConverter;
   static std::shared_ptr<IAudioOutput> sOutput;
 
-  static TrackQueue* sTrackQueue;
   static std::optional<database::TrackId> sCurrentTrack;
 };
 

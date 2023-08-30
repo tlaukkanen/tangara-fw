@@ -18,7 +18,7 @@ namespace battery {
 
 class Battery {
  public:
-  Battery(drivers::Samd* samd, drivers::AdcBattery* adc);
+  Battery(drivers::Samd& samd, std::unique_ptr<drivers::AdcBattery> adc);
   ~Battery();
 
   auto Update() -> void;
@@ -33,8 +33,8 @@ class Battery {
  private:
   auto EmitEvent() -> void;
 
-  drivers::Samd* samd_;
-  drivers::AdcBattery* adc_;
+  drivers::Samd& samd_;
+  std::unique_ptr<drivers::AdcBattery> adc_;
 
   TimerHandle_t timer_;
   std::mutex state_mutex_;

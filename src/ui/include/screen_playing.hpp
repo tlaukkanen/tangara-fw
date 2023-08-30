@@ -29,7 +29,7 @@ namespace screens {
 class Playing : public Screen {
  public:
   explicit Playing(std::weak_ptr<database::Database> db,
-                   audio::TrackQueue* queue);
+                   audio::TrackQueue& queue);
   ~Playing();
 
   auto Tick() -> void override;
@@ -51,7 +51,7 @@ class Playing : public Screen {
   auto ApplyNextUp(const std::vector<database::Track>& tracks) -> void;
 
   std::weak_ptr<database::Database> db_;
-  audio::TrackQueue* queue_;
+  audio::TrackQueue& queue_;
 
   std::optional<database::Track> track_;
   std::vector<database::Track> next_tracks_;

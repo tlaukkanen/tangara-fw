@@ -39,7 +39,7 @@ namespace drivers {
 static const char* kTag = "i2s_dac";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
-auto I2SDac::create(IGpios* expander) -> std::optional<I2SDac*> {
+auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config =
       I2S_CHANNEL_DEFAULT_CONFIG(kI2SPort, I2S_ROLE_MASTER);
@@ -77,7 +77,7 @@ auto I2SDac::create(IGpios* expander) -> std::optional<I2SDac*> {
   return dac.release();
 }
 
-I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
+I2SDac::I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle)
     : gpio_(gpio),
       i2s_handle_(i2s_handle),
       i2s_active_(false),
@@ -87,7 +87,7 @@ I2SDac::I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle)
   clock_config_.clk_src = I2S_CLK_SRC_APLL;
 
   // Keep the 5V circuity off until it's needed.
-  gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, false);
 
   // Reset all registers back to their default values.
   wm8523::WriteRegister(wm8523::Register::kReset, 1);
@@ -103,9 +103,9 @@ I2SDac::~I2SDac() {
 auto I2SDac::Start() -> void {
   std::lock_guard<std::mutex> lock(configure_mutex_);
 
-  gpio_->WriteSync(IGpios::Pin::kAmplifierUnmute, false);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, false);
   // Ramp up the amplifier power supply.
-  gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, true);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, true);
 
   // Wait for voltage to stabilise
   vTaskDelay(pdMS_TO_TICKS(5));
@@ -124,7 +124,7 @@ auto I2SDac::Start() -> void {
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
 
   vTaskDelay(pdMS_TO_TICKS(5));
-  gpio_->WriteSync(IGpios::Pin::kAmplifierUnmute, true);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, true);
 }
 
 auto I2SDac::Stop() -> void {
@@ -134,7 +134,7 @@ auto I2SDac::Stop() -> void {
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
   vTaskDelay(pdMS_TO_TICKS(5));
   // Silence the output.
-  gpio_->WriteSync(IGpios::Pin::kAmplifierUnmute, false);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, false);
 
   vTaskDelay(pdMS_TO_TICKS(5));
 
@@ -143,7 +143,7 @@ auto I2SDac::Stop() -> void {
   i2s_channel_disable(i2s_handle_);
   i2s_active_ = false;
 
-  gpio_->WriteSync(IGpios::Pin::kAmplifierEnable, false);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, false);
 }
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)

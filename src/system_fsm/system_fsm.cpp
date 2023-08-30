@@ -9,6 +9,7 @@
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "relative_wheel.hpp"
+#include "service_locator.hpp"
 #include "system_events.hpp"
 #include "tag_parser.hpp"
 #include "track_queue.hpp"
@@ -17,22 +18,8 @@ static const char kTag[] = "system";
 
 namespace system_fsm {
 
-std::shared_ptr<drivers::Gpios> SystemState::sGpios;
-std::shared_ptr<drivers::Samd> SystemState::sSamd;
-std::shared_ptr<drivers::NvsStorage> SystemState::sNvs;
-
-std::shared_ptr<drivers::TouchWheel> SystemState::sTouch;
-std::shared_ptr<drivers::RelativeWheel> SystemState::sRelativeTouch;
-std::shared_ptr<drivers::AdcBattery> SystemState::sAdc;
-std::shared_ptr<battery::Battery> SystemState::sBattery;
-std::shared_ptr<drivers::SdStorage> SystemState::sStorage;
-std::shared_ptr<drivers::Display> SystemState::sDisplay;
-std::shared_ptr<drivers::Bluetooth> SystemState::sBluetooth;
-
-std::shared_ptr<database::Database> SystemState::sDatabase;
-std::shared_ptr<database::TagParserImpl> SystemState::sTagParser;
-
-std::shared_ptr<audio::TrackQueue> SystemState::sTrackQueue;
+std::shared_ptr<ServiceLocator> SystemState::sServices;
+std::unique_ptr<drivers::SdStorage> SystemState::sStorage;
 
 console::AppConsole* SystemState::sAppConsole;
 
@@ -43,17 +30,18 @@ void SystemState::react(const FatalError& err) {
 }
 
 void SystemState::react(const internal::GpioInterrupt&) {
-  bool prev_key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
-  bool prev_key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
-  bool prev_key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
-  bool prev_has_headphones = !sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
+  auto& gpios = sServices->gpios();
+  bool prev_key_up = gpios.Get(drivers::Gpios::Pin::kKeyUp);
+  bool prev_key_down = gpios.Get(drivers::Gpios::Pin::kKeyDown);
+  bool prev_key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
+  bool prev_has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
-  sGpios->Read();
+  gpios.Read();
 
-  bool key_up = sGpios->Get(drivers::Gpios::Pin::kKeyUp);
-  bool key_down = sGpios->Get(drivers::Gpios::Pin::kKeyDown);
-  bool key_lock = sGpios->Get(drivers::Gpios::Pin::kKeyLock);
-  bool has_headphones = !sGpios->Get(drivers::Gpios::Pin::kPhoneDetect);
+  bool key_up = gpios.Get(drivers::Gpios::Pin::kKeyUp);
+  bool key_down = gpios.Get(drivers::Gpios::Pin::kKeyDown);
+  bool key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
+  bool has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
   if (key_up != prev_key_up) {
     KeyUpChanged ev{.falling = prev_key_up};
@@ -77,14 +65,15 @@ void SystemState::react(const internal::GpioInterrupt&) {
 }
 
 void SystemState::react(const internal::SamdInterrupt&) {
-  auto prev_charge_status = sSamd->GetChargeStatus();
-  auto prev_usb_status = sSamd->GetUsbStatus();
+  auto& samd = sServices->samd();
+  auto prev_charge_status = samd.GetChargeStatus();
+  auto prev_usb_status = samd.GetUsbStatus();
 
-  sSamd->UpdateChargeStatus();
-  sSamd->UpdateUsbStatus();
+  samd.UpdateChargeStatus();
+  samd.UpdateUsbStatus();
 
-  auto charge_status = sSamd->GetChargeStatus();
-  auto usb_status = sSamd->GetUsbStatus();
+  auto charge_status = samd.GetChargeStatus();
+  auto usb_status = samd.GetUsbStatus();
 
   if (charge_status != prev_charge_status) {
     ChargingStatusChanged ev{};
@@ -97,7 +86,7 @@ void SystemState::react(const internal::SamdInterrupt&) {
 }
 
 auto SystemState::IdleCondition() -> bool {
-  return !sGpios->Get(drivers::IGpios::Pin::kKeyLock) &&
+  return !sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock) &&
          audio::AudioState::is_in_state<audio::states::Standby>();
 }
 

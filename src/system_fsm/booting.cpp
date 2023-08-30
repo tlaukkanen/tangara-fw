@@ -6,8 +6,10 @@
 
 #include <stdint.h>
 
+#include "adc.hpp"
 #include "assert.h"
 #include "audio_fsm.hpp"
+#include "battery.hpp"
 #include "bluetooth.hpp"
 #include "core/lv_obj.h"
 #include "display_init.hpp"
@@ -23,6 +25,7 @@
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "samd.hpp"
+#include "service_locator.hpp"
 #include "spi.hpp"
 #include "system_events.hpp"
 #include "system_fsm.hpp"
@@ -40,65 +43,55 @@ static const char kTag[] = "BOOT";
 
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
-  ESP_LOGI(kTag, "installing early drivers");
+  sServices.reset(new ServiceLocator());
 
+  ESP_LOGI(kTag, "installing early drivers");
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
   ESP_ERROR_CHECK(drivers::init_spi());
-  sGpios.reset(drivers::Gpios::Create());
+  sServices->gpios(std::unique_ptr<drivers::Gpios>(drivers::Gpios::Create()));
 
-  sSamd.reset(drivers::Samd::Create());
-  sAdc.reset(drivers::AdcBattery::Create());
-  sNvs.reset(drivers::NvsStorage::OpenSync());
-  assert(sSamd.get() && sAdc.get() && sNvs.get());
-
-  sBattery.reset(new battery::Battery(sSamd.get(), sAdc.get()));
-
-  // Start bringing up LVGL now, since we have all of its prerequisites.
-  sTrackQueue.reset(new audio::TrackQueue());
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::Init(sGpios.get(), sNvs, sTrackQueue.get(), sBattery)) {
+  if (!ui::UiState::InitBootSplash(sServices->gpios())) {
     events::System().Dispatch(FatalError{});
     return;
   }
 
-  // Install everything else that is certain to be needed.
   ESP_LOGI(kTag, "installing remaining drivers");
-  sTagParser.reset(new database::TagParserImpl());
+  sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
+  sServices->nvs(
+      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
+  sServices->touchwheel(
+      std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
+
+  auto adc = drivers::AdcBattery::Create();
+  sServices->battery(std::make_unique<battery::Battery>(
+      sServices->samd(), std::unique_ptr<drivers::AdcBattery>(adc)));
+
+  sServices->track_queue(std::make_unique<audio::TrackQueue>());
+  sServices->tag_parser(std::make_unique<database::TagParserImpl>());
 
   // ESP_LOGI(kTag, "starting bluetooth");
   // sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
   // sBluetooth->Enable();
 
-  // At this point we've done all of the essential boot tasks. Start remaining
-  // state machines and inform them that the system is ready.
-
-  ESP_LOGI(kTag, "starting audio");
-  if (!audio::AudioState::Init(sGpios.get(), sDatabase, sTagParser,
-                               sBluetooth.get(), sTrackQueue.get())) {
-    events::System().Dispatch(FatalError{});
-    events::Ui().Dispatch(FatalError{});
-    return;
-  }
-
-  events::System().Dispatch(BootComplete{});
-  events::Audio().Dispatch(BootComplete{});
-  events::Ui().Dispatch(BootComplete{});
+  BootComplete ev{.services = sServices};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
+  events::System().Dispatch(ev);
 }
 
 auto Booting::exit() -> void {
   // TODO(jacqueline): Gate this on something. Debug flag? Flashing mode?
   sAppConsole = new console::AppConsole();
-  sAppConsole->sTrackQueue = sTrackQueue.get();
-  sAppConsole->sBluetooth = sBluetooth.get();
-  sAppConsole->sSamd = sSamd.get();
+  sAppConsole->sServices = sServices;
   sAppConsole->Launch();
 }
 
 auto Booting::react(const BootComplete& ev) -> void {
   ESP_LOGI(kTag, "bootup completely successfully");
 
-  if (sGpios->Get(drivers::Gpios::Pin::kKeyLock)) {
+  if (sServices->gpios().Get(drivers::Gpios::Pin::kKeyLock)) {
     transit<Running>();
   } else {
     transit<Idle>();

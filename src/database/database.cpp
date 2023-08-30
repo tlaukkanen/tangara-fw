@@ -46,9 +46,6 @@ static const char kTrackIdKey[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
-static FileGathererImpl sFileGatherer;
-static TagParserImpl sTagParser;
-
 template <typename Parser>
 auto IterateAndParse(leveldb::Iterator* it, std::size_t limit, Parser p)
     -> void {
@@ -62,11 +59,7 @@ auto IterateAndParse(leveldb::Iterator* it, std::size_t limit, Parser p)
   }
 }
 
-auto Database::Open() -> cpp::result<Database*, DatabaseError> {
-  return Open(&sFileGatherer, &sTagParser);
-}
-
-auto Database::Open(IFileGatherer* gatherer, ITagParser* parser)
+auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
     -> cpp::result<Database*, DatabaseError> {
   // TODO(jacqueline): Why isn't compare_and_exchange_* available?
   if (sIsDbOpen.exchange(true)) {
@@ -79,7 +72,7 @@ auto Database::Open(IFileGatherer* gatherer, ITagParser* parser)
       tasks::Worker::Start<tasks::Type::kDatabase>());
   return worker
       ->Dispatch<cpp::result<Database*, DatabaseError>>(
-          [=]() -> cpp::result<Database*, DatabaseError> {
+          [&]() -> cpp::result<Database*, DatabaseError> {
             leveldb::DB* db;
             leveldb::Cache* cache = leveldb::NewLRUCache(24 * 1024);
             leveldb::Options options;
@@ -112,8 +105,8 @@ auto Database::Destroy() -> void {
 
 Database::Database(leveldb::DB* db,
                    leveldb::Cache* cache,
-                   IFileGatherer* file_gatherer,
-                   ITagParser* tag_parser,
+                   IFileGatherer& file_gatherer,
+                   ITagParser& tag_parser,
                    std::shared_ptr<tasks::Worker> worker)
     : db_(db),
       cache_(cache),
@@ -178,7 +171,7 @@ auto Database::Update() -> std::future<void> {
         }
 
         TrackTags tags{};
-        if (!tag_parser_->ReadAndParseTags(track->filepath(), &tags) ||
+        if (!tag_parser_.ReadAndParseTags(track->filepath(), &tags) ||
             tags.encoding() == Container::kUnsupported) {
           // We couldn't read the tags for this track. Either they were
           // malformed, or perhaps the file is missing. Either way, tombstone
@@ -215,9 +208,9 @@ auto Database::Update() -> std::future<void> {
     events::Ui().Dispatch(event::UpdateProgress{
         .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
     });
-    file_gatherer_->FindFiles("", [&](const std::string& path) {
+    file_gatherer_.FindFiles("", [&](const std::string& path) {
       TrackTags tags;
-      if (!tag_parser_->ReadAndParseTags(path, &tags) ||
+      if (!tag_parser_.ReadAndParseTags(path, &tags) ||
           tags.encoding() == Container::kUnsupported) {
         // No parseable tags; skip this fiile.
         return;
@@ -287,7 +280,7 @@ auto Database::GetTrack(TrackId id) -> std::future<std::optional<Track>> {
           return {};
         }
         TrackTags tags;
-        if (!tag_parser_->ReadAndParseTags(data->filepath(), &tags)) {
+        if (!tag_parser_.ReadAndParseTags(data->filepath(), &tags)) {
           return {};
         }
         return Track(*data, tags);
@@ -628,7 +621,7 @@ auto Database::ParseRecord<Track>(const leveldb::Slice& key,
     return {};
   }
   TrackTags tags;
-  if (!tag_parser_->ReadAndParseTags(data->filepath(), &tags)) {
+  if (!tag_parser_.ReadAndParseTags(data->filepath(), &tags)) {
     return {};
   }
   return Track(*data, tags);

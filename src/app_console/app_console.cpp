@@ -31,18 +31,16 @@
 #include "freertos/FreeRTOSConfig_arch.h"
 #include "freertos/projdefs.h"
 #include "index.hpp"
+#include "service_locator.hpp"
 #include "track.hpp"
 
 namespace console {
 
-std::weak_ptr<database::Database> AppConsole::sDatabase;
-audio::TrackQueue* AppConsole::sTrackQueue;
-drivers::Bluetooth* AppConsole::sBluetooth;
-drivers::Samd* AppConsole::sSamd;
+std::shared_ptr<system_fsm::ServiceLocator> AppConsole::sServices;
 
 int CmdListDir(int argc, char** argv) {
-  auto lock = AppConsole::sDatabase.lock();
-  if (lock == nullptr) {
+  auto db = AppConsole::sServices->database().lock();
+  if (!db) {
     std::cout << "storage is not available" << std::endl;
     return 1;
   }
@@ -117,7 +115,7 @@ int CmdPlayFile(int argc, char** argv) {
 
   if (is_id) {
     database::TrackId id = std::atoi(argv[1]);
-    AppConsole::sTrackQueue->AddLast(id);
+    AppConsole::sServices->track_queue().AddLast(id);
   } else {
     std::ostringstream path;
     path << '/' << argv[1];
@@ -147,7 +145,7 @@ int CmdDbInit(int argc, char** argv) {
     return 1;
   }
 
-  auto db = AppConsole::sDatabase.lock();
+  auto db = AppConsole::sServices->database().lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
@@ -174,7 +172,7 @@ int CmdDbTracks(int argc, char** argv) {
     return 1;
   }
 
-  auto db = AppConsole::sDatabase.lock();
+  auto db = AppConsole::sServices->database().lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
@@ -211,7 +209,7 @@ int CmdDbIndex(int argc, char** argv) {
   vTaskDelay(1);
   static const std::string usage = "usage: db_index [id] [choices ...]";
 
-  auto db = AppConsole::sDatabase.lock();
+  auto db = AppConsole::sServices->database().lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
@@ -252,9 +250,9 @@ int CmdDbIndex(int argc, char** argv) {
       return -1;
     }
     if (res->values().at(choice).track()) {
-      AppConsole::sTrackQueue->IncludeLast(
-          std::make_shared<playlist::IndexRecordSource>(AppConsole::sDatabase,
-                                                        res, 0, res, choice));
+      AppConsole::sServices->track_queue().IncludeLast(
+          std::make_shared<playlist::IndexRecordSource>(
+              AppConsole::sServices->database(), res, 0, res, choice));
     }
     auto cont = res->values().at(choice).Expand(20);
     if (!cont) {
@@ -296,7 +294,7 @@ int CmdDbDump(int argc, char** argv) {
     return 1;
   }
 
-  auto db = AppConsole::sDatabase.lock();
+  auto db = AppConsole::sServices->database().lock();
   if (!db) {
     std::cout << "no database open" << std::endl;
     return 1;
@@ -448,14 +446,15 @@ int CmdBtList(int argc, char** argv) {
     return 1;
   }
 
-  auto devices = AppConsole::sBluetooth->KnownDevices();
+  auto devices = AppConsole::sServices->bluetooth().KnownDevices();
   if (argc == 2) {
     int index = std::atoi(argv[1]);
     if (index < 0 || index >= devices.size()) {
       std::cout << "index out of range" << std::endl;
       return -1;
     }
-    AppConsole::sBluetooth->SetPreferredDevice(devices[index].address);
+    AppConsole::sServices->bluetooth().SetPreferredDevice(
+        devices[index].address);
   } else {
     std::cout << "mac\t\trssi\tname" << std::endl;
     for (const auto& device : devices) {
@@ -493,9 +492,9 @@ int CmdSamd(int argc, char** argv) {
   if (cmd == "flash") {
     std::cout << "resetting samd..." << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));
-    AppConsole::sSamd->ResetToFlashSamd();
+    AppConsole::sServices->samd().ResetToFlashSamd();
   } else if (cmd == "charge") {
-    auto res = AppConsole::sSamd->GetChargeStatus();
+    auto res = AppConsole::sServices->samd().GetChargeStatus();
     if (res) {
       switch (res.value()) {
         case drivers::Samd::ChargeStatus::kNoBattery:
@@ -523,7 +522,7 @@ int CmdSamd(int argc, char** argv) {
   } else if (cmd == "off") {
     std::cout << "bye !!!" << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));
-    AppConsole::sSamd->PowerDown();
+    AppConsole::sServices->samd().PowerDown();
   } else {
     std::cout << usage << std::endl;
     return 1;

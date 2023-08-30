@@ -11,9 +11,12 @@
 
 #include "audio_events.hpp"
 #include "battery.hpp"
+#include "gpios.hpp"
+#include "lvgl_task.hpp"
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
+#include "service_locator.hpp"
 #include "tinyfsm.hpp"
 
 #include "display.hpp"
@@ -24,15 +27,13 @@
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
+#include "wheel_encoder.hpp"
 
 namespace ui {
 
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
-  static auto Init(drivers::IGpios*,
-                   std::shared_ptr<drivers::NvsStorage>,
-                   audio::TrackQueue*,
-                   std::shared_ptr<battery::Battery>) -> bool;
+  static auto InitBootSplash(drivers::IGpios&) -> bool;
 
   virtual ~UiState() {}
 
@@ -46,7 +47,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
-  void react(const system_fsm::BatteryStateChanged&);
+  virtual void react(const system_fsm::BatteryStateChanged&);
 
   virtual void react(const audio::PlaybackStarted&) {}
   virtual void react(const audio::PlaybackUpdate&) {}
@@ -76,15 +77,10 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void PopScreen();
   void UpdateTopBar();
 
-  static drivers::IGpios* sIGpios;
-  static audio::TrackQueue* sQueue;
-
-  static std::shared_ptr<drivers::TouchWheel> sTouchWheel;
-  static std::shared_ptr<drivers::RelativeWheel> sRelativeWheel;
-  static std::shared_ptr<drivers::Display> sDisplay;
-  static std::shared_ptr<battery::Battery> sBattery;
-  static std::shared_ptr<drivers::NvsStorage> sNvs;
-  static std::weak_ptr<database::Database> sDb;
+  static std::unique_ptr<UiTask> sTask;
+  static std::shared_ptr<system_fsm::ServiceLocator> sServices;
+  static std::unique_ptr<drivers::Display> sDisplay;
+  static std::shared_ptr<TouchWheelEncoder> sEncoder;
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
@@ -97,6 +93,7 @@ class Splash : public UiState {
  public:
   void exit() override;
   void react(const system_fsm::BootComplete&) override;
+  void react(const system_fsm::BatteryStateChanged&) override{};
   using UiState::react;
 };
 

@@ -18,6 +18,7 @@
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "samd.hpp"
+#include "service_locator.hpp"
 #include "storage.hpp"
 #include "tag_parser.hpp"
 #include "tinyfsm.hpp"
@@ -60,22 +61,8 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
  protected:
   auto IdleCondition() -> bool;
 
-  static std::shared_ptr<drivers::Gpios> sGpios;
-  static std::shared_ptr<drivers::Samd> sSamd;
-  static std::shared_ptr<drivers::NvsStorage> sNvs;
-
-  static std::shared_ptr<drivers::TouchWheel> sTouch;
-  static std::shared_ptr<drivers::RelativeWheel> sRelativeTouch;
-  static std::shared_ptr<drivers::AdcBattery> sAdc;
-  static std::shared_ptr<battery::Battery> sBattery;
-  static std::shared_ptr<drivers::SdStorage> sStorage;
-  static std::shared_ptr<drivers::Display> sDisplay;
-  static std::shared_ptr<drivers::Bluetooth> sBluetooth;
-
-  static std::shared_ptr<database::Database> sDatabase;
-  static std::shared_ptr<database::TagParserImpl> sTagParser;
-
-  static std::shared_ptr<audio::TrackQueue> sTrackQueue;
+  static std::shared_ptr<ServiceLocator> sServices;
+  static std::unique_ptr<drivers::SdStorage> sStorage;
 
   static console::AppConsole* sAppConsole;
 };

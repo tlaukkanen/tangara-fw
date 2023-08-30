@@ -40,8 +40,7 @@ static const char* kTag = "SRC";
 
 namespace audio {
 
-FatfsAudioInput::FatfsAudioInput(
-    std::shared_ptr<database::ITagParser> tag_parser)
+FatfsAudioInput::FatfsAudioInput(database::ITagParser& tag_parser)
     : IAudioSource(),
       tag_parser_(tag_parser),
       new_stream_mutex_(),
@@ -119,7 +118,7 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   database::TrackTags tags;
-  if (!tag_parser_->ReadAndParseTags(path, &tags)) {
+  if (!tag_parser_.ReadAndParseTags(path, &tags)) {
     ESP_LOGE(kTag, "failed to read tags");
     return false;
   }

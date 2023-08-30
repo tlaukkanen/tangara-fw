@@ -33,9 +33,9 @@ namespace drivers {
  */
 class I2SDac {
  public:
-  static auto create(IGpios* expander) -> std::optional<I2SDac*>;
+  static auto create(IGpios& expander) -> std::optional<I2SDac*>;
 
-  I2SDac(IGpios* gpio, i2s_chan_handle_t i2s_handle);
+  I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle);
   ~I2SDac();
 
   auto Start() -> void;
@@ -69,7 +69,7 @@ class I2SDac {
   I2SDac& operator=(const I2SDac&) = delete;
 
  private:
-  IGpios* gpio_;
+  IGpios& gpio_;
   i2s_chan_handle_t i2s_handle_;
   bool i2s_active_;
   StreamBufferHandle_t buffer_;

@@ -161,7 +161,7 @@ static auto brightness_str(uint_fast8_t percent) -> std::string {
   return std::to_string(percent) + "%";
 }
 
-Appearance::Appearance(drivers::NvsStorage* nvs, drivers::Display* display)
+Appearance::Appearance(drivers::NvsStorage& nvs, drivers::Display& display)
     : MenuScreen("Appearance"), nvs_(nvs), display_(display) {
   lv_obj_t* toggle_container = settings_container(content_);
   lv_obj_t* toggle_label = lv_label_create(toggle_container);
@@ -170,7 +170,7 @@ Appearance::Appearance(drivers::NvsStorage* nvs, drivers::Display* display)
   lv_obj_t* toggle = lv_switch_create(toggle_container);
   lv_group_add_obj(group_, toggle);
 
-  uint_fast8_t initial_brightness = nvs_->ScreenBrightness().get();
+  uint_fast8_t initial_brightness = nvs_.ScreenBrightness().get();
 
   lv_obj_t* brightness_label = lv_label_create(content_);
   lv_label_set_text(brightness_label, "Brightness");
@@ -192,13 +192,13 @@ Appearance::Appearance(drivers::NvsStorage* nvs, drivers::Display* display)
 
 auto Appearance::ChangeBrightness(uint_fast8_t new_level) -> void {
   current_brightness_ = new_level;
-  display_->SetBrightness(new_level);
+  display_.SetBrightness(new_level);
   lv_label_set_text(current_brightness_label_,
                     brightness_str(new_level).c_str());
 }
 
 auto Appearance::CommitBrightness() -> void {
-  nvs_->ScreenBrightness(current_brightness_);
+  nvs_.ScreenBrightness(current_brightness_);
 }
 
 InputMethod::InputMethod() : MenuScreen("Input Method") {

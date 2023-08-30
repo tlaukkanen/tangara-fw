@@ -25,6 +25,7 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
+#include "service_locator.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
@@ -33,48 +34,14 @@ namespace audio {
 
 static const char kTag[] = "audio_fsm";
 
-drivers::IGpios* AudioState::sIGpios;
-std::shared_ptr<drivers::I2SDac> AudioState::sDac;
-std::weak_ptr<database::Database> AudioState::sDatabase;
+std::shared_ptr<system_fsm::ServiceLocator> AudioState::sServices;
 
 std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<Decoder> AudioState::sDecoder;
 std::shared_ptr<SampleConverter> AudioState::sSampleConverter;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
-TrackQueue* AudioState::sTrackQueue;
 std::optional<database::TrackId> AudioState::sCurrentTrack;
-
-auto AudioState::Init(drivers::IGpios* gpio_expander,
-                      std::weak_ptr<database::Database> database,
-                      std::shared_ptr<database::ITagParser> tag_parser,
-                      drivers::Bluetooth* bluetooth,
-                      TrackQueue* queue) -> bool {
-  sIGpios = gpio_expander;
-  sTrackQueue = queue;
-
-  auto dac = drivers::I2SDac::create(gpio_expander);
-  if (!dac) {
-    return false;
-  }
-  sDac.reset(dac.value());
-  sDatabase = database;
-
-  sFileSource.reset(new FatfsAudioInput(tag_parser));
-  sOutput.reset(new I2SAudioOutput(sIGpios, sDac));
-  // sOutput.reset(new BluetoothAudioOutput(bluetooth));
-
-  sSampleConverter.reset(new SampleConverter());
-  sSampleConverter->SetOutput(sOutput);
-
-  Decoder::Start(sFileSource, sSampleConverter);
-
-  return true;
-}
-
-void AudioState::react(const system_fsm::StorageMounted& ev) {
-  sDatabase = ev.db;
-}
 
 void AudioState::react(const system_fsm::KeyUpChanged& ev) {
   if (ev.falling && sOutput->AdjustVolumeUp()) {
@@ -100,7 +67,26 @@ void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
 
 namespace states {
 
-void Uninitialised::react(const system_fsm::BootComplete&) {
+void Uninitialised::react(const system_fsm::BootComplete& ev) {
+  sServices = ev.services;
+
+  auto dac = drivers::I2SDac::create(sServices->gpios());
+  if (!dac) {
+    events::System().Dispatch(system_fsm::FatalError{});
+    events::Ui().Dispatch(system_fsm::FatalError{});
+    return;
+  }
+
+  sFileSource.reset(new FatfsAudioInput(sServices->tag_parser()));
+  sOutput.reset(new I2SAudioOutput(sServices->gpios(),
+                                   std::unique_ptr<drivers::I2SDac>{*dac}));
+  // sOutput.reset(new BluetoothAudioOutput(bluetooth));
+
+  sSampleConverter.reset(new SampleConverter());
+  sSampleConverter->SetOutput(sOutput);
+
+  Decoder::Start(sFileSource, sSampleConverter);
+
   transit<Standby>();
 }
 
@@ -117,19 +103,18 @@ void Standby::react(const internal::InputFileOpened& ev) {
 }
 
 void Standby::react(const QueueUpdate& ev) {
-  auto current_track = sTrackQueue->GetCurrent();
+  auto current_track = sServices->track_queue().GetCurrent();
   if (!current_track || (sCurrentTrack && *sCurrentTrack == *current_track)) {
     return;
   }
 
   sCurrentTrack = current_track;
 
-  auto db = sDatabase.lock();
+  auto db = sServices->database().lock();
   if (!db) {
     ESP_LOGW(kTag, "database not open; ignoring play request");
     return;
   }
-
   sFileSource->SetPath(db->GetTrackPath(*current_track));
 }
 
@@ -158,7 +143,7 @@ void Playback::react(const QueueUpdate& ev) {
   if (!ev.current_changed) {
     return;
   }
-  auto current_track = sTrackQueue->GetCurrent();
+  auto current_track = sServices->track_queue().GetCurrent();
   if (!current_track) {
     sFileSource->SetPath();
     sCurrentTrack.reset();
@@ -168,7 +153,7 @@ void Playback::react(const QueueUpdate& ev) {
 
   sCurrentTrack = current_track;
 
-  auto db = sDatabase.lock();
+  auto db = sServices->database().lock();
   if (!db) {
     return;
   }
@@ -191,8 +176,8 @@ void Playback::react(const internal::InputFileClosed& ev) {}
 
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
-  sTrackQueue->Next();
-  if (!sTrackQueue->GetCurrent()) {
+  sServices->track_queue().Next();
+  if (!sServices->track_queue().GetCurrent()) {
     transit<Standby>();
   }
 }

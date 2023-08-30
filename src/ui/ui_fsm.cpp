@@ -32,6 +32,7 @@
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
+#include "wheel_encoder.hpp"
 #include "widget_top_bar.hpp"
 
 namespace ui {
@@ -40,51 +41,25 @@ static constexpr char kTag[] = "ui_fsm";
 
 static const std::size_t kRecordsPerPage = 15;
 
-drivers::IGpios* UiState::sIGpios;
-audio::TrackQueue* UiState::sQueue;
-
-std::shared_ptr<drivers::TouchWheel> UiState::sTouchWheel;
-std::shared_ptr<drivers::RelativeWheel> UiState::sRelativeWheel;
-std::shared_ptr<drivers::Display> UiState::sDisplay;
-std::shared_ptr<battery::Battery> UiState::sBattery;
-std::shared_ptr<drivers::NvsStorage> UiState::sNvs;
-std::weak_ptr<database::Database> UiState::sDb;
+std::unique_ptr<UiTask> UiState::sTask;
+std::shared_ptr<system_fsm::ServiceLocator> UiState::sServices;
+std::unique_ptr<drivers::Display> UiState::sDisplay;
+std::shared_ptr<TouchWheelEncoder> UiState::sEncoder;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 std::shared_ptr<Modal> UiState::sCurrentModal;
 
-auto UiState::Init(drivers::IGpios* gpio_expander,
-                   std::shared_ptr<drivers::NvsStorage> nvs,
-                   audio::TrackQueue* queue,
-                   std::shared_ptr<battery::Battery> battery) -> bool {
-  sIGpios = gpio_expander;
-  sNvs = nvs;
-  sQueue = queue;
-  sBattery = battery;
-
+auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
+  // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
-  sDisplay.reset(
-      drivers::Display::Create(gpio_expander, drivers::displays::kST7735R));
+  sDisplay.reset(drivers::Display::Create(gpios, drivers::displays::kST7735R));
   if (sDisplay == nullptr) {
     return false;
   }
-  sDisplay->SetBrightness(nvs->ScreenBrightness().get());
-
-  sTouchWheel.reset(drivers::TouchWheel::Create());
-  if (sTouchWheel != nullptr) {
-    sRelativeWheel.reset(new drivers::RelativeWheel(sTouchWheel.get()));
-  }
 
   sCurrentScreen.reset(new screens::Splash());
-
-  // Start the UI task even if init ultimately failed, so that we can show some
-  // kind of error screen to the user.
-  StartLvgl(sRelativeWheel, sDisplay);
-
-  if (sTouchWheel == nullptr) {
-    return false;
-  }
+  sTask.reset(UiTask::Start());
   return true;
 }
 
@@ -107,7 +82,8 @@ void UiState::PopScreen() {
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
-  sRelativeWheel->SetEnabled(ev.falling);
+  sTask->SetInputDevice(ev.falling ? sEncoder
+                                   : std::shared_ptr<TouchWheelEncoder>());
 }
 
 void UiState::react(const system_fsm::BatteryStateChanged&) {
@@ -115,8 +91,8 @@ void UiState::react(const system_fsm::BatteryStateChanged&) {
 }
 
 void UiState::UpdateTopBar() {
-  auto battery_state = sBattery->State();
-  bool has_queue = sQueue->GetCurrent().has_value();
+  auto battery_state = sServices->battery().State();
+  bool has_queue = sServices->track_queue().GetCurrent().has_value();
   bool is_playing = audio::AudioState::is_in_state<audio::states::Playback>();
 
   widgets::TopBar::State state{
@@ -140,19 +116,40 @@ namespace states {
 
 void Splash::exit() {
   if (sDisplay != nullptr) {
-    sDisplay->SetDisplayOn(sIGpios->Get(drivers::IGpios::Pin::kKeyLock));
+    sDisplay->SetDisplayOn(
+        sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock));
   }
 }
 
 void Splash::react(const system_fsm::BootComplete& ev) {
+  sServices = ev.services;
+
+  // The system has finished booting! We now need to prepare to show real UI.
+  // This basically just involves reading and applying the user's preferences.
+
+  lv_theme_t* base_theme = lv_theme_basic_init(NULL);
+  lv_disp_set_theme(NULL, base_theme);
+  themes::Theme::instance()->Apply();
+
+  sDisplay->SetBrightness(sServices->nvs().ScreenBrightness().get());
+
+  auto touchwheel = sServices->touchwheel();
+  if (touchwheel) {
+    auto relative_wheel =
+        std::make_unique<drivers::RelativeWheel>(**touchwheel);
+    sEncoder = std::make_shared<TouchWheelEncoder>(std::move(relative_wheel));
+    sTask->SetInputDevice(sEncoder);
+  } else {
+    ESP_LOGE(kTag, "no input devices initialised!");
+  }
+
   transit<Browse>();
 }
 
 void Browse::entry() {}
 
 void Browse::react(const system_fsm::StorageMounted& ev) {
-  sDb = ev.db;
-  auto db = ev.db.lock();
+  auto db = sServices->database().lock();
   if (!db) {
     // TODO(jacqueline): Hmm.
     return;
@@ -177,7 +174,7 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
       screen.reset(new screens::Headphones());
       break;
     case internal::ShowSettingsPage::Page::kAppearance:
-      screen.reset(new screens::Appearance(sNvs.get(), sDisplay.get()));
+      screen.reset(new screens::Appearance(sServices->nvs(), *sDisplay));
       break;
     case internal::ShowSettingsPage::Page::kInput:
       screen.reset(new screens::InputMethod());
@@ -198,7 +195,7 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
 }
 
 void Browse::react(const internal::RecordSelected& ev) {
-  auto db = sDb.lock();
+  auto db = sServices->database().lock();
   if (!db) {
     return;
   }
@@ -206,9 +203,10 @@ void Browse::react(const internal::RecordSelected& ev) {
   auto record = ev.page->values().at(ev.record);
   if (record.track()) {
     ESP_LOGI(kTag, "selected track '%s'", record.text()->c_str());
-    sQueue->Clear();
-    sQueue->IncludeLast(std::make_shared<playlist::IndexRecordSource>(
-        sDb, ev.initial_page, 0, ev.page, ev.record));
+    auto& queue = sServices->track_queue();
+    queue.Clear();
+    queue.IncludeLast(std::make_shared<playlist::IndexRecordSource>(
+        sServices->database(), ev.initial_page, 0, ev.page, ev.record));
     transit<Playing>();
   } else {
     ESP_LOGI(kTag, "selected record '%s'", record.text()->c_str());
@@ -218,21 +216,21 @@ void Browse::react(const internal::RecordSelected& ev) {
     }
     auto query = db->GetPage(&cont.value());
     std::string title = record.text().value_or("TODO");
-    PushScreen(
-        std::make_shared<screens::TrackBrowser>(sDb, title, std::move(query)));
+    PushScreen(std::make_shared<screens::TrackBrowser>(
+        sServices->database(), title, std::move(query)));
   }
 }
 
 void Browse::react(const internal::IndexSelected& ev) {
-  auto db = sDb.lock();
+  auto db = sServices->database().lock();
   if (!db) {
     return;
   }
 
   ESP_LOGI(kTag, "selected index %s", ev.index.name.c_str());
   auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
-  PushScreen(std::make_shared<screens::TrackBrowser>(sDb, ev.index.name,
-                                                     std::move(query)));
+  PushScreen(std::make_shared<screens::TrackBrowser>(
+      sServices->database(), ev.index.name, std::move(query)));
 }
 
 void Browse::react(const internal::BackPressed& ev) {
@@ -242,7 +240,8 @@ void Browse::react(const internal::BackPressed& ev) {
 static std::shared_ptr<screens::Playing> sPlayingScreen;
 
 void Playing::entry() {
-  sPlayingScreen.reset(new screens::Playing(sDb, sQueue));
+  sPlayingScreen.reset(
+      new screens::Playing(sServices->database(), sServices->track_queue()));
   PushScreen(sPlayingScreen);
 }
 

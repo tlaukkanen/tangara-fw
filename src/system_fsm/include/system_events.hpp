@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "database.hpp"
+#include "service_locator.hpp"
 #include "tinyfsm.hpp"
 
 namespace system_fsm {
@@ -19,7 +20,9 @@ struct DisplayReady : tinyfsm::Event {};
  * Sent by SysState when the system has finished with its boot and self-test,
  * and is now ready to run normally.
  */
-struct BootComplete : tinyfsm::Event {};
+struct BootComplete : tinyfsm::Event {
+  std::shared_ptr<ServiceLocator> services;
+};
 
 /*
  * May be sent by any component to indicate that the system has experienced an
@@ -33,9 +36,7 @@ struct OnIdle : tinyfsm::Event {};
 /*
  * Sent by SysState when the system storage has been successfully mounted.
  */
-struct StorageMounted : tinyfsm::Event {
-  std::weak_ptr<database::Database> db;
-};
+struct StorageMounted : tinyfsm::Event {};
 
 struct StorageError : tinyfsm::Event {};
 

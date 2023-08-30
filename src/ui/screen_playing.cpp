@@ -104,7 +104,7 @@ auto Playing::next_up_label(lv_obj_t* parent, const std::string& text)
   return button;
 }
 
-Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
+Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue& queue)
     : db_(db),
       queue_(queue),
       track_(),
@@ -204,7 +204,7 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue* queue)
 Playing::~Playing() {}
 
 auto Playing::OnTrackUpdate() -> void {
-  auto current = queue_->GetCurrent();
+  auto current = queue_.GetCurrent();
   if (!current) {
     return;
   }
@@ -230,7 +230,7 @@ auto Playing::OnPlaybackUpdate(uint32_t pos_seconds, uint32_t new_duration)
 
 auto Playing::OnQueueUpdate() -> void {
   OnTrackUpdate();
-  auto current = queue_->GetUpcoming(kMaxUpcoming);
+  auto current = queue_.GetUpcoming(kMaxUpcoming);
   auto db = db_.lock();
   if (!db) {
     return;

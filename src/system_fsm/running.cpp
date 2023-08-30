@@ -6,6 +6,7 @@
 
 #include "app_console.hpp"
 #include "audio_events.hpp"
+#include "database.hpp"
 #include "file_gatherer.hpp"
 #include "freertos/projdefs.h"
 #include "result.hpp"
@@ -31,7 +32,7 @@ static database::IFileGatherer* sFileGatherer;
 void Running::entry() {
   ESP_LOGI(kTag, "mounting sd card");
   vTaskDelay(pdMS_TO_TICKS(250));
-  auto storage_res = drivers::SdStorage::Create(sGpios.get());
+  auto storage_res = drivers::SdStorage::Create(sServices->gpios());
   if (storage_res.has_error()) {
     ESP_LOGW(kTag, "failed to mount!");
 
@@ -41,11 +42,11 @@ void Running::entry() {
     return;
   }
   sStorage.reset(storage_res.value());
-  vTaskDelay(pdMS_TO_TICKS(250));
 
   ESP_LOGI(kTag, "opening database");
   sFileGatherer = new database::FileGathererImpl();
-  auto database_res = database::Database::Open(sFileGatherer, sTagParser.get());
+  auto database_res =
+      database::Database::Open(*sFileGatherer, sServices->tag_parser());
   if (database_res.has_error()) {
     ESP_LOGW(kTag, "failed to open!");
     events::System().Dispatch(StorageError{});
@@ -53,18 +54,18 @@ void Running::entry() {
     events::Ui().Dispatch(StorageError{});
     return;
   }
-  sDatabase.reset(database_res.value());
-  console::AppConsole::sDatabase = sDatabase;
+  sServices->database(
+      std::unique_ptr<database::Database>{database_res.value()});
 
   ESP_LOGI(kTag, "storage loaded okay");
-  StorageMounted ev{.db = sDatabase};
+  StorageMounted ev{};
   events::System().Dispatch(ev);
   events::Audio().Dispatch(ev);
   events::Ui().Dispatch(ev);
 }
 
 void Running::exit() {
-  sDatabase.reset();
+  sServices->database({});
   sStorage.reset();
 }
 

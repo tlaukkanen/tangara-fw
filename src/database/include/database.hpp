@@ -91,7 +91,7 @@ class Database {
     ALREADY_OPEN,
     FAILED_TO_OPEN,
   };
-  static auto Open(IFileGatherer* file_gatherer, ITagParser* tag_parser)
+  static auto Open(IFileGatherer& file_gatherer, ITagParser& tag_parser)
       -> cpp::result<Database*, DatabaseError>;
   static auto Open() -> cpp::result<Database*, DatabaseError>;
 
@@ -133,13 +133,13 @@ class Database {
   std::shared_ptr<tasks::Worker> worker_task_;
 
   // Not owned.
-  IFileGatherer* file_gatherer_;
-  ITagParser* tag_parser_;
+  IFileGatherer& file_gatherer_;
+  ITagParser& tag_parser_;
 
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
-           IFileGatherer* file_gatherer,
-           ITagParser* tag_parser,
+           IFileGatherer& file_gatherer,
+           ITagParser& tag_parser,
            std::shared_ptr<tasks::Worker> worker);
 
   auto dbMintNewTrackId() -> TrackId;

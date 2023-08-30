@@ -20,11 +20,7 @@ namespace drivers {
 
 class RelativeWheel {
  public:
-  static auto Create(TouchWheel* touch) -> RelativeWheel* {
-    return new RelativeWheel(touch);
-  }
-
-  explicit RelativeWheel(TouchWheel* touch);
+  explicit RelativeWheel(TouchWheel& touch);
 
   auto Update() -> void;
   auto SetEnabled(bool) -> void;
@@ -37,7 +33,7 @@ class RelativeWheel {
   RelativeWheel& operator=(const RelativeWheel&) = delete;
 
  private:
-  TouchWheel* touch_;
+  TouchWheel& touch_;
 
   bool is_enabled_;
 

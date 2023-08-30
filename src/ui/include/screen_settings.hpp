@@ -37,14 +37,14 @@ class Headphones : public MenuScreen {
 
 class Appearance : public MenuScreen {
  public:
-  Appearance(drivers::NvsStorage* nvs, drivers::Display* display);
+  Appearance(drivers::NvsStorage& nvs, drivers::Display& display);
 
   auto ChangeBrightness(uint_fast8_t) -> void;
   auto CommitBrightness() -> void;
 
  private:
-  drivers::NvsStorage* nvs_;
-  drivers::Display* display_;
+  drivers::NvsStorage& nvs_;
+  drivers::Display& display_;
 
   lv_obj_t* current_brightness_label_;
   uint_fast8_t current_brightness_;

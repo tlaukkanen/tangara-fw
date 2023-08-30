@@ -13,7 +13,7 @@
 
 namespace drivers {
 
-RelativeWheel::RelativeWheel(TouchWheel* touch)
+RelativeWheel::RelativeWheel(TouchWheel& touch)
     : touch_(touch),
       is_enabled_(true),
       is_clicking_(false),
@@ -23,8 +23,8 @@ RelativeWheel::RelativeWheel(TouchWheel* touch)
       last_angle_(0) {}
 
 auto RelativeWheel::Update() -> void {
-  touch_->Update();
-  TouchWheelData d = touch_->GetTouchWheelData();
+  touch_.Update();
+  TouchWheelData d = touch_.GetTouchWheelData();
 
   is_clicking_ = d.is_button_touched;
 

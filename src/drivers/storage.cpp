@@ -32,10 +32,10 @@ namespace drivers {
 
 const char* kStoragePath = "/sdcard";
 
-auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
-  gpio->WriteSync(IGpios::Pin::kSdPowerEnable, 1);
-  gpio->WriteSync(IGpios::Pin::kSdMuxSwitch, IGpios::SD_MUX_ESP);
-  gpio->WriteSync(IGpios::Pin::kSdMuxDisable, 0);
+auto SdStorage::Create(IGpios& gpio) -> cpp::result<SdStorage*, Error> {
+  gpio.WriteSync(IGpios::Pin::kSdPowerEnable, 1);
+  gpio.WriteSync(IGpios::Pin::kSdMuxSwitch, IGpios::SD_MUX_ESP);
+  gpio.WriteSync(IGpios::Pin::kSdMuxDisable, 0);
 
   sdspi_dev_handle_t handle;
   FATFS* fs = nullptr;
@@ -95,7 +95,7 @@ auto SdStorage::Create(IGpios* gpio) -> cpp::result<SdStorage*, Error> {
   return new SdStorage(gpio, handle, std::move(host), std::move(card), fs);
 }
 
-SdStorage::SdStorage(IGpios* gpio,
+SdStorage::SdStorage(IGpios& gpio,
                      sdspi_dev_handle_t handle,
                      std::unique_ptr<sdmmc_host_t> host,
                      std::unique_ptr<sdmmc_card_t> card,
@@ -117,8 +117,8 @@ SdStorage::~SdStorage() {
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
 
-  gpio_->WriteSync(IGpios::Pin::kSdPowerEnable, 1);
-  gpio_->WriteSync(IGpios::Pin::kSdMuxDisable, 1);
+  gpio_.WriteSync(IGpios::Pin::kSdPowerEnable, 1);
+  gpio_.WriteSync(IGpios::Pin::kSdMuxDisable, 1);
 }
 
 auto SdStorage::GetFs() -> FATFS* {

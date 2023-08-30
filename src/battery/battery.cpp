@@ -40,8 +40,8 @@ void check_voltage_cb(TimerHandle_t timer) {
   instance->Update();
 }
 
-Battery::Battery(drivers::Samd* samd, drivers::AdcBattery* adc)
-    : samd_(samd), adc_(adc) {
+Battery::Battery(drivers::Samd& samd, std::unique_ptr<drivers::AdcBattery> adc)
+    : samd_(samd), adc_(std::move(adc)) {
   timer_ = xTimerCreate("BATTERY", kBatteryCheckPeriod, true, this,
                         check_voltage_cb);
   xTimerStart(timer_, portMAX_DELAY);
@@ -56,7 +56,7 @@ Battery::~Battery() {
 auto Battery::Update() -> void {
   std::lock_guard<std::mutex> lock{state_mutex_};
 
-  auto charge_state = samd_->GetChargeStatus();
+  auto charge_state = samd_.GetChargeStatus();
   if (!charge_state || *charge_state == ChargeStatus::kNoBattery) {
     if (state_) {
       EmitEvent();

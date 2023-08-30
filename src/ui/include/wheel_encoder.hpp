@@ -17,7 +17,7 @@ namespace ui {
 
 class TouchWheelEncoder {
  public:
-  explicit TouchWheelEncoder(std::weak_ptr<drivers::RelativeWheel> wheel);
+  explicit TouchWheelEncoder(std::unique_ptr<drivers::RelativeWheel> wheel);
 
   auto Read(lv_indev_data_t* data) -> void;
   auto registration() -> lv_indev_t* { return registration_; }
@@ -27,7 +27,7 @@ class TouchWheelEncoder {
   lv_indev_t* registration_;
 
   lv_key_t last_key_;
-  std::weak_ptr<drivers::RelativeWheel> wheel_;
+  std::unique_ptr<drivers::RelativeWheel> wheel_;
 };
 
 }  // namespace ui

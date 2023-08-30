@@ -12,16 +12,14 @@
 #include "console.hpp"
 #include "database.hpp"
 #include "samd.hpp"
+#include "service_locator.hpp"
 #include "track_queue.hpp"
 
 namespace console {
 
 class AppConsole : public Console {
  public:
-  static std::weak_ptr<database::Database> sDatabase;
-  static audio::TrackQueue* sTrackQueue;
-  static drivers::Bluetooth* sBluetooth;
-  static drivers::Samd* sSamd;
+  static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
  protected:
   virtual auto RegisterExtraComponents() -> void;
