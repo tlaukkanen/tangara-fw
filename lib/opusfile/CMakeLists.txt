@@ -5,7 +5,7 @@ idf_component_register(
   SRCS src/info.c src/internal.c src/internal.h src/opusfile.c src/stream.c
   INCLUDE_DIRS "include"
   REQUIRES "ogg")
-target_compile_options("${COMPONENT_LIB}" PRIVATE "-DOP_FIXED_POINT")
+target_compile_options("${COMPONENT_LIB}" PRIVATE "-DOP_FIXED_POINT" "-Wno-maybe-uninitialized")
 
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
