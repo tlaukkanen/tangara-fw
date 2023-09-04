@@ -17,9 +17,7 @@
 
 namespace audio {
 
-struct PlaybackStarted : tinyfsm::Event {
-  database::Track track;
-};
+struct PlaybackStarted : tinyfsm::Event {};
 
 struct PlaybackUpdate : tinyfsm::Event {
   uint32_t seconds_elapsed;

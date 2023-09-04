@@ -143,6 +143,9 @@ void Standby::react(const TogglePlayPause& ev) {
 void Playback::entry() {
   ESP_LOGI(kTag, "beginning playback");
   sOutput->SetInUse(true);
+
+  events::System().Dispatch(PlaybackStarted{});
+  events::Ui().Dispatch(PlaybackStarted{});
 }
 
 void Playback::exit() {
@@ -153,6 +156,7 @@ void Playback::exit() {
   sOutput->SetInUse(false);
 
   events::System().Dispatch(PlaybackFinished{});
+  events::Ui().Dispatch(PlaybackFinished{});
 }
 
 void Playback::react(const QueueUpdate& ev) {

@@ -60,19 +60,6 @@ static const int kDisplayBufferSize = (kDisplayWidth * kDisplayHeight) / 10;
 DMA_ATTR static lv_color_t sBuffer1[kDisplayBufferSize];
 DMA_ATTR static lv_color_t sBuffer2[kDisplayBufferSize];
 
-struct RenderTaskArgs {
-  std::atomic<bool>* quit;
-  QueueHandle_t work_queue;
-};
-
-struct FlushArgs {
-  lv_disp_drv_t* driver;
-  const lv_area_t* area;
-  lv_color_t* color_map;
-};
-
-void RenderMain(void* raw_args);
-
 namespace drivers {
 
 /*
@@ -81,8 +68,10 @@ namespace drivers {
 extern "C" void FlushDataCallback(lv_disp_drv_t* disp_drv,
                                   const lv_area_t* area,
                                   lv_color_t* color_map) {
+  taskYIELD();
   Display* instance = static_cast<Display*>(disp_drv->user_data);
   instance->OnLvglFlush(disp_drv, area, color_map);
+  taskYIELD();
 }
 
 auto Display::Create(IGpios& expander,
@@ -155,7 +144,6 @@ auto Display::Create(IGpios& expander,
   auto display = std::make_unique<Display>(expander, handle);
 
   // Now we reset the display into a known state, then configure it
-  // TODO(jacqueline): set rotation
   ESP_LOGI(kTag, "Sending init sequences");
   for (int i = 0; i < init_data.num_sequences; i++) {
     display->SendInitialisationSequence(init_data.sequences[i]);
@@ -183,13 +171,7 @@ auto Display::Create(IGpios& expander,
 }
 
 Display::Display(IGpios& gpio, spi_device_handle_t handle)
-    : gpio_(gpio),
-      handle_(handle),
-      worker_task_(tasks::Worker::Start<tasks::Type::kUiFlush>()),
-      display_on_(false),
-      brightness_(0) {
-  SetBrightness(50);
-}
+    : gpio_(gpio), handle_(handle), display_on_(false), brightness_(0) {}
 
 Display::~Display() {
   ledc_fade_func_uninstall();
@@ -303,10 +285,6 @@ void Display::SendTransaction(TransactionType type,
 void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
                           const lv_area_t* area,
                           lv_color_t* color_map) {
-  // area is stack-allocated, so it isn't safe to reference from the flush
-  // thread.
-  lv_area_t area_copy = *area;
-  // worker_task_->Dispatch<void>([=, this]() {
   //  Ideally we want to complete a single flush as quickly as possible, so
   //  grab the bus for this entire transaction sequence.
   spi_device_acquire_bus(handle_, portMAX_DELAY);
@@ -314,13 +292,13 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   // First we need to specify the rectangle of the display we're writing into.
   uint16_t data[2] = {0, 0};
 
-  data[0] = SPI_SWAP_DATA_TX(area_copy.x1, 16);
-  data[1] = SPI_SWAP_DATA_TX(area_copy.x2, 16);
+  data[0] = SPI_SWAP_DATA_TX(area->x1, 16);
+  data[1] = SPI_SWAP_DATA_TX(area->x2, 16);
   SendCommandWithData(displays::ST77XX_CASET, reinterpret_cast<uint8_t*>(data),
                       4);
 
-  data[0] = SPI_SWAP_DATA_TX(area_copy.y1, 16);
-  data[1] = SPI_SWAP_DATA_TX(area_copy.y2, 16);
+  data[0] = SPI_SWAP_DATA_TX(area->y1, 16);
+  data[1] = SPI_SWAP_DATA_TX(area->y2, 16);
   SendCommandWithData(displays::ST77XX_RASET, reinterpret_cast<uint8_t*>(data),
                       4);
 
@@ -332,22 +310,6 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   spi_device_release_bus(handle_);
 
   lv_disp_flush_ready(&driver_);
-  //});
-}
-
-void RenderMain(void* raw_args) {
-  RenderTaskArgs* args = reinterpret_cast<RenderTaskArgs*>(raw_args);
-  QueueHandle_t queue = args->work_queue;
-  std::atomic<bool>* quit = args->quit;
-  delete args;
-
-  while (!quit->load()) {
-    // TODO: flush data here! Yay speed.
-  }
-
-  vQueueDelete(queue);
-  delete quit;
-  vTaskDelete(NULL);
 }
 
 }  // namespace drivers

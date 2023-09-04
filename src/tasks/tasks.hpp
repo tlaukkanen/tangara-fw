@@ -30,18 +30,17 @@ namespace tasks {
 enum class Type {
   // The main UI task. This runs the LVGL main loop.
   kUi,
-  // Task for flushing graphics buffers to the display.
-  kUiFlush,
-  // TODO.
-  kFileStreamer,
-  // The main audio pipeline task.
-  kAudio,
-  // TODO
-  kMixer,
+  // The main audio pipeline task. Decodes files into PCM stream.
+  kAudioDecoder,
+  // Second audio task. Converts the PCM stream into one suitable for the
+  // current output (e.g. downsampling for bluetooth).
+  kAudioConverter,
   // Task for running database queries.
   kDatabase,
   // Task for internal database operations
   kDatabaseBackground,
+  // Task for interacting with NVS -- this needs to be done with an internal
+  // stack.
   kNvsWriter,
 };
 

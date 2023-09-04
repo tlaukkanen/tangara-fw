@@ -52,8 +52,6 @@ class Display {
   IGpios& gpio_;
   spi_device_handle_t handle_;
 
-  std::unique_ptr<tasks::Worker> worker_task_;
-
   bool display_on_;
   uint_fast8_t brightness_;
 

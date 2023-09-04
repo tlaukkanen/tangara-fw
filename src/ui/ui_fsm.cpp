@@ -90,6 +90,13 @@ void UiState::react(const system_fsm::BatteryStateChanged&) {
   UpdateTopBar();
 }
 
+void UiState::react(const audio::PlaybackStarted&) {
+  vTaskPrioritySet(NULL, 0);
+}
+void UiState::react(const audio::PlaybackFinished&) {
+  vTaskPrioritySet(NULL, 10);
+}
+
 void UiState::UpdateTopBar() {
   auto battery_state = sServices->battery().State();
   bool has_queue = sServices->track_queue().GetCurrent().has_value();
@@ -251,6 +258,7 @@ void Playing::exit() {
 }
 
 void Playing::react(const audio::PlaybackStarted& ev) {
+  vTaskPrioritySet(NULL, 0);
   UpdateTopBar();
   sPlayingScreen->OnTrackUpdate();
 }
@@ -261,6 +269,7 @@ void Playing::react(const audio::PlaybackUpdate& ev) {
 
 void Playing::react(const audio::PlaybackFinished& ev) {
   UpdateTopBar();
+  vTaskPrioritySet(NULL, 10);
 }
 
 void Playing::react(const audio::QueueUpdate& ev) {

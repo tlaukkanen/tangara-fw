@@ -40,10 +40,6 @@ class UiTask {
 
   std::shared_ptr<TouchWheelEncoder> input_device_;
   std::shared_ptr<Screen> current_screen_;
-
-  std::atomic<bool> quit_;
-  SemaphoreHandle_t frame_semaphore_;
-  TimerHandle_t frame_timer_;
 };
 
 }  // namespace ui

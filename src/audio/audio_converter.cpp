@@ -23,8 +23,9 @@
 
 static constexpr char kTag[] = "mixer";
 
-static constexpr std::size_t kSourceBufferLength = 8 * 1024;
-static constexpr std::size_t kSampleBufferLength = 240 * 2 * 4;
+static constexpr std::size_t kSampleBufferLength = 240 * 2 * 8;
+static constexpr std::size_t kSourceBufferLength =
+    kSampleBufferLength * 2 * sizeof(sample::Sample);
 
 namespace audio {
 
@@ -46,7 +47,7 @@ SampleConverter::SampleConverter()
           kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
       kSampleBufferLength};
 
-  tasks::StartPersistent<tasks::Type::kMixer>([&]() { Main(); });
+  tasks::StartPersistent<tasks::Type::kAudioConverter>([&]() { Main(); });
 }
 
 SampleConverter::~SampleConverter() {

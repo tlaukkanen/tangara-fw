@@ -49,24 +49,8 @@
 namespace ui {
 
 static const char* kTag = "ui_task";
-static const TickType_t kMaxFrameRate = pdMS_TO_TICKS(100);
 
-static auto next_frame(TimerHandle_t t) {
-  SemaphoreHandle_t sem =
-      reinterpret_cast<SemaphoreHandle_t>(pvTimerGetTimerID(t));
-  xSemaphoreGive(sem);
-}
-
-UiTask::UiTask()
-    : quit_(false),
-      frame_semaphore_(xSemaphoreCreateBinary()),
-      frame_timer_(xTimerCreate("ui_frame",
-                                kMaxFrameRate,
-                                pdTRUE,
-                                frame_semaphore_,
-                                next_frame)) {
-  xTimerStart(frame_timer_, portMAX_DELAY);
-}
+UiTask::UiTask() {}
 
 UiTask::~UiTask() {
   assert(false);
@@ -98,10 +82,8 @@ auto UiTask::Main() -> void {
       current_screen_->Tick();
     }
 
-    lv_task_handler();
-
-    // Wait for the signal to loop again.
-    xSemaphoreTake(frame_semaphore_, portMAX_DELAY);
+    TickType_t delay = lv_timer_handler();
+    vTaskDelay(pdMS_TO_TICKS(std::clamp<TickType_t>(delay, 0, 100)));
   }
 }
 
@@ -114,7 +96,7 @@ auto UiTask::SetInputDevice(std::shared_ptr<TouchWheelEncoder> dev) -> void {
 
 auto UiTask::Start() -> UiTask* {
   UiTask* ret = new UiTask();
-  tasks::StartPersistent<tasks::Type::kUi>(0, [=]() { ret->Main(); });
+  tasks::StartPersistent<tasks::Type::kUi>([=]() { ret->Main(); });
   return ret;
 }
 

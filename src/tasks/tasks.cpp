@@ -19,44 +19,36 @@ auto Name() -> std::string;
 
 template <>
 auto Name<Type::kUi>() -> std::string {
-  return "LVGL";
+  return "ui";
 }
 template <>
-auto Name<Type::kUiFlush>() -> std::string {
-  return "DISPLAY";
+auto Name<Type::kAudioDecoder>() -> std::string {
+  return "audio_dec";
 }
 template <>
-auto Name<Type::kFileStreamer>() -> std::string {
-  return "FSTREAMER";
-}
-template <>
-auto Name<Type::kAudio>() -> std::string {
-  return "AUDIO";
-}
-template <>
-auto Name<Type::kMixer>() -> std::string {
-  return "MIXER";
+auto Name<Type::kAudioConverter>() -> std::string {
+  return "audio_conv";
 }
 template <>
 auto Name<Type::kDatabase>() -> std::string {
-  return "DB";
+  return "db_fg";
 }
 template <>
 auto Name<Type::kDatabaseBackground>() -> std::string {
-  return "DB_BG";
+  return "db_bg";
 }
 template <>
 auto Name<Type::kNvsWriter>() -> std::string {
-  return "NVS";
+  return "nvs";
 }
 
 template <Type t>
 auto AllocateStack() -> cpp::span<StackType_t>;
 
-// Decoders run on the audio task, and these sometimes require a fairly large
-// amount of stack space.
+// Decoders often require a very large amount of stack space, since they aren't
+// usually written with embedded use cases in mind.
 template <>
-auto AllocateStack<Type::kAudio>() -> cpp::span<StackType_t> {
+auto AllocateStack<Type::kAudioDecoder>() -> cpp::span<StackType_t> {
   std::size_t size = 64 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
@@ -69,29 +61,15 @@ auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
-// UI flushes *must* be done from internal RAM. Thankfully, there is very little
-// stack required to perform them, and the amount of stack needed is fixed.
 template <>
-auto AllocateStack<Type::kUiFlush>() -> cpp::span<StackType_t> {
-  std::size_t size = 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_DEFAULT)),
-          size};
-}
-
-template <>
-auto AllocateStack<Type::kFileStreamer>() -> cpp::span<StackType_t> {
+// PCM conversion and resampling uses a very small amount of stack. It works
+// entirely with PSRAM-allocated buffers, so no real speed gain from allocating
+// it internally.
+auto AllocateStack<Type::kAudioConverter>() -> cpp::span<StackType_t> {
   std::size_t size = 4 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
-
-template <>
-auto AllocateStack<Type::kMixer>() -> cpp::span<StackType_t> {
-  std::size_t size = 4 * 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
-          size};
-}
-
 // Leveldb is designed for non-embedded use cases, where stack space isn't so
 // much of a concern. It therefore uses an eye-wateringly large amount of stack.
 template <>
@@ -114,8 +92,8 @@ auto AllocateStack<Type::kNvsWriter>() -> cpp::span<StackType_t> {
           size};
 }
 
-// 2048 bytes in internal ram
-// 302 KiB in external ram.
+// 2 KiB in internal ram
+// 612 KiB in external ram.
 
 /*
  * Please keep the priorities below in descending order for better readability.
@@ -124,39 +102,22 @@ auto AllocateStack<Type::kNvsWriter>() -> cpp::span<StackType_t> {
 template <Type t>
 auto Priority() -> UBaseType_t;
 
-// NVS writing requires suspending one of our cores, and disabling tasks with
-// their stacks in PSRAM. Get it over and done with as soon as possible.
-template <>
-auto Priority<Type::kNvsWriter>() -> UBaseType_t {
-  return 13;
-}
-// Realtime audio is the entire point of this device, so give this task the
+// Realtime audio is the entire point of this device, so give these tasks the
 // highest priority.
 template <>
-auto Priority<Type::kMixer>() -> UBaseType_t {
-  return 12;
+auto Priority<Type::kAudioDecoder>() -> UBaseType_t {
+  return 18;
 }
 template <>
-auto Priority<Type::kAudio>() -> UBaseType_t {
-  return 11;
+auto Priority<Type::kAudioConverter>() -> UBaseType_t {
+  return 18;
 }
 // After audio issues, UI jank is the most noticeable kind of scheduling-induced
 // slowness that the user is likely to notice or care about. Therefore we place
-// this task directly below audio in terms of priority.
+// this task directly below audio in terms of priority. Note that during audio
+// playback, this priority will be downgraded.
 template <>
 auto Priority<Type::kUi>() -> UBaseType_t {
-  return 9;
-}
-// UI flushing should use the same priority as the UI task, so as to maximise
-// the chance of the happy case: one of our cores is writing to the screen,
-// whilst the other is simultaneously preparing the next buffer to be flushed.
-template <>
-auto Priority<Type::kUiFlush>() -> UBaseType_t {
-  return 9;
-}
-
-template <>
-auto Priority<Type::kFileStreamer>() -> UBaseType_t {
   return 10;
 }
 // Database interactions are all inherently async already, due to their
@@ -165,11 +126,18 @@ auto Priority<Type::kFileStreamer>() -> UBaseType_t {
 // priority.
 template <>
 auto Priority<Type::kDatabase>() -> UBaseType_t {
-  return 8;
+  return 2;
 }
 template <>
 auto Priority<Type::kDatabaseBackground>() -> UBaseType_t {
-  return 7;
+  return 1;
+}
+// NVS writing requires suspending one of our cores, and disabling tasks with
+// their stacks in PSRAM. Only do it when there's not more important work
+// pending.
+template <>
+auto Priority<Type::kNvsWriter>() -> UBaseType_t {
+  return 2;
 }
 
 template <Type t>
@@ -184,10 +152,6 @@ auto WorkerQueueSize<Type::kDatabaseBackground>() -> std::size_t {
   return 8;
 }
 
-template <>
-auto WorkerQueueSize<Type::kUiFlush>() -> std::size_t {
-  return 2;
-}
 template <>
 auto WorkerQueueSize<Type::kNvsWriter>() -> std::size_t {
   return 2;
