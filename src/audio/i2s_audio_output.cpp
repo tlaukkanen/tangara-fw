@@ -5,6 +5,7 @@
  */
 
 #include "i2s_audio_output.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -48,9 +49,8 @@ I2SAudioOutput::I2SAudioOutput(drivers::IGpios& expander,
       dac_(std::move(dac)),
       current_config_(),
       left_difference_(0),
-      current_volume_(kDefaultVolume),
-      max_volume_(kLineLevelVolume) {
-  SetVolume(GetVolume());
+      current_volume_(0),
+      max_volume_(0) {
   dac_->SetSource(stream());
 }
 
@@ -69,6 +69,18 @@ auto I2SAudioOutput::SetInUse(bool in_use) -> void {
 
 auto I2SAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
   left_difference_ = balance;
+  SetVolume(GetVolume());
+}
+
+auto I2SAudioOutput::SetMaxVolume(uint16_t max) -> void {
+  max_volume_ = std::clamp(max, drivers::wm8523::kAbsoluteMinVolume,
+                           drivers::wm8523::kAbsoluteMaxVolume);
+  SetVolume(GetVolume());
+}
+
+auto I2SAudioOutput::SetVolumeDb(uint16_t vol) -> void {
+  current_volume_ =
+      std::clamp(vol, drivers::wm8523::kAbsoluteMinVolume, max_volume_);
   SetVolume(GetVolume());
 }
 

@@ -37,6 +37,12 @@ class NvsStorage {
   auto ScreenBrightness() -> std::future<uint_fast8_t>;
   auto ScreenBrightness(uint_fast8_t) -> std::future<bool>;
 
+  auto AmpMaxVolume() -> std::future<uint16_t>;
+  auto AmpMaxVolume(uint16_t) -> std::future<bool>;
+
+  auto AmpCurrentVolume() -> std::future<uint16_t>;
+  auto AmpCurrentVolume(uint16_t) -> std::future<bool>;
+
   explicit NvsStorage(std::unique_ptr<tasks::Worker>, nvs_handle_t);
   ~NvsStorage();
 

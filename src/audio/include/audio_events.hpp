@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <string>
 
@@ -36,6 +37,9 @@ struct PlayFile : tinyfsm::Event {
 };
 
 struct VolumeChanged : tinyfsm::Event {};
+struct ChangeMaxVolume : tinyfsm::Event {
+  uint16_t new_max;
+};
 
 struct TogglePlayPause : tinyfsm::Event {};
 

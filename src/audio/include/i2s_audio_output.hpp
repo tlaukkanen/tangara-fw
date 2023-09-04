@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -24,6 +25,9 @@ class I2SAudioOutput : public IAudioOutput {
   ~I2SAudioOutput();
 
   auto SetInUse(bool) -> void override;
+
+  auto SetMaxVolume(uint16_t) -> void;
+  auto SetVolumeDb(uint16_t) -> void;
 
   auto SetVolumeImbalance(int_fast8_t balance) -> void override;
   auto SetVolume(uint_fast8_t percent) -> void override;

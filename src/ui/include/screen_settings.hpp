@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -32,7 +33,20 @@ class Bluetooth : public MenuScreen {
 
 class Headphones : public MenuScreen {
  public:
-  Headphones();
+  Headphones(drivers::NvsStorage& nvs);
+
+  auto ChangeMaxVolume(uint8_t index) -> void;
+  auto ChangeCustomVolume(int8_t diff) -> void;
+
+ private:
+  auto UpdateCustomVol(uint16_t) -> void;
+
+  drivers::NvsStorage& nvs_;
+  lv_obj_t* custom_vol_container_;
+  lv_obj_t* custom_vol_label_;
+
+  std::vector<uint16_t> index_to_level_;
+  uint16_t custom_limit_;
 };
 
 class Appearance : public MenuScreen {

@@ -5,6 +5,7 @@
  */
 
 #include "audio_fsm.hpp"
+#include <stdint.h>
 
 #include <future>
 #include <memory>
@@ -29,6 +30,7 @@
 #include "system_events.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
+#include "wm8523.hpp"
 
 namespace audio {
 
@@ -39,6 +41,7 @@ std::shared_ptr<system_fsm::ServiceLocator> AudioState::sServices;
 std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<Decoder> AudioState::sDecoder;
 std::shared_ptr<SampleConverter> AudioState::sSampleConverter;
+std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 std::optional<database::TrackId> AudioState::sCurrentTrack;
@@ -65,6 +68,13 @@ void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
   }
 }
 
+void AudioState::react(const ChangeMaxVolume& ev) {
+  ESP_LOGI(kTag, "new max volume %u db",
+           (ev.new_max - drivers::wm8523::kLineLevelReferenceVolume) / 4);
+  sI2SOutput->SetMaxVolume(ev.new_max);
+  sServices->nvs().AmpMaxVolume(ev.new_max);
+}
+
 namespace states {
 
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
@@ -78,8 +88,14 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   }
 
   sFileSource.reset(new FatfsAudioInput(sServices->tag_parser()));
-  sOutput.reset(new I2SAudioOutput(sServices->gpios(),
-                                   std::unique_ptr<drivers::I2SDac>{*dac}));
+  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(),
+                                      std::unique_ptr<drivers::I2SDac>{*dac}));
+
+  auto& nvs = sServices->nvs();
+  sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume().get());
+  sI2SOutput->SetVolumeDb(nvs.AmpCurrentVolume().get());
+
+  sOutput = sI2SOutput;
   // sOutput.reset(new BluetoothAudioOutput(bluetooth));
 
   sSampleConverter.reset(new SampleConverter());

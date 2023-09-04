@@ -17,6 +17,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "tasks.hpp"
+#include "wm8523.hpp"
 
 namespace drivers {
 
@@ -27,6 +28,8 @@ static constexpr char kKeyVersion[] = "ver";
 static constexpr char kKeyBluetooth[] = "bt";
 static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
+static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
+static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
 
 auto NvsStorage::OpenSync() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -150,6 +153,36 @@ auto NvsStorage::ScreenBrightness() -> std::future<uint_fast8_t> {
 auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> std::future<bool> {
   return writer_->Dispatch<bool>([&]() {
     nvs_set_u8(handle_, kKeyBrightness, val);
+    return nvs_commit(handle_) == ESP_OK;
+  });
+}
+
+auto NvsStorage::AmpMaxVolume() -> std::future<uint16_t> {
+  return writer_->Dispatch<uint16_t>([&]() -> uint16_t {
+    uint16_t out = wm8523::kDefaultMaxVolume;
+    nvs_get_u16(handle_, kKeyAmpMaxVolume, &out);
+    return out;
+  });
+}
+
+auto NvsStorage::AmpMaxVolume(uint16_t val) -> std::future<bool> {
+  return writer_->Dispatch<bool>([&]() {
+    nvs_set_u16(handle_, kKeyAmpMaxVolume, val);
+    return nvs_commit(handle_) == ESP_OK;
+  });
+}
+
+auto NvsStorage::AmpCurrentVolume() -> std::future<uint16_t> {
+  return writer_->Dispatch<uint16_t>([&]() -> uint16_t {
+    uint16_t out = wm8523::kDefaultVolume;
+    nvs_get_u16(handle_, kKeyAmpCurrentVolume, &out);
+    return out;
+  });
+}
+
+auto NvsStorage::AmpCurrentVolume(uint16_t val) -> std::future<bool> {
+  return writer_->Dispatch<bool>([&]() {
+    nvs_set_u16(handle_, kKeyAmpCurrentVolume, val);
     return nvs_commit(handle_) == ESP_OK;
   });
 }

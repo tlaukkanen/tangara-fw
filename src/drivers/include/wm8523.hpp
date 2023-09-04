@@ -5,11 +5,31 @@
  */
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <optional>
 
 namespace drivers {
 namespace wm8523 {
+
+extern const uint16_t kAbsoluteMaxVolume;
+
+extern const uint16_t kAbsoluteMinVolume;
+
+extern const uint16_t kMaxVolumeBeforeClipping;
+
+extern const uint16_t kLineLevelReferenceVolume;
+
+extern const uint16_t kDefaultVolume;
+extern const uint16_t kDefaultMaxVolume;
+
+constexpr auto VolumeToDb(uint16_t vol) -> int_fast8_t {
+  return (vol - kLineLevelReferenceVolume) / 4;
+}
+
+constexpr auto DbToVolume(int_fast8_t db) -> uint16_t {
+  return (db * 4) + kLineLevelReferenceVolume;
+}
 
 enum class Register : uint8_t {
   kReset = 0,

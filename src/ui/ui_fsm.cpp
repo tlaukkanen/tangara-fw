@@ -171,7 +171,7 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
       screen.reset(new screens::Bluetooth());
       break;
     case internal::ShowSettingsPage::Page::kHeadphones:
-      screen.reset(new screens::Headphones());
+      screen.reset(new screens::Headphones(sServices->nvs()));
       break;
     case internal::ShowSettingsPage::Page::kAppearance:
       screen.reset(new screens::Appearance(sServices->nvs(), *sDisplay));

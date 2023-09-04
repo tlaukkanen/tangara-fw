@@ -44,6 +44,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const system_fsm::KeyUpChanged&);
   void react(const system_fsm::KeyDownChanged&);
   void react(const system_fsm::HasPhonesChanged&);
+  void react(const ChangeMaxVolume&);
 
   virtual void react(const system_fsm::BootComplete&) {}
 
@@ -63,6 +64,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<FatfsAudioInput> sFileSource;
   static std::unique_ptr<Decoder> sDecoder;
   static std::shared_ptr<SampleConverter> sSampleConverter;
+  static std::shared_ptr<I2SAudioOutput> sI2SOutput;
   static std::shared_ptr<IAudioOutput> sOutput;
 
   static std::optional<database::TrackId> sCurrentTrack;

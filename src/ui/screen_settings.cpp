@@ -5,8 +5,10 @@
  */
 
 #include "screen_settings.hpp"
+#include <stdint.h>
 #include <string>
 
+#include "audio_events.hpp"
 #include "core/lv_event.h"
 #include "core/lv_obj.h"
 #include "display.hpp"
@@ -18,6 +20,7 @@
 #include "extra/layouts/flex/lv_flex.h"
 #include "extra/widgets/list/lv_list.h"
 #include "extra/widgets/menu/lv_menu.h"
+#include "extra/widgets/spinbox/lv_spinbox.h"
 #include "extra/widgets/spinner/lv_spinner.h"
 #include "hal/lv_hal_disp.h"
 #include "index.hpp"
@@ -34,6 +37,7 @@
 #include "widgets/lv_label.h"
 #include "widgets/lv_slider.h"
 #include "widgets/lv_switch.h"
+#include "wm8523.hpp"
 
 namespace ui {
 namespace screens {
@@ -120,19 +124,68 @@ Bluetooth::Bluetooth() : MenuScreen("Bluetooth") {
                                            "this one has a really long name"));
 }
 
-Headphones::Headphones() : MenuScreen("Headphones") {
+static void change_vol_limit_cb(lv_event_t* ev) {
+  int selected_index = lv_dropdown_get_selected(ev->target);
+  Headphones* instance = reinterpret_cast<Headphones*>(ev->user_data);
+  instance->ChangeMaxVolume(selected_index);
+}
+
+static void increase_vol_limit_cb(lv_event_t* ev) {
+  Headphones* instance = reinterpret_cast<Headphones*>(ev->user_data);
+  instance->ChangeCustomVolume(2);
+}
+
+static void decrease_vol_limit_cb(lv_event_t* ev) {
+  Headphones* instance = reinterpret_cast<Headphones*>(ev->user_data);
+  instance->ChangeCustomVolume(-2);
+}
+
+Headphones::Headphones(drivers::NvsStorage& nvs)
+    : MenuScreen("Headphones"), nvs_(nvs), custom_limit_(0) {
+  uint16_t reference = drivers::wm8523::kLineLevelReferenceVolume;
+  index_to_level_.push_back(reference - (10 * 4));
+  index_to_level_.push_back(reference + (6 * 4));
+  index_to_level_.push_back(reference + (9.5 * 4));
+
   lv_obj_t* vol_label = lv_label_create(content_);
   lv_label_set_text(vol_label, "Volume Limit");
   lv_obj_t* vol_dropdown = lv_dropdown_create(content_);
   lv_dropdown_set_options(vol_dropdown,
-                          "Line Level (-10 dBV)\nPro Level (+4 dBu)\nMax "
-                          "before clipping\nUnlimited\nCustom");
+                          "Line Level (-10 dB)\nCD Level (+6 dB)\nMax "
+                          "before clipping (+10dB)\nCustom");
   lv_group_add_obj(group_, vol_dropdown);
 
-  lv_obj_t* warning_label = label_pair(
-      content_, "!!", "Changing volume limit is for advanced users.");
-  lv_label_set_long_mode(warning_label, LV_LABEL_LONG_WRAP);
-  lv_obj_set_flex_grow(warning_label, 1);
+  uint16_t level = nvs.AmpMaxVolume().get();
+  for (int i = 0; i < index_to_level_.size() + 1; i++) {
+    if (i == index_to_level_.size() || index_to_level_[i] == level) {
+      lv_dropdown_set_selected(vol_dropdown, i);
+      break;
+    }
+  }
+
+  lv_obj_add_event_cb(vol_dropdown, change_vol_limit_cb, LV_EVENT_VALUE_CHANGED,
+                      this);
+
+  custom_vol_container_ = settings_container(content_);
+
+  lv_obj_t* decrease_btn = lv_btn_create(custom_vol_container_);
+  lv_obj_t* btn_label = lv_label_create(decrease_btn);
+  lv_label_set_text(btn_label, "-");
+  lv_obj_add_event_cb(decrease_btn, decrease_vol_limit_cb, LV_EVENT_CLICKED,
+                      this);
+
+  custom_vol_label_ = lv_label_create(custom_vol_container_);
+  UpdateCustomVol(level);
+
+  lv_obj_t* increase_btn = lv_btn_create(custom_vol_container_);
+  btn_label = lv_label_create(increase_btn);
+  lv_label_set_text(btn_label, "+");
+  lv_obj_add_event_cb(increase_btn, increase_vol_limit_cb, LV_EVENT_CLICKED,
+                      this);
+
+  if (lv_dropdown_get_selected(vol_dropdown) != index_to_level_.size()) {
+    lv_obj_add_flag(custom_vol_container_, LV_OBJ_FLAG_HIDDEN);
+  }
 
   lv_obj_t* balance_label = lv_label_create(content_);
   lv_label_set_text(balance_label, "Left/Right Balance");
@@ -145,6 +198,41 @@ Headphones::Headphones() : MenuScreen("Headphones") {
   lv_obj_t* current_balance_label = lv_label_create(content_);
   lv_label_set_text(current_balance_label, "0dB");
   lv_obj_set_size(current_balance_label, lv_pct(100), LV_SIZE_CONTENT);
+}
+
+auto Headphones::ChangeMaxVolume(uint8_t index) -> void {
+  if (index >= index_to_level_.size()) {
+    lv_obj_clear_flag(custom_vol_container_, LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+  auto vol = index_to_level_[index];
+  lv_obj_add_flag(custom_vol_container_, LV_OBJ_FLAG_HIDDEN);
+  UpdateCustomVol(vol);
+  events::Audio().Dispatch(audio::ChangeMaxVolume{.new_max = vol});
+}
+
+auto Headphones::ChangeCustomVolume(int8_t diff) -> void {
+  UpdateCustomVol(custom_limit_ + diff);
+}
+
+auto Headphones::UpdateCustomVol(uint16_t level) -> void {
+  custom_limit_ = level;
+  int16_t db = (static_cast<int32_t>(level) -
+                drivers::wm8523::kLineLevelReferenceVolume) /
+               4;
+  int16_t db_parts = (static_cast<int32_t>(level) -
+                      drivers::wm8523::kLineLevelReferenceVolume) %
+                     4;
+
+  std::ostringstream builder;
+  if (db >= 0) {
+    builder << "+";
+  }
+  builder << db << ".";
+  builder << (db_parts * 100 / 4);
+  builder << " dBV";
+
+  lv_label_set_text(custom_vol_label_, builder.str().c_str());
 }
 
 static void change_brightness_cb(lv_event_t* ev) {

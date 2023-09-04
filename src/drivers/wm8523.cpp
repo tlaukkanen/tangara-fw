@@ -15,6 +15,23 @@
 namespace drivers {
 namespace wm8523 {
 
+const uint16_t kAbsoluteMaxVolume = 0x1ff;
+const uint16_t kAbsoluteMinVolume = 0b0;
+
+// This is 3dB below what the DAC considers to be '0dB', and 9.5dB above line
+// level reference.
+const uint16_t kMaxVolumeBeforeClipping = 0x184;
+
+// This is 12.5 dB below what the DAC considers to be '0dB'.
+const uint16_t kLineLevelReferenceVolume = 0x15E;
+
+// Default to -24 dB, which I will claim is 'arbitrarily chosen to be safe but
+// audible', but is in fact just a nice value for my headphones in particular.
+const uint16_t kDefaultVolume = kLineLevelReferenceVolume - 96;
+
+// Default to +6dB == 2Vrms == 'CD Player'
+const uint16_t kDefaultMaxVolume = kLineLevelReferenceVolume + 12;
+
 static const uint8_t kAddress = 0b0011010;
 
 auto ReadRegister(Register reg) -> std::optional<uint16_t> {
