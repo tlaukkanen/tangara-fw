@@ -33,7 +33,6 @@ namespace database {
 
 template <typename T>
 struct Continuation {
-  std::shared_ptr<std::unique_ptr<leveldb::Iterator>> iterator;
   std::string prefix;
   std::string start_key;
   bool forward;

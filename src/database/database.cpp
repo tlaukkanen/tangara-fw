@@ -348,8 +348,7 @@ auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
             .components_hash = 0,
         };
         OwningSlice prefix = EncodeIndexPrefix(header);
-        Continuation<IndexRecord> c{.iterator = nullptr,
-                                    .prefix = prefix.data,
+        Continuation<IndexRecord> c{.prefix = prefix.data,
                                     .start_key = prefix.data,
                                     .forward = true,
                                     .was_prev_forward = true,
@@ -360,8 +359,7 @@ auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
 
 auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
   return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
-    Continuation<Track> c{.iterator = nullptr,
-                          .prefix = EncodeDataPrefix().data,
+    Continuation<Track> c{.prefix = EncodeDataPrefix().data,
                           .start_key = EncodeDataPrefix().data,
                           .forward = true,
                           .was_prev_forward = true,
@@ -374,8 +372,7 @@ auto Database::GetDump(std::size_t page_size)
     -> std::future<Result<std::string>*> {
   return worker_task_->Dispatch<Result<std::string>*>(
       [=, this]() -> Result<std::string>* {
-        Continuation<std::string> c{.iterator = nullptr,
-                                    .prefix = "",
+        Continuation<std::string> c{.prefix = "",
                                     .start_key = "",
                                     .forward = true,
                                     .was_prev_forward = true,
@@ -474,14 +471,8 @@ auto Database::dbCreateIndexesForTrack(Track track) -> void {
 template <typename T>
 auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   // Work out our starting point. Sometimes this will already done.
-  leveldb::Iterator* it = nullptr;
-  if (c.iterator != nullptr) {
-    it = c.iterator->release();
-  }
-  if (it == nullptr) {
-    it = db_->NewIterator(leveldb::ReadOptions());
-    it->Seek(c.start_key);
-  }
+  leveldb::Iterator* it = db_->NewIterator(leveldb::ReadOptions());
+  it->Seek(c.start_key);
 
   // Fix off-by-one if we just changed direction.
   if (c.forward != c.was_prev_forward) {
@@ -529,12 +520,9 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   std::optional<Continuation<T>> next_page;
   if (c.forward) {
     if (iterator != nullptr) {
-      // We were going forward, and now we want the next page. Re-use the
-      // existing iterator, and point the start key at it.
+      // We were going forward, and now we want the next page.
       std::string key = iterator->key().ToString();
       next_page = Continuation<T>{
-          .iterator = std::make_shared<std::unique_ptr<leveldb::Iterator>>(
-              std::move(iterator)),
           .prefix = c.prefix,
           .start_key = key,
           .forward = true,
@@ -548,7 +536,6 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     // reversal, to set the start key to the first record we saw and mark that
     // it's off by one.
     next_page = Continuation<T>{
-        .iterator = nullptr,
         .prefix = c.prefix,
         .start_key = *first_key,
         .forward = true,
@@ -562,7 +549,6 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     // We were going forwards, and now we want the previous page. Set the search
     // key to the first result we saw, and mark that it's off by one.
     prev_page = Continuation<T>{
-        .iterator = nullptr,
         .prefix = c.prefix,
         .start_key = *first_key,
         .forward = false,
@@ -571,12 +557,9 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     };
   } else {
     if (iterator != nullptr) {
-      // We were going backwards, and we still want to go backwards. The
-      // iterator is still valid.
+      // We were going backwards, and we still want to go backwards.
       std::string key = iterator->key().ToString();
       prev_page = Continuation<T>{
-          .iterator = std::make_shared<std::unique_ptr<leveldb::Iterator>>(
-              std::move(iterator)),
           .prefix = c.prefix,
           .start_key = key,
           .forward = false,
@@ -683,7 +666,6 @@ auto IndexRecord::Expand(std::size_t page_size) const
   IndexKey::Header new_header = ExpandHeader(key_.header, key_.item);
   OwningSlice new_prefix = EncodeIndexPrefix(new_header);
   return Continuation<IndexRecord>{
-      .iterator = nullptr,
       .prefix = new_prefix.data,
       .start_key = new_prefix.data,
       .forward = true,
