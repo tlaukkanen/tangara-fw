@@ -11,11 +11,21 @@
 #include "extra/layouts/flex/lv_flex.h"
 #include "font/lv_symbol_def.h"
 #include "font_symbols.hpp"
+#include "themes.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
-#include "themes.hpp"
+
+LV_IMG_DECLARE(kIconBluetooth);
+LV_IMG_DECLARE(kIconPlay);
+LV_IMG_DECLARE(kIconPause);
+LV_IMG_DECLARE(kIconBatteryEmpty);
+LV_IMG_DECLARE(kIconBattery20);
+LV_IMG_DECLARE(kIconBattery40);
+LV_IMG_DECLARE(kIconBattery60);
+LV_IMG_DECLARE(kIconBattery80);
+LV_IMG_DECLARE(kIconBatteryFull);
 
 namespace ui {
 namespace widgets {
@@ -31,7 +41,6 @@ TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {
   lv_obj_set_flex_align(container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_END);
   lv_obj_set_style_pad_column(container_, 5, LV_PART_MAIN);
-  
 
   if (config.show_back_button) {
     back_button_ = lv_btn_create(container_);
@@ -49,11 +58,9 @@ TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {
   lv_label_set_text(title_, config.title.c_str());
   lv_obj_set_flex_grow(title_, 1);
 
-  playback_ = lv_label_create(container_);
-  lv_label_set_text(playback_, "");
-
-  battery_ = lv_label_create(container_);
-  lv_label_set_text(battery_, "");
+  playback_ = lv_img_create(container_);
+  battery_ = lv_img_create(container_);
+  charging_ = lv_label_create(container_);
 
   themes::Theme::instance()->ApplyStyle(container_, themes::Style::kTopBar);
 }
@@ -61,28 +68,35 @@ TopBar::TopBar(lv_obj_t* parent, const Configuration& config) {
 auto TopBar::Update(const State& state) -> void {
   switch (state.playback_state) {
     case PlaybackState::kIdle:
-      lv_label_set_text(playback_, "-");
+      lv_img_set_src(playback_, NULL);
       break;
     case PlaybackState::kPaused:
-      lv_label_set_text(playback_, LV_SYMBOL_PAUSE);
+      lv_img_set_src(playback_, &kIconPause);
       break;
     case PlaybackState::kPlaying:
-      lv_label_set_text(playback_, LV_SYMBOL_PLAY);
+      lv_img_set_src(playback_, &kIconPlay);
       break;
   }
 
-  lv_label_set_text(battery_, std::to_string(state.battery_percent).c_str());
-  // if (state.battery_percent >= 95) {
-  //   lv_label_set_text(battery_, "100");
-  // } else if (state.battery_percent >= 70) {
-  //   lv_label_set_text(battery_, ">70");
-  // } else if (state.battery_percent >= 40) {
-  //   lv_label_set_text(battery_, ">40");
-  // } else if (state.battery_percent >= 10) {
-  //   lv_label_set_text(battery_, ">10");
-  // } else {
-  //   lv_label_set_text(battery_, "0");
-  // }
+  if (state.is_charging) {
+    lv_label_set_text(charging_, "+");
+  } else {
+    lv_label_set_text(charging_, "");
+  }
+
+  if (state.battery_percent >= 95) {
+    lv_img_set_src(battery_, &kIconBatteryFull);
+  } else if (state.battery_percent >= 75) {
+    lv_img_set_src(battery_, &kIconBattery80);
+  } else if (state.battery_percent >= 55) {
+    lv_img_set_src(battery_, &kIconBattery60);
+  } else if (state.battery_percent >= 35) {
+    lv_img_set_src(battery_, &kIconBattery40);
+  } else if (state.battery_percent >= 15) {
+    lv_img_set_src(battery_, &kIconBattery20);
+  } else {
+    lv_img_set_src(battery_, &kIconBatteryEmpty);
+  }
 }
 
 }  // namespace widgets
