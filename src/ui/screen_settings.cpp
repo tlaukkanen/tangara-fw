@@ -63,7 +63,7 @@ Settings::Settings() : MenuScreen("Settings") {
 
   lv_list_add_text(list, "Audio");
   sub_menu(list, group_, "Bluetooth", Page::kBluetooth);
-  sub_menu(list, group_, "Headphones", Page::kBluetooth);
+  sub_menu(list, group_, "Headphones", Page::kHeadphones);
 
   lv_list_add_text(list, "Interface");
   sub_menu(list, group_, "Appearance", Page::kAppearance);
