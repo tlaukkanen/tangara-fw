@@ -45,6 +45,10 @@ void Theme::Callback(lv_obj_t* obj) {
     lv_obj_add_style(obj, &button_style_focused_,
                      LV_PART_MAIN | LV_STATE_FOCUSED);
   }
+
+  if (lv_obj_check_type(obj, &lv_switch_class)) {
+    lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
+  }
 }
 
 void Theme::ApplyStyle(lv_obj_t* obj, Style style) {
