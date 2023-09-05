@@ -35,12 +35,10 @@ esp_err_t init_spi(void) {
       .data7_io_num = -1,
 
       // Use the DMA default size. The display requires larger buffers, but it
-      // manages its down use of DMA-capable memory.
-      .max_transfer_sz = 128 * 16 * 2,  // TODO: hmm
+      // manages its own use of DMA-capable memory.
+      .max_transfer_sz = 4096,
       .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_IOMUX_PINS,
       .intr_flags = ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM,
-      //.intr_flags = ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_SHARED |
-      // ESP_INTR_FLAG_IRAM,
   };
 
   if (esp_err_t err = spi_bus_initialize(kSpiHost, &config, SPI_DMA_CH_AUTO)) {

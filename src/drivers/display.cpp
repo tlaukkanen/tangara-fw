@@ -14,6 +14,7 @@
 #include "assert.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "esp_attr.h"
 #include "esp_err.h"
@@ -47,16 +48,16 @@ static const gpio_num_t kDisplayCs = GPIO_NUM_22;
 /*
  * The size of each of our two display buffers. This is fundamentally a balance
  * between performance and memory usage. LVGL docs recommend a buffer 1/10th the
- * size of the screen is the best tradeoff.
+ * size of the screen is the best tradeoff, but we instead just use the max DMA
+ * buffer size.
  * We use two buffers so that one can be flushed to the screen at the same time
  * as the other is being drawn.
  */
-static const int kDisplayBufferSize = (kDisplayWidth * kDisplayHeight) / 10;
+static const int kDisplayBufferSize = SPI_MAX_DMA_LEN;
 
 // Allocate both buffers in static memory to ensure that they're in DRAM, with
 // minimal fragmentation. We most cases we always need these buffers anyway, so
 // it's not a memory hit we can avoid.
-// Note: 128 * 160 / 10 * 2 bpp * 2 buffers = 8 KiB
 DMA_ATTR static lv_color_t sBuffer1[kDisplayBufferSize];
 DMA_ATTR static lv_color_t sBuffer2[kDisplayBufferSize];
 
