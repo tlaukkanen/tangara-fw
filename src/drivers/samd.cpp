@@ -78,7 +78,10 @@ auto Samd::UpdateChargeStatus() -> void {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  esp_err_t res = transaction.Execute();
+  if (res != ESP_OK) {
+    return;
+  }
 
   uint8_t usb_state = raw_res & 0b11;
   uint8_t charge_state = (raw_res >> 2) & 0b111;
@@ -120,7 +123,10 @@ auto Samd::UpdateUsbStatus() -> void {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  esp_err_t res = transaction.Execute();
+  if (res != ESP_OK) {
+    return;
+  }
 
   if (!(raw_res & 0b1)) {
     usb_status_ = UsbStatus::kDetached;
