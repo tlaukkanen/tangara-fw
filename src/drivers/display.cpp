@@ -31,6 +31,7 @@
 
 #include "display_init.hpp"
 #include "gpios.hpp"
+#include "misc/lv_color.h"
 #include "soc/soc.h"
 #include "tasks.hpp"
 
@@ -48,18 +49,11 @@ static const gpio_num_t kDisplayCs = GPIO_NUM_22;
 /*
  * The size of each of our two display buffers. This is fundamentally a balance
  * between performance and memory usage. LVGL docs recommend a buffer 1/10th the
- * size of the screen is the best tradeoff, but we instead just use the max DMA
- * buffer size.
+ * size of the screen is the best tradeoff
  * We use two buffers so that one can be flushed to the screen at the same time
  * as the other is being drawn.
  */
-static const int kDisplayBufferSize = SPI_MAX_DMA_LEN;
-
-// Allocate both buffers in static memory to ensure that they're in DRAM, with
-// minimal fragmentation. We most cases we always need these buffers anyway, so
-// it's not a memory hit we can avoid.
-DMA_ATTR static lv_color_t sBuffer1[kDisplayBufferSize];
-DMA_ATTR static lv_color_t sBuffer2[kDisplayBufferSize];
+static const int kDisplayBufferSize = kDisplayWidth * kDisplayHeight / 10;
 
 namespace drivers {
 
@@ -153,8 +147,8 @@ auto Display::Create(IGpios& expander,
   // The hardware is now configured correctly. Next, initialise the LVGL display
   // driver.
   ESP_LOGI(kTag, "Init buffers");
-  lv_disp_draw_buf_init(&display->buffers_, sBuffer1, sBuffer2,
-                        kDisplayBufferSize);
+  lv_disp_draw_buf_init(&display->buffers_, display->buffer1_,
+                        display->buffer2_, kDisplayBufferSize);
   lv_disp_drv_init(&display->driver_);
   display->driver_.draw_buf = &display->buffers_;
   display->driver_.hor_res = kDisplayWidth;
@@ -172,10 +166,21 @@ auto Display::Create(IGpios& expander,
 }
 
 Display::Display(IGpios& gpio, spi_device_handle_t handle)
-    : gpio_(gpio), handle_(handle), display_on_(false), brightness_(0) {}
+    : gpio_(gpio), handle_(handle), display_on_(false), brightness_(0) {
+  transaction_ = reinterpret_cast<spi_transaction_t*>(
+      heap_caps_malloc(sizeof(spi_transaction_t), MALLOC_CAP_DMA));
+  memset(transaction_, 0, sizeof(spi_transaction_t));
+  buffer1_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
+      kDisplayBufferSize * sizeof(lv_color_t), MALLOC_CAP_DMA));
+  buffer2_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
+      kDisplayBufferSize * sizeof(lv_color_t), MALLOC_CAP_DMA));
+}
 
 Display::~Display() {
   ledc_fade_func_uninstall();
+  free(transaction_);
+  free(buffer1_);
+  free(buffer2_);
 }
 
 auto Display::SetDisplayOn(bool enabled) -> void {
@@ -257,29 +262,28 @@ void Display::SendTransaction(TransactionType type,
     return;
   }
 
-  spi_transaction_t transaction;
-  memset(&transaction, 0, sizeof(transaction));
+  memset(transaction_, 0, sizeof(spi_transaction_t));
 
-  transaction.rx_buffer = NULL;
+  transaction_->rx_buffer = NULL;
   // Length is in bits, so multiply by 8.
-  transaction.length = length * 8;
-  transaction.rxlength = 0;  // Match `length` value.
+  transaction_->length = length * 8;
+  transaction_->rxlength = 0;  // Match `length` value.
 
   // If the data to transmit is very short, then we can fit it directly
   // inside the transaction struct.
-  if (transaction.length <= 32) {
-    transaction.flags = SPI_TRANS_USE_TXDATA;
-    std::memcpy(&transaction.tx_data, data, length);
+  if (transaction_->length <= 32) {
+    transaction_->flags = SPI_TRANS_USE_TXDATA;
+    std::memcpy(&transaction_->tx_data, data, length);
   } else {
     // Note: LVGL's buffers are in DMA-accessible memory, so whatever pointer
     // it handed us should be DMA-accessible already. No need to copy.
-    transaction.tx_buffer = data;
+    transaction_->tx_buffer = data;
   }
 
   gpio_set_level(kDisplayDr, type);
 
   // TODO(jacqueline): Handle these errors.
-  esp_err_t ret = spi_device_polling_transmit(handle_, &transaction);
+  esp_err_t ret = spi_device_polling_transmit(handle_, transaction_);
   ESP_ERROR_CHECK(ret);
 }
 
