@@ -68,5 +68,6 @@ auto ExpandHeader(const IndexKey::Header&, const std::optional<std::string>&)
 extern const IndexInfo kAlbumsByArtist;
 extern const IndexInfo kTracksByGenre;
 extern const IndexInfo kAllTracks;
+extern const IndexInfo kAllAlbums;
 
 }  // namespace database

@@ -333,6 +333,7 @@ auto Database::GetIndexes() -> std::vector<IndexInfo> {
   // configurable indexes, they will need to come from somewhere.
   return {
       kAllTracks,
+      kAllAlbums,
       kAlbumsByArtist,
       kTracksByGenre,
   };

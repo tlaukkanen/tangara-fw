@@ -31,6 +31,12 @@ const IndexInfo kAllTracks{
     .components = {Tag::kTitle},
 };
 
+const IndexInfo kAllAlbums{
+    .id = 4,
+    .name = "All Albums",
+    .components = {Tag::kAlbum, Tag::kAlbumTrack},
+};
+
 static auto missing_component_text(Tag tag) -> std::optional<std::string> {
   switch (tag) {
     case Tag::kArtist:
@@ -59,15 +65,19 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       .track = {},
   };
 
-  std::optional<std::string> value;
+  auto& col = std::use_facet<std::collate<char>>(std::locale());
+
   for (std::uint8_t i = 0; i < info.components.size(); i++) {
     // Fill in the text for this depth.
     auto text = t.tags().at(info.components.at(i));
+    std::string value;
     if (text) {
-      key.item = *text;
+      std::string orig = *text;
+      key.item = col.transform(&orig[0], &orig[0] + orig.size());
+      value = *text;
     } else {
       key.item = {};
-      value = missing_component_text(info.components.at(i));
+      value = missing_component_text(info.components.at(i)).value_or("");
     }
 
     // If this is the last component, then we should also fill in the track id
@@ -82,7 +92,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
     }
 
     auto encoded = EncodeIndexKey(key);
-    batch->Put(encoded.slice, value.value_or(""));
+    batch->Put(encoded.slice, value);
 
     // If there are more components after this, then we need to finish by
     // narrowing the header with the current title.
