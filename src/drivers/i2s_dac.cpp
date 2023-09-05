@@ -93,22 +93,21 @@ I2SDac::I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle)
   wm8523::WriteRegister(wm8523::Register::kReset, 1);
   vTaskDelay(pdMS_TO_TICKS(10));
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
+
+  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, true);
 }
 
 I2SDac::~I2SDac() {
   Stop();
   i2s_del_channel(i2s_handle_);
+
+  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, false);
 }
 
 auto I2SDac::Start() -> void {
   std::lock_guard<std::mutex> lock(configure_mutex_);
 
   gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, false);
-  // Ramp up the amplifier power supply.
-  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, true);
-
-  // Wait for voltage to stabilise
-  vTaskDelay(pdMS_TO_TICKS(5));
 
   // Ensure the DAC powers up to a muted state.
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
@@ -118,12 +117,7 @@ auto I2SDac::Start() -> void {
   i2s_channel_enable(i2s_handle_);
   i2s_active_ = true;
 
-  // Wait for DAC output lines to stabilise
-  vTaskDelay(pdMS_TO_TICKS(5));
-
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
-
-  vTaskDelay(pdMS_TO_TICKS(5));
   gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, true);
 }
 
