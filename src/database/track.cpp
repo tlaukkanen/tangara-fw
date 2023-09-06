@@ -45,6 +45,7 @@ auto TrackTags::Hash() const -> uint64_t {
   HashString(&stream, at(Tag::kTitle).value_or(""));
   HashString(&stream, at(Tag::kArtist).value_or(""));
   HashString(&stream, at(Tag::kAlbum).value_or(""));
+  HashString(&stream, at(Tag::kAlbumTrack).value_or(""));
 
   return komihash_stream_final(&stream);
 }

@@ -5,10 +5,13 @@
  */
 
 #include "index.hpp"
-#include <stdint.h>
+
+#include <cstdint>
 #include <variant>
+
 #include "komihash.h"
 #include "leveldb/write_batch.h"
+
 #include "records.hpp"
 
 namespace database {
@@ -49,6 +52,7 @@ static auto missing_component_text(const Track& track, Tag tag)
     case Tag::kTitle:
       return track.TitleOrFilename();
     case Tag::kAlbumTrack:
+      return "0000";
     case Tag::kDuration:
     default:
       return {};

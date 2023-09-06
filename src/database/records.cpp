@@ -309,7 +309,8 @@ auto EncodeIndexKey(const IndexKey& key) -> OwningSlice {
   // Construct the footer.
   out << kFieldSeparator;
   if (key.track) {
-    out << TrackIdToBytes(*key.track).data;
+    auto encoded = TrackIdToBytes(*key.track);
+    out << encoded.data;
   }
   return OwningSlice(out.str());
 }
@@ -394,9 +395,9 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
 
   buffer = {};
   in.get(buffer);
-  if (buffer.str().size() > 1) {
-    std::string raw_id = buffer.str().substr(1);
-    result.track = BytesToTrackId(raw_id);
+  std::string id_str = buffer.str();
+  if (id_str.size() > 1) {
+    result.track = BytesToTrackId(id_str.substr(1));
   }
 
   return result;

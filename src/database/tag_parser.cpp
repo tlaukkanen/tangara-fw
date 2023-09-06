@@ -17,7 +17,26 @@
 
 namespace database {
 
-auto convert_tag(int tag) -> std::optional<Tag> {
+const static std::array<std::pair<const char*, Tag>, 5> kVorbisIdToTag = {{
+    {"TITLE", Tag::kTitle},
+    {"ARTIST", Tag::kArtist},
+    {"ALBUM", Tag::kAlbum},
+    {"TRACKNUMBER", Tag::kAlbumTrack},
+    {"GENRE", Tag::kGenre},
+}};
+
+static auto convert_track_number(int number) -> std::string {
+  std::ostringstream oss;
+  oss << std::setw(4) << std::setfill('0') << number;
+  return oss.str();
+}
+
+static auto convert_track_number(const std::string& raw) -> std::string {
+  uint32_t as_int = std::atoi(raw.c_str());
+  return convert_track_number(as_int);
+}
+
+static auto convert_tag(int tag) -> std::optional<Tag> {
   switch (tag) {
     case Ttitle:
       return Tag::kTitle;
@@ -92,10 +111,6 @@ static void tag(Tagctx* ctx,
     return;
   }
   if (*tag == Tag::kAlbumTrack) {
-    uint32_t as_int = std::atoi(v);
-    std::ostringstream oss;
-    oss << std::setw(4) << std::setfill('0') << as_int;
-    value = oss.str();
   }
   aux->tags->set(*tag, value);
 }
@@ -136,6 +151,21 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
   if (!parser->ReadAndParseTags(path, out)) {
     return false;
   }
+
+  // There wasn't a track number found in the track's tags. Try to synthesize
+  // one from the filename, which will sometimes have a track number at the
+  // start.
+  if (!out->at(Tag::kAlbumTrack)) {
+    auto slash_pos = path.find_last_of("/");
+    if (slash_pos != std::string::npos && path.size() - slash_pos > 1) {
+      out->set(Tag::kAlbumTrack, path.substr(slash_pos + 1));
+    }
+  }
+
+  // Normalise track numbers; they're usually treated as strings, but we would
+  // like to sort them lexicographically.
+  out->set(Tag::kAlbumTrack,
+           convert_track_number(out->at(Tag::kAlbumTrack).value_or("0")));
 
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
@@ -226,18 +256,11 @@ auto OpusTagParser::ReadAndParseTags(const std::string& path, TrackTags* out)
   }
 
   out->encoding(Container::kOpus);
-  const char* tag = NULL;
-  tag = opus_tags_query(tags, "TITLE", 0);
-  if (tag != NULL) {
-    out->set(Tag::kTitle, tag);
-  }
-  tag = opus_tags_query(tags, "ARTIST", 0);
-  if (tag != NULL) {
-    out->set(Tag::kArtist, tag);
-  }
-  tag = opus_tags_query(tags, "ALBUM", 0);
-  if (tag != NULL) {
-    out->set(Tag::kAlbum, tag);
+  for (const auto& pair : kVorbisIdToTag) {
+    const char* tag = opus_tags_query(tags, pair.first, 0);
+    if (tag != NULL) {
+      out->set(pair.second, tag);
+    }
   }
 
   op_free(f);
