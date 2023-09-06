@@ -254,6 +254,10 @@ auto Database::Update() -> std::future<void> {
       } else if (existing_data->filepath() != path) {
         ESP_LOGW(kTag, "tag hash collision for %s and %s",
                  existing_data->filepath().c_str(), path.c_str());
+        ESP_LOGI(kTag, "hash components: %s, %s, %s",
+                 tags.at(Tag::kTitle).value_or("no title").c_str(),
+                 tags.at(Tag::kArtist).value_or("no artist").c_str(),
+                 tags.at(Tag::kAlbum).value_or("no album").c_str());
       }
     });
     events::Ui().Dispatch(event::UpdateFinished{});

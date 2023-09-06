@@ -37,7 +37,8 @@ const IndexInfo kAllAlbums{
     .components = {Tag::kAlbum, Tag::kAlbumTrack},
 };
 
-static auto missing_component_text(Tag tag) -> std::optional<std::string> {
+static auto missing_component_text(const Track& track, Tag tag)
+    -> std::optional<std::string> {
   switch (tag) {
     case Tag::kArtist:
       return "Unknown Artist";
@@ -45,9 +46,10 @@ static auto missing_component_text(Tag tag) -> std::optional<std::string> {
       return "Unknown Album";
     case Tag::kGenre:
       return "Unknown Genre";
+    case Tag::kTitle:
+      return track.TitleOrFilename();
     case Tag::kAlbumTrack:
     case Tag::kDuration:
-    case Tag::kTitle:
     default:
       return {};
   }
@@ -77,18 +79,14 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       value = *text;
     } else {
       key.item = {};
-      value = missing_component_text(info.components.at(i)).value_or("");
+      value = missing_component_text(t, info.components.at(i)).value_or("");
     }
 
     // If this is the last component, then we should also fill in the track id
     // and title.
     if (i == info.components.size() - 1) {
       key.track = t.data().id();
-      if (info.components.at(i) != Tag::kTitle) {
-        value = t.TitleOrFilename();
-      }
-    } else {
-      key.track = {};
+      value = t.TitleOrFilename();
     }
 
     auto encoded = EncodeIndexKey(key);

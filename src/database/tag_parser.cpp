@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <mutex>
+#include "opusfile.h"
 
 namespace database {
 
@@ -83,16 +84,20 @@ static void tag(Tagctx* ctx,
                 Tagread f) {
   Aux* aux = reinterpret_cast<Aux*>(ctx->aux);
   auto tag = convert_tag(t);
-  if (tag) {
-    std::string value{v};
-    if (*tag == Tag::kAlbumTrack) {
-      uint32_t as_int = std::atoi(v);
-      std::ostringstream oss;
-      oss << std::setw(4) << std::setfill('0') << as_int;
-      value = oss.str();
-    }
-    aux->tags->set(*tag, value);
+  if (!tag) {
+    return;
   }
+  std::string value{v};
+  if (value.empty()) {
+    return;
+  }
+  if (*tag == Tag::kAlbumTrack) {
+    uint32_t as_int = std::atoi(v);
+    std::ostringstream oss;
+    oss << std::setw(4) << std::setfill('0') << as_int;
+    value = oss.str();
+  }
+  aux->tags->set(*tag, value);
 }
 
 static void toc(Tagctx* ctx, int ms, int offset) {}
@@ -101,6 +106,10 @@ static void toc(Tagctx* ctx, int ms, int offset) {}
 
 static const std::size_t kBufSize = 1024;
 static const char* kTag = "TAGS";
+
+TagParserImpl::TagParserImpl() {
+  extension_to_parser_["opus"] = std::make_unique<OpusTagParser>();
+}
 
 auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     -> bool {
@@ -113,6 +122,31 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
     }
   }
 
+  ITagParser* parser = &generic_parser_;
+  auto dot_pos = path.find_last_of(".");
+  if (dot_pos != std::string::npos && path.size() - dot_pos > 1) {
+    std::string extension = path.substr(dot_pos + 1);
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (extension_to_parser_.contains(extension)) {
+      parser = extension_to_parser_[extension].get();
+    }
+  }
+
+  if (!parser->ReadAndParseTags(path, out)) {
+    return false;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock{cache_mutex_};
+    cache_.Put(path, *out);
+  }
+
+  return true;
+}
+
+auto GenericTagParser::ReadAndParseTags(const std::string& path, TrackTags* out)
+    -> bool {
   libtags::Aux aux;
   aux.tags = out;
   if (f_stat(path.c_str(), &aux.info) != FR_OK ||
@@ -136,7 +170,7 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
 
   if (res != 0) {
     // Parsing failed.
-    ESP_LOGE(kTag, "tag parsing failed, reason %d", res);
+    ESP_LOGE(kTag, "tag parsing for %s failed, reason %d", path.c_str(), res);
     return false;
   }
 
@@ -172,11 +206,41 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path, TrackTags* out)
   if (ctx.duration > 0) {
     out->duration = ctx.duration;
   }
+  return true;
+}
 
-  {
-    std::lock_guard<std::mutex> lock{cache_mutex_};
-    cache_.Put(path, *out);
+auto OpusTagParser::ReadAndParseTags(const std::string& path, TrackTags* out)
+    -> bool {
+  std::string vfs_path = "/sdcard" + path;
+  int err;
+  OggOpusFile* f = op_test_file(vfs_path.c_str(), &err);
+  if (f == NULL) {
+    ESP_LOGE(kTag, "opusfile tag parsing failed: %d", err);
+    return false;
   }
+  const OpusTags* tags = op_tags(f, -1);
+  if (tags == NULL) {
+    ESP_LOGE(kTag, "no tags in opusfile");
+    op_free(f);
+    return false;
+  }
+
+  out->encoding(Container::kOpus);
+  const char* tag = NULL;
+  tag = opus_tags_query(tags, "TITLE", 0);
+  if (tag != NULL) {
+    out->set(Tag::kTitle, tag);
+  }
+  tag = opus_tags_query(tags, "ARTIST", 0);
+  if (tag != NULL) {
+    out->set(Tag::kArtist, tag);
+  }
+  tag = opus_tags_query(tags, "ALBUM", 0);
+  if (tag != NULL) {
+    out->set(Tag::kAlbum, tag);
+  }
+
+  op_free(f);
   return true;
 }
 
