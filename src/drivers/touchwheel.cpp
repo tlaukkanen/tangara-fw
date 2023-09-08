@@ -39,9 +39,7 @@ TouchWheel::TouchWheel() {
   gpio_config(&int_config);
 
   WriteRegister(RESET, 1);
-  while (gpio_get_level(kIntPin)) {
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
+  vTaskDelay(pdMS_TO_TICKS(300));
 
   // Configure keys 0, 1, and 2 as a wheel.
   WriteRegister(SLIDER_OPTIONS, 0b11000000);
