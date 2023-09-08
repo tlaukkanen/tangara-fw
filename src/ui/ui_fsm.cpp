@@ -23,6 +23,7 @@
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "screen_menu.hpp"
+#include "screen_onboarding.hpp"
 #include "screen_playing.hpp"
 #include "screen_settings.hpp"
 #include "screen_splash.hpp"
@@ -150,7 +151,15 @@ void Splash::react(const system_fsm::BootComplete& ev) {
     ESP_LOGE(kTag, "no input devices initialised!");
   }
 
-  transit<Browse>();
+  if (sServices->nvs().HasShownOnboarding().get()) {
+    transit<Browse>();
+  } else {
+    transit<Onboarding>();
+  }
+}
+
+void Onboarding::entry() {
+  sCurrentScreen.reset(new screens::onboarding::LinkToManual());
 }
 
 void Browse::entry() {}

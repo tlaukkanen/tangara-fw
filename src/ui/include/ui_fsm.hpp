@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <memory>
 #include <stack>
 
@@ -101,6 +102,9 @@ class Onboarding : public UiState {
   void entry() override;
 
   using UiState::react;
+
+ private:
+  uint8_t progress_;
 };
 
 class Browse : public UiState {

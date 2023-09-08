@@ -33,14 +33,17 @@ class Onboarding : public Screen {
 namespace onboarding {
 
 class LinkToManual : public Onboarding {
+ public:
   LinkToManual();
 };
 
 class Controls : public Onboarding {
+ public:
   Controls();
 };
 
 class FormatSdCard : public Onboarding {
+ public:
   FormatSdCard();
 };
 

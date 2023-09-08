@@ -43,6 +43,9 @@ class NvsStorage {
   auto AmpCurrentVolume() -> std::future<uint16_t>;
   auto AmpCurrentVolume(uint16_t) -> std::future<bool>;
 
+  auto HasShownOnboarding() -> std::future<bool>;
+  auto HasShownOnboarding(bool) -> std::future<bool>;
+
   explicit NvsStorage(std::unique_ptr<tasks::Worker>, nvs_handle_t);
   ~NvsStorage();
 

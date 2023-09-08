@@ -6,6 +6,7 @@
 
 #include "screen_onboarding.hpp"
 
+#include "core/lv_obj_pos.h"
 #include "draw/lv_draw_rect.h"
 #include "extra/libs/qrcode/lv_qrcode.h"
 #include "extra/widgets/win/lv_win.h"
@@ -26,23 +27,31 @@ Onboarding::Onboarding(const std::string& title,
   window_ = lv_win_create(root_, 18);
   if (show_prev) {
     prev_button_ = lv_win_add_btn(window_, LV_SYMBOL_LEFT, 20);
+    lv_group_add_obj(group_, prev_button_);
   }
   title_ = lv_win_add_title(window_, title.c_str());
   if (show_next) {
     next_button_ = lv_win_add_btn(window_, LV_SYMBOL_RIGHT, 20);
+    lv_group_add_obj(group_, next_button_);
   }
 
   content_ = lv_win_get_content(window_);
+  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
 }
 
 namespace onboarding {
 
 LinkToManual::LinkToManual() : Onboarding("Welcome!", false, true) {
   lv_obj_t* intro = lv_label_create(content_);
-  lv_label_set_text(intro, "this screen links you to better instructions");
+  lv_label_set_text(intro, "For full instructions, see the manual:");
+  lv_label_set_long_mode(intro, LV_LABEL_LONG_WRAP);
+  lv_obj_set_size(intro, lv_pct(100), LV_SIZE_CONTENT);
 
   lv_obj_t* qr =
-      lv_qrcode_create(content_, 100, lv_color_black(), lv_color_white());
+      lv_qrcode_create(content_, 80, lv_color_black(), lv_color_white());
   lv_qrcode_update(qr, kManualUrl, sizeof(kManualUrl));
 }
 

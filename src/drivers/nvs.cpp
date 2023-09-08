@@ -30,6 +30,7 @@ static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
 static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
+static constexpr char kKeyOnboarded[] = "intro";
 
 auto NvsStorage::OpenSync() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -183,6 +184,21 @@ auto NvsStorage::AmpCurrentVolume() -> std::future<uint16_t> {
 auto NvsStorage::AmpCurrentVolume(uint16_t val) -> std::future<bool> {
   return writer_->Dispatch<bool>([&]() {
     nvs_set_u16(handle_, kKeyAmpCurrentVolume, val);
+    return nvs_commit(handle_) == ESP_OK;
+  });
+}
+
+auto NvsStorage::HasShownOnboarding() -> std::future<bool> {
+  return writer_->Dispatch<bool>([&]() -> bool {
+    uint8_t out = true;
+    nvs_get_u8(handle_, kKeyOnboarded, &out);
+    return out;
+  });
+}
+
+auto NvsStorage::HasShownOnboarding(bool val) -> std::future<bool> {
+  return writer_->Dispatch<bool>([&]() {
+    nvs_set_u8(handle_, kKeyOnboarded, val);
     return nvs_commit(handle_) == ESP_OK;
   });
 }
