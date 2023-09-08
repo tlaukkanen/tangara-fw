@@ -46,19 +46,6 @@ static const char kTrackIdKey[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
-template <typename Parser>
-auto IterateAndParse(leveldb::Iterator* it, std::size_t limit, Parser p)
-    -> void {
-  for (int i = 0; i < limit; i++) {
-    if (!it->Valid()) {
-      delete it;
-      break;
-    }
-    std::invoke(p, it->key(), it->value());
-    it->Next();
-  }
-}
-
 auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
     -> cpp::result<Database*, DatabaseError> {
   // TODO(jacqueline): Why isn't compare_and_exchange_* available?
@@ -66,8 +53,11 @@ auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
     return cpp::fail(DatabaseError::ALREADY_OPEN);
   }
 
-  leveldb::sBackgroundThread.reset(
-      tasks::Worker::Start<tasks::Type::kDatabaseBackground>());
+  if (!leveldb::sBackgroundThread) {
+    leveldb::sBackgroundThread.reset(
+        tasks::Worker::Start<tasks::Type::kDatabaseBackground>());
+  }
+
   std::shared_ptr<tasks::Worker> worker(
       tasks::Worker::Start<tasks::Type::kDatabase>());
   return worker
@@ -120,8 +110,6 @@ Database::~Database() {
   delete db_;
   delete cache_;
 
-  leveldb::sBackgroundThread.reset();
-
   sIsDbOpen.store(false);
 }
 
@@ -136,7 +124,7 @@ auto Database::Update() -> std::future<void> {
     // indexes, but my brain hurts.
     ESP_LOGI(kTag, "dropping stale indexes");
     {
-      leveldb::Iterator* it = db_->NewIterator(read_options);
+      std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
       OwningSlice prefix = EncodeAllIndexesPrefix();
       it->Seek(prefix.slice);
       while (it->Valid() && it->key().starts_with(prefix.slice)) {
@@ -151,7 +139,7 @@ auto Database::Update() -> std::future<void> {
         .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
     });
     {
-      leveldb::Iterator* it = db_->NewIterator(read_options);
+      std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
       OwningSlice prefix = EncodeDataPrefix();
       it->Seek(prefix.slice);
       while (it->Valid() && it->key().starts_with(prefix.slice)) {
@@ -200,7 +188,6 @@ auto Database::Update() -> std::future<void> {
 
         it->Next();
       }
-      delete it;
     }
 
     // Stage 2: search for newly added files.
@@ -302,7 +289,8 @@ auto Database::GetBulkTracks(std::vector<TrackId> ids)
         std::vector<TrackId> sorted_ids = ids;
         std::sort(sorted_ids.begin(), sorted_ids.end());
 
-        leveldb::Iterator* it = db_->NewIterator(leveldb::ReadOptions{});
+        std::unique_ptr<leveldb::Iterator> it{
+            db_->NewIterator(leveldb::ReadOptions{})};
         for (const TrackId& id : sorted_ids) {
           OwningSlice key = EncodeDataKey(id);
           it->Seek(key.slice);
@@ -476,7 +464,8 @@ auto Database::dbCreateIndexesForTrack(Track track) -> void {
 template <typename T>
 auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   // Work out our starting point. Sometimes this will already done.
-  leveldb::Iterator* it = db_->NewIterator(leveldb::ReadOptions());
+  std::unique_ptr<leveldb::Iterator> it{
+      db_->NewIterator(leveldb::ReadOptions{})};
   it->Seek(c.start_key);
 
   // Fix off-by-one if we just changed direction.
@@ -509,11 +498,8 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     }
   }
 
-  std::unique_ptr<leveldb::Iterator> iterator(it);
-  if (iterator != nullptr) {
-    if (!iterator->Valid() || !it->key().starts_with(c.prefix)) {
-      iterator.reset();
-    }
+  if (!it->Valid() || !it->key().starts_with(c.prefix)) {
+    it.reset();
   }
 
   // Put results into canonical order if we were iterating backwards.
@@ -524,9 +510,9 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   // Work out the new continuations.
   std::optional<Continuation<T>> next_page;
   if (c.forward) {
-    if (iterator != nullptr) {
+    if (it != nullptr) {
       // We were going forward, and now we want the next page.
-      std::string key = iterator->key().ToString();
+      std::string key = it->key().ToString();
       next_page = Continuation<T>{
           .prefix = c.prefix,
           .start_key = key,
@@ -561,9 +547,9 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
         .page_size = c.page_size,
     };
   } else {
-    if (iterator != nullptr) {
+    if (it != nullptr) {
       // We were going backwards, and we still want to go backwards.
-      std::string key = iterator->key().ToString();
+      std::string key = it->key().ToString();
       prev_page = Continuation<T>{
           .prefix = c.prefix,
           .start_key = key,
