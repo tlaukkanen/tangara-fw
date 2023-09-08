@@ -76,7 +76,7 @@ void TouchWheel::WriteRegister(uint8_t reg, uint8_t val) {
       .write_addr(kTouchWheelAddress, I2C_MASTER_WRITE)
       .write_ack(reg, val)
       .stop();
-  esp_err_t res = transaction.Execute();
+  esp_err_t res = transaction.Execute(1);
   if (res != ESP_OK) {
     ESP_LOGW(kTag, "write failed: %s", esp_err_to_name(res));
   }
@@ -92,7 +92,7 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
       .write_addr(kTouchWheelAddress, I2C_MASTER_READ)
       .read(&res, I2C_MASTER_NACK)
       .stop();
-  if (transaction.Execute() == ESP_OK) {
+  if (transaction.Execute(1) == ESP_OK) {
     return res;
   } else {
     return 0;

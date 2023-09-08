@@ -56,7 +56,7 @@ Samd::Samd() {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  ESP_ERROR_CHECK(transaction.Execute(1));
   ESP_LOGI(kTag, "samd firmware rev: %u", raw_res);
 
   UpdateChargeStatus();
@@ -78,7 +78,7 @@ auto Samd::UpdateChargeStatus() -> void {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  esp_err_t res = transaction.Execute();
+  esp_err_t res = transaction.Execute(1);
   if (res != ESP_OK) {
     return;
   }
@@ -123,7 +123,7 @@ auto Samd::UpdateUsbStatus() -> void {
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
       .stop();
-  esp_err_t res = transaction.Execute();
+  esp_err_t res = transaction.Execute(1);
   if (res != ESP_OK) {
     return;
   }
@@ -141,7 +141,7 @@ auto Samd::ResetToFlashSamd() -> void {
       .write_addr(kAddress, I2C_MASTER_WRITE)
       .write_ack(Registers::kUsbControl, 0b100)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  ESP_ERROR_CHECK(transaction.Execute(3));
 }
 
 auto Samd::PowerDown() -> void {
@@ -150,7 +150,7 @@ auto Samd::PowerDown() -> void {
       .write_addr(kAddress, I2C_MASTER_WRITE)
       .write_ack(Registers::kPowerControl, 0b1)
       .stop();
-  ESP_ERROR_CHECK(transaction.Execute());
+  ESP_ERROR_CHECK(transaction.Execute(3));
 }
 
 auto Samd::CreateReadPending() -> SemaphoreHandle_t {
