@@ -50,8 +50,6 @@ static const gpio_num_t kDisplayCs = GPIO_NUM_22;
  * The size of each of our two display buffers. This is fundamentally a balance
  * between performance and memory usage. LVGL docs recommend a buffer 1/10th the
  * size of the screen is the best tradeoff
- * We use two buffers so that one can be flushed to the screen at the same time
- * as the other is being drawn.
  */
 static const int kDisplayBufferSize = kDisplayWidth * kDisplayHeight / 10;
 
@@ -147,8 +145,8 @@ auto Display::Create(IGpios& expander,
   // The hardware is now configured correctly. Next, initialise the LVGL display
   // driver.
   ESP_LOGI(kTag, "Init buffers");
-  lv_disp_draw_buf_init(&display->buffers_, display->buffer1_,
-                        display->buffer2_, kDisplayBufferSize);
+  lv_disp_draw_buf_init(&display->buffers_, display->buffer_, NULL,
+                        kDisplayBufferSize);
   lv_disp_drv_init(&display->driver_);
   display->driver_.draw_buf = &display->buffers_;
   display->driver_.hor_res = kDisplayWidth;
@@ -170,17 +168,14 @@ Display::Display(IGpios& gpio, spi_device_handle_t handle)
   transaction_ = reinterpret_cast<spi_transaction_t*>(
       heap_caps_malloc(sizeof(spi_transaction_t), MALLOC_CAP_DMA));
   memset(transaction_, 0, sizeof(spi_transaction_t));
-  buffer1_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
-      kDisplayBufferSize * sizeof(lv_color_t), MALLOC_CAP_DMA));
-  buffer2_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
+  buffer_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
       kDisplayBufferSize * sizeof(lv_color_t), MALLOC_CAP_DMA));
 }
 
 Display::~Display() {
   ledc_fade_func_uninstall();
   free(transaction_);
-  free(buffer1_);
-  free(buffer2_);
+  free(buffer_);
 }
 
 auto Display::SetDisplayOn(bool enabled) -> void {

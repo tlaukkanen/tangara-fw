@@ -57,8 +57,7 @@ class Display {
   uint_fast8_t brightness_;
 
   lv_disp_draw_buf_t buffers_;
-  lv_color_t* buffer1_;
-  lv_color_t* buffer2_;
+  lv_color_t* buffer_;
 
   lv_disp_drv_t driver_;
   lv_disp_t* display_ = nullptr;
