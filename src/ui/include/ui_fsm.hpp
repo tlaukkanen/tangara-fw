@@ -49,8 +49,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const tinyfsm::Event& ev) {}
 
   virtual void react(const system_fsm::BatteryStateChanged&);
-  virtual void react(const audio::PlaybackStarted&){};
-  virtual void react(const audio::PlaybackFinished&){};
+  virtual void react(const audio::PlaybackStarted&);
+  virtual void react(const audio::PlaybackFinished&);
   virtual void react(const audio::PlaybackUpdate&) {}
   virtual void react(const audio::QueueUpdate&) {}
 

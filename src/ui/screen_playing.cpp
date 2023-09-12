@@ -99,6 +99,7 @@ auto Playing::control_button(lv_obj_t* parent, char* icon) -> lv_obj_t* {
 auto Playing::next_up_label(lv_obj_t* parent, const std::string& text)
     -> lv_obj_t* {
   lv_obj_t* button = lv_list_add_btn(parent, NULL, text.c_str());
+  lv_label_set_long_mode(lv_obj_get_child(button, -1), LV_LABEL_LONG_DOT);
   lv_obj_add_event_cb(button, below_fold_focus_cb, LV_EVENT_FOCUSED, this);
   lv_group_add_obj(group_, button);
   return button;
