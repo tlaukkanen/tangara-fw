@@ -114,8 +114,7 @@ auto Priority<Type::kAudioConverter>() -> UBaseType_t {
 }
 // After audio issues, UI jank is the most noticeable kind of scheduling-induced
 // slowness that the user is likely to notice or care about. Therefore we place
-// this task directly below audio in terms of priority. Note that during audio
-// playback, this priority will be downgraded.
+// this task directly below audio in terms of priority.
 template <>
 auto Priority<Type::kUi>() -> UBaseType_t {
   return 10;

@@ -283,7 +283,7 @@ void Display::SendTransaction(TransactionType type,
   gpio_set_level(kDisplayDr, type);
 
   // TODO(jacqueline): Handle these errors.
-  esp_err_t ret = spi_device_polling_transmit(handle_, transaction_);
+  esp_err_t ret = spi_device_transmit(handle_, transaction_);
   ESP_ERROR_CHECK(ret);
 }
 
