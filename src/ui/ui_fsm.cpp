@@ -29,6 +29,7 @@
 #include "screen_splash.hpp"
 #include "screen_track_browser.hpp"
 #include "source.hpp"
+#include "storage.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
@@ -160,18 +161,78 @@ void Splash::react(const system_fsm::BootComplete& ev) {
 }
 
 void Onboarding::entry() {
+  progress_ = 0;
+  has_formatted_ = false;
   sCurrentScreen.reset(new screens::onboarding::LinkToManual());
 }
 
-void Browse::entry() {}
+void Onboarding::react(const internal::OnboardingNavigate& ev) {
+  int dir = ev.forwards ? 1 : -1;
+  progress_ += dir;
+
+  for (;;) {
+    if (progress_ == 0) {
+      sCurrentScreen.reset(new screens::onboarding::LinkToManual());
+      return;
+    } else if (progress_ == 1) {
+      sCurrentScreen.reset(new screens::onboarding::Controls());
+      return;
+    } else if (progress_ == 2) {
+      if (sServices->sd() == drivers::SdState::kNotPresent) {
+        sCurrentScreen.reset(new screens::onboarding::MissingSdCard());
+        return;
+      } else {
+        progress_ += dir;
+      }
+    } else if (progress_ == 3) {
+      if (sServices->sd() == drivers::SdState::kNotFormatted) {
+        has_formatted_ = true;
+        sCurrentScreen.reset(new screens::onboarding::FormatSdCard());
+        return;
+      } else {
+        progress_ += dir;
+      }
+    } else if (progress_ == 4) {
+      if (has_formatted_) {
+        // If we formatted the SD card during this onboarding flow, then there
+        // is no music that needs indexing.
+        progress_ += dir;
+      } else {
+        sCurrentScreen.reset(new screens::onboarding::InitDatabase());
+        return;
+      }
+    } else {
+      // We finished onboarding! Ensure this flow doesn't appear again.
+      sServices->nvs().HasShownOnboarding(true);
+
+      transit<Browse>();
+      return;
+    }
+  }
+}
+
+static bool sBrowseFirstEntry = true;
+
+void Browse::entry() {
+  if (sBrowseFirstEntry) {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    sCurrentScreen = std::make_shared<screens::Menu>(db->GetIndexes());
+    sBrowseFirstEntry = false;
+  }
+}
 
 void Browse::react(const system_fsm::StorageMounted& ev) {
-  auto db = sServices->database().lock();
-  if (!db) {
-    // TODO(jacqueline): Hmm.
-    return;
+  if (sBrowseFirstEntry) {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    sCurrentScreen = std::make_shared<screens::Menu>(db->GetIndexes());
+    sBrowseFirstEntry = false;
   }
-  PushScreen(std::make_shared<screens::Menu>(db->GetIndexes()));
 }
 
 void Browse::react(const internal::ShowNowPlaying& ev) {

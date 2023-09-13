@@ -67,6 +67,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const internal::ModalConfirmPressed&) {
     sCurrentModal.reset();
   }
+  virtual void react(const internal::OnboardingNavigate&) {}
 
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}
@@ -101,10 +102,13 @@ class Onboarding : public UiState {
  public:
   void entry() override;
 
+  void react(const internal::OnboardingNavigate&) override;
+
   using UiState::react;
 
  private:
   uint8_t progress_;
+  bool has_formatted_;
 };
 
 class Browse : public UiState {

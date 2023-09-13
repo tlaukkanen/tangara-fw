@@ -35,6 +35,15 @@ void Running::entry() {
   auto storage_res = drivers::SdStorage::Create(sServices->gpios());
   if (storage_res.has_error()) {
     ESP_LOGW(kTag, "failed to mount!");
+    switch (storage_res.error()) {
+      case drivers::SdStorage::FAILED_TO_MOUNT:
+        sServices->sd(drivers::SdState::kNotFormatted);
+        break;
+      case drivers::SdStorage::FAILED_TO_READ:
+      default:
+        sServices->sd(drivers::SdState::kNotPresent);
+        break;
+    }
 
     events::System().Dispatch(StorageError{});
     events::Audio().Dispatch(StorageError{});
@@ -42,6 +51,7 @@ void Running::entry() {
     return;
   }
   sStorage.reset(storage_res.value());
+  sServices->sd(drivers::SdState::kMounted);
 
   ESP_LOGI(kTag, "opening database");
   sFileGatherer = new database::FileGathererImpl();

@@ -50,6 +50,9 @@ struct ShowSettingsPage : tinyfsm::Event {
     kAbout,
   } page;
 };
+struct OnboardingNavigate : tinyfsm::Event {
+  bool forwards;
+};
 
 struct ModalConfirmPressed : tinyfsm::Event {};
 struct ModalCancelPressed : tinyfsm::Event {};

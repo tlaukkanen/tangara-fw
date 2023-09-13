@@ -51,7 +51,7 @@ class Display {
  private:
   IGpios& gpio_;
   spi_device_handle_t handle_;
-  spi_transaction_t *transaction_;
+  spi_transaction_t* transaction_;
 
   bool display_on_;
   uint_fast8_t brightness_;

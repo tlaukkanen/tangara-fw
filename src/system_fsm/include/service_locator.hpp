@@ -14,6 +14,7 @@
 #include "gpios.hpp"
 #include "nvs.hpp"
 #include "samd.hpp"
+#include "storage.hpp"
 #include "tag_parser.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
@@ -22,7 +23,7 @@ namespace system_fsm {
 
 class ServiceLocator {
  public:
-  static auto instance() -> ServiceLocator&;
+  ServiceLocator();
 
   auto gpios() -> drivers::Gpios& {
     assert(gpios_ != nullptr);
@@ -44,6 +45,10 @@ class ServiceLocator {
   }
 
   auto nvs(std::unique_ptr<drivers::NvsStorage> i) { nvs_ = std::move(i); }
+
+  auto sd() -> drivers::SdState& { return sd_; }
+
+  auto sd(drivers::SdState s) { sd_ = s; }
 
   auto bluetooth() -> drivers::Bluetooth& {
     assert(bluetooth_ != nullptr);
@@ -96,6 +101,10 @@ class ServiceLocator {
     queue_ = std::move(i);
   }
 
+  // Not copyable or movable.
+  ServiceLocator(const ServiceLocator&) = delete;
+  ServiceLocator& operator=(const ServiceLocator&) = delete;
+
  private:
   std::unique_ptr<drivers::Gpios> gpios_;
   std::unique_ptr<drivers::Samd> samd_;
@@ -108,6 +117,8 @@ class ServiceLocator {
 
   std::shared_ptr<database::Database> database_;
   std::unique_ptr<database::ITagParser> tag_parser_;
+
+  drivers::SdState sd_;
 };
 
 }  // namespace system_fsm

@@ -190,7 +190,7 @@ auto NvsStorage::AmpCurrentVolume(uint16_t val) -> std::future<bool> {
 
 auto NvsStorage::HasShownOnboarding() -> std::future<bool> {
   return writer_->Dispatch<bool>([&]() -> bool {
-    uint8_t out = true;
+    uint8_t out = false;
     nvs_get_u8(handle_, kKeyOnboarded, &out);
     return out;
   });

@@ -6,12 +6,15 @@
 
 #include "screen_onboarding.hpp"
 
+#include "core/lv_event.h"
 #include "core/lv_obj_pos.h"
 #include "draw/lv_draw_rect.h"
+#include "event_queue.hpp"
 #include "extra/libs/qrcode/lv_qrcode.h"
 #include "extra/widgets/win/lv_win.h"
 #include "font/lv_symbol_def.h"
 #include "misc/lv_color.h"
+#include "ui_events.hpp"
 #include "widgets/lv_btn.h"
 #include "widgets/lv_label.h"
 #include "widgets/lv_switch.h"
@@ -21,17 +24,27 @@ static const char kManualUrl[] = "https://tangara.gay/onboarding";
 namespace ui {
 namespace screens {
 
+static void next_btn_cb(lv_event_t* ev) {
+  events::Ui().Dispatch(internal::OnboardingNavigate{.forwards = true});
+}
+
+static void prev_btn_cb(lv_event_t* ev) {
+  events::Ui().Dispatch(internal::OnboardingNavigate{.forwards = false});
+}
+
 Onboarding::Onboarding(const std::string& title,
                        bool show_prev,
                        bool show_next) {
   window_ = lv_win_create(root_, 18);
   if (show_prev) {
     prev_button_ = lv_win_add_btn(window_, LV_SYMBOL_LEFT, 20);
+    lv_obj_add_event_cb(prev_button_, prev_btn_cb, LV_EVENT_CLICKED, NULL);
     lv_group_add_obj(group_, prev_button_);
   }
   title_ = lv_win_add_title(window_, title.c_str());
   if (show_next) {
     next_button_ = lv_win_add_btn(window_, LV_SYMBOL_RIGHT, 20);
+    lv_obj_add_event_cb(next_button_, next_btn_cb, LV_EVENT_CLICKED, NULL);
     lv_group_add_obj(group_, next_button_);
   }
 
@@ -79,23 +92,51 @@ Controls::Controls() : Onboarding("Controls", true, true) {
   create_radio_button(content_, "Scroll");
 }
 
+MissingSdCard::MissingSdCard() : Onboarding("SD Card", true, false) {
+  lv_obj_t* label = lv_label_create(content_);
+  lv_label_set_text(label,
+                    "It looks like there isn't an SD card present. Please "
+                    "insert one to continue.");
+  lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+  lv_obj_set_size(label, lv_pct(100), LV_SIZE_CONTENT);
+}
+
 FormatSdCard::FormatSdCard() : Onboarding("SD Card", true, false) {
   lv_obj_t* label = lv_label_create(content_);
-  lv_label_set_text(
-      label, "this screen is optional. it offers to format your sd card.");
+  lv_label_set_text(label,
+                    "It looks like there is an SD card present, but it has not "
+                    "been formatted. Would you like to format it?");
+  lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+  lv_obj_set_size(label, lv_pct(100), LV_SIZE_CONTENT);
 
   lv_obj_t* button = lv_btn_create(content_);
   label = lv_label_create(button);
   lv_label_set_text(label, "Format");
 
-  label = lv_label_create(content_);
-  lv_label_set_text(label, "Advanced");
+  lv_obj_t* exfat_con = lv_obj_create(content_);
+  lv_obj_set_layout(exfat_con, LV_LAYOUT_FLEX);
+  lv_obj_set_size(exfat_con, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(exfat_con, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(exfat_con, LV_FLEX_ALIGN_SPACE_EVENLY,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
 
-  lv_obj_t* advanced_container = lv_obj_create(content_);
-
-  label = lv_label_create(advanced_container);
+  label = lv_label_create(exfat_con);
   lv_label_set_text(label, "Use exFAT");
-  lv_switch_create(advanced_container);
+  lv_switch_create(exfat_con);
+}
+
+InitDatabase::InitDatabase() : Onboarding("Database", true, true) {
+  lv_obj_t* label = lv_label_create(content_);
+  lv_label_set_text(label,
+                    "Many of Tangara's browsing features rely building an "
+                    "index of your music. Would you like to do this now? It "
+                    "will take some time if you have a large collection.");
+  lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+  lv_obj_set_size(label, lv_pct(100), LV_SIZE_CONTENT);
+
+  lv_obj_t* button = lv_btn_create(content_);
+  label = lv_label_create(button);
+  lv_label_set_text(label, "Index");
 }
 
 }  // namespace onboarding

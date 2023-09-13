@@ -21,6 +21,13 @@ namespace drivers {
 
 extern const char* kStoragePath;
 
+enum class SdState {
+  kNotPresent,
+  kNotFormatted,
+  kNotMounted,
+  kMounted,
+};
+
 class SdStorage {
  public:
   enum Error {

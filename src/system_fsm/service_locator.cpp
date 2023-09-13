@@ -9,13 +9,11 @@
 #include <memory>
 
 #include "nvs.hpp"
+#include "storage.hpp"
 #include "touchwheel.hpp"
 
 namespace system_fsm {
 
-auto ServiceLocator::instance() -> ServiceLocator& {
-  static ServiceLocator sInstance{};
-  return sInstance;
-}
+ServiceLocator::ServiceLocator() : sd_(drivers::SdState::kNotPresent) {}
 
 }  // namespace system_fsm

@@ -42,9 +42,19 @@ class Controls : public Onboarding {
   Controls();
 };
 
+class MissingSdCard : public Onboarding {
+ public:
+  MissingSdCard();
+};
+
 class FormatSdCard : public Onboarding {
  public:
   FormatSdCard();
+};
+
+class InitDatabase : public Onboarding {
+ public:
+  InitDatabase();
 };
 
 }  // namespace onboarding
