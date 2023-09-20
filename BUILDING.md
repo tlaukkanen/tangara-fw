@@ -6,7 +6,8 @@ SPDX-License-Identifier: CC0-1.0
 
 # Building and flashing
 
-1. Make sure you've got all of the submodules in this repo correctly initialised;
+1. Make sure you've got all of the submodules in this repo correctly initialised:
+
 ```
 git submodule update --init --recursive
 ```
@@ -15,34 +16,28 @@ git submodule update --init --recursive
 the ESP-IDF tools. You can consult the [ESP-IDF docs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html)
 for more detailed instructions, but the TL;DR is that you'll want to run
 something like this:
+
 ```
-./lib/esp-adf/esp-idf/install.sh esp32
+./lib/esp-idf/install.sh esp32
 ```
 
 3. As a final piece of setup, you will need to source the env file in this repo
 to correctly set up your environment for building.
+
 ```
 . ./.env
 ```
-**For VSCode:**
 
-When using the Espressif IDF extension, you may want to set the following in your settings.json file:
-```
-  "idf.espAdfPath": "${workspaceFolder}/lib/esp-adf",
-  "idf.espAdfPathWin": "${workspaceFolder}/lib/esp-adf",
-  "idf.espIdfPath": "${workspaceFolder}/lib/esp-adf/esp-idf",
-  "idf.espIdfPathWin": "${workspaceFolder}/lib/esp-adf/esp-idf"
-```
+There is also a `.env.fish` for fish users.
 
 4. You can now build the project using `idf.py build`. Or to flash the project
 onto your board, something like:
+
 ```
 idf.py -p /dev/ttyUSB0 -b 115200 flash
 ```
-(give or take the correct serial port)
 
-Remember that you will need to boot your ESP32 into software download mode
-before you will be able to flash.
+(give or take the correct serial port)
 
 # Running tests
 
@@ -59,11 +54,20 @@ To add new tests to a components, you must:
  2. Include the component in the test build and list of testable components, in
     `test/CMakeLists.txt`.
 
-# clangd setup
+
+# VSCode setup
+
+When using the Espressif IDF extension, you may want to set the following in your settings.json file:
+```
+  "idf.espIdfPath": "${workspaceFolder}/lib/esp-idf",
+  "idf.espIdfPathWin": "${workspaceFolder}/lib/esp-idf"
+```
+
+# LSP (clangd) setup
 
 A regular build will generate `build/compile_commands.json`, which clangd will
 automatically pick up. However, there are a couple of additional steps to get
-everything to place nicely.
+everything to play nicely.
 
 First, you will need to download the xtensa clang toolchain. You can do this
 via ESP-IDF by running  `idf_tools.py install xtensa-clang`
@@ -96,8 +100,4 @@ CompileFlags:
   Compiler: /Users/YOU/.espressif/tools/xtensa-clang/esp-clang/bin/clang++
 ```
 
-You should then get proper LSP integration via clangd, give or take a couple of
-oddities (e.g. for some reason, my install still can't see `stdio.h`. NBD tho.)
-
-Expect this integration to improve sometime in the near future, per [this forum
-thread](https://esp32.com/viewtopic.php?f=13&t=29563).
+You should then get proper LSP integration via clangd.
