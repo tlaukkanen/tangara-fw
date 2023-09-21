@@ -26,6 +26,7 @@
 #include "esp_console.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "event_queue.hpp"
 #include "ff.h"
 #include "freertos/FreeRTOSConfig_arch.h"
@@ -426,6 +427,11 @@ int CmdTaskStats(int argc, char** argv) {
 
   delete[] start_status;
   delete[] end_status;
+
+  std::cout << "heap stats:" << std::endl;
+  std::cout << (esp_get_free_heap_size() / 1024) << " KiB free" << std::endl;
+  std::cout << (esp_get_minimum_free_heap_size() / 1024)
+            << " KiB free at lowest" << std::endl;
 
   return 0;
 }
