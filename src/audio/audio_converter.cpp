@@ -23,7 +23,7 @@
 
 static constexpr char kTag[] = "mixer";
 
-static constexpr std::size_t kSampleBufferLength = 240 * 2 * 8;
+static constexpr std::size_t kSampleBufferLength = 240 * 2 * 64;
 static constexpr std::size_t kSourceBufferLength =
     kSampleBufferLength * 2 * sizeof(sample::Sample);
 
