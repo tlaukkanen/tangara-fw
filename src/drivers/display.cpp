@@ -53,6 +53,7 @@ static const gpio_num_t kDisplayCs = GPIO_NUM_22;
  * size of the screen is the best tradeoff
  */
 static const int kDisplayBufferSize = kDisplayWidth * kDisplayHeight / 10;
+DMA_ATTR static lv_color_t kDisplayBuffer[kDisplayBufferSize];
 
 namespace drivers {
 
@@ -146,8 +147,10 @@ auto Display::Create(IGpios& expander,
   // The hardware is now configured correctly. Next, initialise the LVGL display
   // driver.
   ESP_LOGI(kTag, "Init buffers");
-  lv_disp_draw_buf_init(&display->buffers_, display->buffer_, NULL,
+  assert(esp_ptr_dma_capable(kDisplayBuffer));
+  lv_disp_draw_buf_init(&display->buffers_, kDisplayBuffer, NULL,
                         kDisplayBufferSize);
+
   lv_disp_drv_init(&display->driver_);
   display->driver_.draw_buf = &display->buffers_;
   display->driver_.hor_res = kDisplayWidth;
@@ -167,21 +170,10 @@ auto Display::Create(IGpios& expander,
 }
 
 Display::Display(IGpios& gpio, spi_device_handle_t handle)
-    : gpio_(gpio), handle_(handle), display_on_(false), brightness_(0) {
-  transaction_ = reinterpret_cast<spi_transaction_t*>(
-      heap_caps_malloc(sizeof(spi_transaction_t), MALLOC_CAP_DMA));
-  memset(transaction_, 0, sizeof(spi_transaction_t));
-  buffer_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
-      kDisplayBufferSize * sizeof(lv_color_t), MALLOC_CAP_DMA));
-
-  assert(esp_ptr_dma_capable(buffer_));
-  assert(esp_ptr_dma_capable(transaction_));
-}
+    : gpio_(gpio), handle_(handle), display_on_(false), brightness_(0) {}
 
 Display::~Display() {
   ledc_fade_func_uninstall();
-  free(transaction_);
-  free(buffer_);
 }
 
 auto Display::SetDisplayOn(bool enabled) -> void {
@@ -263,28 +255,29 @@ void Display::SendTransaction(TransactionType type,
     return;
   }
 
-  memset(transaction_, 0, sizeof(spi_transaction_t));
+  DMA_ATTR static spi_transaction_t sTransaction;
+  memset(&sTransaction, 0, sizeof(sTransaction));
 
-  transaction_->rx_buffer = NULL;
+  sTransaction.rx_buffer = NULL;
   // Length is in bits, so multiply by 8.
-  transaction_->length = length * 8;
-  transaction_->rxlength = 0;  // Match `length` value.
+  sTransaction.length = length * 8;
+  sTransaction.rxlength = 0;  // Match `length` value.
 
   // If the data to transmit is very short, then we can fit it directly
   // inside the transaction struct.
-  if (transaction_->length <= 32) {
-    transaction_->flags = SPI_TRANS_USE_TXDATA;
-    std::memcpy(&transaction_->tx_data, data, length);
+  if (sTransaction.length <= 32) {
+    sTransaction.flags = SPI_TRANS_USE_TXDATA;
+    std::memcpy(&sTransaction.tx_data, data, length);
   } else {
     // Note: LVGL's buffers are in DMA-accessible memory, so whatever pointer
     // it handed us should be DMA-accessible already. No need to copy.
-    transaction_->tx_buffer = data;
+    sTransaction.tx_buffer = data;
   }
 
   gpio_set_level(kDisplayDr, type);
 
   // TODO(jacqueline): Handle these errors.
-  esp_err_t ret = spi_device_transmit(handle_, transaction_);
+  esp_err_t ret = spi_device_transmit(handle_, &sTransaction);
   ESP_ERROR_CHECK(ret);
 }
 
