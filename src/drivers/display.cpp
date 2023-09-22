@@ -20,6 +20,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
+#include "esp_memory_utils.h"
 #include "freertos/portable.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -38,9 +39,9 @@
 static const char* kTag = "DISPLAY";
 
 // TODO(jacqueline): Encode width and height variations in the init data.
-static const uint8_t kDisplayWidth = 128 + 2;
-static const uint8_t kDisplayHeight = 160 + 1;
-static const uint8_t kTransactionQueueSize = 10;
+static const uint8_t kDisplayHeight = 128 + 2;
+static const uint8_t kDisplayWidth = 160 + 1;
+static const uint8_t kTransactionQueueSize = 2;
 
 static const gpio_num_t kDisplayDr = GPIO_NUM_33;
 static const gpio_num_t kDisplayLedEn = GPIO_NUM_32;
@@ -151,8 +152,10 @@ auto Display::Create(IGpios& expander,
   display->driver_.draw_buf = &display->buffers_;
   display->driver_.hor_res = kDisplayWidth;
   display->driver_.ver_res = kDisplayHeight;
-  display->driver_.sw_rotate = 1;
-  display->driver_.rotated = LV_DISP_ROT_270;
+  // display->driver_.sw_rotate = 1;
+  // display->driver_.rotated = LV_DISP_ROT_270;
+  display->driver_.sw_rotate = 0;
+  display->driver_.rotated = LV_DISP_ROT_NONE;
   display->driver_.antialiasing = 0;
   display->driver_.flush_cb = &FlushDataCallback;
   display->driver_.user_data = display.get();
@@ -170,6 +173,9 @@ Display::Display(IGpios& gpio, spi_device_handle_t handle)
   memset(transaction_, 0, sizeof(spi_transaction_t));
   buffer_ = reinterpret_cast<lv_color_t*>(heap_caps_malloc(
       kDisplayBufferSize * sizeof(lv_color_t), MALLOC_CAP_DMA));
+
+  assert(esp_ptr_dma_capable(buffer_));
+  assert(esp_ptr_dma_capable(transaction_));
 }
 
 Display::~Display() {
