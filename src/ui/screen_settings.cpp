@@ -9,8 +9,11 @@
 #include <string>
 
 #include "audio_events.hpp"
+#include "bluetooth.hpp"
+#include "bluetooth_types.hpp"
 #include "core/lv_event.h"
 #include "core/lv_obj.h"
+#include "core/lv_obj_tree.h"
 #include "display.hpp"
 #include "esp_log.h"
 
@@ -100,7 +103,18 @@ static auto label_pair(lv_obj_t* parent,
   return right_label;
 }
 
-Bluetooth::Bluetooth() : MenuScreen("Bluetooth") {
+static auto toggle_bt_cb(lv_event_t* ev) {
+  Bluetooth* instance = reinterpret_cast<Bluetooth*>(ev->user_data);
+  instance->ChangeEnabledState(lv_obj_has_state(ev->target, LV_STATE_CHECKED));
+}
+
+static auto select_device_cb(lv_event_t* ev) {
+  Bluetooth* instance = reinterpret_cast<Bluetooth*>(ev->user_data);
+  instance->OnDeviceSelected(lv_obj_get_index(ev->target));
+}
+
+Bluetooth::Bluetooth(drivers::Bluetooth& bt, drivers::NvsStorage& nvs)
+    : MenuScreen("Bluetooth"), bt_(bt), nvs_(nvs) {
   lv_obj_t* toggle_container = settings_container(content_);
   lv_obj_t* toggle_label = lv_label_create(toggle_container);
   lv_label_set_text(toggle_label, "Enable");
@@ -108,20 +122,134 @@ Bluetooth::Bluetooth() : MenuScreen("Bluetooth") {
   lv_obj_t* toggle = lv_switch_create(toggle_container);
   lv_group_add_obj(group_, toggle);
 
+  if (bt.IsEnabled()) {
+    lv_obj_add_state(toggle, LV_STATE_CHECKED);
+  }
+
+  lv_obj_add_event_cb(toggle, toggle_bt_cb, LV_EVENT_VALUE_CHANGED, this);
+
   lv_obj_t* devices_label = lv_label_create(content_);
   lv_label_set_text(devices_label, "Devices");
 
-  lv_obj_t* devices_list = lv_list_create(content_);
-  lv_list_add_text(devices_list, "My Headphones");
-  lv_group_add_obj(group_,
-                   lv_list_add_btn(devices_list, NULL, "Something else"));
-  lv_group_add_obj(group_, lv_list_add_btn(devices_list, NULL, "A car??"));
-  lv_group_add_obj(group_,
-                   lv_list_add_btn(devices_list, NULL, "OLED TV ANDROID"));
-  lv_group_add_obj(
-      group_, lv_list_add_btn(devices_list, NULL, "there could be another"));
-  lv_group_add_obj(group_, lv_list_add_btn(devices_list, NULL,
-                                           "this one has a really long name"));
+  devices_list_ = lv_list_create(content_);
+  RefreshDevicesList();
+}
+
+auto Bluetooth::ChangeEnabledState(bool enabled) -> void {
+  if (enabled) {
+    events::System().RunOnTask([&]() { bt_.Enable(); });
+    nvs_.OutputMode(drivers::NvsStorage::Output::kBluetooth).get();
+  } else {
+    events::System().RunOnTask([&]() { bt_.Disable(); });
+    nvs_.OutputMode(drivers::NvsStorage::Output::kHeadphones).get();
+  }
+  events::Audio().Dispatch(audio::OutputModeChanged{});
+  RefreshDevicesList();
+}
+
+auto Bluetooth::RefreshDevicesList() -> void {
+  if (!bt_.IsEnabled()) {
+    // Bluetooth is disabled, so we just clear the list.
+    RemoveAllDevices();
+    return;
+  }
+
+  auto devices = bt_.KnownDevices();
+  std::optional<drivers::bluetooth::mac_addr_t> preferred_device =
+      nvs_.PreferredBluetoothDevice().get();
+
+  // If the user's current selection is within the devices list, then we need
+  // to be careful not to rearrange the list items underneath them.
+  lv_obj_t* current_selection = lv_group_get_focused(group_);
+  bool is_in_list = current_selection != NULL &&
+                    lv_obj_get_parent(current_selection) == devices_list_;
+
+  if (!is_in_list) {
+    // The user isn't in the list! We can blow everything away and recreate it
+    // without issues.
+    RemoveAllDevices();
+
+    // First look to see if the user's preferred device is in the list. If it
+    // is, we hoist it up to the top of the list.
+    if (preferred_device) {
+      for (size_t i = 0; i < devices.size(); i++) {
+        if (devices[i].address == *preferred_device) {
+          AddPreferredDevice(devices[i]);
+          devices.erase(devices.begin() + i);
+          break;
+        }
+      }
+    }
+
+    // The rest of the list is already sorted by signal strength.
+    for (const auto& device : devices) {
+      AddDevice(device);
+    }
+  } else {
+    // The user's selection is within the device list. We need to work out
+    // which devices are new, then add them to the end.
+    for (const auto& mac : macs_in_list_) {
+      auto pos = std::find_if(
+          devices.begin(), devices.end(),
+          [&mac](const auto& device) { return device.address == mac; });
+
+      if (pos != devices.end()) {
+        devices.erase(pos);
+      }
+    }
+
+    // The remaining list is now just the new devices.
+    for (const auto& device : devices) {
+      if (preferred_device && device.address == *preferred_device) {
+        AddPreferredDevice(device);
+      } else {
+        AddDevice(device);
+      }
+    }
+  }
+}
+
+auto Bluetooth::RemoveAllDevices() -> void {
+  while (lv_obj_get_child_cnt(devices_list_) > 0) {
+    lv_obj_del(lv_obj_get_child(devices_list_, 0));
+  }
+  macs_in_list_.clear();
+  preferred_device_ = nullptr;
+}
+
+auto Bluetooth::AddPreferredDevice(const drivers::bluetooth::Device& dev)
+    -> void {
+  preferred_device_ = lv_list_add_btn(devices_list_, NULL, dev.name.c_str());
+  macs_in_list_.push_back(dev.address);
+}
+
+auto Bluetooth::AddDevice(const drivers::bluetooth::Device& dev) -> void {
+  lv_obj_t* item = lv_list_add_btn(devices_list_, NULL, dev.name.c_str());
+  lv_group_add_obj(group_, item);
+  lv_obj_add_event_cb(item, select_device_cb, LV_EVENT_CLICKED, this);
+  macs_in_list_.push_back(dev.address);
+}
+
+auto Bluetooth::OnDeviceSelected(size_t index) -> void {
+  // Tell the bluetooth driver that our preference changed.
+  auto it = macs_in_list_.begin();
+  std::advance(it, index);
+  events::System().RunOnTask([=]() { bt_.SetPreferredDevice(*it); });
+
+  // Update which devices are selectable.
+  if (preferred_device_) {
+    lv_group_add_obj(group_, preferred_device_);
+    // Bubble the newly added object up to its visible position in the list.
+    size_t pos = lv_obj_get_index(preferred_device_);
+    while (pos > 0) {
+      lv_group_swap_obj(preferred_device_,
+                        lv_obj_get_child(devices_list_, pos - 1));
+      pos--;
+    }
+  }
+
+  preferred_device_ = lv_obj_get_child(devices_list_, index);
+  lv_group_remove_obj(preferred_device_);
 }
 
 static void change_vol_limit_cb(lv_event_t* ev) {

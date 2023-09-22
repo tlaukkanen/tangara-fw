@@ -16,5 +16,10 @@ struct Device {
   int8_t signal_strength;
 };
 
+enum class Event {
+  kKnownDevicesChanged,
+  kConnectionStateChanged,
+};
+
 }  // namespace bluetooth
 }  // namespace drivers

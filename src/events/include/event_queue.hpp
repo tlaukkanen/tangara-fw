@@ -80,6 +80,10 @@ class Dispatcher {
     queue_->Add(dispatch_fn);
   }
 
+  auto RunOnTask(const std::function<void(void)>& fn) -> void {
+    queue_->Add(fn);
+  }
+
   Dispatcher(Dispatcher const&) = delete;
   void operator=(Dispatcher const&) = delete;
 

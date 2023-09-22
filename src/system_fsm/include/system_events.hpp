@@ -56,6 +56,8 @@ struct HasPhonesChanged : tinyfsm::Event {
 struct ChargingStatusChanged : tinyfsm::Event {};
 struct BatteryStateChanged : tinyfsm::Event {};
 
+struct BluetoothDevicesChanged : tinyfsm::Event {};
+
 namespace internal {
 
 struct GpioInterrupt : tinyfsm::Event {};

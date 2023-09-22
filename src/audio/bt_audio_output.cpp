@@ -29,16 +29,16 @@ namespace audio {
 
 static constexpr size_t kDrainBufferSize = 48 * 1024;
 
-BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth* bt)
+BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth& bt)
     : IAudioOutput(kDrainBufferSize, MALLOC_CAP_SPIRAM), bluetooth_(bt) {}
 
 BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
 auto BluetoothAudioOutput::SetInUse(bool in_use) -> void {
   if (in_use) {
-    bluetooth_->SetSource(stream());
+    bluetooth_.SetSource(stream());
   } else {
-    bluetooth_->SetSource(nullptr);
+    bluetooth_.SetSource(nullptr);
   }
 }
 

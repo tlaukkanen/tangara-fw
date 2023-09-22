@@ -11,6 +11,7 @@
 #include "audio_fsm.hpp"
 #include "battery.hpp"
 #include "bluetooth.hpp"
+#include "bluetooth_types.hpp"
 #include "core/lv_obj.h"
 #include "display_init.hpp"
 #include "esp_err.h"
@@ -40,6 +41,12 @@ namespace system_fsm {
 namespace states {
 
 static const char kTag[] = "BOOT";
+
+static auto bt_event_cb(drivers::bluetooth::Event ev) -> void {
+  if (ev == drivers::bluetooth::Event::kKnownDevicesChanged) {
+    events::Ui().Dispatch(BluetoothDevicesChanged{});
+  }
+}
 
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
@@ -71,9 +78,15 @@ auto Booting::entry() -> void {
   sServices->track_queue(std::make_unique<audio::TrackQueue>());
   sServices->tag_parser(std::make_unique<database::TagParserImpl>());
 
-  // ESP_LOGI(kTag, "starting bluetooth");
-  // sBluetooth.reset(new drivers::Bluetooth(sNvs.get()));
-  // sBluetooth->Enable();
+  ESP_LOGI(kTag, "init bluetooth");
+  sServices->bluetooth(std::make_unique<drivers::Bluetooth>(sServices->nvs()));
+  sServices->bluetooth().SetEventHandler(bt_event_cb);
+
+  if (sServices->nvs().OutputMode().get() ==
+      drivers::NvsStorage::Output::kBluetooth) {
+    ESP_LOGI(kTag, "enabling bluetooth");
+    sServices->bluetooth().Enable();
+  }
 
   BootComplete ev{.services = sServices};
   events::Audio().Dispatch(ev);

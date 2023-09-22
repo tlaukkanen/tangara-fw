@@ -17,6 +17,7 @@
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
+#include "screen_settings.hpp"
 #include "service_locator.hpp"
 #include "tinyfsm.hpp"
 
@@ -72,6 +73,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}
   virtual void react(const system_fsm::StorageMounted&) {}
+  virtual void react(const system_fsm::BluetoothDevicesChanged&) {}
 
  protected:
   void PushScreen(std::shared_ptr<Screen>);
@@ -112,6 +114,7 @@ class Onboarding : public UiState {
 };
 
 class Browse : public UiState {
+ public:
   void entry() override;
 
   void react(const internal::RecordSelected&) override;
@@ -122,10 +125,16 @@ class Browse : public UiState {
   void react(const internal::ShowSettingsPage&) override;
 
   void react(const system_fsm::StorageMounted&) override;
+  void react(const system_fsm::BluetoothDevicesChanged&) override;
+
   using UiState::react;
+
+ private:
+  std::weak_ptr<screens::Bluetooth> bluetooth_screen_;
 };
 
 class Playing : public UiState {
+ public:
   void entry() override;
   void exit() override;
 

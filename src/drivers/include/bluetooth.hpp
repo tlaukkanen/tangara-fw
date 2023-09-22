@@ -26,15 +26,17 @@ namespace drivers {
  */
 class Bluetooth {
  public:
-  Bluetooth(NvsStorage* storage);
+  Bluetooth(NvsStorage& storage);
 
   auto Enable() -> bool;
   auto Disable() -> void;
+  auto IsEnabled() -> bool;
 
   auto KnownDevices() -> std::vector<bluetooth::Device>;
   auto SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void;
 
   auto SetSource(StreamBufferHandle_t) -> void;
+  auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
 };
 
 namespace bluetooth {
@@ -64,7 +66,7 @@ struct Avrc : public tinyfsm::Event {
 
 class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
  public:
-  static auto Init(NvsStorage* storage) -> void;
+  static auto Init(NvsStorage& storage) -> void;
 
   static auto devices() -> std::vector<Device>;
   static auto preferred_device() -> std::optional<mac_addr_t>;
@@ -72,6 +74,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
   static auto source() -> StreamBufferHandle_t;
   static auto source(StreamBufferHandle_t) -> void;
+
+  static auto event_handler(std::function<void(Event)>) -> void;
 
   virtual ~BluetoothState(){};
 
@@ -96,6 +100,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static mac_addr_t sCurrentDevice_;
 
   static std::atomic<StreamBufferHandle_t> sSource_;
+  static std::function<void(Event)> sEventHandler_;
 };
 
 class Disabled : public BluetoothState {

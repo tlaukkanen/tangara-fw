@@ -8,6 +8,7 @@
 #include <ostream>
 #include <sstream>
 
+#include "bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "esp_bt.h"
@@ -56,7 +57,7 @@ auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   return xStreamBufferReceive(stream, buf, buf_size, 0);
 }
 
-Bluetooth::Bluetooth(NvsStorage* storage) {
+Bluetooth::Bluetooth(NvsStorage& storage) {
   bluetooth::BluetoothState::Init(storage);
 }
 
@@ -70,6 +71,10 @@ auto Bluetooth::Enable() -> bool {
 auto Bluetooth::Disable() -> void {
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::Disable{});
+}
+
+auto Bluetooth::IsEnabled() -> bool {
+  return !bluetooth::BluetoothState::is_in_state<bluetooth::Disabled>();
 }
 
 auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {
@@ -98,6 +103,11 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
       bluetooth::events::SourceChanged{});
 }
 
+auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
+    -> void {
+  bluetooth::BluetoothState::event_handler(cb);
+}
+
 auto DeviceName() -> std::string {
   uint8_t mac[8]{0};
   esp_efuse_mac_get_default(mac);
@@ -111,16 +121,17 @@ namespace bluetooth {
 
 NvsStorage* BluetoothState::sStorage_;
 
-std::mutex BluetoothState::sDevicesMutex_;
-std::map<mac_addr_t, Device> BluetoothState::sDevices_;
-std::optional<mac_addr_t> BluetoothState::sPreferredDevice_;
+std::mutex BluetoothState::sDevicesMutex_{};
+std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
+std::optional<mac_addr_t> BluetoothState::sPreferredDevice_{};
 mac_addr_t BluetoothState::sCurrentDevice_;
 
 std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
+std::function<void(Event)> BluetoothState::sEventHandler_;
 
-auto BluetoothState::Init(NvsStorage* storage) -> void {
-  sStorage_ = storage;
-  sPreferredDevice_ = storage->PreferredBluetoothDevice().get();
+auto BluetoothState::Init(NvsStorage& storage) -> void {
+  sStorage_ = &storage;
+  sPreferredDevice_ = storage.PreferredBluetoothDevice().get();
   tinyfsm::FsmList<bluetooth::BluetoothState>::start();
 }
 
@@ -151,6 +162,11 @@ auto BluetoothState::source() -> StreamBufferHandle_t {
 auto BluetoothState::source(StreamBufferHandle_t src) -> void {
   std::lock_guard lock{sDevicesMutex_};
   sSource_.store(src);
+}
+
+auto BluetoothState::event_handler(std::function<void(Event)> cb) -> void {
+  std::lock_guard lock{sDevicesMutex_};
+  sEventHandler_ = cb;
 }
 
 static bool sIsFirstEntry = true;
@@ -302,6 +318,10 @@ auto Scanning::OnDeviceDiscovered(esp_bt_gap_cb_param_t* param) -> void {
     if (device.address == sPreferredDevice_) {
       sCurrentDevice_ = device.address;
       is_preferred = true;
+    }
+
+    if (sEventHandler_) {
+      std::invoke(sEventHandler_, Event::kKnownDevicesChanged);
     }
   }
 

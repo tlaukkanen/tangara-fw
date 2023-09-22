@@ -128,7 +128,7 @@ auto NvsStorage::OutputMode() -> std::future<Output> {
     nvs_get_u8(handle_, kKeyOutput, &out);
     switch (out) {
       case static_cast<uint8_t>(Output::kBluetooth):
-        return Output::kHeadphones;
+        return Output::kBluetooth;
       case static_cast<uint8_t>(Output::kHeadphones):
       default:
         return Output::kHeadphones;
@@ -138,7 +138,8 @@ auto NvsStorage::OutputMode() -> std::future<Output> {
 
 auto NvsStorage::OutputMode(Output out) -> std::future<bool> {
   return writer_->Dispatch<bool>([&]() {
-    nvs_set_u8(handle_, kKeyOutput, static_cast<uint8_t>(out));
+    uint8_t as_int = static_cast<uint8_t>(out);
+    nvs_set_u8(handle_, kKeyOutput, as_int);
     return nvs_commit(handle_) == ESP_OK;
   });
 }

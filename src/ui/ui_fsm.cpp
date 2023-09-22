@@ -241,12 +241,16 @@ void Browse::react(const internal::ShowNowPlaying& ev) {
 
 void Browse::react(const internal::ShowSettingsPage& ev) {
   std::shared_ptr<Screen> screen;
+  std::shared_ptr<screens::Bluetooth> bt_screen;
   switch (ev.page) {
     case internal::ShowSettingsPage::Page::kRoot:
       screen.reset(new screens::Settings());
       break;
     case internal::ShowSettingsPage::Page::kBluetooth:
-      screen.reset(new screens::Bluetooth());
+      bt_screen = std::make_shared<screens::Bluetooth>(sServices->bluetooth(),
+                                                       sServices->nvs());
+      screen = bt_screen;
+      bluetooth_screen_ = bt_screen;
       break;
     case internal::ShowSettingsPage::Page::kHeadphones:
       screen.reset(new screens::Headphones(sServices->nvs()));
@@ -313,6 +317,13 @@ void Browse::react(const internal::IndexSelected& ev) {
 
 void Browse::react(const internal::BackPressed& ev) {
   PopScreen();
+}
+
+void Browse::react(const system_fsm::BluetoothDevicesChanged&) {
+  auto bt = bluetooth_screen_.lock();
+  if (bt) {
+    bt->RefreshDevicesList();
+  }
 }
 
 static std::shared_ptr<screens::Playing> sPlayingScreen;

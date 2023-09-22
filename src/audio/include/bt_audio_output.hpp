@@ -21,7 +21,7 @@ namespace audio {
 
 class BluetoothAudioOutput : public IAudioOutput {
  public:
-  BluetoothAudioOutput(drivers::Bluetooth* bt);
+  BluetoothAudioOutput(drivers::Bluetooth& bt);
   ~BluetoothAudioOutput();
 
   auto SetInUse(bool) -> void override;
@@ -39,7 +39,7 @@ class BluetoothAudioOutput : public IAudioOutput {
   BluetoothAudioOutput& operator=(const BluetoothAudioOutput&) = delete;
 
  private:
-  drivers::Bluetooth* bluetooth_;
+  drivers::Bluetooth& bluetooth_;
 };
 
 }  // namespace audio

@@ -26,6 +26,7 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
+#include "nvs.hpp"
 #include "service_locator.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
@@ -42,6 +43,7 @@ std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
 std::unique_ptr<Decoder> AudioState::sDecoder;
 std::shared_ptr<SampleConverter> AudioState::sSampleConverter;
 std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
+std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 std::optional<database::TrackId> AudioState::sCurrentTrack;
@@ -75,6 +77,20 @@ void AudioState::react(const ChangeMaxVolume& ev) {
   sServices->nvs().AmpMaxVolume(ev.new_max);
 }
 
+void AudioState::react(const OutputModeChanged& ev) {
+  // TODO: handle SetInUse
+  ESP_LOGI(kTag, "output mode changed");
+  auto new_mode = sServices->nvs().OutputMode();
+  switch (new_mode.get()) {
+    case drivers::NvsStorage::Output::kBluetooth:
+      sOutput = sBtOutput;
+      break;
+    case drivers::NvsStorage::Output::kHeadphones:
+      sOutput = sI2SOutput;
+      break;
+  }
+}
+
 namespace states {
 
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
@@ -90,13 +106,18 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sFileSource.reset(new FatfsAudioInput(sServices->tag_parser()));
   sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(),
                                       std::unique_ptr<drivers::I2SDac>{*dac}));
+  sBtOutput.reset(new BluetoothAudioOutput(sServices->bluetooth()));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume().get());
   sI2SOutput->SetVolumeDb(nvs.AmpCurrentVolume().get());
 
-  sOutput = sI2SOutput;
-  // sOutput.reset(new BluetoothAudioOutput(bluetooth));
+  if (sServices->nvs().OutputMode().get() ==
+      drivers::NvsStorage::Output::kHeadphones) {
+    sOutput = sI2SOutput;
+  } else {
+    sOutput = sBtOutput;
+  }
 
   sSampleConverter.reset(new SampleConverter());
   sSampleConverter->SetOutput(sOutput);

@@ -8,9 +8,12 @@
 
 #include <stdint.h>
 #include <cstdint>
+#include <list>
 #include <memory>
 #include <vector>
 
+#include "bluetooth.hpp"
+#include "bluetooth_types.hpp"
 #include "display.hpp"
 #include "index.hpp"
 #include "lvgl.h"
@@ -28,7 +31,24 @@ class Settings : public MenuScreen {
 
 class Bluetooth : public MenuScreen {
  public:
-  Bluetooth();
+  Bluetooth(drivers::Bluetooth& bt, drivers::NvsStorage& nvs);
+
+  auto ChangeEnabledState(bool enabled) -> void;
+  auto RefreshDevicesList() -> void;
+  auto OnDeviceSelected(size_t index) -> void;
+
+ private:
+  auto RemoveAllDevices() -> void;
+  auto AddPreferredDevice(const drivers::bluetooth::Device&) -> void;
+  auto AddDevice(const drivers::bluetooth::Device&) -> void;
+
+  drivers::Bluetooth& bt_;
+  drivers::NvsStorage& nvs_;
+
+  lv_obj_t* devices_list_;
+  lv_obj_t* preferred_device_;
+
+  std::list<drivers::bluetooth::mac_addr_t> macs_in_list_;
 };
 
 class Headphones : public MenuScreen {

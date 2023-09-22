@@ -41,6 +41,8 @@ struct ChangeMaxVolume : tinyfsm::Event {
 
 struct TogglePlayPause : tinyfsm::Event {};
 
+struct OutputModeChanged : tinyfsm::Event {};
+
 namespace internal {
 
 struct InputFileOpened : tinyfsm::Event {};
