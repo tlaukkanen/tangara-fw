@@ -86,7 +86,7 @@ auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
 }
 template <>
 auto AllocateStack<Type::kNvsWriter>() -> cpp::span<StackType_t> {
-  std::size_t size = 2 * 1024;
+  std::size_t size = 4 * 1024;
   return {static_cast<StackType_t*>(
               heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
           size};
