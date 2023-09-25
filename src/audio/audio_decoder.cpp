@@ -79,8 +79,7 @@ auto Timer::AddSamples(std::size_t samples) -> void {
 auto Decoder::Start(std::shared_ptr<IAudioSource> source,
                     std::shared_ptr<SampleConverter> sink) -> Decoder* {
   Decoder* task = new Decoder(source, sink);
-  tasks::StartPersistent<tasks::Type::kAudioDecoder>(1,
-                                                     [=]() { task->Main(); });
+  tasks::StartPersistent<tasks::Type::kAudioDecoder>([=]() { task->Main(); });
   return task;
 }
 
