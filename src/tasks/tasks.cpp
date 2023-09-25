@@ -49,15 +49,15 @@ auto AllocateStack() -> cpp::span<StackType_t>;
 // usually written with embedded use cases in mind.
 template <>
 auto AllocateStack<Type::kAudioDecoder>() -> cpp::span<StackType_t> {
-  std::size_t size = 64 * 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
-          size};
+  constexpr std::size_t size = 24 * 1024;
+  static StackType_t sStack[size];
+  return {sStack, size};
 }
 // LVGL requires only a relatively small stack. However, it can be allocated in
 // PSRAM so we give it a bit of headroom for safety.
 template <>
 auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
-  std::size_t size = 32 * 1024;
+  constexpr std::size_t size = 24 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
@@ -66,9 +66,9 @@ template <>
 // entirely with PSRAM-allocated buffers, so no real speed gain from allocating
 // it internally.
 auto AllocateStack<Type::kAudioConverter>() -> cpp::span<StackType_t> {
-  std::size_t size = 4 * 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
-          size};
+  constexpr std::size_t size = 4 * 1024;
+  static StackType_t sStack[size];
+  return {sStack, size};
 }
 // Leveldb is designed for non-embedded use cases, where stack space isn't so
 // much of a concern. It therefore uses an eye-wateringly large amount of stack.
@@ -86,10 +86,9 @@ auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
 }
 template <>
 auto AllocateStack<Type::kNvsWriter>() -> cpp::span<StackType_t> {
-  std::size_t size = 4 * 1024;
-  return {static_cast<StackType_t*>(
-              heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
-          size};
+  constexpr std::size_t size = 4 * 1024;
+  static StackType_t sStack[size];
+  return {sStack, size};
 }
 
 // 2 KiB in internal ram
