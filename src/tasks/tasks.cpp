@@ -57,9 +57,9 @@ auto AllocateStack<Type::kAudioDecoder>() -> cpp::span<StackType_t> {
 // PSRAM so we give it a bit of headroom for safety.
 template <>
 auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
-  constexpr std::size_t size = 24 * 1024;
-  return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
-          size};
+  constexpr std::size_t size = 16 * 1024;
+  static StackType_t sStack[size];
+  return {sStack, size};
 }
 template <>
 // PCM conversion and resampling uses a very small amount of stack. It works
