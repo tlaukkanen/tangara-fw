@@ -51,7 +51,7 @@ static const uint8_t kST7735RCommonHeader[]{
       0x0E,
     ST77XX_INVOFF,  0,           // 13: Don't invert display, no args
     ST77XX_MADCTL,  1,           // 14: Mem access ctl (directions), 1 arg:
-      0xA8,                      //     row/col addr, bottom-top refresh
+      0xA0,                      //     row/col addr, bottom-top refresh
     ST77XX_COLMOD,  1,           // 15: set color mode, 1 arg, no delay:
       0x05
 };
