@@ -24,6 +24,7 @@
 #include "audio_fsm.hpp"
 #include "database.hpp"
 #include "esp_console.h"
+#include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -330,14 +331,14 @@ void RegisterDbDump() {
   esp_console_cmd_register(&cmd);
 }
 
-int CmdTaskStats(int argc, char** argv) {
+int CmdTasks(int argc, char** argv) {
   if (!configUSE_TRACE_FACILITY) {
     std::cout << "configUSE_TRACE_FACILITY must be enabled" << std::endl;
     std::cout << "also consider configTASKLIST_USE_COREID" << std::endl;
     return 1;
   }
 
-  static const std::string usage = "usage: task_stats";
+  static const std::string usage = "usage: tasks";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -428,19 +429,50 @@ int CmdTaskStats(int argc, char** argv) {
   delete[] start_status;
   delete[] end_status;
 
-  std::cout << "heap stats:" << std::endl;
+  return 0;
+}
+
+void RegisterTasks() {
+  esp_console_cmd_t cmd{.command = "tasks",
+                        .help = "prints performance info for all tasks",
+                        .hint = NULL,
+                        .func = &CmdTasks,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
+int CmdHeaps(int argc, char** argv) {
+  static const std::string usage = "usage: heaps";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  std::cout << "heap stats (total):" << std::endl;
   std::cout << (esp_get_free_heap_size() / 1024) << " KiB free" << std::endl;
   std::cout << (esp_get_minimum_free_heap_size() / 1024)
+            << " KiB free at lowest" << std::endl;
+
+  std::cout << "heap stats (internal):" << std::endl;
+  std::cout << (heap_caps_get_free_size(MALLOC_CAP_DMA) / 1024) << " KiB free"
+            << std::endl;
+  std::cout << (heap_caps_get_minimum_free_size(MALLOC_CAP_DMA) / 1024)
+            << " KiB free at lowest" << std::endl;
+
+  std::cout << "heap stats (external):" << std::endl;
+  std::cout << (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024)
+            << " KiB free" << std::endl;
+  std::cout << (heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM) / 1024)
             << " KiB free at lowest" << std::endl;
 
   return 0;
 }
 
-void RegisterTaskStates() {
-  esp_console_cmd_t cmd{.command = "task_stats",
-                        .help = "prints performance info for all tasks",
+void RegisterHeaps() {
+  esp_console_cmd_t cmd{.command = "heaps",
+                        .help = "prints free heap space",
                         .hint = NULL,
-                        .func = &CmdTaskStats,
+                        .func = &CmdHeaps,
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
@@ -558,7 +590,8 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterDbTracks();
   RegisterDbIndex();
   RegisterDbDump();
-  RegisterTaskStates();
+  RegisterTasks();
+  RegisterHeaps();
   RegisterBtList();
   RegisterSamd();
 }
