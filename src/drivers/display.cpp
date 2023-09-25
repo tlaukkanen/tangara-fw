@@ -202,10 +202,6 @@ auto Display::SetDutyCycle(uint_fast8_t new_duty, bool fade) -> void {
 }
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
-  // Hold onto the bus for the entire sequence so that we're not interrupted
-  // part way through.
-  spi_device_acquire_bus(handle_, portMAX_DELAY);
-
   // First byte of the data is the number of commands.
   for (int i = *(data++); i > 0; i--) {
     uint8_t command = *(data++);
@@ -222,14 +218,9 @@ void Display::SendInitialisationSequence(const uint8_t* data) {
         sleep_duration_ms = 500;
       }
 
-      // Avoid hanging on to the bus whilst delaying.
-      spi_device_release_bus(handle_);
       vTaskDelay(pdMS_TO_TICKS(sleep_duration_ms));
-      spi_device_acquire_bus(handle_, portMAX_DELAY);
     }
   }
-
-  spi_device_release_bus(handle_);
 }
 
 void Display::SendCommandWithData(uint8_t command,
@@ -284,10 +275,6 @@ void Display::SendTransaction(TransactionType type,
 void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
                           const lv_area_t* area,
                           lv_color_t* color_map) {
-  //  Ideally we want to complete a single flush as quickly as possible, so
-  //  grab the bus for this entire transaction sequence.
-  spi_device_acquire_bus(handle_, portMAX_DELAY);
-
   // First we need to specify the rectangle of the display we're writing into.
   uint16_t data[2] = {0, 0};
 
@@ -305,8 +292,6 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
   SendCommandWithData(displays::ST77XX_RAMWR,
                       reinterpret_cast<uint8_t*>(color_map), size * 2);
-
-  spi_device_release_bus(handle_);
 
   lv_disp_flush_ready(&driver_);
 }
