@@ -141,7 +141,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   lv_disp_set_theme(NULL, base_theme);
   themes::Theme::instance()->Apply();
 
-  sDisplay->SetBrightness(sServices->nvs().ScreenBrightness().get());
+  sDisplay->SetBrightness(sServices->nvs().ScreenBrightness());
 
   auto touchwheel = sServices->touchwheel();
   if (touchwheel) {
@@ -153,7 +153,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
     ESP_LOGE(kTag, "no input devices initialised!");
   }
 
-  if (sServices->nvs().HasShownOnboarding().get()) {
+  if (sServices->nvs().HasShownOnboarding()) {
     transit<Browse>();
   } else {
     transit<Onboarding>();

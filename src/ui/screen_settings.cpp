@@ -138,10 +138,10 @@ Bluetooth::Bluetooth(drivers::Bluetooth& bt, drivers::NvsStorage& nvs)
 auto Bluetooth::ChangeEnabledState(bool enabled) -> void {
   if (enabled) {
     events::System().RunOnTask([&]() { bt_.Enable(); });
-    nvs_.OutputMode(drivers::NvsStorage::Output::kBluetooth).get();
+    nvs_.OutputMode(drivers::NvsStorage::Output::kBluetooth);
   } else {
     events::System().RunOnTask([&]() { bt_.Disable(); });
-    nvs_.OutputMode(drivers::NvsStorage::Output::kHeadphones).get();
+    nvs_.OutputMode(drivers::NvsStorage::Output::kHeadphones);
   }
   events::Audio().Dispatch(audio::OutputModeChanged{});
   RefreshDevicesList();
@@ -156,7 +156,7 @@ auto Bluetooth::RefreshDevicesList() -> void {
 
   auto devices = bt_.KnownDevices();
   std::optional<drivers::bluetooth::mac_addr_t> preferred_device =
-      nvs_.PreferredBluetoothDevice().get();
+      nvs_.PreferredBluetoothDevice();
 
   // If the user's current selection is within the devices list, then we need
   // to be careful not to rearrange the list items underneath them.
@@ -283,7 +283,7 @@ Headphones::Headphones(drivers::NvsStorage& nvs)
                           "before clipping (+10dB)\nCustom");
   lv_group_add_obj(group_, vol_dropdown);
 
-  uint16_t level = nvs.AmpMaxVolume().get();
+  uint16_t level = nvs.AmpMaxVolume();
   for (int i = 0; i < index_to_level_.size() + 1; i++) {
     if (i == index_to_level_.size() || index_to_level_[i] == level) {
       lv_dropdown_set_selected(vol_dropdown, i);
@@ -386,7 +386,7 @@ Appearance::Appearance(drivers::NvsStorage& nvs, drivers::Display& display)
   lv_obj_t* toggle = lv_switch_create(toggle_container);
   lv_group_add_obj(group_, toggle);
 
-  uint_fast8_t initial_brightness = nvs_.ScreenBrightness().get();
+  uint_fast8_t initial_brightness = nvs_.ScreenBrightness();
 
   lv_obj_t* brightness_label = lv_label_create(content_);
   lv_label_set_text(brightness_label, "Brightness");

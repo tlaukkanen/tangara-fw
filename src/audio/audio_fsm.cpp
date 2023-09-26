@@ -83,7 +83,7 @@ void AudioState::react(const OutputModeChanged& ev) {
   // TODO: handle SetInUse
   ESP_LOGI(kTag, "output mode changed");
   auto new_mode = sServices->nvs().OutputMode();
-  switch (new_mode.get()) {
+  switch (new_mode) {
     case drivers::NvsStorage::Output::kBluetooth:
       sOutput = sBtOutput;
       break;
@@ -118,10 +118,10 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sBtOutput.reset(new BluetoothAudioOutput(stream, sServices->bluetooth()));
 
   auto& nvs = sServices->nvs();
-  sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume().get());
-  sI2SOutput->SetVolumeDb(nvs.AmpCurrentVolume().get());
+  sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
+  sI2SOutput->SetVolumeDb(nvs.AmpCurrentVolume());
 
-  if (sServices->nvs().OutputMode().get() ==
+  if (sServices->nvs().OutputMode() ==
       drivers::NvsStorage::Output::kHeadphones) {
     sOutput = sI2SOutput;
   } else {

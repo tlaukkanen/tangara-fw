@@ -134,7 +134,7 @@ std::function<void(Event)> BluetoothState::sEventHandler_;
 
 auto BluetoothState::Init(NvsStorage& storage) -> void {
   sStorage_ = &storage;
-  sPreferredDevice_ = storage.PreferredBluetoothDevice().get();
+  sPreferredDevice_ = storage.PreferredBluetoothDevice();
   tinyfsm::FsmList<bluetooth::BluetoothState>::start();
 }
 
@@ -451,7 +451,7 @@ void Connecting::react(const events::internal::A2dp& ev) {
 void Connected::entry() {
   ESP_LOGI(kTag, "entering connected state");
 
-  auto stored_pref = sStorage_->PreferredBluetoothDevice().get();
+  auto stored_pref = sStorage_->PreferredBluetoothDevice();
   if (stored_pref != sPreferredDevice_) {
     sStorage_->PreferredBluetoothDevice(sPreferredDevice_);
   }

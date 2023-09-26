@@ -82,7 +82,7 @@ auto Booting::entry() -> void {
   sServices->bluetooth(std::make_unique<drivers::Bluetooth>(sServices->nvs()));
   sServices->bluetooth().SetEventHandler(bt_event_cb);
 
-  if (sServices->nvs().OutputMode().get() ==
+  if (sServices->nvs().OutputMode() ==
       drivers::NvsStorage::Output::kBluetooth) {
     ESP_LOGI(kTag, "enabling bluetooth");
     sServices->bluetooth().Enable();

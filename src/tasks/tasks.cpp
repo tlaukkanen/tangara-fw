@@ -39,10 +39,6 @@ template <>
 auto Name<Type::kDatabaseBackground>() -> std::pmr::string {
   return "db_bg";
 }
-template <>
-auto Name<Type::kNvsWriter>() -> std::pmr::string {
-  return "nvs";
-}
 
 template <Type t>
 auto AllocateStack() -> cpp::span<StackType_t>;
@@ -86,12 +82,6 @@ auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
-template <>
-auto AllocateStack<Type::kNvsWriter>() -> cpp::span<StackType_t> {
-  constexpr std::size_t size = 4 * 1024;
-  static StackType_t sStack[size];
-  return {sStack, size};
-}
 
 // 2 KiB in internal ram
 // 612 KiB in external ram.
@@ -132,13 +122,6 @@ template <>
 auto Priority<Type::kDatabaseBackground>() -> UBaseType_t {
   return 1;
 }
-// NVS writing requires suspending one of our cores, and disabling tasks with
-// their stacks in PSRAM. Only do it when there's not more important work
-// pending.
-template <>
-auto Priority<Type::kNvsWriter>() -> UBaseType_t {
-  return 2;
-}
 
 template <Type t>
 auto WorkerQueueSize() -> std::size_t;
@@ -150,11 +133,6 @@ auto WorkerQueueSize<Type::kDatabase>() -> std::size_t {
 template <>
 auto WorkerQueueSize<Type::kDatabaseBackground>() -> std::size_t {
   return 8;
-}
-
-template <>
-auto WorkerQueueSize<Type::kNvsWriter>() -> std::size_t {
-  return 2;
 }
 
 auto PersistentMain(void* fn) -> void {

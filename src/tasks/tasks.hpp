@@ -39,9 +39,6 @@ enum class Type {
   kDatabase,
   // Task for internal database operations
   kDatabaseBackground,
-  // Task for interacting with NVS -- this needs to be done with an internal
-  // stack.
-  kNvsWriter,
 };
 
 template <Type t>

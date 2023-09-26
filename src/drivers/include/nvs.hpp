@@ -22,38 +22,35 @@ class NvsStorage {
  public:
   static auto OpenSync() -> NvsStorage*;
 
-  auto PreferredBluetoothDevice()
-      -> std::future<std::optional<bluetooth::mac_addr_t>>;
-  auto PreferredBluetoothDevice(std::optional<bluetooth::mac_addr_t>)
-      -> std::future<bool>;
+  auto PreferredBluetoothDevice() -> std::optional<bluetooth::mac_addr_t>;
+  auto PreferredBluetoothDevice(std::optional<bluetooth::mac_addr_t>) -> bool;
 
   enum class Output : uint8_t {
     kHeadphones = 0,
     kBluetooth = 1,
   };
-  auto OutputMode() -> std::future<Output>;
-  auto OutputMode(Output) -> std::future<bool>;
+  auto OutputMode() -> Output;
+  auto OutputMode(Output) -> bool;
 
-  auto ScreenBrightness() -> std::future<uint_fast8_t>;
-  auto ScreenBrightness(uint_fast8_t) -> std::future<bool>;
+  auto ScreenBrightness() -> uint_fast8_t;
+  auto ScreenBrightness(uint_fast8_t) -> bool;
 
-  auto AmpMaxVolume() -> std::future<uint16_t>;
-  auto AmpMaxVolume(uint16_t) -> std::future<bool>;
+  auto AmpMaxVolume() -> uint16_t;
+  auto AmpMaxVolume(uint16_t) -> bool;
 
-  auto AmpCurrentVolume() -> std::future<uint16_t>;
-  auto AmpCurrentVolume(uint16_t) -> std::future<bool>;
+  auto AmpCurrentVolume() -> uint16_t;
+  auto AmpCurrentVolume(uint16_t) -> bool;
 
-  auto HasShownOnboarding() -> std::future<bool>;
-  auto HasShownOnboarding(bool) -> std::future<bool>;
+  auto HasShownOnboarding() -> bool;
+  auto HasShownOnboarding(bool) -> bool;
 
-  explicit NvsStorage(std::unique_ptr<tasks::Worker>, nvs_handle_t);
+  explicit NvsStorage(nvs_handle_t);
   ~NvsStorage();
 
  private:
   auto DowngradeSchemaSync() -> bool;
   auto SchemaVersionSync() -> uint8_t;
 
-  std::unique_ptr<tasks::Worker> writer_;
   nvs_handle_t handle_;
 };
 
