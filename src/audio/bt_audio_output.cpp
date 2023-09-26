@@ -27,10 +27,9 @@ static const char* kTag = "BTOUT";
 
 namespace audio {
 
-static constexpr size_t kDrainBufferSize = 48 * 1024;
-
-BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth& bt)
-    : IAudioOutput(kDrainBufferSize, MALLOC_CAP_SPIRAM), bluetooth_(bt) {}
+BluetoothAudioOutput::BluetoothAudioOutput(StreamBufferHandle_t s,
+                                           drivers::Bluetooth& bt)
+    : IAudioOutput(s), bluetooth_(bt) {}
 
 BluetoothAudioOutput::~BluetoothAudioOutput() {}
 

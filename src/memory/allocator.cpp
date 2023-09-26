@@ -13,7 +13,7 @@ void* operator new[](std::size_t sz) {
     ++sz;  // avoid std::malloc(0) which may return nullptr on success
   }
 
-  if (sz > 256) {
+  if (sz > 512) {
     return heap_caps_malloc(sz, MALLOC_CAP_SPIRAM);
   }
 

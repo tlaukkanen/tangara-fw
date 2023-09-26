@@ -21,7 +21,7 @@ namespace audio {
 
 class BluetoothAudioOutput : public IAudioOutput {
  public:
-  BluetoothAudioOutput(drivers::Bluetooth& bt);
+  BluetoothAudioOutput(StreamBufferHandle_t, drivers::Bluetooth& bt);
   ~BluetoothAudioOutput();
 
   auto SetInUse(bool) -> void override;

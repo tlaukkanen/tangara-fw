@@ -27,10 +27,9 @@ class IAudioOutput {
   StreamBufferHandle_t stream_;
 
  public:
-  IAudioOutput(size_t buffer_size, uint32_t caps)
-      : stream_(xStreamBufferCreateWithCaps(buffer_size, 1, caps)) {}
+  IAudioOutput(StreamBufferHandle_t stream) : stream_(stream) {}
 
-  virtual ~IAudioOutput() { vStreamBufferDeleteWithCaps(stream_); }
+  virtual ~IAudioOutput() {}
 
   /*
    * Indicates whether this output is currently being sent samples. If this is

@@ -20,7 +20,8 @@ namespace audio {
 
 class I2SAudioOutput : public IAudioOutput {
  public:
-  I2SAudioOutput(drivers::IGpios& expander,
+  I2SAudioOutput(StreamBufferHandle_t,
+                 drivers::IGpios& expander,
                  std::unique_ptr<drivers::I2SDac> dac);
   ~I2SAudioOutput();
 

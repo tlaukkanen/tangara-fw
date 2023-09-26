@@ -26,7 +26,9 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
+#include "idf_additions.h"
 #include "nvs.hpp"
+#include "sample.hpp"
 #include "service_locator.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
@@ -103,10 +105,17 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
     return;
   }
 
+  constexpr size_t kDrainBufferSize =
+      drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2 * 8;
+  ESP_LOGI(kTag, "allocating drain buffer, size %u KiB",
+           kDrainBufferSize / 1024);
+  StreamBufferHandle_t stream = xStreamBufferCreateWithCaps(
+      kDrainBufferSize, sizeof(sample::Sample) * 2, MALLOC_CAP_DMA);
+
   sFileSource.reset(new FatfsAudioInput(sServices->tag_parser()));
-  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(),
+  sI2SOutput.reset(new I2SAudioOutput(stream, sServices->gpios(),
                                       std::unique_ptr<drivers::I2SDac>{*dac}));
-  sBtOutput.reset(new BluetoothAudioOutput(sServices->bluetooth()));
+  sBtOutput.reset(new BluetoothAudioOutput(stream, sServices->bluetooth()));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume().get());

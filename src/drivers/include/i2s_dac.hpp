@@ -18,7 +18,6 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
-#include "freertos/ringbuf.h"
 #include "freertos/stream_buffer.h"
 #include "result.hpp"
 #include "span.hpp"
@@ -27,6 +26,13 @@
 #include "sys/_stdint.h"
 
 namespace drivers {
+
+// DMA max buffer size for I2S is 4092. We normalise to 2-channel, 16 bit
+// audio, which gives us a max of 4092 / 2 / 2 (16 bits) frames. This in turn
+// means that at 48kHz, we have about 21ms of budget to fill each buffer.
+// We base this off of the maximum DMA size in order to minimise the amount of
+// work the CPU has to do to service the DMA callbacks.
+constexpr size_t kI2SBufferLengthFrames = 1023;
 
 /**
  * Interface for a DAC that receives PCM samples over I2S.

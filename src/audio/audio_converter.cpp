@@ -15,6 +15,7 @@
 #include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
+#include "i2s_dac.hpp"
 #include "idf_additions.h"
 
 #include "resample.hpp"
@@ -23,9 +24,9 @@
 
 static constexpr char kTag[] = "mixer";
 
-static constexpr std::size_t kSampleBufferLength = 240 * 2 * 64;
-static constexpr std::size_t kSourceBufferLength =
-    kSampleBufferLength * 2 * sizeof(sample::Sample);
+static constexpr std::size_t kSampleBufferLength =
+    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;
+static constexpr std::size_t kSourceBufferLength = kSampleBufferLength * 2;
 
 namespace audio {
 
@@ -33,18 +34,18 @@ SampleConverter::SampleConverter()
     : commands_(xQueueCreate(1, sizeof(Args))),
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
-                                          1,
-                                          MALLOC_CAP_SPIRAM)) {
+                                          sizeof(sample::Sample) * 2,
+                                          MALLOC_CAP_DMA)) {
   input_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
-          kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
+          kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_DMA)),
       kSampleBufferLength};
   input_buffer_as_bytes_ = {reinterpret_cast<std::byte*>(input_buffer_.data()),
                             input_buffer_.size_bytes()};
 
   resampled_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
-          kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
+          kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_DMA)),
       kSampleBufferLength};
 
   tasks::StartPersistent<tasks::Type::kAudioConverter>([&]() { Main(); });

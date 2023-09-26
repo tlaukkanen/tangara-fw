@@ -41,8 +41,13 @@ static const i2s_port_t kI2SPort = I2S_NUM_0;
 
 auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
-  i2s_chan_config_t channel_config =
-      I2S_CHANNEL_DEFAULT_CONFIG(kI2SPort, I2S_ROLE_MASTER);
+  i2s_chan_config_t channel_config{
+      .id = kI2SPort,
+      .role = I2S_ROLE_MASTER,
+      .dma_desc_num = 2,
+      .dma_frame_num = kI2SBufferLengthFrames,
+      .auto_clear = false,
+  };
 
   ESP_ERROR_CHECK(i2s_new_channel(&channel_config, &i2s_handle, NULL));
   //

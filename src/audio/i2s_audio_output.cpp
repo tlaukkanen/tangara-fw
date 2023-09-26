@@ -42,9 +42,10 @@ static constexpr uint16_t kDefaultVolume = 0x100;
 
 static constexpr size_t kDrainBufferSize = 8 * 1024;
 
-I2SAudioOutput::I2SAudioOutput(drivers::IGpios& expander,
+I2SAudioOutput::I2SAudioOutput(StreamBufferHandle_t s,
+                               drivers::IGpios& expander,
                                std::unique_ptr<drivers::I2SDac> dac)
-    : IAudioOutput(kDrainBufferSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+    : IAudioOutput(s),
       expander_(expander),
       dac_(std::move(dac)),
       current_config_(),

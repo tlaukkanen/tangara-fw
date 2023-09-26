@@ -26,6 +26,7 @@
 #include "freertos/projdefs.h"
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
+#include "i2s_dac.hpp"
 #include "span.hpp"
 
 #include "audio_converter.hpp"
@@ -46,7 +47,8 @@ namespace audio {
 
 static const char* kTag = "audio_dec";
 
-static constexpr std::size_t kCodecBufferLength = 240 * 4 * 64;
+static constexpr std::size_t kCodecBufferLength =
+    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;
 
 Timer::Timer(const codecs::ICodec::OutputFormat& format)
     : current_seconds_(0),
@@ -93,7 +95,7 @@ Decoder::Decoder(std::shared_ptr<IAudioSource> source,
   ESP_LOGI(kTag, "allocating codec buffer, %u KiB", kCodecBufferLength / 1024);
   codec_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
-          kCodecBufferLength, sizeof(sample::Sample), MALLOC_CAP_SPIRAM)),
+          kCodecBufferLength, sizeof(sample::Sample), MALLOC_CAP_DMA)),
       kCodecBufferLength};
 }
 
