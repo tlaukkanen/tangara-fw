@@ -24,7 +24,9 @@
 #include "audio_fsm.hpp"
 #include "database.hpp"
 #include "esp_console.h"
+#include "esp_err.h"
 #include "esp_heap_caps.h"
+#include "esp_heap_trace.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -477,6 +479,47 @@ void RegisterHeaps() {
   esp_console_cmd_register(&cmd);
 }
 
+#if CONFIG_HEAP_TRACING
+static heap_trace_record_t* sTraceRecords = nullptr;
+static bool sIsTracking = false;
+
+int CmdAllocs(int argc, char** argv) {
+  static const std::string usage = "usage: allocs";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  if (sTraceRecords == nullptr) {
+    constexpr size_t kNumRecords = 256;
+    sTraceRecords = reinterpret_cast<heap_trace_record_t*>(heap_caps_calloc(
+        kNumRecords, sizeof(heap_trace_record_t), MALLOC_CAP_DMA));
+    ESP_ERROR_CHECK(heap_trace_init_standalone(sTraceRecords, kNumRecords));
+  }
+
+  if (!sIsTracking) {
+    std::cout << "tracking allocs" << std::endl;
+    sIsTracking = true;
+    ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
+  } else {
+    sIsTracking = false;
+    ESP_ERROR_CHECK(heap_trace_stop());
+    heap_trace_dump();
+  }
+
+  return 0;
+}
+
+void RegisterAllocs() {
+  esp_console_cmd_t cmd{.command = "allocs",
+                        .help = "",
+                        .hint = NULL,
+                        .func = &CmdAllocs,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+#endif
+
 int CmdBtList(int argc, char** argv) {
   static const std::string usage = "usage: bt_list <index>";
   if (argc > 2) {
@@ -592,6 +635,11 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterDbDump();
   RegisterTasks();
   RegisterHeaps();
+
+#if CONFIG_HEAP_TRACING
+  RegisterAllocs();
+#endif
+
   RegisterBtList();
   RegisterSamd();
 }
