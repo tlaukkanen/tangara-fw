@@ -11,6 +11,7 @@
 
 #include "bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
+#include "esp_attr.h"
 #include "esp_avrc_api.h"
 #include "esp_bt.h"
 #include "esp_bt_defs.h"
@@ -30,7 +31,7 @@ namespace drivers {
 
 static constexpr char kTag[] = "bluetooth";
 
-static StreamBufferHandle_t sStream = nullptr;
+DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
 
 auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
@@ -48,7 +49,7 @@ auto a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param) -> void {
       bluetooth::events::internal::A2dp{.type = event, .param = param});
 }
 
-auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
+IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   if (buf == nullptr || buf_size <= 0) {
     return 0;
   }
