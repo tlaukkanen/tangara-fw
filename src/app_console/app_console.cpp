@@ -336,6 +336,7 @@ void RegisterDbDump() {
   esp_console_cmd_register(&cmd);
 }
 
+#if CONFIG_APPTRACE_ENABLE
 int CmdTasks(int argc, char** argv) {
   if (!configUSE_TRACE_FACILITY) {
     std::cout << "configUSE_TRACE_FACILITY must be enabled" << std::endl;
@@ -445,6 +446,7 @@ void RegisterTasks() {
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
+#endif
 
 int CmdHeaps(int argc, char** argv) {
   static const std::pmr::string usage = "usage: heaps";
@@ -636,7 +638,10 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterDbTracks();
   RegisterDbIndex();
   RegisterDbDump();
+#if CONFIG_APPTRACE_ENABLE
   RegisterTasks();
+#endif
+
   RegisterHeaps();
 
 #if CONFIG_HEAP_TRACING
