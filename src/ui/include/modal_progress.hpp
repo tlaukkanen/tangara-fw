@@ -19,7 +19,7 @@ namespace modals {
 
 class Progress : public Modal {
  public:
-  Progress(Screen*, std::string title);
+  Progress(Screen*, std::pmr::string title);
 
  private:
   lv_obj_t* container_;

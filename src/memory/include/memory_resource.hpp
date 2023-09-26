@@ -34,7 +34,8 @@ class Resource : public std::pmr::memory_resource {
                      std::size_t bytes,
                      std::size_t alignment) override;
 
-  bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override;
+  bool do_is_equal(
+      const std::pmr::memory_resource& other) const noexcept override;
 };
 
 extern Resource kSpiRamResource;

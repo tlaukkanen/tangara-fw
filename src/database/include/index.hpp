@@ -17,7 +17,7 @@
 #include "leveldb/slice.h"
 
 #include "leveldb/write_batch.h"
-#include "shared_string.h"
+#include "memory_resource.hpp"
 #include "track.hpp"
 
 namespace database {
@@ -29,7 +29,7 @@ struct IndexInfo {
   IndexId id;
   // Localised, user-friendly description of this index. e.g. "Albums by Artist"
   // or "All Tracks".
-  std::string name;
+  std::pmr::string name;
   // Specifier for how this index breaks down the database.
   std::vector<Tag> components;
 };
@@ -51,7 +51,7 @@ struct IndexKey {
 
   // The filterable / selectable item that this key represents. "Jacqueline" for
   // kArtist, "My Cool Album" for kAlbum, etc.
-  std::optional<std::string> item;
+  std::optional<std::pmr::string> item;
   // If this is a leaf component, the track id for this record.
   // This could reasonably be the value for a record, but we keep it as a part
   // of the key to help with disambiguation.
@@ -59,8 +59,8 @@ struct IndexKey {
 };
 
 auto Index(const IndexInfo&, const Track&, leveldb::WriteBatch*) -> bool;
-auto ExpandHeader(const IndexKey::Header&, const std::optional<std::string>&)
-    -> IndexKey::Header;
+auto ExpandHeader(const IndexKey::Header&,
+                  const std::optional<std::pmr::string>&) -> IndexKey::Header;
 
 // Predefined indexes
 // TODO(jacqueline): Make these defined at runtime! :)

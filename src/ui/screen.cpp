@@ -57,7 +57,7 @@ auto Screen::CreateTopBar(lv_obj_t* parent,
   return top_bar_.get();
 }
 
-MenuScreen::MenuScreen(const std::string& title, bool show_back_button)
+MenuScreen::MenuScreen(const std::pmr::string& title, bool show_back_button)
     : Screen() {
   lv_group_set_wrap(group_, false);
 

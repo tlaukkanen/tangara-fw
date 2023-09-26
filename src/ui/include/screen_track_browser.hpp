@@ -23,7 +23,7 @@ class TrackBrowser : public Screen {
  public:
   TrackBrowser(
       std::weak_ptr<database::Database> db,
-      const std::string& title,
+      const std::pmr::string& title,
       std::future<database::Result<database::IndexRecord>*>&& initial_page);
   ~TrackBrowser() {}
 

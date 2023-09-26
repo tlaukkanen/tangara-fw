@@ -86,7 +86,7 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input)
   opus_ = op_open_callbacks(input.get(), &kCallbacks, nullptr, 0, &res);
 
   if (res < 0) {
-    std::string err;
+    std::pmr::string err;
     switch (res) {
       case OP_EREAD:
         err = "OP_EREAD";

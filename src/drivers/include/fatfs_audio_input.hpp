@@ -39,7 +39,7 @@ class FatfsAudioInput {
   std::shared_ptr<SdStorage> storage_;
   RingbufHandle_t output_;
 
-  std::string path_;
+  std::pmr::string path_;
 };
 
 }  // namespace drivers

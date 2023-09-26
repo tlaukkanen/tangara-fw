@@ -19,7 +19,7 @@ namespace modals {
 
 class Confirm : public Modal {
  public:
-  Confirm(Screen*, const std::string& title, bool has_cancel);
+  Confirm(Screen*, const std::pmr::string& title, bool has_cancel);
 
  private:
   lv_obj_t* container_;

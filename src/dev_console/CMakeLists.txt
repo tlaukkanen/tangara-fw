@@ -5,5 +5,5 @@
 idf_component_register(
   SRCS "console.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "console")
+  REQUIRES "console" "memory")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

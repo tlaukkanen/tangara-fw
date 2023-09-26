@@ -26,23 +26,25 @@ namespace database {
 
 class TestBackends : public IFileGatherer, public ITagParser {
  public:
-  std::map<std::string, TrackTags> tracks;
+  std::map<std::pmr::string, TrackTags> tracks;
 
-  auto MakeTrack(const std::string& path, const std::string& title) -> void {
+  auto MakeTrack(const std::pmr::string& path, const std::pmr::string& title)
+      -> void {
     TrackTags tags;
     tags.encoding = Encoding::kMp3;
     tags.title = title;
     tracks[path] = tags;
   }
 
-  auto FindFiles(const std::string& root,
-                 std::function<void(const std::string&)> cb) -> void override {
+  auto FindFiles(const std::pmr::string& root,
+                 std::function<void(const std::pmr::string&)> cb)
+      -> void override {
     for (auto keyval : tracks) {
       std::invoke(cb, keyval.first);
     }
   }
 
-  auto ReadAndParseTags(const std::string& path, TrackTags* out)
+  auto ReadAndParseTags(const std::pmr::string& path, TrackTags* out)
       -> bool override {
     if (tracks.contains(path)) {
       *out = tracks.at(path);

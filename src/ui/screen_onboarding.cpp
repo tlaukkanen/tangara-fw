@@ -32,7 +32,7 @@ static void prev_btn_cb(lv_event_t* ev) {
   events::Ui().Dispatch(internal::OnboardingNavigate{.forwards = false});
 }
 
-Onboarding::Onboarding(const std::string& title,
+Onboarding::Onboarding(const std::pmr::string& title,
                        bool show_prev,
                        bool show_next) {
   window_ = lv_win_create(root_, 18);
@@ -68,7 +68,8 @@ LinkToManual::LinkToManual() : Onboarding("Welcome!", false, true) {
   lv_qrcode_update(qr, kManualUrl, sizeof(kManualUrl));
 }
 
-static void create_radio_button(lv_obj_t* parent, const std::string& text) {
+static void create_radio_button(lv_obj_t* parent,
+                                const std::pmr::string& text) {
   lv_obj_t* obj = lv_checkbox_create(parent);
   lv_checkbox_set_text(obj, text.c_str());
   // TODO: radio styling

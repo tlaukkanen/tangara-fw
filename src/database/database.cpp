@@ -31,6 +31,7 @@
 #include "env_esp.hpp"
 #include "event_queue.hpp"
 #include "file_gatherer.hpp"
+#include "memory_resource.hpp"
 #include "records.hpp"
 #include "result.hpp"
 #include "tag_parser.hpp"
@@ -195,7 +196,7 @@ auto Database::Update() -> std::future<void> {
     events::Ui().Dispatch(event::UpdateProgress{
         .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
     });
-    file_gatherer_.FindFiles("", [&](const std::string& path) {
+    file_gatherer_.FindFiles("", [&](const std::pmr::string& path) {
       TrackTags tags;
       if (!tag_parser_.ReadAndParseTags(path, &tags) ||
           tags.encoding() == Container::kUnsupported) {
@@ -252,9 +253,9 @@ auto Database::Update() -> std::future<void> {
 }
 
 auto Database::GetTrackPath(TrackId id)
-    -> std::future<std::optional<std::string>> {
-  return worker_task_->Dispatch<std::optional<std::string>>(
-      [=, this]() -> std::optional<std::string> {
+    -> std::future<std::optional<std::pmr::string>> {
+  return worker_task_->Dispatch<std::optional<std::pmr::string>>(
+      [=, this]() -> std::optional<std::pmr::string> {
         auto track_data = dbGetTrackData(id);
         if (track_data) {
           return track_data->filepath();
@@ -362,14 +363,14 @@ auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
 }
 
 auto Database::GetDump(std::size_t page_size)
-    -> std::future<Result<std::string>*> {
-  return worker_task_->Dispatch<Result<std::string>*>(
-      [=, this]() -> Result<std::string>* {
-        Continuation<std::string> c{.prefix = "",
-                                    .start_key = "",
-                                    .forward = true,
-                                    .was_prev_forward = true,
-                                    .page_size = page_size};
+    -> std::future<Result<std::pmr::string>*> {
+  return worker_task_->Dispatch<Result<std::pmr::string>*>(
+      [=, this]() -> Result<std::pmr::string>* {
+        Continuation<std::pmr::string> c{.prefix = "",
+                                         .start_key = "",
+                                         .forward = true,
+                                         .was_prev_forward = true,
+                                         .page_size = page_size};
         return dbGetPage(c);
       });
 }
@@ -385,8 +386,9 @@ template auto Database::GetPage<Track>(Continuation<Track>* c)
     -> std::future<Result<Track>*>;
 template auto Database::GetPage<IndexRecord>(Continuation<IndexRecord>* c)
     -> std::future<Result<IndexRecord>*>;
-template auto Database::GetPage<std::string>(Continuation<std::string>* c)
-    -> std::future<Result<std::string>*>;
+template auto Database::GetPage<std::pmr::string>(
+    Continuation<std::pmr::string>* c)
+    -> std::future<Result<std::pmr::string>*>;
 
 auto Database::dbMintNewTrackId() -> TrackId {
   TrackId next_id = 1;
@@ -466,7 +468,7 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   // Work out our starting point. Sometimes this will already done.
   std::unique_ptr<leveldb::Iterator> it{
       db_->NewIterator(leveldb::ReadOptions{})};
-  it->Seek(c.start_key);
+  it->Seek({c.start_key.data(), c.start_key.size()});
 
   // Fix off-by-one if we just changed direction.
   if (c.forward != c.was_prev_forward) {
@@ -478,10 +480,10 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   }
 
   // Grab results.
-  std::optional<std::string> first_key;
+  std::optional<std::pmr::string> first_key;
   std::vector<T> records;
   while (records.size() < c.page_size && it->Valid()) {
-    if (!it->key().starts_with(c.prefix)) {
+    if (!it->key().starts_with({c.prefix.data(), c.prefix.size()})) {
       break;
     }
     if (!first_key) {
@@ -498,7 +500,8 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     }
   }
 
-  if (!it->Valid() || !it->key().starts_with(c.prefix)) {
+  if (!it->Valid() ||
+      !it->key().starts_with({c.prefix.data(), c.prefix.size()})) {
     it.reset();
   }
 
@@ -512,7 +515,8 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   if (c.forward) {
     if (it != nullptr) {
       // We were going forward, and now we want the next page.
-      std::string key = it->key().ToString();
+      std::pmr::string key{it->key().data(), it->key().size(),
+                           &memory::kSpiRamResource};
       next_page = Continuation<T>{
           .prefix = c.prefix,
           .start_key = key,
@@ -549,7 +553,8 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   } else {
     if (it != nullptr) {
       // We were going backwards, and we still want to go backwards.
-      std::string key = it->key().ToString();
+      std::pmr::string key{it->key().data(), it->key().size(),
+                           &memory::kSpiRamResource};
       prev_page = Continuation<T>{
           .prefix = c.prefix,
           .start_key = key,
@@ -566,8 +571,8 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
 
 template auto Database::dbGetPage<Track>(const Continuation<Track>& c)
     -> Result<Track>*;
-template auto Database::dbGetPage<std::string>(
-    const Continuation<std::string>& c) -> Result<std::string>*;
+template auto Database::dbGetPage<std::pmr::string>(
+    const Continuation<std::pmr::string>& c) -> Result<std::pmr::string>*;
 
 template <>
 auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
@@ -578,7 +583,7 @@ auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
     return {};
   }
 
-  std::optional<std::string> title;
+  std::optional<std::pmr::string> title;
   if (!val.empty()) {
     title = val.ToString();
   }
@@ -602,43 +607,42 @@ auto Database::ParseRecord<Track>(const leveldb::Slice& key,
 }
 
 template <>
-auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
-                                        const leveldb::Slice& val)
-    -> std::optional<std::string> {
+auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
+                                             const leveldb::Slice& val)
+    -> std::optional<std::pmr::string> {
   std::ostringstream stream;
   stream << "key: ";
   if (key.size() < 3 || key.data()[1] != '\0') {
     stream << key.ToString().c_str();
   } else {
-    std::string str = key.ToString();
-    for (size_t i = 0; i < str.size(); i++) {
+    for (size_t i = 0; i < key.size(); i++) {
       if (i == 0) {
-        stream << str[i];
+        stream << key.data()[i];
       } else if (i == 1) {
         stream << " / 0x";
       } else {
         stream << std::hex << std::setfill('0') << std::setw(2)
-               << static_cast<int>(str[i]);
+               << static_cast<int>(key.data()[i]);
       }
     }
   }
   if (!val.empty()) {
     stream << "\tval: 0x";
-    std::string str = val.ToString();
     for (int i = 0; i < val.size(); i++) {
       stream << std::hex << std::setfill('0') << std::setw(2)
-             << static_cast<int>(str[i]);
+             << static_cast<int>(val.data()[i]);
     }
   }
-  return stream.str();
+  std::pmr::string res{stream.str(), &memory::kSpiRamResource};
+  return res;
 }
 
 IndexRecord::IndexRecord(const IndexKey& key,
-                         std::optional<shared_string> title,
+                         std::optional<std::pmr::string> title,
                          std::optional<TrackId> track)
     : key_(key), override_text_(title), track_(track) {}
 
-auto IndexRecord::text() const -> std::optional<shared_string> {
+auto IndexRecord::text() const -> std::optional<std::pmr::string> {
   if (override_text_) {
     return override_text_;
   }

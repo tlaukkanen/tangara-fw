@@ -12,33 +12,35 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 
+#include "memory_resource.hpp"
+
 namespace tasks {
 
 template <Type t>
-auto Name() -> std::string;
+auto Name() -> std::pmr::string;
 
 template <>
-auto Name<Type::kUi>() -> std::string {
+auto Name<Type::kUi>() -> std::pmr::string {
   return "ui";
 }
 template <>
-auto Name<Type::kAudioDecoder>() -> std::string {
+auto Name<Type::kAudioDecoder>() -> std::pmr::string {
   return "audio_dec";
 }
 template <>
-auto Name<Type::kAudioConverter>() -> std::string {
+auto Name<Type::kAudioConverter>() -> std::pmr::string {
   return "audio_conv";
 }
 template <>
-auto Name<Type::kDatabase>() -> std::string {
+auto Name<Type::kDatabase>() -> std::pmr::string {
   return "db_fg";
 }
 template <>
-auto Name<Type::kDatabaseBackground>() -> std::string {
+auto Name<Type::kDatabaseBackground>() -> std::pmr::string {
   return "db_bg";
 }
 template <>
-auto Name<Type::kNvsWriter>() -> std::string {
+auto Name<Type::kNvsWriter>() -> std::pmr::string {
   return "nvs";
 }
 
@@ -185,7 +187,7 @@ auto Worker::Main(void* instance) {
   }
 }
 
-Worker::Worker(const std::string& name,
+Worker::Worker(const std::pmr::string& name,
                cpp::span<StackType_t> stack,
                std::size_t queue_size,
                UBaseType_t priority)

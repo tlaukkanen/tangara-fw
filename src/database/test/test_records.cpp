@@ -12,10 +12,10 @@
 
 #include "catch2/catch.hpp"
 
-std::string ToHex(const std::string& s) {
+std::pmr::string ToHex(const std::pmr::string& s) {
   std::ostringstream ret;
 
-  for (std::string::size_type i = 0; i < s.length(); ++i)
+  for (std::pmr::string::size_type i = 0; i < s.length(); ++i)
     ret << std::hex << std::setfill('0') << std::setw(2) << std::uppercase
         << (int)s[i];
 

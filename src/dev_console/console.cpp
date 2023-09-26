@@ -16,16 +16,18 @@
 #include "esp_log.h"
 #include "esp_system.h"
 
+#include "memory_resource.hpp"
+
 namespace console {
 
 int CmdLogLevel(int argc, char** argv) {
-  static const std::string usage =
+  static const std::pmr::string usage =
       "usage: loglevel [VERBOSE,DEBUG,INFO,WARN,ERROR,NONE]";
   if (argc != 2) {
     std::cout << usage << std::endl;
     return 1;
   }
-  std::string level_str = argv[1];
+  std::pmr::string level_str = argv[1];
   std::transform(level_str.begin(), level_str.end(), level_str.begin(),
                  [](unsigned char c) { return std::toupper(c); });
 

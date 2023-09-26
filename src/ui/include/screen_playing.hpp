@@ -45,7 +45,8 @@ class Playing : public Screen {
 
  private:
   auto control_button(lv_obj_t* parent, char* icon) -> lv_obj_t*;
-  auto next_up_label(lv_obj_t* parent, const std::string& text) -> lv_obj_t*;
+  auto next_up_label(lv_obj_t* parent, const std::pmr::string& text)
+      -> lv_obj_t*;
 
   auto BindTrack(const database::Track& track) -> void;
   auto ApplyNextUp(const std::vector<database::Track>& tracks) -> void;

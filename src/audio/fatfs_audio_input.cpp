@@ -52,16 +52,17 @@ FatfsAudioInput::~FatfsAudioInput() {
   vSemaphoreDelete(has_new_stream_);
 }
 
-auto FatfsAudioInput::SetPath(std::future<std::optional<std::string>> fut)
+auto FatfsAudioInput::SetPath(std::future<std::optional<std::pmr::string>> fut)
     -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   pending_path_.reset(
-      new database::FutureFetcher<std::optional<std::string>>(std::move(fut)));
+      new database::FutureFetcher<std::optional<std::pmr::string>>(
+          std::move(fut)));
 
   xSemaphoreGive(has_new_stream_);
 }
 
-auto FatfsAudioInput::SetPath(const std::string& path) -> void {
+auto FatfsAudioInput::SetPath(const std::pmr::string& path) -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   if (OpenFile(path)) {
     xSemaphoreGive(has_new_stream_);
@@ -114,7 +115,7 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<codecs::IStream> {
   }
 }
 
-auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
+auto FatfsAudioInput::OpenFile(const std::pmr::string& path) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   database::TrackTags tags;

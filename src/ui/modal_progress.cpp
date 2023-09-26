@@ -28,7 +28,7 @@
 namespace ui {
 namespace modals {
 
-Progress::Progress(Screen* host, std::string title_text) : Modal(host) {
+Progress::Progress(Screen* host, std::pmr::string title_text) : Modal(host) {
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER,

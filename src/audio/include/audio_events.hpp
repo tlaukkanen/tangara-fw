@@ -31,7 +31,7 @@ struct QueueUpdate : tinyfsm::Event {
 };
 
 struct PlayFile : tinyfsm::Event {
-  std::string filename;
+  std::pmr::string filename;
 };
 
 struct VolumeChanged : tinyfsm::Event {};

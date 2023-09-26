@@ -37,8 +37,8 @@ class FatfsAudioInput : public IAudioSource {
    * Immediately cease reading any current source, and begin reading from the
    * given file path.
    */
-  auto SetPath(std::future<std::optional<std::string>>) -> void;
-  auto SetPath(const std::string&) -> void;
+  auto SetPath(std::future<std::optional<std::pmr::string>>) -> void;
+  auto SetPath(const std::pmr::string&) -> void;
   auto SetPath() -> void;
 
   auto HasNewStream() -> bool override;
@@ -48,7 +48,7 @@ class FatfsAudioInput : public IAudioSource {
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
-  auto OpenFile(const std::string& path) -> bool;
+  auto OpenFile(const std::pmr::string& path) -> bool;
 
   auto ContainerToStreamType(database::Container)
       -> std::optional<codecs::StreamType>;
@@ -60,7 +60,7 @@ class FatfsAudioInput : public IAudioSource {
 
   SemaphoreHandle_t has_new_stream_;
 
-  std::unique_ptr<database::FutureFetcher<std::optional<std::string>>>
+  std::unique_ptr<database::FutureFetcher<std::optional<std::pmr::string>>>
       pending_path_;
 };
 

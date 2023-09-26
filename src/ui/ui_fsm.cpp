@@ -297,7 +297,7 @@ void Browse::react(const internal::RecordSelected& ev) {
       return;
     }
     auto query = db->GetPage(&cont.value());
-    std::string title = record.text().value_or("TODO");
+    std::pmr::string title = record.text().value_or("TODO");
     PushScreen(std::make_shared<screens::TrackBrowser>(
         sServices->database(), title, std::move(query)));
   }

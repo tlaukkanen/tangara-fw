@@ -6,6 +6,6 @@ idf_component_register(
   SRCS "codec.cpp" "mad.cpp" "foxenflac.cpp" "opus.cpp" "vorbis.cpp"
        "source_buffer.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "result" "span" "libmad" "libfoxenflac" "tremor" "opusfile")
+  REQUIRES "result" "span" "libmad" "libfoxenflac" "tremor" "opusfile" "memory")
 
 target_compile_options("${COMPONENT_LIB}" PRIVATE ${EXTRA_WARNINGS})

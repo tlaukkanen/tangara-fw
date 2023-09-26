@@ -16,7 +16,7 @@
 #include "leveldb/slice.h"
 
 #include "index.hpp"
-#include "shared_string.h"
+#include "memory_resource.hpp"
 #include "track.hpp"
 
 namespace database {
@@ -28,10 +28,10 @@ namespace database {
  */
 class OwningSlice {
  public:
-  std::string data;
+  std::pmr::string data;
   leveldb::Slice slice;
 
-  explicit OwningSlice(std::string d);
+  explicit OwningSlice(std::pmr::string d);
 };
 
 /*
@@ -88,6 +88,6 @@ auto TrackIdToBytes(TrackId id) -> OwningSlice;
  * Converts a track id encoded via TrackIdToBytes back into a TrackId. May
  * return nullopt if parsing fails.
  */
-auto BytesToTrackId(const std::string& bytes) -> std::optional<TrackId>;
+auto BytesToTrackId(cpp::span<const char> bytes) -> std::optional<TrackId>;
 
 }  // namespace database

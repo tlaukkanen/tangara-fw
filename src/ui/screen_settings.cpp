@@ -56,7 +56,7 @@ static void open_sub_menu_cb(lv_event_t* e) {
 
 static void sub_menu(lv_obj_t* list,
                      lv_group_t* group,
-                     const std::string& text,
+                     const std::pmr::string& text,
                      Page page) {
   lv_obj_t* item = lv_list_add_btn(list, NULL, text.c_str());
   lv_group_add_obj(group, item);
@@ -93,8 +93,8 @@ static auto settings_container(lv_obj_t* parent) -> lv_obj_t* {
 }
 
 static auto label_pair(lv_obj_t* parent,
-                       const std::string& left,
-                       const std::string& right) -> lv_obj_t* {
+                       const std::pmr::string& left,
+                       const std::pmr::string& right) -> lv_obj_t* {
   lv_obj_t* container = settings_container(parent);
   lv_obj_t* left_label = lv_label_create(container);
   lv_label_set_text(left_label, left.c_str());

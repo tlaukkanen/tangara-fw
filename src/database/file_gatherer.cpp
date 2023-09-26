@@ -13,18 +13,20 @@
 
 #include "ff.h"
 
+#include "memory_resource.hpp"
+
 namespace database {
 
 static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
 
-auto FileGathererImpl::FindFiles(const std::string& root,
-                                 std::function<void(const std::string&)> cb)
-    -> void {
-  std::deque<std::string> to_explore;
+auto FileGathererImpl::FindFiles(
+    const std::pmr::string& root,
+    std::function<void(const std::pmr::string&)> cb) -> void {
+  std::pmr::deque<std::pmr::string> to_explore(&memory::kSpiRamResource);
   to_explore.push_back(root);
 
   while (!to_explore.empty()) {
-    std::string next_path_str = to_explore.front();
+    std::pmr::string next_path_str = to_explore.front();
     const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
 
     FF_DIR dir;
@@ -44,16 +46,18 @@ auto FileGathererImpl::FindFiles(const std::string& root,
         // System or hidden file. Ignore it and move on.
         continue;
       } else {
-        std::stringstream full_path;
-        full_path << next_path_str << "/" << info.fname;
+        std::pmr::string full_path{&memory::kSpiRamResource};
+        full_path += next_path_str;
+        full_path += "/";
+        full_path += info.fname;
 
         if (info.fattrib & AM_DIR) {
           // This is a directory. Add it to the explore queue.
-          to_explore.push_back(full_path.str());
+          to_explore.push_back(full_path);
         } else {
           // This is a file! Let the callback know about it.
           // std::invoke(cb, full_path.str(), info);
-          std::invoke(cb, full_path.str());
+          std::invoke(cb, full_path);
         }
       }
     }

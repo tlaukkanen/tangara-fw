@@ -22,9 +22,9 @@
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
+#include "memory_resource.hpp"
 #include "records.hpp"
 #include "result.hpp"
-#include "shared_string.h"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
@@ -33,8 +33,8 @@ namespace database {
 
 template <typename T>
 struct Continuation {
-  std::string prefix;
-  std::string start_key;
+  std::pmr::string prefix;
+  std::pmr::string start_key;
   bool forward;
   bool was_prev_forward;
   size_t page_size;
@@ -70,17 +70,17 @@ class Result {
 class IndexRecord {
  public:
   explicit IndexRecord(const IndexKey&,
-                       std::optional<shared_string>,
+                       std::optional<std::pmr::string>,
                        std::optional<TrackId>);
 
-  auto text() const -> std::optional<shared_string>;
+  auto text() const -> std::optional<std::pmr::string>;
   auto track() const -> std::optional<TrackId>;
 
   auto Expand(std::size_t) const -> std::optional<Continuation<IndexRecord>>;
 
  private:
   IndexKey key_;
-  std::optional<shared_string> override_text_;
+  std::optional<std::pmr::string> override_text_;
   std::optional<TrackId> track_;
 };
 
@@ -100,7 +100,7 @@ class Database {
 
   auto Update() -> std::future<void>;
 
-  auto GetTrackPath(TrackId id) -> std::future<std::optional<std::string>>;
+  auto GetTrackPath(TrackId id) -> std::future<std::optional<std::pmr::string>>;
 
   auto GetTrack(TrackId id) -> std::future<std::optional<Track>>;
 
@@ -115,7 +115,7 @@ class Database {
   auto GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
       -> std::future<Result<IndexRecord>*>;
   auto GetTracks(std::size_t page_size) -> std::future<Result<Track>*>;
-  auto GetDump(std::size_t page_size) -> std::future<Result<std::string>*>;
+  auto GetDump(std::size_t page_size) -> std::future<Result<std::pmr::string>*>;
 
   template <typename T>
   auto GetPage(Continuation<T>* c) -> std::future<Result<T>*>;
@@ -167,8 +167,8 @@ auto Database::ParseRecord<Track>(const leveldb::Slice& key,
                                   const leveldb::Slice& val)
     -> std::optional<Track>;
 template <>
-auto Database::ParseRecord<std::string>(const leveldb::Slice& key,
-                                        const leveldb::Slice& val)
-    -> std::optional<std::string>;
+auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
+                                             const leveldb::Slice& val)
+    -> std::optional<std::pmr::string>;
 
 }  // namespace database

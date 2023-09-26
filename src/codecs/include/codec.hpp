@@ -21,6 +21,8 @@
 #include "span.hpp"
 #include "types.hpp"
 
+#include "memory_resource.hpp"
+
 namespace codecs {
 
 /*
@@ -69,7 +71,7 @@ class ICodec {
     kInternalError,
   };
 
-  static auto ErrorString(Error err) -> std::string {
+  static auto ErrorString(Error err) -> std::pmr::string {
     switch (err) {
       case Error::kOutOfInput:
         return "out of input";

@@ -88,7 +88,7 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
     -> cpp::result<OutputFormat, Error> {
   int res = ov_open_callbacks(input.get(), &vorbis_, NULL, 0, kCallbacks);
   if (res < 0) {
-    std::string err;
+    std::pmr::string err;
     switch (res) {
       case OV_EREAD:
         err = "OV_EREAD";

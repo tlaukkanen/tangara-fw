@@ -22,9 +22,9 @@
 
 namespace drivers {
 
-static const std::string kTestFilename = "test";
-static const std::string kTestFilePath =
-    std::string(kStoragePath) + "/" + kTestFilename;
+static const std::pmr::string kTestFilename = "test";
+static const std::pmr::string kTestFilePath =
+    std::pmr::string(kStoragePath) + "/" + kTestFilename;
 
 TEST_CASE("sd card storage", "[integration]") {
   I2CFixture i2c;
@@ -46,7 +46,7 @@ TEST_CASE("sd card storage", "[integration]") {
         std::ifstream test_file;
         test_file.open(kTestFilePath.c_str());
 
-        std::string line;
+        std::pmr::string line;
         REQUIRE(std::getline(test_file, line));
         REQUIRE(line == "hello here is some test");
 

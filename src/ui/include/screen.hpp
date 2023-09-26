@@ -64,7 +64,7 @@ class Screen {
 
 class MenuScreen : public Screen {
  public:
-  MenuScreen(const std::string& title, bool show_back_button = true);
+  MenuScreen(const std::pmr::string& title, bool show_back_button = true);
 };
 
 }  // namespace ui

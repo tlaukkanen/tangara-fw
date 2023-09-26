@@ -8,7 +8,9 @@
 
 #include <stdint.h>
 
+#include <functional>
 #include <iomanip>
+#include <memory_resource>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -18,7 +20,7 @@
 
 #include "index.hpp"
 #include "komihash.h"
-#include "shared_string.h"
+#include "memory_resource.hpp"
 #include "track.hpp"
 
 // As LevelDB is a key-value store, each record in the database consists of a
@@ -46,6 +48,11 @@ static const char kDataPrefix = 'D';
 static const char kHashPrefix = 'H';
 static const char kIndexPrefix = 'I';
 static const char kFieldSeparator = '\0';
+
+using ostringstream =
+    std::basic_ostringstream<char,
+                             std::char_traits<char>,
+                             std::pmr::polymorphic_allocator<char>>;
 
 /*
  * Helper function for allocating an appropriately-sized byte buffer, then
@@ -78,7 +85,8 @@ auto cbor_encode(uint8_t** out_buf, T fn) -> std::size_t {
   return buf_size;
 }
 
-OwningSlice::OwningSlice(std::string d) : data(d), slice(data) {}
+OwningSlice::OwningSlice(std::pmr::string d)
+    : data(d), slice(data.data(), data.size()) {}
 
 /* 'D/' */
 auto EncodeDataPrefix() -> OwningSlice {
@@ -88,7 +96,7 @@ auto EncodeDataPrefix() -> OwningSlice {
 
 /* 'D/ 0xACAB' */
 auto EncodeDataKey(const TrackId& id) -> OwningSlice {
-  std::ostringstream output;
+  ostringstream output;
   output.put(kDataPrefix).put(kFieldSeparator);
   output << TrackIdToBytes(id).data;
   return OwningSlice(output.str());
@@ -136,7 +144,7 @@ auto EncodeDataValue(const TrackData& track) -> OwningSlice {
       return;
     }
   });
-  std::string as_str(reinterpret_cast<char*>(buf), buf_len);
+  std::pmr::string as_str(reinterpret_cast<char*>(buf), buf_len);
   delete buf;
   return OwningSlice(as_str);
 }
@@ -174,7 +182,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData> {
   if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
     return {};
   }
-  std::string path(raw_path, len);
+  std::pmr::string path(raw_path, len);
   delete raw_path;
 
   err = cbor_value_get_uint64(&val, &raw_int);
@@ -208,7 +216,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData> {
 
 /* 'H/ 0xBEEF' */
 auto EncodeHashKey(const uint64_t& hash) -> OwningSlice {
-  std::ostringstream output;
+  ostringstream output;
   output.put(kHashPrefix).put(kFieldSeparator);
 
   uint8_t buf[16];
@@ -222,7 +230,7 @@ auto EncodeHashKey(const uint64_t& hash) -> OwningSlice {
 }
 
 auto ParseHashValue(const leveldb::Slice& slice) -> std::optional<TrackId> {
-  return BytesToTrackId(slice.ToString());
+  return BytesToTrackId({slice.data(), slice.size()});
 }
 
 auto EncodeHashValue(TrackId id) -> OwningSlice {
@@ -235,7 +243,7 @@ auto EncodeAllIndexesPrefix() -> OwningSlice {
   return OwningSlice({data, 2});
 }
 
-auto AppendIndexHeader(const IndexKey::Header& header, std::ostringstream* out)
+auto AppendIndexHeader(const IndexKey::Header& header, ostringstream* out)
     -> void {
   *out << kIndexPrefix << kFieldSeparator;
 
@@ -270,13 +278,13 @@ auto AppendIndexHeader(const IndexKey::Header& header, std::ostringstream* out)
       return;
     }
   });
-  std::string encoded{reinterpret_cast<char*>(buf), buf_len};
+  std::pmr::string encoded{reinterpret_cast<char*>(buf), buf_len};
   delete buf;
   *out << encoded << kFieldSeparator;
 }
 
 auto EncodeIndexPrefix(const IndexKey::Header& header) -> OwningSlice {
-  std::ostringstream out;
+  ostringstream out;
   AppendIndexHeader(header, &out);
   return OwningSlice(out.str());
 }
@@ -296,7 +304,7 @@ auto EncodeIndexPrefix(const IndexKey::Header& header) -> OwningSlice {
  *  id for now, but could reasonably be something like 'release year' as well.
  */
 auto EncodeIndexKey(const IndexKey& key) -> OwningSlice {
-  std::ostringstream out;
+  ostringstream out;
 
   // Construct the header.
   AppendIndexHeader(key.header, &out);
@@ -319,7 +327,7 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
   IndexKey result{};
 
   auto prefix = EncodeAllIndexesPrefix();
-  if (!slice.starts_with(prefix.data)) {
+  if (!slice.starts_with(prefix.slice)) {
     return {};
   }
 
@@ -409,11 +417,11 @@ auto TrackIdToBytes(TrackId id) -> OwningSlice {
   cbor_encoder_init(&enc, buf, sizeof(buf), 0);
   cbor_encode_uint(&enc, id);
   std::size_t len = cbor_encoder_get_buffer_size(&enc, buf);
-  std::string as_str(reinterpret_cast<char*>(buf), len);
+  std::pmr::string as_str(reinterpret_cast<char*>(buf), len);
   return OwningSlice(as_str);
 }
 
-auto BytesToTrackId(const std::string& bytes) -> std::optional<TrackId> {
+auto BytesToTrackId(cpp::span<const char> bytes) -> std::optional<TrackId> {
   CborParser parser;
   CborValue val;
   cbor_parser_init(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),

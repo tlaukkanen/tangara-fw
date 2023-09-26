@@ -7,15 +7,16 @@
 #include "track.hpp"
 
 #include <komihash.h>
-#include "shared_string.h"
+
+#include "memory_resource.hpp"
 
 namespace database {
 
-auto TrackTags::set(const Tag& key, const std::string& val) -> void {
+auto TrackTags::set(const Tag& key, const std::pmr::string& val) -> void {
   tags_[key] = val;
 }
 
-auto TrackTags::at(const Tag& key) const -> std::optional<shared_string> {
+auto TrackTags::at(const Tag& key) const -> std::optional<std::pmr::string> {
   if (tags_.contains(key)) {
     return tags_.at(key);
   }
@@ -23,12 +24,13 @@ auto TrackTags::at(const Tag& key) const -> std::optional<shared_string> {
 }
 
 auto TrackTags::operator[](const Tag& key) const
-    -> std::optional<shared_string> {
+    -> std::optional<std::pmr::string> {
   return at(key);
 }
 
-/* Helper function to update a komihash stream with a std::string. */
-auto HashString(komihash_stream_t* stream, const std::string& str) -> void {
+/* Helper function to update a komihash stream with a std::pmr::string. */
+auto HashString(komihash_stream_t* stream, const std::pmr::string& str)
+    -> void {
   komihash_stream_update(stream, str.c_str(), str.length());
 }
 
@@ -58,7 +60,7 @@ auto TrackData::Entomb() const -> TrackData {
   return TrackData(id_, filepath_, tags_hash_, play_count_, true);
 }
 
-auto TrackData::Exhume(const std::string& new_path) const -> TrackData {
+auto TrackData::Exhume(const std::pmr::string& new_path) const -> TrackData {
   return TrackData(id_, new_path, tags_hash_, play_count_, false);
 }
 
@@ -68,13 +70,13 @@ void swap(Track& first, Track& second) {
   second = temp;
 }
 
-auto Track::TitleOrFilename() const -> shared_string {
+auto Track::TitleOrFilename() const -> std::pmr::string {
   auto title = tags().at(Tag::kTitle);
   if (title) {
     return *title;
   }
   auto start = data().filepath().find_last_of('/');
-  if (start == std::string::npos) {
+  if (start == std::pmr::string::npos) {
     return data().filepath();
   }
   return data().filepath().substr(start);

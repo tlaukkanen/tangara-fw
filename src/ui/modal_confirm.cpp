@@ -37,7 +37,9 @@ static void button_confirm_cb(lv_event_t* e) {
   events::Ui().Dispatch(internal::ModalConfirmPressed{});
 }
 
-Confirm::Confirm(Screen* host, const std::string& title_text, bool has_cancel)
+Confirm::Confirm(Screen* host,
+                 const std::pmr::string& title_text,
+                 bool has_cancel)
     : Modal(host) {
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);

@@ -16,7 +16,7 @@
 #include <utility>
 
 #include "leveldb/db.h"
-#include "shared_string.h"
+#include "memory_resource.hpp"
 #include "span.hpp"
 
 namespace database {
@@ -64,7 +64,8 @@ class TrackTags {
   auto encoding() const -> Container { return encoding_; };
   auto encoding(Container e) -> void { encoding_ = e; };
 
-  TrackTags() : encoding_(Container::kUnsupported) {}
+  TrackTags()
+      : encoding_(Container::kUnsupported), tags_(&memory::kSpiRamResource) {}
 
   std::optional<int> channels;
   std::optional<int> sample_rate;
@@ -72,9 +73,9 @@ class TrackTags {
 
   std::optional<int> duration;
 
-  auto set(const Tag& key, const std::string& val) -> void;
-  auto at(const Tag& key) const -> std::optional<shared_string>;
-  auto operator[](const Tag& key) const -> std::optional<shared_string>;
+  auto set(const Tag& key, const std::pmr::string& val) -> void;
+  auto at(const Tag& key) const -> std::optional<std::pmr::string>;
+  auto operator[](const Tag& key) const -> std::optional<std::pmr::string>;
 
   /*
    * Returns a hash of the 'identifying' tags of this track. That is, a hash
@@ -90,7 +91,7 @@ class TrackTags {
 
  private:
   Container encoding_;
-  std::unordered_map<Tag, shared_string> tags_;
+  std::pmr::unordered_map<Tag, std::pmr::string> tags_;
 };
 
 /*
@@ -113,33 +114,33 @@ class TrackTags {
 class TrackData {
  private:
   const TrackId id_;
-  const std::string filepath_;
+  const std::pmr::string filepath_;
   const uint64_t tags_hash_;
   const uint32_t play_count_;
   const bool is_tombstoned_;
 
  public:
   /* Constructor used when adding new tracks to the database. */
-  TrackData(TrackId id, const std::string& path, uint64_t hash)
+  TrackData(TrackId id, const std::pmr::string& path, uint64_t hash)
       : id_(id),
-        filepath_(path),
+        filepath_(path, &memory::kSpiRamResource),
         tags_hash_(hash),
         play_count_(0),
         is_tombstoned_(false) {}
 
   TrackData(TrackId id,
-            const std::string& path,
+            const std::pmr::string& path,
             uint64_t hash,
             uint32_t play_count,
             bool is_tombstoned)
       : id_(id),
-        filepath_(path),
+        filepath_(path, &memory::kSpiRamResource),
         tags_hash_(hash),
         play_count_(play_count),
         is_tombstoned_(is_tombstoned) {}
 
   auto id() const -> TrackId { return id_; }
-  auto filepath() const -> std::string { return filepath_; }
+  auto filepath() const -> std::pmr::string { return filepath_; }
   auto play_count() const -> uint32_t { return play_count_; }
   auto tags_hash() const -> uint64_t { return tags_hash_; }
   auto is_tombstoned() const -> bool { return is_tombstoned_; }
@@ -156,7 +157,7 @@ class TrackData {
    * Clears the tombstone bit of this track, and updates the path to reflect its
    * new location.
    */
-  auto Exhume(const std::string& new_path) const -> TrackData;
+  auto Exhume(const std::pmr::string& new_path) const -> TrackData;
 
   bool operator==(const TrackData&) const = default;
 };
@@ -178,7 +179,7 @@ class Track {
   auto data() const -> const TrackData& { return data_; }
   auto tags() const -> const TrackTags& { return tags_; }
 
-  auto TitleOrFilename() const -> shared_string;
+  auto TitleOrFilename() const -> std::pmr::string;
 
   bool operator==(const Track&) const = default;
   Track operator=(const Track& other) const { return Track(other); }

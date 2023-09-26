@@ -45,7 +45,7 @@ enum class Type {
 };
 
 template <Type t>
-auto Name() -> std::string;
+auto Name() -> std::pmr::string;
 template <Type t>
 auto AllocateStack() -> cpp::span<StackType_t>;
 template <Type t>
@@ -76,7 +76,7 @@ auto StartPersistent(BaseType_t core, const std::function<void(void)>& fn)
 
 class Worker {
  private:
-  Worker(const std::string& name,
+  Worker(const std::pmr::string& name,
          cpp::span<StackType_t> stack,
          std::size_t queue_size,
          UBaseType_t priority);

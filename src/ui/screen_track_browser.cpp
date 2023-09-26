@@ -60,7 +60,7 @@ static void item_select_cb(lv_event_t* ev) {
 
 TrackBrowser::TrackBrowser(
     std::weak_ptr<database::Database> db,
-    const std::string& title,
+    const std::pmr::string& title,
     std::future<database::Result<database::IndexRecord>*>&& initial_page)
     : db_(db),
       list_(nullptr),

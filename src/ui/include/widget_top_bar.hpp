@@ -11,6 +11,8 @@
 
 #include "lvgl.h"
 
+#include "memory_resource.hpp"
+
 namespace ui {
 
 namespace widgets {
@@ -19,7 +21,7 @@ class TopBar {
  public:
   struct Configuration {
     bool show_back_button;
-    std::string title;
+    std::pmr::string title;
   };
 
   enum class PlaybackState {

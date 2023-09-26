@@ -24,6 +24,7 @@
 #include "sdmmc_cmd.h"
 
 #include "gpios.hpp"
+#include "memory_resource.hpp"
 
 static const char* kTag = "SDSTORAGE";
 static const uint8_t kMaxOpenFiles = 8;
@@ -74,7 +75,7 @@ auto SdStorage::Create(IGpios& gpio) -> cpp::result<SdStorage*, Error> {
   // Mount right now, not on first operation.
   FRESULT ferr = f_mount(fs, "", 1);
   if (ferr != FR_OK) {
-    std::string err_str;
+    std::pmr::string err_str;
     switch (ferr) {
       case FR_DISK_ERR:
         err_str = "FR_DISK_ERR";

@@ -35,6 +35,7 @@
 #include "freertos/FreeRTOSConfig_arch.h"
 #include "freertos/projdefs.h"
 #include "index.hpp"
+#include "memory_resource.hpp"
 #include "service_locator.hpp"
 #include "track.hpp"
 
@@ -49,7 +50,7 @@ int CmdListDir(int argc, char** argv) {
     return 1;
   }
 
-  std::string path;
+  std::pmr::string path;
   if (argc > 1) {
     std::ostringstream builder;
     builder << argv[1];
@@ -102,13 +103,13 @@ void RegisterListDir() {
 }
 
 int CmdPlayFile(int argc, char** argv) {
-  static const std::string usage = "usage: play [file or id]";
+  static const std::pmr::string usage = "usage: play [file or id]";
   if (argc < 2) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  std::string path_or_id = argv[1];
+  std::pmr::string path_or_id = argv[1];
   bool is_id = true;
   for (const auto& it : path_or_id) {
     if (!std::isdigit(it)) {
@@ -121,13 +122,15 @@ int CmdPlayFile(int argc, char** argv) {
     database::TrackId id = std::atoi(argv[1]);
     AppConsole::sServices->track_queue().AddLast(id);
   } else {
-    std::ostringstream path;
-    path << '/' << argv[1];
+    std::pmr::string path{&memory::kSpiRamResource};
+    path += '/';
+    path += argv[1];
     for (int i = 2; i < argc; i++) {
-      path << ' ' << argv[i];
+      path += ' ';
+      path += argv[i];
     }
 
-    events::Audio().Dispatch(audio::PlayFile{.filename = path.str()});
+    events::Audio().Dispatch(audio::PlayFile{.filename = path});
   }
 
   return 0;
@@ -143,7 +146,7 @@ void RegisterPlayFile() {
 }
 
 int CmdDbInit(int argc, char** argv) {
-  static const std::string usage = "usage: db_init";
+  static const std::pmr::string usage = "usage: db_init";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -170,7 +173,7 @@ void RegisterDbInit() {
 }
 
 int CmdDbTracks(int argc, char** argv) {
-  static const std::string usage = "usage: db_tracks";
+  static const std::pmr::string usage = "usage: db_tracks";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -211,7 +214,7 @@ void RegisterDbTracks() {
 int CmdDbIndex(int argc, char** argv) {
   std::cout << std::endl;
   vTaskDelay(1);
-  static const std::string usage = "usage: db_index [id] [choices ...]";
+  static const std::pmr::string usage = "usage: db_index [id] [choices ...]";
 
   auto db = AppConsole::sServices->database().lock();
   if (!db) {
@@ -292,7 +295,7 @@ void RegisterDbIndex() {
 }
 
 int CmdDbDump(int argc, char** argv) {
-  static const std::string usage = "usage: db_dump";
+  static const std::pmr::string usage = "usage: db_dump";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -306,14 +309,14 @@ int CmdDbDump(int argc, char** argv) {
 
   std::cout << "=== BEGIN DUMP ===" << std::endl;
 
-  std::unique_ptr<database::Result<std::string>> res(db->GetDump(5).get());
+  std::unique_ptr<database::Result<std::pmr::string>> res(db->GetDump(5).get());
   while (true) {
-    for (std::string s : res->values()) {
+    for (const std::pmr::string& s : res->values()) {
       std::cout << s << std::endl;
     }
     if (res->next_page()) {
       auto continuation = res->next_page().value();
-      res.reset(db->GetPage<std::string>(&continuation).get());
+      res.reset(db->GetPage<std::pmr::string>(&continuation).get());
     } else {
       break;
     }
@@ -340,7 +343,7 @@ int CmdTasks(int argc, char** argv) {
     return 1;
   }
 
-  static const std::string usage = "usage: tasks";
+  static const std::pmr::string usage = "usage: tasks";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -362,7 +365,7 @@ int CmdTasks(int argc, char** argv) {
   size_t end_num_tasks =
       uxTaskGetSystemState(end_status, num_tasks, &end_elapsed_ticks);
 
-  std::vector<std::pair<uint32_t, std::string>> info_strings;
+  std::vector<std::pair<uint32_t, std::pmr::string>> info_strings;
   for (int i = 0; i < start_num_tasks; i++) {
     int k = -1;
     for (int j = 0; j < end_num_tasks; j++) {
@@ -383,7 +386,7 @@ int CmdTasks(int argc, char** argv) {
       auto depth = uxTaskGetStackHighWaterMark2(start_status[i].xHandle);
       float depth_kib = static_cast<float>(depth) / 1024.0f;
 
-      std::ostringstream str;
+      std::ostringstream str{};
       str << start_status[i].pcTaskName;
       if (str.str().size() < 8) {
         str << "\t\t";
@@ -410,7 +413,7 @@ int CmdTasks(int argc, char** argv) {
       str << std::fixed << std::setprecision(1) << (time_percent * 100);
       str << "%";
 
-      info_strings.push_back({run_time, str.str()});
+      info_strings.push_back({run_time, std::pmr::string{str.str()}});
     }
   }
 
@@ -444,7 +447,7 @@ void RegisterTasks() {
 }
 
 int CmdHeaps(int argc, char** argv) {
-  static const std::string usage = "usage: heaps";
+  static const std::pmr::string usage = "usage: heaps";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -484,7 +487,7 @@ static heap_trace_record_t* sTraceRecords = nullptr;
 static bool sIsTracking = false;
 
 int CmdAllocs(int argc, char** argv) {
-  static const std::string usage = "usage: allocs";
+  static const std::pmr::string usage = "usage: allocs";
   if (argc != 1) {
     std::cout << usage << std::endl;
     return 1;
@@ -521,7 +524,7 @@ void RegisterAllocs() {
 #endif
 
 int CmdBtList(int argc, char** argv) {
-  static const std::string usage = "usage: bt_list <index>";
+  static const std::pmr::string usage = "usage: bt_list <index>";
   if (argc > 2) {
     std::cout << usage << std::endl;
     return 1;
@@ -563,13 +566,13 @@ void RegisterBtList() {
 }
 
 int CmdSamd(int argc, char** argv) {
-  static const std::string usage = "usage: samd [flash|charge|off]";
+  static const std::pmr::string usage = "usage: samd [flash|charge|off]";
   if (argc != 2) {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  std::string cmd{argv[1]};
+  std::pmr::string cmd{argv[1]};
   if (cmd == "flash") {
     std::cout << "resetting samd..." << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));

@@ -41,7 +41,7 @@ const IndexInfo kAllAlbums{
 };
 
 static auto missing_component_text(const Track& track, Tag tag)
-    -> std::optional<std::string> {
+    -> std::optional<std::pmr::string> {
   switch (tag) {
     case Tag::kArtist:
       return "Unknown Artist";
@@ -76,9 +76,9 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
   for (std::uint8_t i = 0; i < info.components.size(); i++) {
     // Fill in the text for this depth.
     auto text = t.tags().at(info.components.at(i));
-    std::string value;
+    std::pmr::string value;
     if (text) {
-      std::string orig = *text;
+      std::pmr::string orig = *text;
       key.item = col.transform(&orig[0], &orig[0] + orig.size());
       value = *text;
     } else {
@@ -94,7 +94,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
     }
 
     auto encoded = EncodeIndexKey(key);
-    batch->Put(encoded.slice, value);
+    batch->Put(encoded.slice, {value.data(), value.size()});
 
     // If there are more components after this, then we need to finish by
     // narrowing the header with the current title.
@@ -106,7 +106,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
 }
 
 auto ExpandHeader(const IndexKey::Header& header,
-                  const std::optional<std::string>& component)
+                  const std::optional<std::pmr::string>& component)
     -> IndexKey::Header {
   IndexKey::Header ret{header};
   ret.depth++;

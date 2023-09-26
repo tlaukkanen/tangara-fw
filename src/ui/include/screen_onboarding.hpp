@@ -18,7 +18,7 @@ namespace screens {
 
 class Onboarding : public Screen {
  public:
-  Onboarding(const std::string& title, bool show_prev, bool show_next);
+  Onboarding(const std::pmr::string& title, bool show_prev, bool show_next);
 
  private:
   lv_obj_t* window_;

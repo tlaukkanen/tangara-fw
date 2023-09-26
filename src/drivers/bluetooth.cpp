@@ -7,6 +7,7 @@
 #include <mutex>
 #include <ostream>
 #include <sstream>
+#include <string>
 
 #include "bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
@@ -21,6 +22,7 @@
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
 #include "freertos/portmacro.h"
+#include "memory_resource.hpp"
 #include "nvs.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
@@ -108,13 +110,13 @@ auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
   bluetooth::BluetoothState::event_handler(cb);
 }
 
-auto DeviceName() -> std::string {
+auto DeviceName() -> std::pmr::string {
   uint8_t mac[8]{0};
   esp_efuse_mac_get_default(mac);
   std::ostringstream name;
   name << "TANGARA " << std::hex << static_cast<int>(mac[0])
        << static_cast<int>(mac[1]);
-  return name.str();
+  return std::pmr::string{name.str(), &memory::kSpiRamResource};
 }
 
 namespace bluetooth {
@@ -212,7 +214,7 @@ void Disabled::react(const events::Enable&) {
   esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
 
   // Set a reasonable name for the device.
-  std::string name = DeviceName();
+  std::pmr::string name = DeviceName();
   esp_bt_dev_set_device_name(name.c_str());
 
   // Initialise GAP. This controls advertising our device, and scanning for
@@ -307,8 +309,8 @@ auto Scanning::OnDeviceDiscovered(esp_bt_gap_cb_param_t* param) -> void {
     return;
   }
 
-  device.name =
-      std::string{reinterpret_cast<char*>(name), static_cast<size_t>(length)};
+  device.name = std::pmr::string{reinterpret_cast<char*>(name),
+                                 static_cast<size_t>(length)};
 
   bool is_preferred = false;
   {
