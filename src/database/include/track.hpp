@@ -61,11 +61,16 @@ enum class Tag {
  */
 class TrackTags {
  public:
-  auto encoding() const -> Container { return encoding_; };
-  auto encoding(Container e) -> void { encoding_ = e; };
-
   TrackTags()
       : encoding_(Container::kUnsupported), tags_(&memory::kSpiRamResource) {}
+
+  TrackTags(const TrackTags& other) = delete;
+  TrackTags& operator=(TrackTags& other) = delete;
+
+  bool operator==(const TrackTags&) const = default;
+
+  auto encoding() const -> Container { return encoding_; };
+  auto encoding(Container e) -> void { encoding_ = e; };
 
   std::optional<int> channels;
   std::optional<int> sample_rate;
@@ -84,10 +89,6 @@ class TrackTags {
    * file.
    */
   auto Hash() const -> uint64_t;
-
-  bool operator==(const TrackTags&) const = default;
-  TrackTags& operator=(const TrackTags&) = default;
-  TrackTags(const TrackTags&) = default;
 
  private:
   Container encoding_;
@@ -139,6 +140,11 @@ class TrackData {
         play_count_(play_count),
         is_tombstoned_(is_tombstoned) {}
 
+  TrackData(TrackData&& other) = delete;
+  TrackData& operator=(TrackData& other) = delete;
+
+  bool operator==(const TrackData&) const = default;
+
   auto id() const -> TrackId { return id_; }
   auto filepath() const -> std::pmr::string { return filepath_; }
   auto play_count() const -> uint32_t { return play_count_; }
@@ -158,8 +164,6 @@ class TrackData {
    * new location.
    */
   auto Exhume(const std::pmr::string& new_path) const -> TrackData;
-
-  bool operator==(const TrackData&) const = default;
 };
 
 /*
@@ -172,23 +176,22 @@ class TrackData {
  */
 class Track {
  public:
-  Track(const TrackData& data, const TrackTags& tags)
+  Track(std::shared_ptr<TrackData>& data, std::shared_ptr<TrackTags> tags)
       : data_(data), tags_(tags) {}
-  Track(const Track& other) = default;
 
-  auto data() const -> const TrackData& { return data_; }
-  auto tags() const -> const TrackTags& { return tags_; }
+  Track(Track& other) = delete;
+  Track& operator=(Track& other) = delete;
+
+  bool operator==(const Track&) const = default;
+
+  auto data() const -> const TrackData& { return *data_; }
+  auto tags() const -> const TrackTags& { return *tags_; }
 
   auto TitleOrFilename() const -> std::pmr::string;
 
-  bool operator==(const Track&) const = default;
-  Track operator=(const Track& other) const { return Track(other); }
-
  private:
-  const TrackData data_;
-  const TrackTags tags_;
+  std::shared_ptr<TrackData> data_;
+  std::shared_ptr<TrackTags> tags_;
 };
-
-void swap(Track& first, Track& second);
 
 }  // namespace database

@@ -149,7 +149,7 @@ auto EncodeDataValue(const TrackData& track) -> OwningSlice {
   return OwningSlice(as_str);
 }
 
-auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData> {
+auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
   CborParser parser;
   CborValue container;
   CborError err;
@@ -211,7 +211,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData> {
     return {};
   }
 
-  return TrackData(id, path, hash, play_count, is_tombstoned);
+  return std::make_shared<TrackData>(id, path, hash, play_count, is_tombstoned);
 }
 
 /* 'H/ 0xBEEF' */

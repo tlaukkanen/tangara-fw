@@ -7,13 +7,16 @@
 #pragma once
 
 #include <stdint.h>
+#include <sys/_stdint.h>
 #include <memory>
 #include <stack>
 
 #include "audio_events.hpp"
 #include "battery.hpp"
+#include "bindey/property.h"
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
+#include "model_playback.hpp"
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
@@ -27,6 +30,7 @@
 #include "storage.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
+#include "track.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
 #include "wheel_encoder.hpp"
@@ -49,11 +53,11 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
-  virtual void react(const system_fsm::BatteryStateChanged&);
-  virtual void react(const audio::PlaybackStarted&);
-  virtual void react(const audio::PlaybackFinished&);
-  virtual void react(const audio::PlaybackUpdate&) {}
-  virtual void react(const audio::QueueUpdate&) {}
+  void react(const system_fsm::BatteryStateChanged&);
+  void react(const audio::PlaybackStarted&);
+  void react(const audio::PlaybackFinished&);
+  void react(const audio::PlaybackUpdate&);
+  void react(const audio::QueueUpdate&);
 
   virtual void react(const system_fsm::KeyLockChanged&);
 
@@ -88,6 +92,10 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
   static std::shared_ptr<Modal> sCurrentModal;
+
+  static models::Playback sPlaybackModel;
+
+  static bindey::property<battery::Battery::BatteryState> sPropBatteryState;
 };
 
 namespace states {
@@ -96,7 +104,6 @@ class Splash : public UiState {
  public:
   void exit() override;
   void react(const system_fsm::BootComplete&) override;
-  void react(const system_fsm::BatteryStateChanged&) override{};
   using UiState::react;
 };
 
@@ -140,10 +147,6 @@ class Playing : public UiState {
 
   void react(const internal::BackPressed&) override;
 
-  void react(const audio::PlaybackStarted&) override;
-  void react(const audio::PlaybackUpdate&) override;
-  void react(const audio::PlaybackFinished&) override;
-  void react(const audio::QueueUpdate&) override;
   using UiState::react;
 };
 

@@ -8,11 +8,15 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
+#include "bindey/binding.h"
 #include "core/lv_group.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
+#include "event_binding.hpp"
 #include "lvgl.h"
+#include "nod/nod.hpp"
 #include "widget_top_bar.hpp"
 
 namespace ui {
@@ -50,6 +54,16 @@ class Screen {
  protected:
   auto CreateTopBar(lv_obj_t* parent, const widgets::TopBar::Configuration&)
       -> widgets::TopBar*;
+
+  std::pmr::vector<bindey::scoped_binding> data_bindings_;
+  std::pmr::vector<std::unique_ptr<EventBinding>> event_bindings_;
+
+  template <typename T>
+  auto lv_bind(lv_obj_t* obj, lv_event_code_t ev, T fn) -> void {
+    auto binding = std::make_unique<EventBinding>(obj, ev);
+    binding->signal().connect(fn);
+    event_bindings_.push_back(std::move(binding));
+  }
 
   lv_obj_t* const root_;
   lv_obj_t* content_;

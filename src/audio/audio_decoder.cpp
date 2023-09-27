@@ -103,6 +103,7 @@ void Decoder::Main() {
   for (;;) {
     if (source_->HasNewStream() || !stream_) {
       std::shared_ptr<codecs::IStream> new_stream = source_->NextStream();
+      ESP_LOGI(kTag, "decoder has new stream");
       if (new_stream && BeginDecoding(new_stream)) {
         stream_ = new_stream;
       } else {

@@ -26,6 +26,10 @@ class Battery {
   struct BatteryState {
     uint_fast8_t percent;
     bool is_charging;
+
+    bool operator==(const BatteryState& other) const {
+      return percent == other.percent && is_charging == other.is_charging;
+    }
   };
 
   auto State() -> std::optional<BatteryState>;

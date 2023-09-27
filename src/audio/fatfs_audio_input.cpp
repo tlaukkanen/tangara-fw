@@ -34,6 +34,7 @@
 #include "future_fetcher.hpp"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
+#include "track.hpp"
 #include "types.hpp"
 
 static const char* kTag = "SRC";
@@ -118,13 +119,13 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<codecs::IStream> {
 auto FatfsAudioInput::OpenFile(const std::pmr::string& path) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
-  database::TrackTags tags;
-  if (!tag_parser_.ReadAndParseTags(path, &tags)) {
+  auto tags = tag_parser_.ReadAndParseTags(path);
+  if (!tags) {
     ESP_LOGE(kTag, "failed to read tags");
     return false;
   }
 
-  auto stream_type = ContainerToStreamType(tags.encoding());
+  auto stream_type = ContainerToStreamType(tags->encoding());
   if (!stream_type.has_value()) {
     ESP_LOGE(kTag, "couldn't match container to stream");
     return false;

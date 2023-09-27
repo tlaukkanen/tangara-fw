@@ -19,6 +19,7 @@
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
 #include "modal_confirm.hpp"
+#include "model_playback.hpp"
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
@@ -51,6 +52,10 @@ std::shared_ptr<TouchWheelEncoder> UiState::sEncoder;
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 std::shared_ptr<Modal> UiState::sCurrentModal;
+
+models::Playback UiState::sPlaybackModel;
+
+bindey::property<battery::Battery::BatteryState> UiState::sPropBatteryState;
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
@@ -89,15 +94,33 @@ void UiState::react(const system_fsm::KeyLockChanged& ev) {
 }
 
 void UiState::react(const system_fsm::BatteryStateChanged&) {
-  UpdateTopBar();
+  if (!sServices) {
+    return;
+  }
+  auto state = sServices->battery().State();
+  if (state) {
+    sPropBatteryState.set(*state);
+  }
 }
 
 void UiState::react(const audio::PlaybackStarted&) {
-  UpdateTopBar();
+  sPlaybackModel.is_playing.set(true);
 }
 
 void UiState::react(const audio::PlaybackFinished&) {
-  UpdateTopBar();
+  sPlaybackModel.is_playing.set(false);
+}
+
+void UiState::react(const audio::PlaybackUpdate& ev) {
+  sPlaybackModel.current_track_duration.set(ev.seconds_total);
+  sPlaybackModel.current_track_position.set(ev.seconds_elapsed);
+}
+
+void UiState::react(const audio::QueueUpdate&) {
+  ESP_LOGI(kTag, "current changed!");
+  auto& queue = sServices->track_queue();
+  sPlaybackModel.current_track.set(queue.GetCurrent());
+  sPlaybackModel.upcoming_tracks.set(queue.GetUpcoming(10));
 }
 
 void UiState::UpdateTopBar() {
@@ -283,21 +306,22 @@ void Browse::react(const internal::RecordSelected& ev) {
   }
 
   auto record = ev.page->values().at(ev.record);
-  if (record.track()) {
-    ESP_LOGI(kTag, "selected track '%s'", record.text()->c_str());
+  if (record->track()) {
+    ESP_LOGI(kTag, "selected track '%s'", record->text()->c_str());
     auto& queue = sServices->track_queue();
     queue.Clear();
     queue.IncludeLast(std::make_shared<playlist::IndexRecordSource>(
         sServices->database(), ev.initial_page, 0, ev.page, ev.record));
+    ESP_LOGI(kTag, "transit to playing");
     transit<Playing>();
   } else {
-    ESP_LOGI(kTag, "selected record '%s'", record.text()->c_str());
-    auto cont = record.Expand(kRecordsPerPage);
+    ESP_LOGI(kTag, "selected record '%s'", record->text()->c_str());
+    auto cont = record->Expand(kRecordsPerPage);
     if (!cont) {
       return;
     }
     auto query = db->GetPage(&cont.value());
-    std::pmr::string title = record.text().value_or("TODO");
+    std::pmr::string title = record->text().value_or("TODO");
     PushScreen(std::make_shared<screens::TrackBrowser>(
         sServices->database(), title, std::move(query)));
   }
@@ -329,32 +353,15 @@ void Browse::react(const system_fsm::BluetoothDevicesChanged&) {
 static std::shared_ptr<screens::Playing> sPlayingScreen;
 
 void Playing::entry() {
-  sPlayingScreen.reset(
-      new screens::Playing(sServices->database(), sServices->track_queue()));
+  ESP_LOGI(kTag, "push playing screen");
+  sPlayingScreen.reset(new screens::Playing(
+      sPlaybackModel, sServices->database(), sServices->track_queue()));
   PushScreen(sPlayingScreen);
 }
 
 void Playing::exit() {
   sPlayingScreen.reset();
   PopScreen();
-}
-
-void Playing::react(const audio::PlaybackStarted& ev) {
-  UpdateTopBar();
-  sPlayingScreen->OnTrackUpdate();
-}
-
-void Playing::react(const audio::PlaybackFinished& ev) {
-  UpdateTopBar();
-  sPlayingScreen->OnTrackUpdate();
-}
-
-void Playing::react(const audio::PlaybackUpdate& ev) {
-  sPlayingScreen->OnPlaybackUpdate(ev.seconds_elapsed, ev.seconds_total);
-}
-
-void Playing::react(const audio::QueueUpdate& ev) {
-  sPlayingScreen->OnQueueUpdate();
 }
 
 void Playing::react(const internal::BackPressed& ev) {

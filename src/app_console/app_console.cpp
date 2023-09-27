@@ -187,8 +187,8 @@ int CmdDbTracks(int argc, char** argv) {
   std::unique_ptr<database::Result<database::Track>> res(
       db->GetTracks(20).get());
   while (true) {
-    for (database::Track s : res->values()) {
-      std::cout << s.tags()[database::Tag::kTitle].value_or("[BLANK]")
+    for (const auto& s : res->values()) {
+      std::cout << s->tags()[database::Tag::kTitle].value_or("[BLANK]")
                 << std::endl;
     }
     if (res->next_page()) {
@@ -256,12 +256,12 @@ int CmdDbIndex(int argc, char** argv) {
       std::cout << "choice out of range" << std::endl;
       return -1;
     }
-    if (res->values().at(choice).track()) {
+    if (res->values().at(choice)->track()) {
       AppConsole::sServices->track_queue().IncludeLast(
           std::make_shared<playlist::IndexRecordSource>(
               AppConsole::sServices->database(), res, 0, res, choice));
     }
-    auto cont = res->values().at(choice).Expand(20);
+    auto cont = res->values().at(choice)->Expand(20);
     if (!cont) {
       std::cout << "more choices than levels" << std::endl;
       return 0;
@@ -270,10 +270,10 @@ int CmdDbIndex(int argc, char** argv) {
     choice_index++;
   }
 
-  for (database::IndexRecord r : res->values()) {
-    std::cout << r.text().value_or("<unknown>");
-    if (r.track()) {
-      std::cout << "\t(id:" << *r.track() << ")";
+  for (const auto& r : res->values()) {
+    std::cout << r->text().value_or("<unknown>");
+    if (r->track()) {
+      std::cout << "\t(id:" << *r->track() << ")";
     }
     std::cout << std::endl;
   }
@@ -311,8 +311,8 @@ int CmdDbDump(int argc, char** argv) {
 
   std::unique_ptr<database::Result<std::pmr::string>> res(db->GetDump(5).get());
   while (true) {
-    for (const std::pmr::string& s : res->values()) {
-      std::cout << s << std::endl;
+    for (const auto& s : res->values()) {
+      std::cout << *s << std::endl;
     }
     if (res->next_page()) {
       auto continuation = res->next_page().value();

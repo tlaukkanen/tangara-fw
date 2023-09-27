@@ -51,7 +51,7 @@ auto IndexRecordSource::Current() -> std::optional<database::TrackId> {
     return {};
   }
 
-  return current_page_->values().at(current_item_).track();
+  return current_page_->values().at(current_item_)->track();
 }
 
 auto IndexRecordSource::Advance() -> std::optional<database::TrackId> {
@@ -128,7 +128,7 @@ auto IndexRecordSource::Peek(std::size_t n, std::vector<database::TrackId>* out)
       working_item = 0;
     }
 
-    out->push_back(working_page->values().at(working_item).track().value());
+    out->push_back(working_page->values().at(working_item)->track().value());
     n--;
     items_added++;
     working_item++;

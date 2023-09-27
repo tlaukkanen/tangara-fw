@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "audio_events.hpp"
+#include "bindey/binding.h"
 #include "core/lv_event.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_scroll.h"
@@ -35,6 +36,7 @@
 #include "misc/lv_area.h"
 #include "misc/lv_color.h"
 #include "misc/lv_txt.h"
+#include "model_playback.hpp"
 #include "track.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
@@ -45,8 +47,6 @@
 
 namespace ui {
 namespace screens {
-
-static constexpr std::size_t kMaxUpcoming = 10;
 
 static void above_fold_focus_cb(lv_event_t* ev) {
   if (ev->user_data == NULL) {
@@ -62,10 +62,6 @@ static void below_fold_focus_cb(lv_event_t* ev) {
   }
   Playing* instance = reinterpret_cast<Playing*>(ev->user_data);
   instance->OnFocusBelowFold();
-}
-
-static void play_pause_cb(lv_event_t* ev) {
-  events::Audio().Dispatch(audio::TogglePlayPause{});
 }
 
 static lv_style_t scrubber_style;
@@ -105,13 +101,42 @@ auto Playing::next_up_label(lv_obj_t* parent, const std::pmr::string& text)
   return button;
 }
 
-Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue& queue)
+Playing::Playing(models::Playback& playback_model,
+                 std::weak_ptr<database::Database> db,
+                 audio::TrackQueue& queue)
     : db_(db),
       queue_(queue),
-      track_(),
+      current_track_(),
       next_tracks_(),
       new_track_(),
       new_next_tracks_() {
+  data_bindings_.emplace_back(playback_model.current_track.onChangedAndNow(
+      [=, this](const std::optional<database::TrackId>& id) {
+        if (!id) {
+          return;
+        }
+        if (current_track_.get() && current_track_.get()->data().id() == *id) {
+          return;
+        }
+        auto db = db_.lock();
+        if (!db) {
+          return;
+        }
+        new_track_.reset(
+            new database::FutureFetcher<std::shared_ptr<database::Track>>(
+                db->GetTrack(*id)));
+      }));
+  data_bindings_.emplace_back(playback_model.upcoming_tracks.onChangedAndNow(
+      [=, this](const std::vector<database::TrackId>& ids) {
+        auto db = db_.lock();
+        if (!db) {
+          return;
+        }
+        new_next_tracks_.reset(new database::FutureFetcher<
+                               std::vector<std::shared_ptr<database::Track>>>(
+            db->GetBulkTracks(ids)));
+      }));
+
   lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
   lv_group_set_wrap(group_, false);
 
@@ -143,20 +168,40 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue& queue)
   lv_obj_set_flex_align(info_container, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  artist_label_ = info_label(info_container);
-  album_label_ = info_label(info_container);
-  title_label_ = info_label(info_container);
+  lv_obj_t* artist_label = info_label(info_container);
+  lv_obj_t* album_label = info_label(info_container);
+  lv_obj_t* title_label = info_label(info_container);
 
-  scrubber_ = lv_slider_create(above_fold_container);
-  lv_obj_set_size(scrubber_, lv_pct(100), 5);
-  lv_slider_set_range(scrubber_, 0, 100);
-  lv_slider_set_value(scrubber_, 0, LV_ANIM_OFF);
+  data_bindings_.emplace_back(current_track_.onChangedAndNow(
+      [=](const std::shared_ptr<database::Track>& t) {
+        if (!t) {
+          return;
+        }
+        lv_label_set_text(
+            artist_label,
+            t->tags().at(database::Tag::kArtist).value_or("").c_str());
+        lv_label_set_text(
+            album_label,
+            t->tags().at(database::Tag::kAlbum).value_or("").c_str());
+        lv_label_set_text(title_label, t->TitleOrFilename().c_str());
+      }));
+
+  lv_obj_t* scrubber = lv_slider_create(above_fold_container);
+  lv_obj_set_size(scrubber, lv_pct(100), 5);
 
   lv_style_init(&scrubber_style);
   lv_style_set_bg_color(&scrubber_style, lv_color_black());
-  lv_obj_add_style(scrubber_, &scrubber_style, LV_PART_INDICATOR);
+  lv_obj_add_style(scrubber, &scrubber_style, LV_PART_INDICATOR);
 
-  lv_group_add_obj(group_, scrubber_);
+  lv_group_add_obj(group_, scrubber);
+
+  data_bindings_.emplace_back(
+      playback_model.current_track_duration.onChangedAndNow([=](uint32_t d) {
+        lv_slider_set_range(scrubber, 0, std::max<uint32_t>(1, d));
+      }));
+  data_bindings_.emplace_back(
+      playback_model.current_track_position.onChangedAndNow(
+          [=](uint32_t p) { lv_slider_set_value(scrubber, p, LV_ANIM_OFF); }));
 
   lv_obj_t* controls_container = lv_obj_create(above_fold_container);
   lv_obj_set_size(controls_container, lv_pct(100), 20);
@@ -164,15 +209,25 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue& queue)
   lv_obj_set_flex_align(controls_container, LV_FLEX_ALIGN_SPACE_EVENLY,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  play_pause_control_ = control_button(controls_container, LV_SYMBOL_PLAY);
-  lv_obj_add_event_cb(play_pause_control_, play_pause_cb, LV_EVENT_CLICKED,
-                      NULL);
-  lv_group_add_obj(group_, play_pause_control_);
+  lv_obj_t* play_pause_control =
+      control_button(controls_container, LV_SYMBOL_PLAY);
+  lv_group_add_obj(group_, play_pause_control);
+  lv_bind(play_pause_control, LV_EVENT_CLICKED, [=](lv_obj_t*) {
+    events::Audio().Dispatch(audio::TogglePlayPause{});
+  });
 
-  lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_PREV));
-  lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_NEXT));
-  lv_group_add_obj(group_,
-                   control_button(controls_container, LV_SYMBOL_SHUFFLE));
+  lv_obj_t* track_prev = control_button(controls_container, LV_SYMBOL_PREV);
+  lv_group_add_obj(group_, track_prev);
+  lv_bind(track_prev, LV_EVENT_CLICKED, [=](lv_obj_t*) { queue_.Previous(); });
+
+  lv_obj_t* track_next = control_button(controls_container, LV_SYMBOL_NEXT);
+  lv_group_add_obj(group_, track_next);
+  lv_bind(track_next, LV_EVENT_CLICKED, [=](lv_obj_t*) { queue_.Next(); });
+
+  lv_obj_t* shuffle = control_button(controls_container, LV_SYMBOL_SHUFFLE);
+  lv_group_add_obj(group_, shuffle);
+  // lv_bind(shuffle, LV_EVENT_CLICKED, [=](lv_obj_t*) { queue_ });
+
   lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_LOOP));
 
   next_up_header_ = lv_obj_create(above_fold_container);
@@ -198,108 +253,53 @@ Playing::Playing(std::weak_ptr<database::Database> db, audio::TrackQueue& queue)
   lv_obj_set_flex_align(next_up_container_, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  OnTrackUpdate();
-  OnQueueUpdate();
+  data_bindings_.emplace_back(next_tracks_.onChangedAndNow(
+      [=](const std::vector<std::shared_ptr<database::Track>>& tracks) {
+        // TODO(jacqueline): Do a proper diff to maintain selection.
+        int children = lv_obj_get_child_cnt(next_up_container_);
+        while (children > 0) {
+          lv_obj_del(lv_obj_get_child(next_up_container_, 0));
+          children--;
+        }
+
+        if (tracks.empty()) {
+          lv_label_set_text(next_up_label_, "Nothing queued");
+          lv_label_set_text(next_up_hint_, "");
+          return;
+        } else {
+          lv_label_set_text(next_up_label_, "Next up");
+          lv_label_set_text(next_up_hint_, "");
+        }
+
+        for (const auto& track : tracks) {
+          lv_group_add_obj(group_, next_up_label(next_up_container_,
+                                                 track->TitleOrFilename()));
+        }
+      }));
 }
 
 Playing::~Playing() {}
-
-auto Playing::OnTrackUpdate() -> void {
-  auto current = queue_.GetCurrent();
-  if (!current) {
-    return;
-  }
-  if (track_ && track_->data().id() == *current) {
-    return;
-  }
-  auto db = db_.lock();
-  if (!db) {
-    return;
-  }
-  new_track_.reset(new database::FutureFetcher<std::optional<database::Track>>(
-      db->GetTrack(*current)));
-}
-
-auto Playing::OnPlaybackUpdate(uint32_t pos_seconds, uint32_t new_duration)
-    -> void {
-  if (!track_) {
-    return;
-  }
-  lv_slider_set_range(scrubber_, 0, new_duration);
-  lv_slider_set_value(scrubber_, pos_seconds, LV_ANIM_ON);
-}
-
-auto Playing::OnQueueUpdate() -> void {
-  OnTrackUpdate();
-  auto current = queue_.GetUpcoming(kMaxUpcoming);
-  auto db = db_.lock();
-  if (!db) {
-    return;
-  }
-  new_next_tracks_.reset(
-      new database::FutureFetcher<std::vector<std::optional<database::Track>>>(
-          db->GetBulkTracks(current)));
-}
 
 auto Playing::Tick() -> void {
   if (new_track_ && new_track_->Finished()) {
     auto res = new_track_->Result();
     new_track_.reset();
-    if (res && *res) {
-      BindTrack(**res);
+    if (res) {
+      current_track_(*res);
     }
   }
   if (new_next_tracks_ && new_next_tracks_->Finished()) {
     auto res = new_next_tracks_->Result();
     new_next_tracks_.reset();
     if (res) {
-      std::vector<database::Track> filtered;
+      std::vector<std::shared_ptr<database::Track>> filtered;
       for (const auto& t : *res) {
         if (t) {
-          filtered.push_back(*t);
+          filtered.push_back(t);
         }
       }
-      ApplyNextUp(filtered);
+      next_tracks_.set(filtered);
     }
-  }
-}
-
-auto Playing::BindTrack(const database::Track& t) -> void {
-  track_ = t;
-
-  lv_label_set_text(artist_label_,
-                    t.tags().at(database::Tag::kArtist).value_or("").c_str());
-  lv_label_set_text(album_label_,
-                    t.tags().at(database::Tag::kAlbum).value_or("").c_str());
-  lv_label_set_text(title_label_, t.TitleOrFilename().c_str());
-
-  std::optional<int> duration = t.tags().duration;
-  lv_slider_set_range(scrubber_, 0, duration.value_or(1));
-  lv_slider_set_value(scrubber_, 0, LV_ANIM_OFF);
-}
-
-auto Playing::ApplyNextUp(const std::vector<database::Track>& tracks) -> void {
-  // TODO(jacqueline): Do a proper diff to maintain selection.
-  int children = lv_obj_get_child_cnt(next_up_container_);
-  while (children > 0) {
-    lv_obj_del(lv_obj_get_child(next_up_container_, 0));
-    children--;
-  }
-
-  next_tracks_ = tracks;
-
-  if (next_tracks_.empty()) {
-    lv_label_set_text(next_up_label_, "Nothing queued");
-    lv_label_set_text(next_up_hint_, "");
-    return;
-  } else {
-    lv_label_set_text(next_up_label_, "Next up");
-    lv_label_set_text(next_up_hint_, "");
-  }
-
-  for (const auto& track : next_tracks_) {
-    lv_group_add_obj(
-        group_, next_up_label(next_up_container_, track.TitleOrFilename()));
   }
 }
 

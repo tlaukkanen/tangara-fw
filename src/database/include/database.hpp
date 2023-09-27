@@ -48,12 +48,14 @@ struct Continuation {
 template <typename T>
 class Result {
  public:
-  auto values() const -> const std::vector<T>& { return values_; }
+  auto values() const -> const std::vector<std::shared_ptr<T>>& {
+    return values_;
+  }
 
   auto next_page() -> std::optional<Continuation<T>>& { return next_page_; }
   auto prev_page() -> std::optional<Continuation<T>>& { return prev_page_; }
 
-  Result(const std::vector<T>&& values,
+  Result(const std::vector<std::shared_ptr<T>>&& values,
          std::optional<Continuation<T>> next,
          std::optional<Continuation<T>> prev)
       : values_(values), next_page_(next), prev_page_(prev) {}
@@ -62,7 +64,7 @@ class Result {
   Result& operator=(const Result&) = delete;
 
  private:
-  std::vector<T> values_;
+  std::vector<std::shared_ptr<T>> values_;
   std::optional<Continuation<T>> next_page_;
   std::optional<Continuation<T>> prev_page_;
 };
@@ -102,14 +104,14 @@ class Database {
 
   auto GetTrackPath(TrackId id) -> std::future<std::optional<std::pmr::string>>;
 
-  auto GetTrack(TrackId id) -> std::future<std::optional<Track>>;
+  auto GetTrack(TrackId id) -> std::future<std::shared_ptr<Track>>;
 
   /*
    * Fetches data for multiple tracks more efficiently than multiple calls to
    * GetTrack.
    */
   auto GetBulkTracks(std::vector<TrackId> id)
-      -> std::future<std::vector<std::optional<Track>>>;
+      -> std::future<std::vector<std::shared_ptr<Track>>>;
 
   auto GetIndexes() -> std::vector<IndexInfo>;
   auto GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
@@ -145,30 +147,30 @@ class Database {
   auto dbEntomb(TrackId track, uint64_t hash) -> void;
 
   auto dbPutTrackData(const TrackData& s) -> void;
-  auto dbGetTrackData(TrackId id) -> std::optional<TrackData>;
+  auto dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData>;
   auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
   auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
-  auto dbCreateIndexesForTrack(Track track) -> void;
+  auto dbCreateIndexesForTrack(const Track& track) -> void;
 
   template <typename T>
   auto dbGetPage(const Continuation<T>& c) -> Result<T>*;
 
   template <typename T>
   auto ParseRecord(const leveldb::Slice& key, const leveldb::Slice& val)
-      -> std::optional<T>;
+      -> std::shared_ptr<T>;
 };
 
 template <>
 auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
                                         const leveldb::Slice& val)
-    -> std::optional<IndexRecord>;
+    -> std::shared_ptr<IndexRecord>;
 template <>
 auto Database::ParseRecord<Track>(const leveldb::Slice& key,
                                   const leveldb::Slice& val)
-    -> std::optional<Track>;
+    -> std::shared_ptr<Track>;
 template <>
 auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
                                              const leveldb::Slice& val)
-    -> std::optional<std::pmr::string>;
+    -> std::shared_ptr<std::pmr::string>;
 
 }  // namespace database

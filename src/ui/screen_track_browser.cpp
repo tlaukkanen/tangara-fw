@@ -170,8 +170,8 @@ auto TrackBrowser::AddResults(
     initial_page_ = results;
   }
 
-  auto fn = [&](const database::IndexRecord& record) {
-    auto text = record.text();
+  auto fn = [&](const std::shared_ptr<database::IndexRecord>& record) {
+    auto text = record->text();
     if (!text) {
       // TODO(jacqueline): Display category-specific text.
       text = "[ no data ]";

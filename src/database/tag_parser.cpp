@@ -130,14 +130,13 @@ TagParserImpl::TagParserImpl() {
   extension_to_parser_["opus"] = std::make_unique<OpusTagParser>();
 }
 
-auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path,
-                                     TrackTags* out) -> bool {
+auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path)
+    -> std::shared_ptr<TrackTags> {
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
-    std::optional<TrackTags> cached = cache_.Get(path);
+    std::optional<std::shared_ptr<TrackTags>> cached = cache_.Get(path);
     if (cached) {
-      *out = *cached;
-      return true;
+      return *cached;
     }
   }
 
@@ -152,41 +151,43 @@ auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path,
     }
   }
 
-  if (!parser->ReadAndParseTags(path, out)) {
-    return false;
+  std::shared_ptr<TrackTags> tags = parser->ReadAndParseTags(path);
+  if (!tags) {
+    return {};
   }
 
   // There wasn't a track number found in the track's tags. Try to synthesize
   // one from the filename, which will sometimes have a track number at the
   // start.
-  if (!out->at(Tag::kAlbumTrack)) {
+  if (!tags->at(Tag::kAlbumTrack)) {
     auto slash_pos = path.find_last_of("/");
     if (slash_pos != std::pmr::string::npos && path.size() - slash_pos > 1) {
-      out->set(Tag::kAlbumTrack, path.substr(slash_pos + 1));
+      tags->set(Tag::kAlbumTrack, path.substr(slash_pos + 1));
     }
   }
 
   // Normalise track numbers; they're usually treated as strings, but we would
   // like to sort them lexicographically.
-  out->set(Tag::kAlbumTrack,
-           convert_track_number(out->at(Tag::kAlbumTrack).value_or("0")));
+  tags->set(Tag::kAlbumTrack,
+            convert_track_number(tags->at(Tag::kAlbumTrack).value_or("0")));
 
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
-    cache_.Put(path, *out);
+    cache_.Put(path, tags);
   }
 
-  return true;
+  return tags;
 }
 
-auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path,
-                                        TrackTags* out) -> bool {
+auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path)
+    -> std::shared_ptr<TrackTags> {
   libtags::Aux aux;
-  aux.tags = out;
+  auto out = std::make_shared<TrackTags>();
+  aux.tags = out.get();
   if (f_stat(path.c_str(), &aux.info) != FR_OK ||
       f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
     ESP_LOGW(kTag, "failed to open file %s", path.c_str());
-    return false;
+    return {};
   }
   // Fine to have this on the stack; this is only called on tasks with large
   // stacks anyway, due to all the string handling.
@@ -205,7 +206,7 @@ auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path,
   if (res != 0) {
     // Parsing failed.
     ESP_LOGE(kTag, "tag parsing for %s failed, reason %d", path.c_str(), res);
-    return false;
+    return {};
   }
 
   switch (ctx.format) {
@@ -240,25 +241,26 @@ auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path,
   if (ctx.duration > 0) {
     out->duration = ctx.duration;
   }
-  return true;
+  return out;
 }
 
-auto OpusTagParser::ReadAndParseTags(const std::pmr::string& path,
-                                     TrackTags* out) -> bool {
+auto OpusTagParser::ReadAndParseTags(const std::pmr::string& path)
+    -> std::shared_ptr<TrackTags> {
   std::pmr::string vfs_path = "/sdcard" + path;
   int err;
   OggOpusFile* f = op_test_file(vfs_path.c_str(), &err);
   if (f == NULL) {
     ESP_LOGE(kTag, "opusfile tag parsing failed: %d", err);
-    return false;
+    return {};
   }
   const OpusTags* tags = op_tags(f, -1);
   if (tags == NULL) {
     ESP_LOGE(kTag, "no tags in opusfile");
     op_free(f);
-    return false;
+    return {};
   }
 
+  auto out = std::make_shared<TrackTags>();
   out->encoding(Container::kOpus);
   for (const auto& pair : kVorbisIdToTag) {
     const char* tag = opus_tags_query(tags, pair.first, 0);
@@ -268,7 +270,7 @@ auto OpusTagParser::ReadAndParseTags(const std::pmr::string& path,
   }
 
   op_free(f);
-  return true;
+  return out;
 }
 
 }  // namespace database

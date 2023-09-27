@@ -19,6 +19,8 @@
 
 namespace audio {
 
+static constexpr char kTag[] = "tracks";
+
 TrackQueue::TrackQueue() {}
 
 auto TrackQueue::GetCurrent() const -> std::optional<database::TrackId> {
@@ -202,6 +204,9 @@ auto TrackQueue::Previous() -> void {
 
 auto TrackQueue::Clear() -> void {
   const std::lock_guard<std::mutex> lock(mutex_);
+  if (enqueued_.empty() && played_.empty()) {
+    return;
+  }
   QueueUpdate ev{.current_changed = !enqueued_.empty()};
   played_.clear();
   enqueued_.clear();

@@ -53,7 +53,7 @@ auto EncodeDataValue(const TrackData& track) -> OwningSlice;
  * Parses bytes previously encoded via EncodeDataValue back into a TrackData.
  * May return nullopt if parsing fails.
  */
-auto ParseDataValue(const leveldb::Slice& slice) -> std::optional<TrackData>;
+auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData>;
 
 /* Encodes a hash key for the specified hash. */
 auto EncodeHashKey(const uint64_t& hash) -> OwningSlice;

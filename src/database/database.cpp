@@ -144,7 +144,7 @@ auto Database::Update() -> std::future<void> {
       OwningSlice prefix = EncodeDataPrefix();
       it->Seek(prefix.slice);
       while (it->Valid() && it->key().starts_with(prefix.slice)) {
-        std::optional<TrackData> track = ParseDataValue(it->value());
+        std::shared_ptr<TrackData> track = ParseDataValue(it->value());
         if (!track) {
           // The value was malformed. Drop this record.
           ESP_LOGW(kTag, "dropping malformed metadata");
@@ -159,9 +159,9 @@ auto Database::Update() -> std::future<void> {
           continue;
         }
 
-        TrackTags tags{};
-        if (!tag_parser_.ReadAndParseTags(track->filepath(), &tags) ||
-            tags.encoding() == Container::kUnsupported) {
+        std::shared_ptr<TrackTags> tags =
+            tag_parser_.ReadAndParseTags(track->filepath());
+        if (!tags || tags->encoding() == Container::kUnsupported) {
           // We couldn't read the tags for this track. Either they were
           // malformed, or perhaps the file is missing. Either way, tombstone
           // this record.
@@ -174,7 +174,7 @@ auto Database::Update() -> std::future<void> {
         // At this point, we know that the track still exists in its original
         // location. All that's left to do is update any metadata about it.
 
-        uint64_t new_hash = tags.Hash();
+        uint64_t new_hash = tags->Hash();
         if (new_hash != track->tags_hash()) {
           // This track's tags have changed. Since the filepath is exactly the
           // same, we assume this is a legitimate correction. Update the
@@ -185,7 +185,9 @@ auto Database::Update() -> std::future<void> {
           dbPutHash(new_hash, track->id());
         }
 
-        dbCreateIndexesForTrack({*track, tags});
+        Track t{track, tags};
+
+        dbCreateIndexesForTrack(t);
 
         it->Next();
       }
@@ -197,15 +199,14 @@ auto Database::Update() -> std::future<void> {
         .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
     });
     file_gatherer_.FindFiles("", [&](const std::pmr::string& path) {
-      TrackTags tags;
-      if (!tag_parser_.ReadAndParseTags(path, &tags) ||
-          tags.encoding() == Container::kUnsupported) {
+      std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
+      if (!tags || tags->encoding() == Container::kUnsupported) {
         // No parseable tags; skip this fiile.
         return;
       }
 
       // Check for any existing record with the same hash.
-      uint64_t hash = tags.Hash();
+      uint64_t hash = tags->Hash();
       OwningSlice key = EncodeHashKey(hash);
       std::optional<TrackId> existing_hash;
       std::string raw_entry;
@@ -219,33 +220,36 @@ auto Database::Update() -> std::future<void> {
         TrackId id = dbMintNewTrackId();
         ESP_LOGI(kTag, "recording new 0x%lx", id);
 
-        TrackData data(id, path, hash);
-        dbPutTrackData(data);
+        auto data = std::make_shared<TrackData>(id, path, hash);
+        dbPutTrackData(*data);
         dbPutHash(hash, id);
-        dbCreateIndexesForTrack({data, tags});
+        auto t = std::make_shared<Track>(data, tags);
+        dbCreateIndexesForTrack(*t);
         return;
       }
 
-      std::optional<TrackData> existing_data = dbGetTrackData(*existing_hash);
+      std::shared_ptr<TrackData> existing_data = dbGetTrackData(*existing_hash);
       if (!existing_data) {
         // We found a hash that matches, but there's no data record? Weird.
-        TrackData new_data(*existing_hash, path, hash);
-        dbPutTrackData(new_data);
-        dbCreateIndexesForTrack({*existing_data, tags});
+        auto new_data = std::make_shared<TrackData>(*existing_hash, path, hash);
+        dbPutTrackData(*new_data);
+        auto t = std::make_shared<Track>(new_data, tags);
+        dbCreateIndexesForTrack(*t);
         return;
       }
 
       if (existing_data->is_tombstoned()) {
         ESP_LOGI(kTag, "exhuming track %lu", existing_data->id());
         dbPutTrackData(existing_data->Exhume(path));
-        dbCreateIndexesForTrack({*existing_data, tags});
+        auto t = std::make_shared<Track>(existing_data, tags);
+        dbCreateIndexesForTrack(*t);
       } else if (existing_data->filepath() != path) {
         ESP_LOGW(kTag, "tag hash collision for %s and %s",
                  existing_data->filepath().c_str(), path.c_str());
         ESP_LOGI(kTag, "hash components: %s, %s, %s",
-                 tags.at(Tag::kTitle).value_or("no title").c_str(),
-                 tags.at(Tag::kArtist).value_or("no artist").c_str(),
-                 tags.at(Tag::kAlbum).value_or("no album").c_str());
+                 tags->at(Tag::kTitle).value_or("no title").c_str(),
+                 tags->at(Tag::kArtist).value_or("no artist").c_str(),
+                 tags->at(Tag::kAlbum).value_or("no album").c_str());
       }
     });
     events::Ui().Dispatch(event::UpdateFinished{});
@@ -264,26 +268,27 @@ auto Database::GetTrackPath(TrackId id)
       });
 }
 
-auto Database::GetTrack(TrackId id) -> std::future<std::optional<Track>> {
-  return worker_task_->Dispatch<std::optional<Track>>(
-      [=, this]() -> std::optional<Track> {
-        std::optional<TrackData> data = dbGetTrackData(id);
+auto Database::GetTrack(TrackId id) -> std::future<std::shared_ptr<Track>> {
+  return worker_task_->Dispatch<std::shared_ptr<Track>>(
+      [=, this]() -> std::shared_ptr<Track> {
+        std::shared_ptr<TrackData> data = dbGetTrackData(id);
         if (!data || data->is_tombstoned()) {
           return {};
         }
-        TrackTags tags;
-        if (!tag_parser_.ReadAndParseTags(data->filepath(), &tags)) {
+        std::shared_ptr<TrackTags> tags =
+            tag_parser_.ReadAndParseTags(data->filepath());
+        if (!tags) {
           return {};
         }
-        return Track(*data, tags);
+        return std::make_shared<Track>(data, tags);
       });
 }
 
 auto Database::GetBulkTracks(std::vector<TrackId> ids)
-    -> std::future<std::vector<std::optional<Track>>> {
-  return worker_task_->Dispatch<std::vector<std::optional<Track>>>(
-      [=, this]() -> std::vector<std::optional<Track>> {
-        std::map<TrackId, Track> id_to_track{};
+    -> std::future<std::vector<std::shared_ptr<Track>>> {
+  return worker_task_->Dispatch<std::vector<std::shared_ptr<Track>>>(
+      [=, this]() -> std::vector<std::shared_ptr<Track>> {
+        std::map<TrackId, std::shared_ptr<Track>> id_to_track{};
 
         // Sort the list of ids so that we can retrieve them all in a single
         // iteration through the database, without re-seeking.
@@ -299,16 +304,16 @@ auto Database::GetBulkTracks(std::vector<TrackId> ids)
             // This id wasn't found at all. Skip it.
             continue;
           }
-          std::optional<Track> track =
+          std::shared_ptr<Track> track =
               ParseRecord<Track>(it->key(), it->value());
           if (track) {
-            id_to_track.insert({id, *track});
+            id_to_track.insert({id, track});
           }
         }
 
         // We've fetched all of the ids in the request, so now just put them
         // back into the order they were asked for in.
-        std::vector<std::optional<Track>> results;
+        std::vector<std::shared_ptr<Track>> results;
         for (const TrackId& id : ids) {
           if (id_to_track.contains(id)) {
             results.push_back(id_to_track.at(id));
@@ -426,7 +431,7 @@ auto Database::dbPutTrackData(const TrackData& s) -> void {
   }
 }
 
-auto Database::dbGetTrackData(TrackId id) -> std::optional<TrackData> {
+auto Database::dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData> {
   OwningSlice key = EncodeDataKey(id);
   std::string raw_val;
   if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
@@ -454,7 +459,7 @@ auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
   return ParseHashValue(raw_val);
 }
 
-auto Database::dbCreateIndexesForTrack(Track track) -> void {
+auto Database::dbCreateIndexesForTrack(const Track& track) -> void {
   for (const IndexInfo& index : GetIndexes()) {
     leveldb::WriteBatch writes;
     if (Index(index, track, &writes)) {
@@ -481,7 +486,7 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
 
   // Grab results.
   std::optional<std::pmr::string> first_key;
-  std::vector<T> records;
+  std::vector<std::shared_ptr<T>> records;
   while (records.size() < c.page_size && it->Valid()) {
     if (!it->key().starts_with({c.prefix.data(), c.prefix.size()})) {
       break;
@@ -489,9 +494,9 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     if (!first_key) {
       first_key = it->key().ToString();
     }
-    std::optional<T> parsed = ParseRecord<T>(it->key(), it->value());
+    std::shared_ptr<T> parsed = ParseRecord<T>(it->key(), it->value());
     if (parsed) {
-      records.push_back(*parsed);
+      records.push_back(parsed);
     }
     if (c.forward) {
       it->Next();
@@ -577,7 +582,7 @@ template auto Database::dbGetPage<std::pmr::string>(
 template <>
 auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
                                         const leveldb::Slice& val)
-    -> std::optional<IndexRecord> {
+    -> std::shared_ptr<IndexRecord> {
   std::optional<IndexKey> data = ParseIndexKey(key);
   if (!data) {
     return {};
@@ -588,28 +593,29 @@ auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
     title = val.ToString();
   }
 
-  return IndexRecord(*data, title, data->track);
+  return std::make_shared<IndexRecord>(*data, title, data->track);
 }
 
 template <>
 auto Database::ParseRecord<Track>(const leveldb::Slice& key,
                                   const leveldb::Slice& val)
-    -> std::optional<Track> {
-  std::optional<TrackData> data = ParseDataValue(val);
+    -> std::shared_ptr<Track> {
+  std::shared_ptr<TrackData> data = ParseDataValue(val);
   if (!data || data->is_tombstoned()) {
     return {};
   }
-  TrackTags tags;
-  if (!tag_parser_.ReadAndParseTags(data->filepath(), &tags)) {
+  std::shared_ptr<TrackTags> tags =
+      tag_parser_.ReadAndParseTags(data->filepath());
+  if (!tags) {
     return {};
   }
-  return Track(*data, tags);
+  return std::make_shared<Track>(data, tags);
 }
 
 template <>
 auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
                                              const leveldb::Slice& val)
-    -> std::optional<std::pmr::string> {
+    -> std::shared_ptr<std::pmr::string> {
   std::ostringstream stream;
   stream << "key: ";
   if (key.size() < 3 || key.data()[1] != '\0') {
@@ -634,7 +640,7 @@ auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
     }
   }
   std::pmr::string res{stream.str(), &memory::kSpiRamResource};
-  return res;
+  return std::make_shared<std::pmr::string>(res);
 }
 
 IndexRecord::IndexRecord(const IndexKey& key,

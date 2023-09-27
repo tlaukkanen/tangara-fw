@@ -64,12 +64,6 @@ auto TrackData::Exhume(const std::pmr::string& new_path) const -> TrackData {
   return TrackData(id_, new_path, tags_hash_, play_count_, false);
 }
 
-void swap(Track& first, Track& second) {
-  Track temp = first;
-  first = second;
-  second = temp;
-}
-
 auto Track::TitleOrFilename() const -> std::pmr::string {
   auto title = tags().at(Tag::kTitle);
   if (title) {

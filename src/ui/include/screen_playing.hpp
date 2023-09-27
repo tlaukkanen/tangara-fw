@@ -11,10 +11,13 @@
 #include <memory>
 #include <vector>
 
+#include "bindey/property.h"
+#include "esp_log.h"
 #include "lvgl.h"
 
 #include "database.hpp"
 #include "future_fetcher.hpp"
+#include "model_playback.hpp"
 #include "screen.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
@@ -28,47 +31,35 @@ namespace screens {
  */
 class Playing : public Screen {
  public:
-  explicit Playing(std::weak_ptr<database::Database> db,
+  explicit Playing(models::Playback& playback_model,
+                   std::weak_ptr<database::Database> db,
                    audio::TrackQueue& queue);
   ~Playing();
 
   auto Tick() -> void override;
 
-  // Callbacks invoked by the UI state machine in response to audio events.
-
-  auto OnTrackUpdate() -> void;
-  auto OnPlaybackUpdate(uint32_t, uint32_t) -> void;
-  auto OnQueueUpdate() -> void;
-
   auto OnFocusAboveFold() -> void;
   auto OnFocusBelowFold() -> void;
+
+  Playing(const Playing&) = delete;
+  Playing& operator=(const Playing&) = delete;
 
  private:
   auto control_button(lv_obj_t* parent, char* icon) -> lv_obj_t*;
   auto next_up_label(lv_obj_t* parent, const std::pmr::string& text)
       -> lv_obj_t*;
 
-  auto BindTrack(const database::Track& track) -> void;
-  auto ApplyNextUp(const std::vector<database::Track>& tracks) -> void;
-
   std::weak_ptr<database::Database> db_;
   audio::TrackQueue& queue_;
 
-  std::optional<database::Track> track_;
-  std::vector<database::Track> next_tracks_;
+  bindey::property<std::shared_ptr<database::Track>> current_track_;
+  bindey::property<std::vector<std::shared_ptr<database::Track>>> next_tracks_;
 
-  std::unique_ptr<database::FutureFetcher<std::optional<database::Track>>>
+  std::unique_ptr<database::FutureFetcher<std::shared_ptr<database::Track>>>
       new_track_;
   std::unique_ptr<
-      database::FutureFetcher<std::vector<std::optional<database::Track>>>>
+      database::FutureFetcher<std::vector<std::shared_ptr<database::Track>>>>
       new_next_tracks_;
-
-  lv_obj_t* artist_label_;
-  lv_obj_t* album_label_;
-  lv_obj_t* title_label_;
-
-  lv_obj_t* scrubber_;
-  lv_obj_t* play_pause_control_;
 
   lv_obj_t* next_up_header_;
   lv_obj_t* next_up_label_;
