@@ -77,15 +77,16 @@ auto Battery::Update() -> void {
                      *charge_state == ChargeStatus::kChargingFast ||
                      *charge_state == ChargeStatus::kFullCharge;
 
-  if (!state_ || state_->is_charging != is_charging ||
-      state_->percent != percent) {
-    EmitEvent();
+  if (state_ && state_->is_charging == is_charging &&
+      state_->percent == percent) {
+    return;
   }
 
   state_ = BatteryState{
       .percent = percent,
       .is_charging = is_charging,
   };
+  EmitEvent();
 }
 
 auto Battery::State() -> std::optional<BatteryState> {
@@ -94,8 +95,15 @@ auto Battery::State() -> std::optional<BatteryState> {
 }
 
 auto Battery::EmitEvent() -> void {
-  events::System().Dispatch(system_fsm::BatteryStateChanged{});
-  events::Ui().Dispatch(system_fsm::BatteryStateChanged{});
+  auto state = state_;
+  if (!state) {
+    return;
+  }
+  system_fsm::BatteryStateChanged ev{
+      .new_state = *state,
+  };
+  events::System().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
 }  // namespace battery

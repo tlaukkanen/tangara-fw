@@ -12,6 +12,7 @@
 #include "index.hpp"
 #include "lvgl.h"
 
+#include "model_top_bar.hpp"
 #include "screen.hpp"
 #include "screen_settings.hpp"
 
@@ -20,7 +21,7 @@ namespace screens {
 
 class Menu : public MenuScreen {
  public:
-  explicit Menu(std::vector<database::IndexInfo> indexes);
+  explicit Menu(models::TopBar&, std::vector<database::IndexInfo> indexes);
   ~Menu();
 
  private:

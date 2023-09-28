@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <string>
 
+#include "bindey/binding.h"
 #include "lvgl.h"
 
 #include "memory_resource.hpp"
+#include "model_top_bar.hpp"
 
 namespace ui {
 
@@ -24,33 +26,18 @@ class TopBar {
     std::pmr::string title;
   };
 
-  enum class PlaybackState {
-    kIdle,
-    kPaused,
-    kPlaying,
-  };
-
-  struct State {
-    PlaybackState playback_state;
-    uint_fast8_t battery_percent;
-    bool is_charging;
-  };
-
-  explicit TopBar(lv_obj_t* parent, const Configuration& config);
+  explicit TopBar(lv_obj_t* parent,
+                  const Configuration& config,
+                  models::TopBar& model);
 
   auto root() -> lv_obj_t* { return container_; }
   auto button() -> lv_obj_t* { return back_button_; }
 
-  auto Update(const State&) -> void;
-
  private:
-  lv_obj_t* container_;
+  std::vector<bindey::scoped_binding> bindings_;
 
+  lv_obj_t* container_;
   lv_obj_t* back_button_;
-  lv_obj_t* title_;
-  lv_obj_t* playback_;
-  lv_obj_t* battery_;
-  lv_obj_t* charging_;
 };
 
 }  // namespace widgets

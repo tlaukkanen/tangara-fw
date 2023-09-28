@@ -18,6 +18,7 @@
 #include "index.hpp"
 #include "lvgl.h"
 
+#include "model_top_bar.hpp"
 #include "nvs.hpp"
 #include "screen.hpp"
 
@@ -26,12 +27,12 @@ namespace screens {
 
 class Settings : public MenuScreen {
  public:
-  Settings();
+  Settings(models::TopBar&);
 };
 
 class Bluetooth : public MenuScreen {
  public:
-  Bluetooth(drivers::Bluetooth& bt, drivers::NvsStorage& nvs);
+  Bluetooth(models::TopBar&, drivers::Bluetooth& bt, drivers::NvsStorage& nvs);
 
   auto ChangeEnabledState(bool enabled) -> void;
   auto RefreshDevicesList() -> void;
@@ -53,7 +54,7 @@ class Bluetooth : public MenuScreen {
 
 class Headphones : public MenuScreen {
  public:
-  Headphones(drivers::NvsStorage& nvs);
+  Headphones(models::TopBar&, drivers::NvsStorage& nvs);
 
   auto ChangeMaxVolume(uint8_t index) -> void;
   auto ChangeCustomVolume(int8_t diff) -> void;
@@ -71,7 +72,9 @@ class Headphones : public MenuScreen {
 
 class Appearance : public MenuScreen {
  public:
-  Appearance(drivers::NvsStorage& nvs, drivers::Display& display);
+  Appearance(models::TopBar&,
+             drivers::NvsStorage& nvs,
+             drivers::Display& display);
 
   auto ChangeBrightness(uint_fast8_t) -> void;
   auto CommitBrightness() -> void;
@@ -86,22 +89,22 @@ class Appearance : public MenuScreen {
 
 class InputMethod : public MenuScreen {
  public:
-  InputMethod();
+  InputMethod(models::TopBar&);
 };
 
 class Storage : public MenuScreen {
  public:
-  Storage();
+  Storage(models::TopBar&);
 };
 
 class FirmwareUpdate : public MenuScreen {
  public:
-  FirmwareUpdate();
+  FirmwareUpdate(models::TopBar&);
 };
 
 class About : public MenuScreen {
  public:
-  About();
+  About(models::TopBar&);
 };
 
 }  // namespace screens

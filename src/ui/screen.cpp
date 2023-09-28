@@ -12,6 +12,7 @@
 #include "core/lv_obj_tree.h"
 #include "misc/lv_area.h"
 #include "misc/lv_color.h"
+#include "model_top_bar.hpp"
 #include "widget_top_bar.hpp"
 
 namespace ui {
@@ -40,24 +41,20 @@ Screen::~Screen() {
   lv_obj_del(root_);
 }
 
-auto Screen::UpdateTopBar(const widgets::TopBar::State& state) -> void {
-  if (top_bar_) {
-    top_bar_->Update(state);
-  }
-}
-
 auto Screen::CreateTopBar(lv_obj_t* parent,
-                          const widgets::TopBar::Configuration& config)
-    -> widgets::TopBar* {
+                          const widgets::TopBar::Configuration& config,
+                          models::TopBar& model) -> widgets::TopBar* {
   assert(top_bar_ == nullptr);
-  top_bar_ = std::make_unique<widgets::TopBar>(parent, config);
+  top_bar_ = std::make_unique<widgets::TopBar>(parent, config, model);
   if (top_bar_->button()) {
     lv_group_add_obj(group_, top_bar_->button());
   }
   return top_bar_.get();
 }
 
-MenuScreen::MenuScreen(const std::pmr::string& title, bool show_back_button)
+MenuScreen::MenuScreen(models::TopBar& top_bar_model,
+                       const std::pmr::string& title,
+                       bool show_back_button)
     : Screen() {
   lv_group_set_wrap(group_, false);
 
@@ -70,7 +67,7 @@ MenuScreen::MenuScreen(const std::pmr::string& title, bool show_back_button)
       .show_back_button = show_back_button,
       .title = title.c_str(),
   };
-  CreateTopBar(content_, config);
+  CreateTopBar(content_, config, top_bar_model);
 
   content_ = lv_obj_create(content_);
   lv_obj_set_flex_grow(content_, 1);

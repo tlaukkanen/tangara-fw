@@ -37,6 +37,7 @@
 #include "misc/lv_color.h"
 #include "misc/lv_txt.h"
 #include "model_playback.hpp"
+#include "model_top_bar.hpp"
 #include "track.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
@@ -101,7 +102,8 @@ auto Playing::next_up_label(lv_obj_t* parent, const std::pmr::string& text)
   return button;
 }
 
-Playing::Playing(models::Playback& playback_model,
+Playing::Playing(models::TopBar& top_bar_model,
+                 models::Playback& playback_model,
                  std::weak_ptr<database::Database> db,
                  audio::TrackQueue& queue)
     : db_(db),
@@ -158,7 +160,7 @@ Playing::Playing(models::Playback& playback_model,
       .show_back_button = true,
       .title = "Now Playing",
   };
-  CreateTopBar(above_fold_container, config);
+  CreateTopBar(above_fold_container, config, top_bar_model);
 
   lv_obj_t* info_container = lv_obj_create(above_fold_container);
   lv_obj_set_layout(info_container, LV_LAYOUT_FLEX);

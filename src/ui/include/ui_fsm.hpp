@@ -17,6 +17,7 @@
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
 #include "model_playback.hpp"
+#include "model_top_bar.hpp"
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
@@ -82,7 +83,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
  protected:
   void PushScreen(std::shared_ptr<Screen>);
   void PopScreen();
-  void UpdateTopBar();
 
   static std::unique_ptr<UiTask> sTask;
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
@@ -94,8 +94,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::shared_ptr<Modal> sCurrentModal;
 
   static models::Playback sPlaybackModel;
-
-  static bindey::property<battery::Battery::BatteryState> sPropBatteryState;
+  static models::TopBar sTopBarModel;
 };
 
 namespace states {

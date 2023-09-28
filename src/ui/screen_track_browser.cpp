@@ -16,6 +16,7 @@
 #include "font/lv_symbol_def.h"
 #include "lvgl.h"
 #include "misc/lv_anim.h"
+#include "model_top_bar.hpp"
 #include "screen_menu.hpp"
 
 #include "core/lv_event.h"
@@ -59,6 +60,7 @@ static void item_select_cb(lv_event_t* ev) {
 }
 
 TrackBrowser::TrackBrowser(
+    models::TopBar& top_bar_model,
     std::weak_ptr<database::Database> db,
     const std::pmr::string& title,
     std::future<database::Result<database::IndexRecord>*>&& initial_page)
@@ -83,7 +85,7 @@ TrackBrowser::TrackBrowser(
       .show_back_button = true,
       .title = title,
   };
-  auto top_bar = CreateTopBar(content_, config);
+  auto top_bar = CreateTopBar(content_, config, top_bar_model);
   back_button_ = top_bar->button();
 
   list_ = lv_list_create(content_);

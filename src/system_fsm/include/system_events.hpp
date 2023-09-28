@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "battery.hpp"
 #include "database.hpp"
 #include "service_locator.hpp"
 #include "tinyfsm.hpp"
@@ -54,7 +55,9 @@ struct HasPhonesChanged : tinyfsm::Event {
 };
 
 struct ChargingStatusChanged : tinyfsm::Event {};
-struct BatteryStateChanged : tinyfsm::Event {};
+struct BatteryStateChanged : tinyfsm::Event {
+  battery::Battery::BatteryState new_state;
+};
 
 struct BluetoothDevicesChanged : tinyfsm::Event {};
 

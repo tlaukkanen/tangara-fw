@@ -18,6 +18,7 @@
 #include "hal/lv_hal_disp.h"
 #include "index.hpp"
 #include "misc/lv_area.h"
+#include "model_top_bar.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
 #include "widget_top_bar.hpp"
@@ -45,8 +46,8 @@ static void index_click_cb(lv_event_t* ev) {
   events::Ui().Dispatch(internal::IndexSelected{.index = *index});
 }
 
-Menu::Menu(std::vector<database::IndexInfo> indexes)
-    : MenuScreen(" ", false), indexes_(indexes) {
+Menu::Menu(models::TopBar& top_bar, std::vector<database::IndexInfo> indexes)
+    : MenuScreen(top_bar, " ", false), indexes_(indexes) {
   lv_obj_t* list = lv_list_create(content_);
   lv_obj_set_size(list, lv_pct(100), lv_pct(100));
 

@@ -16,6 +16,7 @@
 #include "core/lv_obj_tree.h"
 #include "event_binding.hpp"
 #include "lvgl.h"
+#include "model_top_bar.hpp"
 #include "nod/nod.hpp"
 #include "widget_top_bar.hpp"
 
@@ -37,8 +38,6 @@ class Screen {
    */
   virtual auto Tick() -> void {}
 
-  auto UpdateTopBar(const widgets::TopBar::State& state) -> void;
-
   auto root() -> lv_obj_t* { return root_; }
   auto content() -> lv_obj_t* { return content_; }
 
@@ -52,8 +51,9 @@ class Screen {
   }
 
  protected:
-  auto CreateTopBar(lv_obj_t* parent, const widgets::TopBar::Configuration&)
-      -> widgets::TopBar*;
+  auto CreateTopBar(lv_obj_t* parent,
+                    const widgets::TopBar::Configuration&,
+                    models::TopBar& model) -> widgets::TopBar*;
 
   std::pmr::vector<bindey::scoped_binding> data_bindings_;
   std::pmr::vector<std::unique_ptr<EventBinding>> event_bindings_;
@@ -78,7 +78,9 @@ class Screen {
 
 class MenuScreen : public Screen {
  public:
-  MenuScreen(const std::pmr::string& title, bool show_back_button = true);
+  MenuScreen(models::TopBar&,
+             const std::pmr::string& title,
+             bool show_back_button = true);
 };
 
 }  // namespace ui

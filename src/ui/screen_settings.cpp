@@ -29,6 +29,7 @@
 #include "index.hpp"
 #include "misc/lv_anim.h"
 #include "misc/lv_area.h"
+#include "model_top_bar.hpp"
 #include "nvs.hpp"
 #include "screen.hpp"
 #include "ui_events.hpp"
@@ -64,7 +65,7 @@ static void sub_menu(lv_obj_t* list,
                       reinterpret_cast<void*>(static_cast<uintptr_t>(page)));
 }
 
-Settings::Settings() : MenuScreen("Settings") {
+Settings::Settings(models::TopBar& bar) : MenuScreen(bar, "Settings") {
   lv_obj_t* list = lv_list_create(content_);
   lv_obj_set_size(list, lv_pct(100), lv_pct(100));
 
@@ -113,8 +114,10 @@ static auto select_device_cb(lv_event_t* ev) {
   instance->OnDeviceSelected(lv_obj_get_index(ev->target));
 }
 
-Bluetooth::Bluetooth(drivers::Bluetooth& bt, drivers::NvsStorage& nvs)
-    : MenuScreen("Bluetooth"), bt_(bt), nvs_(nvs) {
+Bluetooth::Bluetooth(models::TopBar& bar,
+                     drivers::Bluetooth& bt,
+                     drivers::NvsStorage& nvs)
+    : MenuScreen(bar, "Bluetooth"), bt_(bt), nvs_(nvs) {
   lv_obj_t* toggle_container = settings_container(content_);
   lv_obj_t* toggle_label = lv_label_create(toggle_container);
   lv_label_set_text(toggle_label, "Enable");
@@ -268,8 +271,8 @@ static void decrease_vol_limit_cb(lv_event_t* ev) {
   instance->ChangeCustomVolume(-2);
 }
 
-Headphones::Headphones(drivers::NvsStorage& nvs)
-    : MenuScreen("Headphones"), nvs_(nvs), custom_limit_(0) {
+Headphones::Headphones(models::TopBar& bar, drivers::NvsStorage& nvs)
+    : MenuScreen(bar, "Headphones"), nvs_(nvs), custom_limit_(0) {
   uint16_t reference = drivers::wm8523::kLineLevelReferenceVolume;
   index_to_level_.push_back(reference - (10 * 4));
   index_to_level_.push_back(reference + (6 * 4));
@@ -377,8 +380,10 @@ static auto brightness_str(uint_fast8_t percent) -> std::string {
   return std::to_string(percent) + "%";
 }
 
-Appearance::Appearance(drivers::NvsStorage& nvs, drivers::Display& display)
-    : MenuScreen("Appearance"), nvs_(nvs), display_(display) {
+Appearance::Appearance(models::TopBar& bar,
+                       drivers::NvsStorage& nvs,
+                       drivers::Display& display)
+    : MenuScreen(bar, "Appearance"), nvs_(nvs), display_(display) {
   lv_obj_t* toggle_container = settings_container(content_);
   lv_obj_t* toggle_label = lv_label_create(toggle_container);
   lv_obj_set_flex_grow(toggle_label, 1);
@@ -417,7 +422,8 @@ auto Appearance::CommitBrightness() -> void {
   nvs_.ScreenBrightness(current_brightness_);
 }
 
-InputMethod::InputMethod() : MenuScreen("Input Method") {
+InputMethod::InputMethod(models::TopBar& bar)
+    : MenuScreen(bar, "Input Method") {
   lv_obj_t* wheel_label = lv_label_create(content_);
   lv_label_set_text(wheel_label, "What does the wheel do?");
   lv_obj_t* wheel_dropdown = lv_dropdown_create(content_);
@@ -431,7 +437,7 @@ InputMethod::InputMethod() : MenuScreen("Input Method") {
   lv_group_add_obj(group_, buttons_dropdown);
 }
 
-Storage::Storage() : MenuScreen("Storage") {
+Storage::Storage(models::TopBar& bar) : MenuScreen(bar, "Storage") {
   label_pair(content_, "Storage Capacity:", "32 GiB");
   label_pair(content_, "Currently Used:", "6 GiB");
   label_pair(content_, "DB Size:", "1.2 MiB");
@@ -446,7 +452,8 @@ Storage::Storage() : MenuScreen("Storage") {
   lv_group_add_obj(group_, reset_btn);
 }
 
-FirmwareUpdate::FirmwareUpdate() : MenuScreen("Firmware Update") {
+FirmwareUpdate::FirmwareUpdate(models::TopBar& bar)
+    : MenuScreen(bar, "Firmware Update") {
   label_pair(content_, "ESP32 FW:", "vIDKLOL");
   label_pair(content_, "SAMD21 FW:", "vIDKLOL");
 
@@ -461,7 +468,7 @@ FirmwareUpdate::FirmwareUpdate() : MenuScreen("Firmware Update") {
   lv_group_add_obj(group_, flash_samd_btn);
 }
 
-About::About() : MenuScreen("About") {
+About::About(models::TopBar& bar) : MenuScreen(bar, "About") {
   lv_obj_t* label = lv_label_create(content_);
   lv_label_set_text(label, "Some licenses or whatever");
 }

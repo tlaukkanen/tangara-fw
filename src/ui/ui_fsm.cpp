@@ -54,8 +54,9 @@ std::shared_ptr<Screen> UiState::sCurrentScreen;
 std::shared_ptr<Modal> UiState::sCurrentModal;
 
 models::Playback UiState::sPlaybackModel;
-
-bindey::property<battery::Battery::BatteryState> UiState::sPropBatteryState;
+models::TopBar UiState::sTopBarModel{{},
+                                     UiState::sPlaybackModel.is_playing,
+                                     UiState::sPlaybackModel.current_track};
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
@@ -75,7 +76,6 @@ void UiState::PushScreen(std::shared_ptr<Screen> screen) {
     sScreens.push(sCurrentScreen);
   }
   sCurrentScreen = screen;
-  UpdateTopBar();
 }
 
 void UiState::PopScreen() {
@@ -84,7 +84,6 @@ void UiState::PopScreen() {
   }
   sCurrentScreen = sScreens.top();
   sScreens.pop();
-  UpdateTopBar();
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
@@ -93,14 +92,8 @@ void UiState::react(const system_fsm::KeyLockChanged& ev) {
                                    : std::shared_ptr<TouchWheelEncoder>());
 }
 
-void UiState::react(const system_fsm::BatteryStateChanged&) {
-  if (!sServices) {
-    return;
-  }
-  auto state = sServices->battery().State();
-  if (state) {
-    sPropBatteryState.set(*state);
-  }
+void UiState::react(const system_fsm::BatteryStateChanged& ev) {
+  sTopBarModel.battery_state.set(ev.new_state);
 }
 
 void UiState::react(const audio::PlaybackStarted&) {
@@ -117,32 +110,9 @@ void UiState::react(const audio::PlaybackUpdate& ev) {
 }
 
 void UiState::react(const audio::QueueUpdate&) {
-  ESP_LOGI(kTag, "current changed!");
   auto& queue = sServices->track_queue();
   sPlaybackModel.current_track.set(queue.GetCurrent());
   sPlaybackModel.upcoming_tracks.set(queue.GetUpcoming(10));
-}
-
-void UiState::UpdateTopBar() {
-  auto battery_state = sServices->battery().State();
-  bool has_queue = sServices->track_queue().GetCurrent().has_value();
-  bool is_playing = audio::AudioState::is_in_state<audio::states::Playback>();
-
-  widgets::TopBar::State state{
-      .playback_state = widgets::TopBar::PlaybackState::kIdle,
-      .battery_percent = static_cast<uint_fast8_t>(
-          battery_state.has_value() ? battery_state->percent : 100),
-      .is_charging = !battery_state.has_value() || battery_state->is_charging,
-  };
-
-  if (has_queue) {
-    state.playback_state = is_playing ? widgets::TopBar::PlaybackState::kPlaying
-                                      : widgets::TopBar::PlaybackState::kPaused;
-  }
-
-  if (sCurrentScreen) {
-    sCurrentScreen->UpdateTopBar(state);
-  }
 }
 
 namespace states {
@@ -242,7 +212,8 @@ void Browse::entry() {
     if (!db) {
       return;
     }
-    sCurrentScreen = std::make_shared<screens::Menu>(db->GetIndexes());
+    sCurrentScreen =
+        std::make_shared<screens::Menu>(sTopBarModel, db->GetIndexes());
     sBrowseFirstEntry = false;
   }
 }
@@ -253,7 +224,8 @@ void Browse::react(const system_fsm::StorageMounted& ev) {
     if (!db) {
       return;
     }
-    sCurrentScreen = std::make_shared<screens::Menu>(db->GetIndexes());
+    sCurrentScreen =
+        std::make_shared<screens::Menu>(sTopBarModel, db->GetIndexes());
     sBrowseFirstEntry = false;
   }
 }
@@ -267,31 +239,32 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
   std::shared_ptr<screens::Bluetooth> bt_screen;
   switch (ev.page) {
     case internal::ShowSettingsPage::Page::kRoot:
-      screen.reset(new screens::Settings());
+      screen.reset(new screens::Settings(sTopBarModel));
       break;
     case internal::ShowSettingsPage::Page::kBluetooth:
-      bt_screen = std::make_shared<screens::Bluetooth>(sServices->bluetooth(),
-                                                       sServices->nvs());
+      bt_screen = std::make_shared<screens::Bluetooth>(
+          sTopBarModel, sServices->bluetooth(), sServices->nvs());
       screen = bt_screen;
       bluetooth_screen_ = bt_screen;
       break;
     case internal::ShowSettingsPage::Page::kHeadphones:
-      screen.reset(new screens::Headphones(sServices->nvs()));
+      screen.reset(new screens::Headphones(sTopBarModel, sServices->nvs()));
       break;
     case internal::ShowSettingsPage::Page::kAppearance:
-      screen.reset(new screens::Appearance(sServices->nvs(), *sDisplay));
+      screen.reset(
+          new screens::Appearance(sTopBarModel, sServices->nvs(), *sDisplay));
       break;
     case internal::ShowSettingsPage::Page::kInput:
-      screen.reset(new screens::InputMethod());
+      screen.reset(new screens::InputMethod(sTopBarModel));
       break;
     case internal::ShowSettingsPage::Page::kStorage:
-      screen.reset(new screens::Storage());
+      screen.reset(new screens::Storage(sTopBarModel));
       break;
     case internal::ShowSettingsPage::Page::kFirmwareUpdate:
-      screen.reset(new screens::FirmwareUpdate());
+      screen.reset(new screens::FirmwareUpdate(sTopBarModel));
       break;
     case internal::ShowSettingsPage::Page::kAbout:
-      screen.reset(new screens::About());
+      screen.reset(new screens::About(sTopBarModel));
       break;
   }
   if (screen) {
@@ -323,7 +296,7 @@ void Browse::react(const internal::RecordSelected& ev) {
     auto query = db->GetPage(&cont.value());
     std::pmr::string title = record->text().value_or("TODO");
     PushScreen(std::make_shared<screens::TrackBrowser>(
-        sServices->database(), title, std::move(query)));
+        sTopBarModel, sServices->database(), title, std::move(query)));
   }
 }
 
@@ -336,7 +309,7 @@ void Browse::react(const internal::IndexSelected& ev) {
   ESP_LOGI(kTag, "selected index %s", ev.index.name.c_str());
   auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
   PushScreen(std::make_shared<screens::TrackBrowser>(
-      sServices->database(), ev.index.name, std::move(query)));
+      sTopBarModel, sServices->database(), ev.index.name, std::move(query)));
 }
 
 void Browse::react(const internal::BackPressed& ev) {
@@ -354,8 +327,9 @@ static std::shared_ptr<screens::Playing> sPlayingScreen;
 
 void Playing::entry() {
   ESP_LOGI(kTag, "push playing screen");
-  sPlayingScreen.reset(new screens::Playing(
-      sPlaybackModel, sServices->database(), sServices->track_queue()));
+  sPlayingScreen.reset(new screens::Playing(sTopBarModel, sPlaybackModel,
+                                            sServices->database(),
+                                            sServices->track_queue()));
   PushScreen(sPlayingScreen);
 }
 

@@ -14,6 +14,7 @@
 #include "lvgl.h"
 
 #include "database.hpp"
+#include "model_top_bar.hpp"
 #include "screen.hpp"
 
 namespace ui {
@@ -22,6 +23,7 @@ namespace screens {
 class TrackBrowser : public Screen {
  public:
   TrackBrowser(
+      models::TopBar&,
       std::weak_ptr<database::Database> db,
       const std::pmr::string& title,
       std::future<database::Result<database::IndexRecord>*>&& initial_page);

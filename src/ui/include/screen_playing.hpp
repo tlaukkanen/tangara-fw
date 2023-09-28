@@ -18,6 +18,7 @@
 #include "database.hpp"
 #include "future_fetcher.hpp"
 #include "model_playback.hpp"
+#include "model_top_bar.hpp"
 #include "screen.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
@@ -31,7 +32,8 @@ namespace screens {
  */
 class Playing : public Screen {
  public:
-  explicit Playing(models::Playback& playback_model,
+  explicit Playing(models::TopBar&,
+                   models::Playback& playback_model,
                    std::weak_ptr<database::Database> db,
                    audio::TrackQueue& queue);
   ~Playing();
