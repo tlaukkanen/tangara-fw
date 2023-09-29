@@ -338,11 +338,11 @@ void RegisterDbDump() {
 }
 
 int CmdTasks(int argc, char** argv) {
-  if (!configUSE_TRACE_FACILITY) {
-    std::cout << "configUSE_TRACE_FACILITY must be enabled" << std::endl;
-    std::cout << "also consider configTASKLIST_USE_COREID" << std::endl;
-    return 1;
-  }
+#if (configUSE_TRACE_FACILITY == 0)
+  std::cout << "configUSE_TRACE_FACILITY must be enabled" << std::endl;
+  std::cout << "also consider configTASKLIST_USE_COREID" << std::endl;
+  return 1;
+#endif
 
   static const std::pmr::string usage = "usage: tasks";
   if (argc != 1) {
@@ -395,13 +395,13 @@ int CmdTasks(int argc, char** argv) {
         str << "\t";
       }
 
-      if (configTASKLIST_INCLUDE_COREID) {
-        if (start_status[i].xCoreID == tskNO_AFFINITY) {
-          str << "any\t";
-        } else {
-          str << start_status[i].xCoreID << "\t";
-        }
+#if (configTASKLIST_INCLUDE_COREID == 1)
+      if (start_status[i].xCoreID == tskNO_AFFINITY) {
+        str << "any\t";
+      } else {
+        str << start_status[i].xCoreID << "\t";
       }
+#endif
 
       str << std::fixed << std::setprecision(1) << depth_kib;
       str << " KiB";
@@ -424,9 +424,9 @@ int CmdTasks(int argc, char** argv) {
             });
 
   std::cout << "name\t\t";
-  if (configTASKLIST_INCLUDE_COREID) {
-    std::cout << "core\t";
-  }
+#if (configTASKLIST_INCLUDE_COREID == 1)
+  std::cout << "core\t";
+#endif
   std::cout << "free stack\trun time" << std::endl;
   for (const auto& i : info_strings) {
     std::cout << i.second << std::endl;
