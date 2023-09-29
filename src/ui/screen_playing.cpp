@@ -45,6 +45,7 @@
 #include "widgets/lv_btn.h"
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
+#include "widgets/lv_slider.h"
 
 namespace ui {
 namespace screens {
@@ -112,33 +113,6 @@ Playing::Playing(models::TopBar& top_bar_model,
       next_tracks_(),
       new_track_(),
       new_next_tracks_() {
-  data_bindings_.emplace_back(playback_model.current_track.onChangedAndNow(
-      [=, this](const std::optional<database::TrackId>& id) {
-        if (!id) {
-          return;
-        }
-        if (current_track_.get() && current_track_.get()->data().id() == *id) {
-          return;
-        }
-        auto db = db_.lock();
-        if (!db) {
-          return;
-        }
-        new_track_.reset(
-            new database::FutureFetcher<std::shared_ptr<database::Track>>(
-                db->GetTrack(*id)));
-      }));
-  data_bindings_.emplace_back(playback_model.upcoming_tracks.onChangedAndNow(
-      [=, this](const std::vector<database::TrackId>& ids) {
-        auto db = db_.lock();
-        if (!db) {
-          return;
-        }
-        new_next_tracks_.reset(new database::FutureFetcher<
-                               std::vector<std::shared_ptr<database::Track>>>(
-            db->GetBulkTracks(ids)));
-      }));
-
   lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
   lv_group_set_wrap(group_, false);
 
@@ -174,6 +148,35 @@ Playing::Playing(models::TopBar& top_bar_model,
   lv_obj_t* album_label = info_label(info_container);
   lv_obj_t* title_label = info_label(info_container);
 
+  lv_obj_t* scrubber = lv_slider_create(above_fold_container);
+  lv_obj_set_size(scrubber, lv_pct(100), 5);
+
+  lv_style_init(&scrubber_style);
+  lv_style_set_bg_color(&scrubber_style, lv_color_black());
+  lv_obj_add_style(scrubber, &scrubber_style, LV_PART_INDICATOR);
+
+  lv_group_add_obj(group_, scrubber);
+
+  data_bindings_.emplace_back(playback_model.current_track.onChangedAndNow(
+      [=, this](const std::optional<database::TrackId>& id) {
+        if (!id) {
+          return;
+        }
+        if (current_track_.get() && current_track_.get()->data().id() == *id) {
+          return;
+        }
+        auto db = db_.lock();
+        if (!db) {
+          return;
+        }
+        // Clear the playback progress whilst we're waiting for the next
+        // track's data to load.
+        lv_slider_set_value(scrubber, 0, LV_ANIM_OFF);
+        new_track_.reset(
+            new database::FutureFetcher<std::shared_ptr<database::Track>>(
+                db->GetTrack(*id)));
+      }));
+
   data_bindings_.emplace_back(current_track_.onChangedAndNow(
       [=](const std::shared_ptr<database::Track>& t) {
         if (!t) {
@@ -187,15 +190,6 @@ Playing::Playing(models::TopBar& top_bar_model,
             t->tags().at(database::Tag::kAlbum).value_or("").c_str());
         lv_label_set_text(title_label, t->TitleOrFilename().c_str());
       }));
-
-  lv_obj_t* scrubber = lv_slider_create(above_fold_container);
-  lv_obj_set_size(scrubber, lv_pct(100), 5);
-
-  lv_style_init(&scrubber_style);
-  lv_style_set_bg_color(&scrubber_style, lv_color_black());
-  lv_obj_add_style(scrubber, &scrubber_style, LV_PART_INDICATOR);
-
-  lv_group_add_obj(group_, scrubber);
 
   data_bindings_.emplace_back(
       playback_model.current_track_duration.onChangedAndNow([=](uint32_t d) {
@@ -248,6 +242,9 @@ Playing::Playing(models::TopBar& top_bar_model,
   lv_obj_set_style_text_font(next_up_hint_, &font_symbols, 0);
   lv_obj_set_size(next_up_hint_, LV_SIZE_CONTENT, lv_pct(100));
 
+  lv_obj_t* next_up_spinner_ = lv_spinner_create(next_up_header_, 4000, 30);
+  lv_obj_set_size(next_up_spinner_, 12, 12);
+
   next_up_container_ = lv_list_create(content_);
   lv_obj_set_layout(next_up_container_, LV_LAYOUT_FLEX);
   lv_obj_set_size(next_up_container_, lv_pct(100), lv_disp_get_ver_res(NULL));
@@ -255,8 +252,26 @@ Playing::Playing(models::TopBar& top_bar_model,
   lv_obj_set_flex_align(next_up_container_, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+  data_bindings_.emplace_back(playback_model.upcoming_tracks.onChangedAndNow(
+      [=, this](const std::vector<database::TrackId>& ids) {
+        auto db = db_.lock();
+        if (!db) {
+          return;
+        }
+        lv_label_set_text(next_up_label_, "Next up");
+        lv_obj_add_flag(next_up_hint_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(next_up_spinner_, LV_OBJ_FLAG_HIDDEN);
+
+        new_next_tracks_.reset(new database::FutureFetcher<
+                               std::vector<std::shared_ptr<database::Track>>>(
+            db->GetBulkTracks(ids)));
+      }));
+
   data_bindings_.emplace_back(next_tracks_.onChangedAndNow(
       [=](const std::vector<std::shared_ptr<database::Track>>& tracks) {
+        lv_obj_clear_flag(next_up_hint_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(next_up_spinner_, LV_OBJ_FLAG_HIDDEN);
+
         // TODO(jacqueline): Do a proper diff to maintain selection.
         int children = lv_obj_get_child_cnt(next_up_container_);
         while (children > 0) {
@@ -269,7 +284,6 @@ Playing::Playing(models::TopBar& top_bar_model,
           lv_label_set_text(next_up_hint_, "");
           return;
         } else {
-          lv_label_set_text(next_up_label_, "Next up");
           lv_label_set_text(next_up_hint_, "");
         }
 
