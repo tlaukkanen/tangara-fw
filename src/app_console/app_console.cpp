@@ -8,6 +8,7 @@
 
 #include <dirent.h>
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -624,6 +625,27 @@ void RegisterSamd() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdCoreDump(int argc, char** argv) {
+  static const std::pmr::string usage = "usage: core_dump";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  abort();
+
+  return 0;
+}
+
+void RegisterCoreDump() {
+  esp_console_cmd_t cmd{.command = "core_dump",
+                        .help = "",
+                        .hint = NULL,
+                        .func = &CmdCoreDump,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -646,6 +668,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
 
   RegisterBtList();
   RegisterSamd();
+  RegisterCoreDump();
 }
 
 }  // namespace console
