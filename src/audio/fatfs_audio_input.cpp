@@ -91,12 +91,7 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<codecs::IStream> {
     {
       std::lock_guard<std::mutex> guard{new_stream_mutex_};
       // If the path is a future, then wait for it to complete.
-      // TODO(jacqueline): We should really make some kind of
-      // FreeRTOS-integrated way to block a task whilst awaiting a future.
       if (pending_path_) {
-        while (!pending_path_->Finished()) {
-          vTaskDelay(pdMS_TO_TICKS(100));
-        }
         auto res = pending_path_->Result();
         pending_path_.reset();
 

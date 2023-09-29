@@ -20,6 +20,8 @@ static const gpio_num_t kSpiSdoPin = GPIO_NUM_23;
 static const gpio_num_t kSpiSdiPin = GPIO_NUM_19;
 static const gpio_num_t kSpiSclkPin = GPIO_NUM_18;
 
+static std::mutex sSpiMutex{};
+
 esp_err_t init_spi(void) {
   spi_bus_config_t config = {
       .mosi_io_num = kSpiSdoPin,
@@ -50,6 +52,10 @@ esp_err_t init_spi(void) {
 
 esp_err_t deinit_spi(void) {
   return spi_bus_free(kSpiHost);
+}
+
+std::lock_guard<std::mutex> acquire_spi(void) {
+  return std::lock_guard<std::mutex>{sSpiMutex};
 }
 
 }  // namespace drivers

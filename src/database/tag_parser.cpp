@@ -14,6 +14,7 @@
 #include "esp_log.h"
 #include "ff.h"
 #include "opusfile.h"
+#include "spi.hpp"
 #include "tags.h"
 
 #include "memory_resource.hpp"
@@ -184,10 +185,14 @@ auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path)
   libtags::Aux aux;
   auto out = std::make_shared<TrackTags>();
   aux.tags = out.get();
-  if (f_stat(path.c_str(), &aux.info) != FR_OK ||
-      f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
-    ESP_LOGW(kTag, "failed to open file %s", path.c_str());
-    return {};
+  {
+    auto lock = drivers::acquire_spi();
+
+    if (f_stat(path.c_str(), &aux.info) != FR_OK ||
+        f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
+      ESP_LOGW(kTag, "failed to open file %s", path.c_str());
+      return {};
+    }
   }
   // Fine to have this on the stack; this is only called on tasks with large
   // stacks anyway, due to all the string handling.
@@ -200,8 +205,13 @@ auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path)
   ctx.aux = &aux;
   ctx.buf = buf;
   ctx.bufsz = kBufSize;
-  int res = tagsget(&ctx);
-  f_close(&aux.file);
+
+  int res;
+  {
+    auto lock = drivers::acquire_spi();
+    res = tagsget(&ctx);
+    f_close(&aux.file);
+  }
 
   if (res != 0) {
     // Parsing failed.

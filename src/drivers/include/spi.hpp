@@ -6,11 +6,13 @@
 
 #pragma once
 
+#include <mutex>
 #include "esp_err.h"
 
 namespace drivers {
 
 esp_err_t init_spi(void);
 esp_err_t deinit_spi(void);
+std::lock_guard<std::mutex> acquire_spi(void);
 
 }  // namespace drivers

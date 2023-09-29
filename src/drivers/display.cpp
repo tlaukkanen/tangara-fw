@@ -34,6 +34,7 @@
 #include "gpios.hpp"
 #include "misc/lv_color.h"
 #include "soc/soc.h"
+#include "spi.hpp"
 #include "tasks.hpp"
 
 static const char* kTag = "DISPLAY";
@@ -267,8 +268,12 @@ void Display::SendTransaction(TransactionType type,
 
   gpio_set_level(kDisplayDr, type);
 
-  // TODO(jacqueline): Handle these errors.
-  esp_err_t ret = spi_device_transmit(handle_, &sTransaction);
+  esp_err_t ret;
+  {
+    auto lock = drivers::acquire_spi();
+    // TODO(jacqueline): Handle these errors.
+    ret = spi_device_transmit(handle_, &sTransaction);
+  }
   ESP_ERROR_CHECK(ret);
 }
 
