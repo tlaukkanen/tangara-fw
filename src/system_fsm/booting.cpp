@@ -4,38 +4,36 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "system_fsm.hpp"
+
 #include <stdint.h>
 
-#include "adc.hpp"
 #include "assert.h"
-#include "audio_fsm.hpp"
-#include "battery.hpp"
-#include "bluetooth.hpp"
-#include "bluetooth_types.hpp"
-#include "core/lv_obj.h"
-#include "display_init.hpp"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "event_queue.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
+
+#include "adc.hpp"
+#include "audio_fsm.hpp"
+#include "battery.hpp"
+#include "bluetooth.hpp"
+#include "bluetooth_types.hpp"
+#include "display_init.hpp"
+#include "event_queue.hpp"
 #include "gpios.hpp"
-#include "lvgl/lvgl.h"
+#include "i2c.hpp"
 #include "nvs.hpp"
-#include "relative_wheel.hpp"
 #include "samd.hpp"
 #include "service_locator.hpp"
 #include "spi.hpp"
 #include "system_events.hpp"
-#include "system_fsm.hpp"
 #include "tag_parser.hpp"
+#include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_fsm.hpp"
-
-#include "i2c.hpp"
-#include "touchwheel.hpp"
 
 namespace system_fsm {
 namespace states {

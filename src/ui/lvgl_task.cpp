@@ -40,7 +40,6 @@
 #include "tasks.hpp"
 #include "touchwheel.hpp"
 #include "ui_fsm.hpp"
-#include "wheel_encoder.hpp"
 #include "widgets/lv_label.h"
 
 #include "display.hpp"
@@ -67,15 +66,15 @@ auto UiTask::Main() -> void {
     std::shared_ptr<Screen> screen = UiState::current_screen();
     if (screen != current_screen_ && screen != nullptr) {
       lv_scr_load(screen->root());
-      if (input_device_) {
-        lv_indev_set_group(input_device_->registration(), screen->group());
+      if (input_) {
+        lv_indev_set_group(input_->registration(), screen->group());
       }
       current_screen_ = screen;
     }
 
-    if (input_device_ && current_screen_->group() != current_group) {
+    if (input_ && current_screen_->group() != current_group) {
       current_group = current_screen_->group();
-      lv_indev_set_group(input_device_->registration(), current_group);
+      lv_indev_set_group(input_->registration(), current_group);
     }
 
     if (current_screen_) {
@@ -87,11 +86,10 @@ auto UiTask::Main() -> void {
   }
 }
 
-auto UiTask::SetInputDevice(std::shared_ptr<TouchWheelEncoder> dev) -> void {
-  input_device_ = std::move(dev);
-  if (current_screen_ && input_device_) {
-    lv_indev_set_group(input_device_->registration(), current_screen_->group());
-  }
+auto UiTask::input(std::shared_ptr<EncoderInput> input) -> void {
+  assert(current_screen_);
+  input_ = input;
+  lv_indev_set_group(input_->registration(), current_screen_->group());
 }
 
 auto UiTask::Start() -> UiTask* {

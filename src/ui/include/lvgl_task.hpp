@@ -15,30 +15,27 @@
 #include "freertos/timers.h"
 
 #include "display.hpp"
+#include "encoder_input.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "themes.hpp"
 #include "touchwheel.hpp"
-#include "wheel_encoder.hpp"
 
 namespace ui {
 
 class UiTask {
  public:
   static auto Start() -> UiTask*;
-
   ~UiTask();
 
-  // FIXME: Once we have more input devices, this function should accept a more
-  // generic interface.
-  auto SetInputDevice(std::shared_ptr<TouchWheelEncoder> dev) -> void;
+  auto input(std::shared_ptr<EncoderInput> input) -> void;
 
  private:
   UiTask();
 
   auto Main() -> void;
 
-  std::shared_ptr<TouchWheelEncoder> input_device_;
+  std::shared_ptr<EncoderInput> input_;
   std::shared_ptr<Screen> current_screen_;
 };
 

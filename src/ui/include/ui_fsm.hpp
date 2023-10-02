@@ -26,6 +26,7 @@
 #include "tinyfsm.hpp"
 
 #include "display.hpp"
+#include "encoder_input.hpp"
 #include "modal.hpp"
 #include "screen.hpp"
 #include "storage.hpp"
@@ -34,7 +35,6 @@
 #include "track.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
-#include "wheel_encoder.hpp"
 
 namespace ui {
 
@@ -87,7 +87,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::unique_ptr<UiTask> sTask;
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
   static std::unique_ptr<drivers::Display> sDisplay;
-  static std::shared_ptr<TouchWheelEncoder> sEncoder;
+  static std::shared_ptr<EncoderInput> sInput;
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;

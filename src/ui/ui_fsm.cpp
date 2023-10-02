@@ -15,6 +15,7 @@
 
 #include "audio_events.hpp"
 #include "display.hpp"
+#include "encoder_input.hpp"
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
@@ -35,7 +36,6 @@
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
-#include "wheel_encoder.hpp"
 #include "widget_top_bar.hpp"
 
 namespace ui {
@@ -47,7 +47,7 @@ static const std::size_t kRecordsPerPage = 15;
 std::unique_ptr<UiTask> UiState::sTask;
 std::shared_ptr<system_fsm::ServiceLocator> UiState::sServices;
 std::unique_ptr<drivers::Display> UiState::sDisplay;
-std::shared_ptr<TouchWheelEncoder> UiState::sEncoder;
+std::shared_ptr<EncoderInput> UiState::sInput;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
@@ -88,8 +88,7 @@ void UiState::PopScreen() {
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(ev.falling);
-  sTask->SetInputDevice(ev.falling ? sEncoder
-                                   : std::shared_ptr<TouchWheelEncoder>());
+  sInput->lock(!ev.falling);
 }
 
 void UiState::react(const system_fsm::BatteryStateChanged& ev) {
@@ -138,10 +137,8 @@ void Splash::react(const system_fsm::BootComplete& ev) {
 
   auto touchwheel = sServices->touchwheel();
   if (touchwheel) {
-    auto relative_wheel =
-        std::make_unique<drivers::RelativeWheel>(**touchwheel);
-    sEncoder = std::make_shared<TouchWheelEncoder>(std::move(relative_wheel));
-    sTask->SetInputDevice(sEncoder);
+    sInput = std::make_shared<EncoderInput>(sServices->gpios(), **touchwheel);
+    sTask->input(sInput);
   } else {
     ESP_LOGE(kTag, "no input devices initialised!");
   }
