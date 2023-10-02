@@ -84,6 +84,7 @@ auto Battery::Update() -> void {
 
   state_ = BatteryState{
       .percent = percent,
+      .millivolts = mV,
       .is_charging = is_charging,
   };
   EmitEvent();

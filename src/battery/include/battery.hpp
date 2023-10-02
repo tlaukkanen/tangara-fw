@@ -25,6 +25,7 @@ class Battery {
 
   struct BatteryState {
     uint_fast8_t percent;
+    uint32_t millivolts;
     bool is_charging;
 
     bool operator==(const BatteryState& other) const {

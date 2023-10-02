@@ -82,11 +82,13 @@ TopBar::TopBar(lv_obj_t* parent,
 
   bindings_.push_back(model.battery_state.onChangedAndNow(
       [=](const battery::Battery::BatteryState& state) {
+        std::ostringstream voltage;
+        voltage << (state.millivolts / 1000) << "."
+                << (state.millivolts / 100 % 10) << "V";
         if (state.is_charging) {
-          lv_label_set_text(charging, "+");
-        } else {
-          lv_label_set_text(charging, "");
+          voltage << "+";
         }
+        lv_label_set_text(charging, voltage.str().c_str());
 
         if (state.percent >= 95) {
           lv_img_set_src(battery, &kIconBatteryFull);
