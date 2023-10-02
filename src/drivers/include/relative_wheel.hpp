@@ -25,8 +25,8 @@ class RelativeWheel {
   auto Update() -> void;
   auto SetEnabled(bool) -> void;
 
-  auto is_clicking() -> bool;
-  auto ticks() -> std::int_fast16_t;
+  auto is_clicking() const -> bool;
+  auto ticks() const -> std::int_fast16_t;
 
   // Not copyable or movable.
   RelativeWheel(const RelativeWheel&) = delete;

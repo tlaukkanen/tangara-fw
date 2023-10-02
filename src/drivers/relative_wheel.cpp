@@ -65,22 +65,18 @@ auto RelativeWheel::SetEnabled(bool en) -> void {
   is_enabled_ = en;
 }
 
-auto RelativeWheel::is_clicking() -> bool {
+auto RelativeWheel::is_clicking() const -> bool {
   if (!is_enabled_) {
     return false;
   }
-  bool ret = is_clicking_;
-  is_clicking_ = 0;
-  return ret;
+  return is_clicking_;
 }
 
-auto RelativeWheel::ticks() -> std::int_fast16_t {
+auto RelativeWheel::ticks() const -> std::int_fast16_t {
   if (!is_enabled_) {
     return 0;
   }
-  int_fast16_t t = ticks_;
-  ticks_ = 0;
-  return t;
+  return ticks_;
 }
 
 }  // namespace drivers
