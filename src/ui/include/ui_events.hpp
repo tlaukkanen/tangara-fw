@@ -36,6 +36,8 @@ struct IndexSelected : tinyfsm::Event {
   database::IndexInfo index;
 };
 
+struct ControlSchemeChanged : tinyfsm::Event {};
+
 struct BackPressed : tinyfsm::Event {};
 struct ShowNowPlaying : tinyfsm::Event {};
 struct ShowSettingsPage : tinyfsm::Event {

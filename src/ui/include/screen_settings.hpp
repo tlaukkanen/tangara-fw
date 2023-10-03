@@ -89,7 +89,10 @@ class Appearance : public MenuScreen {
 
 class InputMethod : public MenuScreen {
  public:
-  InputMethod(models::TopBar&);
+  InputMethod(models::TopBar&, drivers::NvsStorage& nvs);
+
+ private:
+  drivers::NvsStorage& nvs_;
 };
 
 class Storage : public MenuScreen {

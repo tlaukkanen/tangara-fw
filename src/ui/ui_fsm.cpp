@@ -114,6 +114,13 @@ void UiState::react(const audio::QueueUpdate&) {
   sPlaybackModel.upcoming_tracks.set(queue.GetUpcoming(10));
 }
 
+void UiState::react(const internal::ControlSchemeChanged&) {
+  if (!sInput) {
+    return;
+  }
+  sInput->mode(sServices->nvs().PrimaryInput());
+}
+
 namespace states {
 
 void Splash::exit() {
@@ -138,6 +145,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   auto touchwheel = sServices->touchwheel();
   if (touchwheel) {
     sInput = std::make_shared<EncoderInput>(sServices->gpios(), **touchwheel);
+    sInput->mode(sServices->nvs().PrimaryInput());
     sTask->input(sInput);
   } else {
     ESP_LOGE(kTag, "no input devices initialised!");
@@ -252,7 +260,7 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
           new screens::Appearance(sTopBarModel, sServices->nvs(), *sDisplay));
       break;
     case internal::ShowSettingsPage::Page::kInput:
-      screen.reset(new screens::InputMethod(sTopBarModel));
+      screen.reset(new screens::InputMethod(sTopBarModel, sServices->nvs()));
       break;
     case internal::ShowSettingsPage::Page::kStorage:
       screen.reset(new screens::Storage(sTopBarModel));

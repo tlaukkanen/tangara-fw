@@ -40,7 +40,8 @@ EncoderInput::EncoderInput(drivers::IGpios& gpios, drivers::TouchWheel& wheel)
       raw_wheel_(wheel),
       relative_wheel_(std::make_unique<drivers::RelativeWheel>(wheel)),
       scroller_(std::make_unique<Scroller>()),
-      mode_(drivers::NvsStorage::InputModes::kRotatingWheel) {
+      mode_(drivers::NvsStorage::InputModes::kRotatingWheel),
+      is_locked_(false) {
   lv_indev_drv_init(&driver_);
   driver_.type = LV_INDEV_TYPE_ENCODER;
   driver_.read_cb = encoder_read;
@@ -50,6 +51,10 @@ EncoderInput::EncoderInput(drivers::IGpios& gpios, drivers::TouchWheel& wheel)
 }
 
 auto EncoderInput::Read(lv_indev_data_t* data) -> void {
+  if (is_locked_) {
+    return;
+  }
+
   raw_wheel_.Update();
   relative_wheel_->Update();
   // GPIOs updating is handled by system_fsm.

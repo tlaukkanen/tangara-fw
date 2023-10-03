@@ -74,6 +74,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
     sCurrentModal.reset();
   }
   virtual void react(const internal::OnboardingNavigate&) {}
+  void react(const internal::ControlSchemeChanged&);
 
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}

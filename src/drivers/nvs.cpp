@@ -31,6 +31,7 @@ static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
 static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
 static constexpr char kKeyOnboarded[] = "intro";
+static constexpr char kKeyPrimaryInput[] = "in_pri";
 
 auto NvsStorage::OpenSync() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -163,6 +164,29 @@ auto NvsStorage::HasShownOnboarding() -> bool {
 
 auto NvsStorage::HasShownOnboarding(bool val) -> bool {
   nvs_set_u8(handle_, kKeyOnboarded, val);
+  return nvs_commit(handle_) == ESP_OK;
+}
+
+auto NvsStorage::PrimaryInput() -> InputModes {
+  uint8_t out = 3;
+  nvs_get_u8(handle_, kKeyPrimaryInput, &out);
+  switch (out) {
+    case static_cast<uint8_t>(InputModes::kButtonsOnly):
+      return InputModes::kButtonsOnly;
+    case static_cast<uint8_t>(InputModes::kButtonsWithWheel):
+      return InputModes::kButtonsWithWheel;
+    case static_cast<uint8_t>(InputModes::kDirectionalWheel):
+      return InputModes::kDirectionalWheel;
+    case static_cast<uint8_t>(InputModes::kRotatingWheel):
+      return InputModes::kRotatingWheel;
+    default:
+      return InputModes::kRotatingWheel;
+  }
+}
+
+auto NvsStorage::PrimaryInput(InputModes mode) -> bool {
+  uint8_t as_int = static_cast<uint8_t>(mode);
+  nvs_set_u8(handle_, kKeyPrimaryInput, as_int);
   return nvs_commit(handle_) == ESP_OK;
 }
 

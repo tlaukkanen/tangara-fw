@@ -422,19 +422,40 @@ auto Appearance::CommitBrightness() -> void {
   nvs_.ScreenBrightness(current_brightness_);
 }
 
-InputMethod::InputMethod(models::TopBar& bar)
-    : MenuScreen(bar, "Input Method") {
-  lv_obj_t* wheel_label = lv_label_create(content_);
-  lv_label_set_text(wheel_label, "What does the wheel do?");
-  lv_obj_t* wheel_dropdown = lv_dropdown_create(content_);
-  lv_dropdown_set_options(wheel_dropdown, "Scroll\nDirectional\nBig Button");
-  lv_group_add_obj(group_, wheel_dropdown);
+InputMethod::InputMethod(models::TopBar& bar, drivers::NvsStorage& nvs)
+    : MenuScreen(bar, "Input Method"), nvs_(nvs) {
+  lv_obj_t* primary_label = lv_label_create(content_);
+  lv_label_set_text(primary_label, "Control scheme");
+  lv_obj_t* primary_dropdown = lv_dropdown_create(content_);
+  lv_dropdown_set_options(
+      primary_dropdown,
+      "Side buttons only\nButtons and touch\nD-Pad\nClickwheel");
+  lv_group_add_obj(group_, primary_dropdown);
 
-  lv_obj_t* buttons_label = lv_label_create(content_);
-  lv_label_set_text(buttons_label, "What do the buttons do?");
-  lv_obj_t* buttons_dropdown = lv_dropdown_create(content_);
-  lv_dropdown_set_options(buttons_dropdown, "Volume\nScroll");
-  lv_group_add_obj(group_, buttons_dropdown);
+  lv_dropdown_set_selected(primary_dropdown,
+                           static_cast<uint16_t>(nvs.PrimaryInput()));
+
+  lv_bind(primary_dropdown, LV_EVENT_VALUE_CHANGED, [this](lv_obj_t* obj) {
+    drivers::NvsStorage::InputModes mode;
+    switch (lv_dropdown_get_selected(obj)) {
+      case 0:
+        mode = drivers::NvsStorage::InputModes::kButtonsOnly;
+        break;
+      case 1:
+        mode = drivers::NvsStorage::InputModes::kButtonsWithWheel;
+        break;
+      case 2:
+        mode = drivers::NvsStorage::InputModes::kDirectionalWheel;
+        break;
+      case 3:
+        mode = drivers::NvsStorage::InputModes::kRotatingWheel;
+        break;
+      default:
+        return;
+    }
+    nvs_.PrimaryInput(mode);
+    events::Ui().Dispatch(internal::ControlSchemeChanged{});
+  });
 }
 
 Storage::Storage(models::TopBar& bar) : MenuScreen(bar, "Storage") {
