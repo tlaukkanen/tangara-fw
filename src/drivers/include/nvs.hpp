@@ -44,6 +44,16 @@ class NvsStorage {
   auto HasShownOnboarding() -> bool;
   auto HasShownOnboarding(bool) -> bool;
 
+  enum class InputModes : uint8_t {
+    kButtonsOnly = 0,
+    kButtonsWithWheel = 1,
+    kDirectionalWheel = 2,
+    kRotatingWheel = 3,
+  };
+
+  auto PrimaryInput() -> InputModes;
+  auto PrimaryInput(InputModes) -> bool;
+
   explicit NvsStorage(nvs_handle_t);
   ~NvsStorage();
 

@@ -23,7 +23,6 @@ RelativeWheel::RelativeWheel(TouchWheel& touch)
       last_angle_(0) {}
 
 auto RelativeWheel::Update() -> void {
-  touch_.Update();
   TouchWheelData d = touch_.GetTouchWheelData();
 
   is_clicking_ = d.is_button_touched;
