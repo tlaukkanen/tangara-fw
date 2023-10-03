@@ -34,6 +34,8 @@ struct PlayFile : tinyfsm::Event {
   std::pmr::string filename;
 };
 
+struct StepUpVolume : tinyfsm::Event {};
+struct StepDownVolume : tinyfsm::Event {};
 struct VolumeChanged : tinyfsm::Event {};
 struct ChangeMaxVolume : tinyfsm::Event {
   uint16_t new_max;

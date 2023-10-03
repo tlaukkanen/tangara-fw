@@ -31,28 +31,14 @@ void SystemState::react(const FatalError& err) {
 
 void SystemState::react(const internal::GpioInterrupt&) {
   auto& gpios = sServices->gpios();
-  bool prev_key_up = gpios.Get(drivers::Gpios::Pin::kKeyUp);
-  bool prev_key_down = gpios.Get(drivers::Gpios::Pin::kKeyDown);
   bool prev_key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
   bool prev_has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
   gpios.Read();
 
-  bool key_up = gpios.Get(drivers::Gpios::Pin::kKeyUp);
-  bool key_down = gpios.Get(drivers::Gpios::Pin::kKeyDown);
   bool key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
   bool has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
-  if (key_up != prev_key_up) {
-    KeyUpChanged ev{.falling = prev_key_up};
-    events::Audio().Dispatch(ev);
-    events::Ui().Dispatch(ev);
-  }
-  if (key_down != prev_key_down) {
-    KeyDownChanged ev{.falling = prev_key_down};
-    events::Audio().Dispatch(ev);
-    events::Ui().Dispatch(ev);
-  }
   if (key_lock != prev_key_lock) {
     KeyLockChanged ev{.falling = key_lock};
     events::System().Dispatch(ev);

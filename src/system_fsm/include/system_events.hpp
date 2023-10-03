@@ -41,12 +41,6 @@ struct StorageMounted : tinyfsm::Event {};
 
 struct StorageError : tinyfsm::Event {};
 
-struct KeyUpChanged : tinyfsm::Event {
-  bool falling;
-};
-struct KeyDownChanged : tinyfsm::Event {
-  bool falling;
-};
 struct KeyLockChanged : tinyfsm::Event {
   bool falling;
 };

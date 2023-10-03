@@ -50,16 +50,14 @@ std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 std::optional<database::TrackId> AudioState::sCurrentTrack;
 
-void AudioState::react(const system_fsm::KeyUpChanged& ev) {
-  if (ev.falling && sOutput->AdjustVolumeUp()) {
-    ESP_LOGI(kTag, "volume up!");
+void AudioState::react(const StepUpVolume& ev) {
+  if (sOutput->AdjustVolumeUp()) {
     events::Ui().Dispatch(VolumeChanged{});
   }
 }
 
-void AudioState::react(const system_fsm::KeyDownChanged& ev) {
-  if (ev.falling && sOutput->AdjustVolumeDown()) {
-    ESP_LOGI(kTag, "volume down!");
+void AudioState::react(const StepDownVolume& ev) {
+  if (sOutput->AdjustVolumeDown()) {
     events::Ui().Dispatch(VolumeChanged{});
   }
 }

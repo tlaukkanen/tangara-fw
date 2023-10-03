@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <deque>
 #include <memory>
+#include <set>
 
 #include "core/lv_group.h"
 #include "gpios.hpp"
@@ -51,6 +52,7 @@ class EncoderInput {
   drivers::NvsStorage::InputModes mode_;
   bool is_locked_;
 
+  // Every kind of distinct input that we could map to an action.
   enum class Keys {
     kVolumeUp,
     kVolumeDown,
@@ -62,14 +64,29 @@ class EncoderInput {
     kDirectionalLeft,
   };
 
+  // Map from a Key, to the time that it was first touched in ms. If the key is
+  // currently released, where will be no entry.
   std::unordered_map<Keys, uint64_t> touch_time_ms_;
-  std::unordered_map<Keys, bool> short_press_fired_;
-  std::unordered_map<Keys, bool> long_press_fired_;
+  // Set of keys that were released during the current update.
+  std::set<Keys> just_released_;
+  // Set of keys that have had an event fired for them since being pressed.
+  std::set<Keys> fired_;
 
-  auto HandleKey(Keys key, uint64_t ms, bool clicked) -> void;
-  auto ShortPressTrigger(Keys key) -> bool;
-  auto ShortPressTriggerRepeating(Keys key, uint64_t ms) -> bool;
-  auto LongPressTrigger(Keys key, uint64_t ms) -> bool;
+  enum class Trigger {
+    kNone,
+    // Regular short-click. Triggered on release for long-pressable keys,
+    // triggered on the initial press for repeatable keys.
+    kClick,
+    kLongPress,
+  };
+
+  enum class KeyStyle {
+    kRepeat,
+    kLongPress,
+  };
+
+  auto HandleKeyState(Keys key, uint64_t ms, bool clicked) -> void;
+  auto TriggerKey(Keys key, KeyStyle t, uint64_t ms) -> Trigger;
 };
 
 class Scroller {

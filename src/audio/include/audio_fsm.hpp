@@ -41,8 +41,8 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
-  void react(const system_fsm::KeyUpChanged&);
-  void react(const system_fsm::KeyDownChanged&);
+  void react(const StepUpVolume&);
+  void react(const StepDownVolume&);
   void react(const system_fsm::HasPhonesChanged&);
   void react(const ChangeMaxVolume&);
   void react(const OutputModeChanged&);
