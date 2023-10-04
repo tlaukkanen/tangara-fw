@@ -14,6 +14,7 @@
 #include "audio_events.hpp"
 #include "battery.hpp"
 #include "bindey/property.h"
+#include "db_events.hpp"
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
 #include "model_playback.hpp"
@@ -75,6 +76,11 @@ class UiState : public tinyfsm::Fsm<UiState> {
   }
   virtual void react(const internal::OnboardingNavigate&) {}
   void react(const internal::ControlSchemeChanged&);
+  virtual void react(const internal::ReindexDatabase&){};
+
+  virtual void react(const database::event::UpdateStarted&){};
+  virtual void react(const database::event::UpdateProgress&){};
+  virtual void react(const database::event::UpdateFinished&){};
 
   virtual void react(const system_fsm::DisplayReady&) {}
   virtual void react(const system_fsm::BootComplete&) {}
@@ -130,6 +136,7 @@ class Browse : public UiState {
 
   void react(const internal::ShowNowPlaying&) override;
   void react(const internal::ShowSettingsPage&) override;
+  void react(const internal::ReindexDatabase&) override;
 
   void react(const system_fsm::StorageMounted&) override;
   void react(const system_fsm::BluetoothDevicesChanged&) override;
@@ -146,6 +153,18 @@ class Playing : public UiState {
   void exit() override;
 
   void react(const internal::BackPressed&) override;
+
+  using UiState::react;
+};
+
+class Indexing : public UiState {
+ public:
+  void entry() override;
+  void exit() override;
+
+  void react(const database::event::UpdateStarted&) override;
+  void react(const database::event::UpdateProgress&) override;
+  void react(const database::event::UpdateFinished&) override;
 
   using UiState::react;
 };

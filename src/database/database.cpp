@@ -136,14 +136,18 @@ auto Database::Update() -> std::future<void> {
 
     // Stage 1: verify all existing tracks are still valid.
     ESP_LOGI(kTag, "verifying existing tracks");
-    events::Ui().Dispatch(event::UpdateProgress{
-        .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
-    });
     {
+      uint64_t num_processed = 0;
       std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
       OwningSlice prefix = EncodeDataPrefix();
       it->Seek(prefix.slice);
       while (it->Valid() && it->key().starts_with(prefix.slice)) {
+        num_processed++;
+        events::Ui().Dispatch(event::UpdateProgress{
+            .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
+            .val = num_processed,
+        });
+
         std::shared_ptr<TrackData> track = ParseDataValue(it->value());
         if (!track) {
           // The value was malformed. Drop this record.
@@ -195,10 +199,14 @@ auto Database::Update() -> std::future<void> {
 
     // Stage 2: search for newly added files.
     ESP_LOGI(kTag, "scanning for new tracks");
-    events::Ui().Dispatch(event::UpdateProgress{
-        .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
-    });
+    uint64_t num_processed = 0;
     file_gatherer_.FindFiles("", [&](const std::pmr::string& path) {
+      num_processed++;
+      events::Ui().Dispatch(event::UpdateProgress{
+          .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
+          .val = num_processed,
+      });
+
       std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
       if (!tags || tags->encoding() == Container::kUnsupported) {
         // No parseable tags; skip this fiile.

@@ -14,6 +14,7 @@
 #include "ff.h"
 
 #include "memory_resource.hpp"
+#include "spi.hpp"
 
 namespace database {
 
@@ -30,7 +31,11 @@ auto FileGathererImpl::FindFiles(
     const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
 
     FF_DIR dir;
-    FRESULT res = f_opendir(&dir, next_path);
+    FRESULT res;
+    {
+      auto lock = drivers::acquire_spi();
+      res = f_opendir(&dir, next_path);
+    }
     if (res != FR_OK) {
       // TODO: log.
       continue;
@@ -38,7 +43,10 @@ auto FileGathererImpl::FindFiles(
 
     for (;;) {
       FILINFO info;
-      res = f_readdir(&dir, &info);
+      {
+        auto lock = drivers::acquire_spi();
+        res = f_readdir(&dir, &info);
+      }
       if (res != FR_OK || info.fname[0] == 0) {
         // No more files in the directory.
         break;

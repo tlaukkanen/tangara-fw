@@ -469,8 +469,12 @@ Storage::Storage(models::TopBar& bar) : MenuScreen(bar, "Storage") {
 
   lv_obj_t* reset_btn = lv_btn_create(content_);
   lv_obj_t* reset_label = lv_label_create(reset_btn);
-  lv_label_set_text(reset_label, "Reset Database");
+  lv_label_set_text(reset_label, "Update Database");
   lv_group_add_obj(group_, reset_btn);
+
+  lv_bind(reset_btn, LV_EVENT_CLICKED, [&](lv_obj_t*) {
+    events::Ui().Dispatch(internal::ReindexDatabase{});
+  });
 }
 
 FirmwareUpdate::FirmwareUpdate(models::TopBar& bar)

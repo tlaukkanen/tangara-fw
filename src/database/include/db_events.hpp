@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include "tinyfsm.hpp"
 
 namespace database {
@@ -21,6 +22,7 @@ struct UpdateProgress : tinyfsm::Event {
     kScanningForNewTracks,
   };
   Stage stage;
+  uint64_t val;
 };
 
 }  // namespace event

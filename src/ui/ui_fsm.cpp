@@ -21,6 +21,7 @@
 #include "lvgl_task.hpp"
 #include "modal_add_to_queue.hpp"
 #include "modal_confirm.hpp"
+#include "modal_progress.hpp"
 #include "model_playback.hpp"
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
@@ -328,6 +329,10 @@ void Browse::react(const system_fsm::BluetoothDevicesChanged&) {
   }
 }
 
+void Browse::react(const internal::ReindexDatabase& ev) {
+  transit<Indexing>();
+}
+
 static std::shared_ptr<screens::Playing> sPlayingScreen;
 
 void Playing::entry() {
@@ -344,6 +349,47 @@ void Playing::exit() {
 }
 
 void Playing::react(const internal::BackPressed& ev) {
+  transit<Browse>();
+}
+
+static std::shared_ptr<modals::Progress> sIndexProgress;
+
+void Indexing::entry() {
+  sIndexProgress.reset(new modals::Progress(sCurrentScreen.get(), "Indexing",
+                                            "Preparing database"));
+  sCurrentModal = sIndexProgress;
+  auto db = sServices->database().lock();
+  if (!db) {
+    // TODO: Hmm.
+    return;
+  }
+  db->Update();
+}
+
+void Indexing::exit() {
+  sCurrentModal.reset();
+  sIndexProgress.reset();
+}
+
+void Indexing::react(const database::event::UpdateStarted&) {}
+
+void Indexing::react(const database::event::UpdateProgress& ev) {
+  std::ostringstream str;
+  switch (ev.stage) {
+    case database::event::UpdateProgress::Stage::kVerifyingExistingTracks:
+      sIndexProgress->title("Verifying");
+      str << "Tracks checked: " << ev.val;
+      sIndexProgress->subtitle(str.str().c_str());
+      break;
+    case database::event::UpdateProgress::Stage::kScanningForNewTracks:
+      sIndexProgress->title("Scanning");
+      str << "Files checked: " << ev.val;
+      sIndexProgress->subtitle(str.str().c_str());
+      break;
+  }
+}
+
+void Indexing::react(const database::event::UpdateFinished&) {
   transit<Browse>();
 }
 
