@@ -284,6 +284,7 @@ Playing::Playing(models::TopBar& top_bar_model,
           lv_label_set_text(next_up_hint_, "");
           return;
         } else {
+          lv_label_set_text(next_up_label_, "Next up");
           lv_label_set_text(next_up_hint_, "");
         }
 

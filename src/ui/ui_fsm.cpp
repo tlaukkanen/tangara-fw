@@ -19,6 +19,7 @@
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
+#include "modal_add_to_queue.hpp"
 #include "modal_confirm.hpp"
 #include "model_playback.hpp"
 #include "nvs.hpp"
@@ -287,11 +288,10 @@ void Browse::react(const internal::RecordSelected& ev) {
   if (record->track()) {
     ESP_LOGI(kTag, "selected track '%s'", record->text()->c_str());
     auto& queue = sServices->track_queue();
-    queue.Clear();
-    queue.IncludeLast(std::make_shared<playlist::IndexRecordSource>(
-        sServices->database(), ev.initial_page, 0, ev.page, ev.record));
-    ESP_LOGI(kTag, "transit to playing");
-    transit<Playing>();
+    auto source = std::make_shared<playlist::IndexRecordSource>(
+        sServices->database(), ev.initial_page, 0, ev.page, ev.record);
+    sCurrentModal.reset(
+        new modals::AddToQueue(sCurrentScreen.get(), queue, source));
   } else {
     ESP_LOGI(kTag, "selected record '%s'", record->text()->c_str());
     auto cont = record->Expand(kRecordsPerPage);
