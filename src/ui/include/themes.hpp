@@ -5,7 +5,16 @@
 namespace ui {
 namespace themes {
 
-enum class Style { kMenuItem, kTopBar };
+enum class Style {
+  kMenuItem,
+  kMenuSubheadFirst,
+  kMenuSubhead,
+  kTopBar,
+  kPopup,
+  kTab,
+  kButtonPrimary,
+};
+
 class Theme {
  public:
   void Apply(void);

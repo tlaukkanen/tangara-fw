@@ -27,11 +27,13 @@
 #include "extra/widgets/spinner/lv_spinner.h"
 #include "hal/lv_hal_disp.h"
 #include "index.hpp"
+#include "lv_api_map.h"
 #include "misc/lv_anim.h"
 #include "misc/lv_area.h"
 #include "model_top_bar.hpp"
 #include "nvs.hpp"
 #include "screen.hpp"
+#include "themes.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
 #include "widget_top_bar.hpp"
@@ -69,15 +71,18 @@ Settings::Settings(models::TopBar& bar) : MenuScreen(bar, "Settings") {
   lv_obj_t* list = lv_list_create(content_);
   lv_obj_set_size(list, lv_pct(100), lv_pct(100));
 
-  lv_list_add_text(list, "Audio");
+  themes::Theme::instance()->ApplyStyle(lv_list_add_text(list, "Audio"),
+                                        themes::Style::kMenuSubheadFirst);
   sub_menu(list, group_, "Bluetooth", Page::kBluetooth);
   sub_menu(list, group_, "Headphones", Page::kHeadphones);
 
-  lv_list_add_text(list, "Interface");
+  themes::Theme::instance()->ApplyStyle(lv_list_add_text(list, "Interface"),
+                                        themes::Style::kMenuSubhead);
   sub_menu(list, group_, "Appearance", Page::kAppearance);
   sub_menu(list, group_, "Input Method", Page::kInput);
 
-  lv_list_add_text(list, "System");
+  themes::Theme::instance()->ApplyStyle(lv_list_add_text(list, "System"),
+                                        themes::Style::kMenuSubhead);
   sub_menu(list, group_, "Storage", Page::kStorage);
   sub_menu(list, group_, "Firmware Update", Page::kFirmwareUpdate);
   sub_menu(list, group_, "About", Page::kAbout);
@@ -281,10 +286,13 @@ Headphones::Headphones(models::TopBar& bar, drivers::NvsStorage& nvs)
   lv_obj_t* vol_label = lv_label_create(content_);
   lv_label_set_text(vol_label, "Volume Limit");
   lv_obj_t* vol_dropdown = lv_dropdown_create(content_);
-  lv_dropdown_set_options(vol_dropdown,
-                          "Line Level (-10 dB)\nCD Level (+6 dB)\nMax "
-                          "before clipping (+10dB)\nCustom");
+  lv_obj_set_width(vol_dropdown, lv_pct(100));
+  lv_dropdown_set_options(
+      vol_dropdown,
+      "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)\nCustom");
   lv_group_add_obj(group_, vol_dropdown);
+  themes::Theme::instance()->ApplyStyle(lv_dropdown_get_list(vol_dropdown),
+                                        themes::Style::kPopup);
 
   uint16_t level = nvs.AmpMaxVolume();
   for (int i = 0; i < index_to_level_.size() + 1; i++) {
@@ -318,10 +326,17 @@ Headphones::Headphones(models::TopBar& bar, drivers::NvsStorage& nvs)
     lv_obj_add_flag(custom_vol_container_, LV_OBJ_FLAG_HIDDEN);
   }
 
+  lv_obj_t* spacer = lv_obj_create(content_);
+  lv_obj_set_size(spacer, 1, 4);
+
   lv_obj_t* balance_label = lv_label_create(content_);
   lv_label_set_text(balance_label, "Left/Right Balance");
+
+  spacer = lv_obj_create(content_);
+  lv_obj_set_size(spacer, 1, 4);
+
   lv_obj_t* balance = lv_slider_create(content_);
-  lv_obj_set_width(balance, lv_pct(100));
+  lv_obj_set_size(balance, lv_pct(100), 5);
   lv_slider_set_range(balance, -10, 10);
   lv_slider_set_value(balance, 0, LV_ANIM_OFF);
   lv_slider_set_mode(balance, LV_SLIDER_MODE_SYMMETRICAL);
@@ -329,6 +344,8 @@ Headphones::Headphones(models::TopBar& bar, drivers::NvsStorage& nvs)
   lv_obj_t* current_balance_label = lv_label_create(content_);
   lv_label_set_text(current_balance_label, "0dB");
   lv_obj_set_size(current_balance_label, lv_pct(100), LV_SIZE_CONTENT);
+
+  lv_obj_move_foreground(lv_dropdown_get_list(vol_dropdown));
 }
 
 auto Headphones::ChangeMaxVolume(uint8_t index) -> void {
@@ -396,7 +413,7 @@ Appearance::Appearance(models::TopBar& bar,
   lv_obj_t* brightness_label = lv_label_create(content_);
   lv_label_set_text(brightness_label, "Brightness");
   lv_obj_t* brightness = lv_slider_create(content_);
-  lv_obj_set_width(brightness, lv_pct(100));
+  lv_obj_set_size(brightness, lv_pct(100), 5);
   lv_slider_set_range(brightness, 10, 100);
   lv_slider_set_value(brightness, initial_brightness, LV_ANIM_OFF);
   lv_group_add_obj(group_, brightness);
@@ -434,6 +451,8 @@ InputMethod::InputMethod(models::TopBar& bar, drivers::NvsStorage& nvs)
 
   lv_dropdown_set_selected(primary_dropdown,
                            static_cast<uint16_t>(nvs.PrimaryInput()));
+  themes::Theme::instance()->ApplyStyle(lv_dropdown_get_list(primary_dropdown),
+                                        themes::Style::kPopup);
 
   lv_bind(primary_dropdown, LV_EVENT_VALUE_CHANGED, [this](lv_obj_t* obj) {
     drivers::NvsStorage::InputModes mode;
@@ -467,10 +486,19 @@ Storage::Storage(models::TopBar& bar) : MenuScreen(bar, "Storage") {
   lv_bar_set_range(usage_bar, 0, 32);
   lv_bar_set_value(usage_bar, 6, LV_ANIM_OFF);
 
-  lv_obj_t* reset_btn = lv_btn_create(content_);
+  lv_obj_t* container = lv_obj_create(content_);
+  lv_obj_set_size(container, lv_pct(100), 30);
+  lv_obj_set_layout(container, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(container, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(container, LV_FLEX_ALIGN_SPACE_EVENLY,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  lv_obj_t* reset_btn = lv_btn_create(container);
   lv_obj_t* reset_label = lv_label_create(reset_btn);
   lv_label_set_text(reset_label, "Update Database");
   lv_group_add_obj(group_, reset_btn);
+  themes::Theme::instance()->ApplyStyle(reset_btn,
+                                        themes::Style::kButtonPrimary);
 
   lv_bind(reset_btn, LV_EVENT_CLICKED, [&](lv_obj_t*) {
     events::Ui().Dispatch(internal::ReindexDatabase{});
@@ -479,18 +507,35 @@ Storage::Storage(models::TopBar& bar) : MenuScreen(bar, "Storage") {
 
 FirmwareUpdate::FirmwareUpdate(models::TopBar& bar)
     : MenuScreen(bar, "Firmware Update") {
-  label_pair(content_, "ESP32 FW:", "vIDKLOL");
+  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
+
   label_pair(content_, "SAMD21 FW:", "vIDKLOL");
+
+  lv_obj_t* spacer = lv_obj_create(content_);
+  lv_obj_set_size(spacer, 1, 4);
 
   lv_obj_t* flash_esp_btn = lv_btn_create(content_);
   lv_obj_t* flash_esp_label = lv_label_create(flash_esp_btn);
-  lv_label_set_text(flash_esp_label, "Update ESP32");
+  lv_label_set_text(flash_esp_label, "Update");
   lv_group_add_obj(group_, flash_esp_btn);
+  themes::Theme::instance()->ApplyStyle(flash_esp_btn,
+                                        themes::Style::kButtonPrimary);
+
+  spacer = lv_obj_create(content_);
+  lv_obj_set_size(spacer, 1, 8);
+
+  label_pair(content_, "ESP32 FW:", "vIDKLOL");
+
+  spacer = lv_obj_create(content_);
+  lv_obj_set_size(spacer, 1, 4);
 
   lv_obj_t* flash_samd_btn = lv_btn_create(content_);
   lv_obj_t* flash_samd_label = lv_label_create(flash_samd_btn);
-  lv_label_set_text(flash_samd_label, "Update SAMD21");
+  lv_label_set_text(flash_samd_label, "Update");
   lv_group_add_obj(group_, flash_samd_btn);
+  themes::Theme::instance()->ApplyStyle(flash_samd_btn,
+                                        themes::Style::kButtonPrimary);
 }
 
 About::About(models::TopBar& bar) : MenuScreen(bar, "About") {

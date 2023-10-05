@@ -127,7 +127,7 @@ Playing::Playing(models::TopBar& top_bar_model,
   lv_obj_set_layout(above_fold_container, LV_LAYOUT_FLEX);
   lv_obj_set_size(above_fold_container, lv_pct(100), lv_disp_get_ver_res(NULL));
   lv_obj_set_flex_flow(above_fold_container, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(above_fold_container, LV_FLEX_ALIGN_SPACE_BETWEEN,
+  lv_obj_set_flex_align(above_fold_container, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
   widgets::TopBar::Configuration config{
@@ -136,7 +136,18 @@ Playing::Playing(models::TopBar& top_bar_model,
   };
   CreateTopBar(above_fold_container, config, top_bar_model);
 
-  lv_obj_t* info_container = lv_obj_create(above_fold_container);
+  lv_obj_t* now_playing_container = lv_obj_create(above_fold_container);
+  lv_obj_set_layout(now_playing_container, LV_LAYOUT_FLEX);
+  lv_obj_set_width(now_playing_container, lv_pct(100));
+  lv_obj_set_flex_grow(now_playing_container, 1);
+  lv_obj_set_flex_flow(now_playing_container, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(now_playing_container, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                        LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+
+  lv_obj_set_style_pad_left(now_playing_container, 4, LV_PART_MAIN);
+  lv_obj_set_style_pad_right(now_playing_container, 4, LV_PART_MAIN);
+
+  lv_obj_t* info_container = lv_obj_create(now_playing_container);
   lv_obj_set_layout(info_container, LV_LAYOUT_FLEX);
   lv_obj_set_width(info_container, lv_pct(100));
   lv_obj_set_flex_grow(info_container, 1);
@@ -148,7 +159,7 @@ Playing::Playing(models::TopBar& top_bar_model,
   lv_obj_t* album_label = info_label(info_container);
   lv_obj_t* title_label = info_label(info_container);
 
-  lv_obj_t* scrubber = lv_slider_create(above_fold_container);
+  lv_obj_t* scrubber = lv_slider_create(now_playing_container);
   lv_obj_set_size(scrubber, lv_pct(100), 5);
 
   lv_style_init(&scrubber_style);
@@ -199,7 +210,10 @@ Playing::Playing(models::TopBar& top_bar_model,
       playback_model.current_track_position.onChangedAndNow(
           [=](uint32_t p) { lv_slider_set_value(scrubber, p, LV_ANIM_OFF); }));
 
-  lv_obj_t* controls_container = lv_obj_create(above_fold_container);
+  lv_obj_t* spacer = lv_obj_create(now_playing_container);
+  lv_obj_set_size(spacer, 1, 4);
+
+  lv_obj_t* controls_container = lv_obj_create(now_playing_container);
   lv_obj_set_size(controls_container, lv_pct(100), 20);
   lv_obj_set_flex_flow(controls_container, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(controls_container, LV_FLEX_ALIGN_SPACE_EVENLY,
@@ -226,7 +240,7 @@ Playing::Playing(models::TopBar& top_bar_model,
 
   lv_group_add_obj(group_, control_button(controls_container, LV_SYMBOL_LOOP));
 
-  next_up_header_ = lv_obj_create(above_fold_container);
+  next_up_header_ = lv_obj_create(now_playing_container);
   lv_obj_set_size(next_up_header_, lv_pct(100), 15);
   lv_obj_set_flex_flow(next_up_header_, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(next_up_header_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END,
@@ -325,8 +339,9 @@ auto Playing::OnFocusAboveFold() -> void {
 }
 
 auto Playing::OnFocusBelowFold() -> void {
-  if (lv_obj_get_scroll_y(content_) < lv_obj_get_y(next_up_header_)) {
-    lv_obj_scroll_to_y(content_, lv_obj_get_y(next_up_header_), LV_ANIM_ON);
+  if (lv_obj_get_scroll_y(content_) < lv_obj_get_y(next_up_header_) + 20) {
+    lv_obj_scroll_to_y(content_, lv_obj_get_y(next_up_header_) + 20,
+                       LV_ANIM_ON);
   }
 }
 

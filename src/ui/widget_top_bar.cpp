@@ -60,8 +60,11 @@ TopBar::TopBar(lv_obj_t* parent,
   }
 
   lv_obj_t* title_ = lv_label_create(container_);
-  lv_label_set_text(title_, config.title.c_str());
+  lv_obj_set_height(title_, 17);
   lv_obj_set_flex_grow(title_, 1);
+
+  lv_label_set_text(title_, config.title.c_str());
+  lv_label_set_long_mode(title_, LV_LABEL_LONG_DOT);
 
   lv_obj_t* playback = lv_img_create(container_);
 

@@ -30,6 +30,10 @@ class AddToQueue : public Modal {
   audio::TrackQueue& queue_;
   std::shared_ptr<playlist::IndexRecordSource> item_;
   lv_obj_t* container_;
+
+  lv_obj_t* selected_track_btn_;
+  lv_obj_t* all_tracks_btn_;
+  bool all_tracks_;
 };
 
 }  // namespace modals

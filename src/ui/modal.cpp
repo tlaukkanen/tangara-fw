@@ -21,6 +21,7 @@
 #include "index.hpp"
 #include "misc/lv_area.h"
 #include "screen.hpp"
+#include "themes.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
 #include "widget_top_bar.hpp"
@@ -39,6 +40,8 @@ Modal::Modal(Screen* host)
 
   lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
   lv_obj_set_style_bg_color(root_, lv_color_white(), 0);
+
+  themes::Theme::instance()->ApplyStyle(root_, themes::Style::kPopup);
 
   host_->modal_group(group_);
 }

@@ -17,6 +17,7 @@
 #include "extra/widgets/spinner/lv_spinner.h"
 #include "hal/lv_hal_disp.h"
 #include "index.hpp"
+#include "lv_api_map.h"
 #include "misc/lv_area.h"
 #include "model_top_bar.hpp"
 #include "ui_events.hpp"

@@ -76,6 +76,8 @@ MenuScreen::MenuScreen(models::TopBar& top_bar_model,
   lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_START);
+
+  lv_obj_set_style_pad_all(content_, 4, LV_PART_MAIN);
 }
 
 }  // namespace ui
