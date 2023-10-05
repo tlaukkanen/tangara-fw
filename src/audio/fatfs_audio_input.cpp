@@ -32,6 +32,7 @@
 #include "event_queue.hpp"
 #include "fatfs_source.hpp"
 #include "future_fetcher.hpp"
+#include "spi.hpp"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
@@ -127,7 +128,13 @@ auto FatfsAudioInput::OpenFile(const std::pmr::string& path) -> bool {
   }
 
   std::unique_ptr<FIL> file = std::make_unique<FIL>();
-  FRESULT res = f_open(file.get(), path.c_str(), FA_READ);
+  FRESULT res;
+
+  {
+    auto lock = drivers::acquire_spi();
+    res = f_open(file.get(), path.c_str(), FA_READ);
+  }
+
   if (res != FR_OK) {
     ESP_LOGE(kTag, "failed to open file! res: %i", res);
     return false;

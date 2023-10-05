@@ -15,6 +15,7 @@
 
 #include "audio_source.hpp"
 #include "codec.hpp"
+#include "spi.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -25,10 +26,12 @@ FatfsSource::FatfsSource(codecs::StreamType t, std::unique_ptr<FIL> file)
     : IStream(t), file_(std::move(file)) {}
 
 FatfsSource::~FatfsSource() {
+  auto lock = drivers::acquire_spi();
   f_close(file_.get());
 }
 
 auto FatfsSource::Read(cpp::span<std::byte> dest) -> ssize_t {
+  auto lock = drivers::acquire_spi();
   if (f_eof(file_.get())) {
     return 0;
   }
@@ -46,6 +49,7 @@ auto FatfsSource::CanSeek() -> bool {
 }
 
 auto FatfsSource::SeekTo(int64_t destination, SeekFrom from) -> void {
+  auto lock = drivers::acquire_spi();
   switch (from) {
     case SeekFrom::kStartOfStream:
       f_lseek(file_.get(), destination);
