@@ -48,6 +48,8 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
     -> cpp::result<OutputFormat, ICodec::Error> {
   input_ = input;
 
+  SkipID3Tags(*input);
+
   // To get the output format for MP3 streams, we simply need to decode the
   // first frame header.
   mad_header header;
@@ -176,6 +178,32 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
 auto MadMp3Decoder::SeekTo(std::size_t target_sample)
     -> cpp::result<void, Error> {
   return {};
+}
+
+auto MadMp3Decoder::SkipID3Tags(IStream& stream) -> void {
+  // First check that the file actually does start with ID3 tags.
+  std::array<std::byte, 3> magic_buf{};
+  if (stream.Read(magic_buf) != 3) {
+    return;
+  }
+  if (std::memcmp(magic_buf.data(), "ID3", 3) != 0) {
+    stream.SeekTo(0, IStream::SeekFrom::kStartOfStream);
+    return;
+  }
+
+  // The size of the tags (*not* including the 10-byte header) is located 6
+  // bytes in.
+  std::array<std::byte, 4> size_buf{};
+  stream.SeekTo(6, IStream::SeekFrom::kStartOfStream);
+  if (stream.Read(size_buf) != 4) {
+    return;
+  }
+  // Size is encoded with 7-bit ints for some reason.
+  uint32_t tags_size = (static_cast<uint32_t>(size_buf[0]) << (7 * 3)) |
+                       (static_cast<uint32_t>(size_buf[1]) << (7 * 2)) |
+                       (static_cast<uint32_t>(size_buf[2]) << 7) |
+                       static_cast<uint32_t>(size_buf[3]);
+  stream.SeekTo(10 + tags_size, IStream::SeekFrom::kStartOfStream);
 }
 
 /*

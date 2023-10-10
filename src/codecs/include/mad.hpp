@@ -38,6 +38,7 @@ class MadMp3Decoder : public ICodec {
   MadMp3Decoder& operator=(const MadMp3Decoder&) = delete;
 
  private:
+  auto SkipID3Tags(IStream &stream) -> void;
   auto GetVbrLength(const mad_header& header) -> std::optional<uint32_t>;
   auto GetBytesUsed() -> std::size_t;
 
