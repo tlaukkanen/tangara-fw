@@ -57,7 +57,7 @@ auto Battery::Update() -> void {
   std::lock_guard<std::mutex> lock{state_mutex_};
 
   auto charge_state = samd_.GetChargeStatus();
-  if (!charge_state || *charge_state == ChargeStatus::kNoBattery) {
+  if (charge_state && *charge_state == ChargeStatus::kNoBattery) {
     if (state_) {
       EmitEvent();
     }
@@ -73,9 +73,14 @@ auto Battery::Update() -> void {
           (kFullChargeMilliVolts - kEmptyChargeMilliVolts) * 100.0,
       100.0));
 
-  bool is_charging = *charge_state == ChargeStatus::kChargingRegular ||
-                     *charge_state == ChargeStatus::kChargingFast ||
-                     *charge_state == ChargeStatus::kFullCharge;
+  bool is_charging;
+  if (!charge_state) {
+    is_charging = false;
+  } else {
+    is_charging = *charge_state == ChargeStatus::kChargingRegular ||
+                  *charge_state == ChargeStatus::kChargingFast ||
+                  *charge_state == ChargeStatus::kFullCharge;
+  }
 
   if (state_ && state_->is_charging == is_charging &&
       state_->percent == percent) {
