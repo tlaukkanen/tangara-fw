@@ -172,14 +172,16 @@ Worker::Worker(const std::pmr::string& name,
     : stack_(stack.data()),
       queue_(xQueueCreate(queue_size, sizeof(WorkItem))),
       is_task_running_(true),
-      task_buffer_(),
+      task_buffer_(static_cast<StaticTask_t*>(
+          heap_caps_malloc(sizeof(StaticTask_t),
+                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT))),
       task_(xTaskCreateStatic(&Main,
                               name.c_str(),
                               stack.size(),
                               this,
                               priority,
                               stack_,
-                              &task_buffer_)) {}
+                              task_buffer_)) {}
 
 Worker::~Worker() {
   WorkItem item{

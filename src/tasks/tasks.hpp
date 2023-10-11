@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -54,7 +55,8 @@ auto PersistentMain(void* fn) -> void;
 
 template <Type t>
 auto StartPersistent(const std::function<void(void)>& fn) -> void {
-  StaticTask_t* task_buffer = new StaticTask_t;
+  StaticTask_t* task_buffer = static_cast<StaticTask_t*>(heap_caps_malloc(
+      sizeof(StaticTask_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
   cpp::span<StackType_t> stack = AllocateStack<t>();
   xTaskCreateStatic(&PersistentMain, Name<t>().c_str(), stack.size(),
                     new std::function<void(void)>(fn), Priority<t>(),
@@ -64,7 +66,8 @@ auto StartPersistent(const std::function<void(void)>& fn) -> void {
 template <Type t>
 auto StartPersistent(BaseType_t core, const std::function<void(void)>& fn)
     -> void {
-  StaticTask_t* task_buffer = new StaticTask_t;
+  StaticTask_t* task_buffer = static_cast<StaticTask_t*>(heap_caps_malloc(
+      sizeof(StaticTask_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
   cpp::span<StackType_t> stack = AllocateStack<t>();
   xTaskCreateStaticPinnedToCore(&PersistentMain, Name<t>().c_str(),
                                 stack.size(), new std::function<void(void)>(fn),
@@ -81,7 +84,7 @@ class Worker {
   StackType_t* stack_;
   QueueHandle_t queue_;
   std::atomic<bool> is_task_running_;
-  StaticTask_t task_buffer_;
+  StaticTask_t *task_buffer_;
   TaskHandle_t task_;
 
   struct WorkItem {
