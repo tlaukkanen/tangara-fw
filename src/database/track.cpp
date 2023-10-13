@@ -53,15 +53,15 @@ auto TrackTags::Hash() const -> uint64_t {
 }
 
 auto TrackData::UpdateHash(uint64_t new_hash) const -> TrackData {
-  return TrackData(id_, filepath_, new_hash, play_count_, is_tombstoned_);
+  return TrackData(id_, filepath_, new_hash, is_tombstoned_);
 }
 
 auto TrackData::Entomb() const -> TrackData {
-  return TrackData(id_, filepath_, tags_hash_, play_count_, true);
+  return TrackData(id_, filepath_, tags_hash_, true);
 }
 
 auto TrackData::Exhume(const std::pmr::string& new_path) const -> TrackData {
-  return TrackData(id_, new_path, tags_hash_, play_count_, false);
+  return TrackData(id_, new_path, tags_hash_, false);
 }
 
 auto Track::TitleOrFilename() const -> std::pmr::string {

@@ -94,7 +94,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
     }
 
     auto encoded = EncodeIndexKey(key);
-    batch->Put(encoded.slice, {value.data(), value.size()});
+    batch->Put(encoded, {value.data(), value.size()});
 
     // If there are more components after this, then we need to finish by
     // narrowing the header with the current title.

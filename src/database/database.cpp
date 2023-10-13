@@ -126,9 +126,9 @@ auto Database::Update() -> std::future<void> {
     ESP_LOGI(kTag, "dropping stale indexes");
     {
       std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
-      OwningSlice prefix = EncodeAllIndexesPrefix();
-      it->Seek(prefix.slice);
-      while (it->Valid() && it->key().starts_with(prefix.slice)) {
+      std::string prefix = EncodeAllIndexesPrefix();
+      it->Seek(prefix);
+      while (it->Valid() && it->key().starts_with(prefix)) {
         db_->Delete(leveldb::WriteOptions(), it->key());
         it->Next();
       }
@@ -139,9 +139,9 @@ auto Database::Update() -> std::future<void> {
     {
       uint64_t num_processed = 0;
       std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
-      OwningSlice prefix = EncodeDataPrefix();
-      it->Seek(prefix.slice);
-      while (it->Valid() && it->key().starts_with(prefix.slice)) {
+      std::string prefix = EncodeDataPrefix();
+      it->Seek(prefix);
+      while (it->Valid() && it->key().starts_with(prefix)) {
         num_processed++;
         events::Ui().Dispatch(event::UpdateProgress{
             .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
@@ -215,10 +215,10 @@ auto Database::Update() -> std::future<void> {
 
       // Check for any existing record with the same hash.
       uint64_t hash = tags->Hash();
-      OwningSlice key = EncodeHashKey(hash);
+      std::string key = EncodeHashKey(hash);
       std::optional<TrackId> existing_hash;
       std::string raw_entry;
-      if (db_->Get(leveldb::ReadOptions(), key.slice, &raw_entry).ok()) {
+      if (db_->Get(leveldb::ReadOptions(), key, &raw_entry).ok()) {
         existing_hash = ParseHashValue(raw_entry);
       }
 
@@ -306,9 +306,9 @@ auto Database::GetBulkTracks(std::vector<TrackId> ids)
         std::unique_ptr<leveldb::Iterator> it{
             db_->NewIterator(leveldb::ReadOptions{})};
         for (const TrackId& id : sorted_ids) {
-          OwningSlice key = EncodeDataKey(id);
-          it->Seek(key.slice);
-          if (!it->Valid() || it->key() != key.slice) {
+          std::string key = EncodeDataKey(id);
+          it->Seek(key);
+          if (!it->Valid() || it->key() != key) {
             // This id wasn't found at all. Skip it.
             continue;
           }
@@ -354,9 +354,9 @@ auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
             .depth = 0,
             .components_hash = 0,
         };
-        OwningSlice prefix = EncodeIndexPrefix(header);
-        Continuation c{.prefix = prefix.data,
-                       .start_key = prefix.data,
+        std::string prefix = EncodeIndexPrefix(header);
+        Continuation c{.prefix = {prefix.data(), prefix.size()},
+                       .start_key = {prefix.data(), prefix.size()},
                        .forward = true,
                        .was_prev_forward = true,
                        .page_size = page_size};
@@ -366,8 +366,9 @@ auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
 
 auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
   return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
-    Continuation c{.prefix = EncodeDataPrefix().data,
-                   .start_key = EncodeDataPrefix().data,
+    std::string prefix = EncodeDataPrefix();
+    Continuation c{.prefix = {prefix.data(), prefix.size()},
+                   .start_key = {prefix.data(), prefix.size()},
                    .forward = true,
                    .was_prev_forward = true,
                    .page_size = page_size};
@@ -414,7 +415,7 @@ auto Database::dbMintNewTrackId() -> TrackId {
   }
 
   if (!db_->Put(leveldb::WriteOptions(), kTrackIdKey,
-                TrackIdToBytes(next_id + 1).slice)
+                TrackIdToBytes(next_id + 1))
            .ok()) {
     ESP_LOGE(kTag, "failed to write next track id");
   }
@@ -423,25 +424,25 @@ auto Database::dbMintNewTrackId() -> TrackId {
 }
 
 auto Database::dbEntomb(TrackId id, uint64_t hash) -> void {
-  OwningSlice key = EncodeHashKey(hash);
-  OwningSlice val = EncodeHashValue(id);
-  if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
+  std::string key = EncodeHashKey(hash);
+  std::string val = EncodeHashValue(id);
+  if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
     ESP_LOGE(kTag, "failed to entomb #%llx (id #%lx)", hash, id);
   }
 }
 
 auto Database::dbPutTrackData(const TrackData& s) -> void {
-  OwningSlice key = EncodeDataKey(s.id());
-  OwningSlice val = EncodeDataValue(s);
-  if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
+  std::string key = EncodeDataKey(s.id());
+  std::string val = EncodeDataValue(s);
+  if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
     ESP_LOGE(kTag, "failed to write data for #%lx", s.id());
   }
 }
 
 auto Database::dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData> {
-  OwningSlice key = EncodeDataKey(id);
+  std::string key = EncodeDataKey(id);
   std::string raw_val;
-  if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
+  if (!db_->Get(leveldb::ReadOptions(), key, &raw_val).ok()) {
     ESP_LOGW(kTag, "no key found for #%lx", id);
     return {};
   }
@@ -449,17 +450,17 @@ auto Database::dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData> {
 }
 
 auto Database::dbPutHash(const uint64_t& hash, TrackId i) -> void {
-  OwningSlice key = EncodeHashKey(hash);
-  OwningSlice val = EncodeHashValue(i);
-  if (!db_->Put(leveldb::WriteOptions(), key.slice, val.slice).ok()) {
+  std::string key = EncodeHashKey(hash);
+  std::string val = EncodeHashValue(i);
+  if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
     ESP_LOGE(kTag, "failed to write hash for #%lx", i);
   }
 }
 
 auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
-  OwningSlice key = EncodeHashKey(hash);
+  std::string key = EncodeHashKey(hash);
   std::string raw_val;
-  if (!db_->Get(leveldb::ReadOptions(), key.slice, &raw_val).ok()) {
+  if (!db_->Get(leveldb::ReadOptions(), key, &raw_val).ok()) {
     ESP_LOGW(kTag, "no key found for hash #%llx", hash);
     return {};
   }
@@ -672,10 +673,10 @@ auto IndexRecord::Expand(std::size_t page_size) const
     return {};
   }
   IndexKey::Header new_header = ExpandHeader(key_.header, key_.item);
-  OwningSlice new_prefix = EncodeIndexPrefix(new_header);
+  std::string new_prefix = EncodeIndexPrefix(new_header);
   return Continuation{
-      .prefix = new_prefix.data,
-      .start_key = new_prefix.data,
+      .prefix = {new_prefix.data(), new_prefix.size()},
+      .start_key = {new_prefix.data(), new_prefix.size()},
       .forward = true,
       .was_prev_forward = true,
       .page_size = page_size,

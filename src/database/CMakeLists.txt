@@ -7,7 +7,7 @@ idf_component_register(
   "file_gatherer.cpp" "tag_parser.cpp" "index.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "result" "span" "esp_psram" "fatfs" "libtags" "komihash" "cbor"
-  "tasks" "memory" "util" "tinyfsm" "events" "opusfile")
+  "tasks" "memory" "util" "tinyfsm" "events" "opusfile" "libcppbor")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
 

@@ -7,6 +7,7 @@
 #include "records.hpp"
 
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <functional>
 #include <iomanip>
@@ -15,7 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "cbor.h"
+#include "cppbor.h"
+#include "cppbor_parse.h"
 #include "esp_log.h"
 
 #include "index.hpp"
@@ -49,244 +51,76 @@ static const char kHashPrefix = 'H';
 static const char kIndexPrefix = 'I';
 static const char kFieldSeparator = '\0';
 
-using ostringstream =
-    std::basic_ostringstream<char,
-                             std::char_traits<char>,
-                             std::pmr::polymorphic_allocator<char>>;
-
-/*
- * Helper function for allocating an appropriately-sized byte buffer, then
- * encoding data into it.
- *
- * 'T' should be a callable that takes a CborEncoder* as
- * an argument, and stores values within that encoder. 'T' will be called
- * exactly twice: first to detemine the buffer size, and then second to do the
- * encoding.
- *
- * 'out_buf' will be set to the location of newly allocated memory; it is up to
- * the caller to free it. Returns the size of 'out_buf'.
- */
-template <typename T>
-auto cbor_encode(uint8_t** out_buf, T fn) -> std::size_t {
-  // First pass: work out how many bytes we will encode into.
-  // FIXME: With benchmarking to help, we could consider preallocting a small
-  // buffer here to do the whole encoding in one pass.
-  CborEncoder size_encoder;
-  cbor_encoder_init(&size_encoder, NULL, 0, 0);
-  std::invoke(fn, &size_encoder);
-  std::size_t buf_size = cbor_encoder_get_extra_bytes_needed(&size_encoder);
-
-  // Second pass: do the encoding.
-  CborEncoder encoder;
-  *out_buf = new uint8_t[buf_size];
-  cbor_encoder_init(&encoder, *out_buf, buf_size, 0);
-  std::invoke(fn, &encoder);
-
-  return buf_size;
-}
-
-OwningSlice::OwningSlice(std::pmr::string d)
-    : data(d), slice(data.data(), data.size()) {}
-
 /* 'D/' */
-auto EncodeDataPrefix() -> OwningSlice {
-  char data[2] = {kDataPrefix, kFieldSeparator};
-  return OwningSlice({data, 2});
+auto EncodeDataPrefix() -> std::string {
+  return {kDataPrefix, kFieldSeparator};
 }
 
 /* 'D/ 0xACAB' */
-auto EncodeDataKey(const TrackId& id) -> OwningSlice {
-  ostringstream output;
-  output.put(kDataPrefix).put(kFieldSeparator);
-  output << TrackIdToBytes(id).data;
-  return OwningSlice(output.str());
+auto EncodeDataKey(const TrackId& id) -> std::string {
+  return EncodeDataPrefix() + TrackIdToBytes(id);
 }
 
-auto EncodeDataValue(const TrackData& track) -> OwningSlice {
-  uint8_t* buf;
-  std::size_t buf_len = cbor_encode(&buf, [&](CborEncoder* enc) {
-    CborEncoder array_encoder;
-    CborError err;
-    err = cbor_encoder_create_array(enc, &array_encoder, 5);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_int(&array_encoder, track.id());
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_text_string(&array_encoder, track.filepath().c_str(),
-                                  track.filepath().size());
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_uint(&array_encoder, track.tags_hash());
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_int(&array_encoder, track.play_count());
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_boolean(&array_encoder, track.is_tombstoned());
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encoder_close_container(enc, &array_encoder);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-  });
-  std::pmr::string as_str(reinterpret_cast<char*>(buf), buf_len);
-  delete buf;
-  return OwningSlice(as_str);
+auto EncodeDataValue(const TrackData& track) -> std::string {
+  cppbor::Array val{
+      cppbor::Uint{track.id()},
+      cppbor::Tstr{track.filepath()},
+      cppbor::Uint{track.tags_hash()},
+      cppbor::Bool{track.is_tombstoned()},
+  };
+  return val.toString();
 }
 
 auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
-  CborParser parser;
-  CborValue container;
-  CborError err;
-  err = cbor_parser_init(reinterpret_cast<const uint8_t*>(slice.data()),
-                         slice.size(), 0, &parser, &container);
-  if (err != CborNoError || !cbor_value_is_container(&container)) {
+  auto [item, unused, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(slice.data()), slice.size());
+  if (!item || item->type() != cppbor::ARRAY) {
+    return nullptr;
+  }
+  auto vals = item->asArray();
+  if (vals->size() != 4 || vals->get(0)->type() != cppbor::UINT ||
+      vals->get(1)->type() != cppbor::TSTR ||
+      vals->get(2)->type() != cppbor::UINT ||
+      vals->get(3)->type() != cppbor::SIMPLE) {
     return {};
   }
-
-  CborValue val;
-  err = cbor_value_enter_container(&container, &val);
-  if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
-    return {};
-  }
-
-  uint64_t raw_int;
-  err = cbor_value_get_uint64(&val, &raw_int);
-  if (err != CborNoError) {
-    return {};
-  }
-  TrackId id = raw_int;
-  err = cbor_value_advance(&val);
-  if (err != CborNoError || !cbor_value_is_text_string(&val)) {
-    return {};
-  }
-
-  char* raw_path;
-  std::size_t len;
-  err = cbor_value_dup_text_string(&val, &raw_path, &len, &val);
-  if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
-    return {};
-  }
-  std::pmr::string path(raw_path, len);
-  delete raw_path;
-
-  err = cbor_value_get_uint64(&val, &raw_int);
-  if (err != CborNoError) {
-    return {};
-  }
-  uint64_t hash = raw_int;
-  err = cbor_value_advance(&val);
-  if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
-    return {};
-  }
-
-  err = cbor_value_get_uint64(&val, &raw_int);
-  if (err != CborNoError) {
-    return {};
-  }
-  uint32_t play_count = raw_int;
-  err = cbor_value_advance(&val);
-  if (err != CborNoError || !cbor_value_is_boolean(&val)) {
-    return {};
-  }
-
-  bool is_tombstoned;
-  err = cbor_value_get_boolean(&val, &is_tombstoned);
-  if (err != CborNoError) {
-    return {};
-  }
-
-  return std::make_shared<TrackData>(id, path, hash, play_count, is_tombstoned);
+  TrackId id = vals->get(0)->asUint()->unsignedValue();
+  auto path = vals->get(1)->asViewTstr()->view();
+  uint64_t hash = vals->get(2)->asUint()->unsignedValue();
+  bool tombstoned = vals->get(3)->asBool()->value();
+  return std::make_shared<TrackData>(
+      id, std::pmr::string{path.data(), path.size()}, hash, tombstoned);
 }
 
 /* 'H/ 0xBEEF' */
-auto EncodeHashKey(const uint64_t& hash) -> OwningSlice {
-  ostringstream output;
-  output.put(kHashPrefix).put(kFieldSeparator);
-
-  uint8_t buf[16];
-  CborEncoder enc;
-  cbor_encoder_init(&enc, buf, sizeof(buf), 0);
-  cbor_encode_uint(&enc, hash);
-  std::size_t len = cbor_encoder_get_buffer_size(&enc, buf);
-  output.write(reinterpret_cast<char*>(buf), len);
-
-  return OwningSlice(output.str());
+auto EncodeHashKey(const uint64_t& hash) -> std::string {
+  return std::string{kHashPrefix, kFieldSeparator} +
+         cppbor::Uint{hash}.toString();
 }
 
 auto ParseHashValue(const leveldb::Slice& slice) -> std::optional<TrackId> {
   return BytesToTrackId({slice.data(), slice.size()});
 }
 
-auto EncodeHashValue(TrackId id) -> OwningSlice {
+auto EncodeHashValue(TrackId id) -> std::string {
   return TrackIdToBytes(id);
 }
 
 /* 'I/' */
-auto EncodeAllIndexesPrefix() -> OwningSlice {
-  char data[2] = {kIndexPrefix, kFieldSeparator};
-  return OwningSlice({data, 2});
+auto EncodeAllIndexesPrefix() -> std::string {
+  return {kIndexPrefix, kFieldSeparator};
 }
 
-auto AppendIndexHeader(const IndexKey::Header& header, ostringstream* out)
-    -> void {
-  *out << kIndexPrefix << kFieldSeparator;
-
-  // Construct the header.
-  uint8_t* buf;
-  std::size_t buf_len = cbor_encode(&buf, [&](CborEncoder* enc) {
-    CborEncoder array_encoder;
-    CborError err;
-    err = cbor_encoder_create_array(enc, &array_encoder, 3);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_uint(&array_encoder, header.id);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_uint(&array_encoder, header.depth);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encode_uint(&array_encoder, header.components_hash);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-    err = cbor_encoder_close_container(enc, &array_encoder);
-    if (err != CborNoError && err != CborErrorOutOfMemory) {
-      ESP_LOGE(kTag, "encoding err %u", err);
-      return;
-    }
-  });
-  std::pmr::string encoded{reinterpret_cast<char*>(buf), buf_len};
-  delete buf;
-  *out << encoded << kFieldSeparator;
-}
-
-auto EncodeIndexPrefix(const IndexKey::Header& header) -> OwningSlice {
-  ostringstream out;
-  AppendIndexHeader(header, &out);
-  return OwningSlice(out.str());
+auto EncodeIndexPrefix(const IndexKey::Header& header) -> std::string {
+  std::ostringstream out;
+  out.put(kIndexPrefix).put(kFieldSeparator);
+  cppbor::Array val{
+      cppbor::Uint{header.id},
+      cppbor::Uint{header.depth},
+      cppbor::Uint{header.components_hash},
+  };
+  out << val.toString() << kFieldSeparator;
+  return out.str();
 }
 
 /*
@@ -303,93 +137,51 @@ auto EncodeIndexPrefix(const IndexKey::Header& header) -> OwningSlice {
  *  components. We store disambiguation information in the trailer; just a track
  *  id for now, but could reasonably be something like 'release year' as well.
  */
-auto EncodeIndexKey(const IndexKey& key) -> OwningSlice {
-  ostringstream out;
+auto EncodeIndexKey(const IndexKey& key) -> std::string {
+  std::ostringstream out{};
 
-  // Construct the header.
-  AppendIndexHeader(key.header, &out);
+  out << EncodeIndexPrefix(key.header);
 
   // The component should already be UTF-8 encoded, so just write it.
   if (key.item) {
-    out << *key.item;
+    out << *key.item << kFieldSeparator;
   }
 
-  // Construct the footer.
-  out << kFieldSeparator;
   if (key.track) {
-    auto encoded = TrackIdToBytes(*key.track);
-    out << encoded.data;
+    out << TrackIdToBytes(*key.track);
   }
-  return OwningSlice(out.str());
+
+  return out.str();
 }
 
 auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
   IndexKey result{};
 
   auto prefix = EncodeAllIndexesPrefix();
-  if (!slice.starts_with(prefix.slice)) {
+  if (!slice.starts_with(prefix)) {
     return {};
   }
 
-  std::string key_data = slice.ToString().substr(prefix.data.size());
-  std::size_t header_length = 0;
-  {
-    CborParser parser;
-    CborValue container;
-    CborError err;
-    err = cbor_parser_init(reinterpret_cast<const uint8_t*>(key_data.data()),
-                           key_data.size(), 0, &parser, &container);
-    if (err != CborNoError || !cbor_value_is_container(&container)) {
-      return {};
-    }
-
-    CborValue val;
-    err = cbor_value_enter_container(&container, &val);
-    if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
-      return {};
-    }
-
-    uint64_t raw_int;
-    err = cbor_value_get_uint64(&val, &raw_int);
-    if (err != CborNoError) {
-      return {};
-    }
-    result.header.id = raw_int;
-    err = cbor_value_advance(&val);
-    if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
-      return {};
-    }
-
-    err = cbor_value_get_uint64(&val, &raw_int);
-    if (err != CborNoError) {
-      return {};
-    }
-    result.header.depth = raw_int;
-    err = cbor_value_advance(&val);
-    if (err != CborNoError || !cbor_value_is_unsigned_integer(&val)) {
-      return {};
-    }
-
-    err = cbor_value_get_uint64(&val, &raw_int);
-    if (err != CborNoError) {
-      return {};
-    }
-    result.header.components_hash = raw_int;
-    err = cbor_value_advance(&val);
-    if (err != CborNoError || !cbor_value_at_end(&val)) {
-      return {};
-    }
-
-    const uint8_t* next_byte = cbor_value_get_next_byte(&val);
-    header_length =
-        next_byte - reinterpret_cast<const uint8_t*>(key_data.data());
-  }
-
-  if (header_length == 0) {
+  std::string key_data = slice.ToString().substr(prefix.size());
+  auto [key, end_of_key, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(key_data.data()), key_data.size());
+  if (!key || key->type() != cppbor::ARRAY) {
     return {};
   }
+  auto as_array = key->asArray();
+  if (as_array->size() != 3 || as_array->get(0)->type() != cppbor::UINT ||
+      as_array->get(1)->type() != cppbor::UINT ||
+      as_array->get(2)->type() != cppbor::UINT) {
+    return {};
+  }
+  result.header.id = as_array->get(0)->asUint()->unsignedValue();
+  result.header.depth = as_array->get(1)->asUint()->unsignedValue();
+  result.header.components_hash = as_array->get(2)->asUint()->unsignedValue();
 
-  if (header_length >= key_data.size()) {
+  size_t header_length =
+      reinterpret_cast<const char*>(end_of_key) - key_data.data();
+
+  if (header_length == 0 || header_length >= key_data.size()) {
     return {};
   }
 
@@ -411,27 +203,17 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
   return result;
 }
 
-auto TrackIdToBytes(TrackId id) -> OwningSlice {
-  uint8_t buf[8];
-  CborEncoder enc;
-  cbor_encoder_init(&enc, buf, sizeof(buf), 0);
-  cbor_encode_uint(&enc, id);
-  std::size_t len = cbor_encoder_get_buffer_size(&enc, buf);
-  std::pmr::string as_str(reinterpret_cast<char*>(buf), len);
-  return OwningSlice(as_str);
+auto TrackIdToBytes(TrackId id) -> std::string {
+  return cppbor::Uint{id}.toString();
 }
 
 auto BytesToTrackId(cpp::span<const char> bytes) -> std::optional<TrackId> {
-  CborParser parser;
-  CborValue val;
-  cbor_parser_init(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),
-                   0, &parser, &val);
-  if (!cbor_value_is_unsigned_integer(&val)) {
+  auto [res, unused, err] = cppbor::parse(
+      reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+  if (!res || res->type() != cppbor::UINT) {
     return {};
   }
-  uint64_t raw_id;
-  cbor_value_get_uint64(&val, &raw_id);
-  return raw_id;
+  return res->asUint()->unsignedValue();
 }
 
 }  // namespace database

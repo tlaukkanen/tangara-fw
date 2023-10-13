@@ -117,7 +117,6 @@ class TrackData {
   const TrackId id_;
   const std::pmr::string filepath_;
   const uint64_t tags_hash_;
-  const uint32_t play_count_;
   const bool is_tombstoned_;
 
  public:
@@ -126,18 +125,15 @@ class TrackData {
       : id_(id),
         filepath_(path, &memory::kSpiRamResource),
         tags_hash_(hash),
-        play_count_(0),
         is_tombstoned_(false) {}
 
   TrackData(TrackId id,
             const std::pmr::string& path,
             uint64_t hash,
-            uint32_t play_count,
             bool is_tombstoned)
       : id_(id),
         filepath_(path, &memory::kSpiRamResource),
         tags_hash_(hash),
-        play_count_(play_count),
         is_tombstoned_(is_tombstoned) {}
 
   TrackData(TrackData&& other) = delete;
@@ -147,7 +143,6 @@ class TrackData {
 
   auto id() const -> TrackId { return id_; }
   auto filepath() const -> std::pmr::string { return filepath_; }
-  auto play_count() const -> uint32_t { return play_count_; }
   auto tags_hash() const -> uint64_t { return tags_hash_; }
   auto is_tombstoned() const -> bool { return is_tombstoned_; }
 
