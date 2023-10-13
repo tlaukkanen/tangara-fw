@@ -19,15 +19,17 @@ class IFileGatherer {
  public:
   virtual ~IFileGatherer(){};
 
-  virtual auto FindFiles(const std::pmr::string& root,
-                         std::function<void(const std::pmr::string&)> cb)
+  virtual auto FindFiles(
+      const std::pmr::string& root,
+      std::function<void(const std::pmr::string&, const FILINFO&)> cb)
       -> void = 0;
 };
 
 class FileGathererImpl : public IFileGatherer {
  public:
-  virtual auto FindFiles(const std::pmr::string& root,
-                         std::function<void(const std::pmr::string&)> cb)
+  virtual auto FindFiles(
+      const std::pmr::string& root,
+      std::function<void(const std::pmr::string&, const FILINFO&)> cb)
       -> void override;
 };
 

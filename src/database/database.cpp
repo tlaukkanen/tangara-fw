@@ -7,6 +7,7 @@
 #include "database.hpp"
 
 #include <stdint.h>
+#include <sys/_stdint.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -200,12 +201,15 @@ auto Database::Update() -> std::future<void> {
     // Stage 2: search for newly added files.
     ESP_LOGI(kTag, "scanning for new tracks");
     uint64_t num_processed = 0;
-    file_gatherer_.FindFiles("", [&](const std::pmr::string& path) {
+    file_gatherer_.FindFiles("", [&](const std::pmr::string& path,
+                                     const FILINFO& info) {
       num_processed++;
       events::Ui().Dispatch(event::UpdateProgress{
           .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
           .val = num_processed,
       });
+
+      std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
 
       std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
       if (!tags || tags->encoding() == Container::kUnsupported) {
@@ -228,7 +232,8 @@ auto Database::Update() -> std::future<void> {
         TrackId id = dbMintNewTrackId();
         ESP_LOGI(kTag, "recording new 0x%lx", id);
 
-        auto data = std::make_shared<TrackData>(id, path, hash);
+        auto data = std::make_shared<TrackData>(id, path, hash, modified);
+
         dbPutTrackData(*data);
         dbPutHash(hash, id);
         auto t = std::make_shared<Track>(data, tags);
@@ -239,7 +244,8 @@ auto Database::Update() -> std::future<void> {
       std::shared_ptr<TrackData> existing_data = dbGetTrackData(*existing_hash);
       if (!existing_data) {
         // We found a hash that matches, but there's no data record? Weird.
-        auto new_data = std::make_shared<TrackData>(*existing_hash, path, hash);
+        auto new_data =
+            std::make_shared<TrackData>(*existing_hash, path, hash, modified);
         dbPutTrackData(*new_data);
         auto t = std::make_shared<Track>(new_data, tags);
         dbCreateIndexesForTrack(*t);

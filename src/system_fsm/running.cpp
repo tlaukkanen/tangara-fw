@@ -55,6 +55,7 @@ void Running::entry() {
 
   ESP_LOGI(kTag, "opening database");
   sFileGatherer = new database::FileGathererImpl();
+  database::Database::Destroy();
   auto database_res =
       database::Database::Open(*sFileGatherer, sServices->tag_parser());
   if (database_res.has_error()) {

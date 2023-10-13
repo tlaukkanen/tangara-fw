@@ -22,7 +22,7 @@ static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
 
 auto FileGathererImpl::FindFiles(
     const std::pmr::string& root,
-    std::function<void(const std::pmr::string&)> cb) -> void {
+    std::function<void(const std::pmr::string&, const FILINFO&)> cb) -> void {
   std::pmr::deque<std::pmr::string> to_explore(&memory::kSpiRamResource);
   to_explore.push_back(root);
 
@@ -65,7 +65,7 @@ auto FileGathererImpl::FindFiles(
         } else {
           // This is a file! Let the callback know about it.
           // std::invoke(cb, full_path.str(), info);
-          std::invoke(cb, full_path);
+          std::invoke(cb, full_path, info);
         }
       }
     }
