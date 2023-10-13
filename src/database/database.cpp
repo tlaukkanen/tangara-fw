@@ -355,23 +355,23 @@ auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
             .components_hash = 0,
         };
         OwningSlice prefix = EncodeIndexPrefix(header);
-        Continuation<IndexRecord> c{.prefix = prefix.data,
-                                    .start_key = prefix.data,
-                                    .forward = true,
-                                    .was_prev_forward = true,
-                                    .page_size = page_size};
-        return dbGetPage(c);
+        Continuation c{.prefix = prefix.data,
+                       .start_key = prefix.data,
+                       .forward = true,
+                       .was_prev_forward = true,
+                       .page_size = page_size};
+        return dbGetPage<IndexRecord>(c);
       });
 }
 
 auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
   return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
-    Continuation<Track> c{.prefix = EncodeDataPrefix().data,
-                          .start_key = EncodeDataPrefix().data,
-                          .forward = true,
-                          .was_prev_forward = true,
-                          .page_size = page_size};
-    return dbGetPage(c);
+    Continuation c{.prefix = EncodeDataPrefix().data,
+                   .start_key = EncodeDataPrefix().data,
+                   .forward = true,
+                   .was_prev_forward = true,
+                   .page_size = page_size};
+    return dbGetPage<Track>(c);
   });
 }
 
@@ -379,28 +379,27 @@ auto Database::GetDump(std::size_t page_size)
     -> std::future<Result<std::pmr::string>*> {
   return worker_task_->Dispatch<Result<std::pmr::string>*>(
       [=, this]() -> Result<std::pmr::string>* {
-        Continuation<std::pmr::string> c{.prefix = "",
-                                         .start_key = "",
-                                         .forward = true,
-                                         .was_prev_forward = true,
-                                         .page_size = page_size};
-        return dbGetPage(c);
+        Continuation c{.prefix = "",
+                       .start_key = "",
+                       .forward = true,
+                       .was_prev_forward = true,
+                       .page_size = page_size};
+        return dbGetPage<std::pmr::string>(c);
       });
 }
 
 template <typename T>
-auto Database::GetPage(Continuation<T>* c) -> std::future<Result<T>*> {
-  Continuation<T> copy = *c;
+auto Database::GetPage(Continuation* c) -> std::future<Result<T>*> {
+  Continuation copy = *c;
   return worker_task_->Dispatch<Result<T>*>(
-      [=, this]() -> Result<T>* { return dbGetPage(copy); });
+      [=, this]() -> Result<T>* { return dbGetPage<T>(copy); });
 }
 
-template auto Database::GetPage<Track>(Continuation<Track>* c)
+template auto Database::GetPage<Track>(Continuation* c)
     -> std::future<Result<Track>*>;
-template auto Database::GetPage<IndexRecord>(Continuation<IndexRecord>* c)
+template auto Database::GetPage<IndexRecord>(Continuation* c)
     -> std::future<Result<IndexRecord>*>;
-template auto Database::GetPage<std::pmr::string>(
-    Continuation<std::pmr::string>* c)
+template auto Database::GetPage<std::pmr::string>(Continuation* c)
     -> std::future<Result<std::pmr::string>*>;
 
 auto Database::dbMintNewTrackId() -> TrackId {
@@ -477,7 +476,7 @@ auto Database::dbCreateIndexesForTrack(const Track& track) -> void {
 }
 
 template <typename T>
-auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
+auto Database::dbGetPage(const Continuation& c) -> Result<T>* {
   // Work out our starting point. Sometimes this will already done.
   std::unique_ptr<leveldb::Iterator> it{
       db_->NewIterator(leveldb::ReadOptions{})};
@@ -524,13 +523,13 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   }
 
   // Work out the new continuations.
-  std::optional<Continuation<T>> next_page;
+  std::optional<Continuation> next_page;
   if (c.forward) {
     if (it != nullptr) {
       // We were going forward, and now we want the next page.
       std::pmr::string key{it->key().data(), it->key().size(),
                            &memory::kSpiRamResource};
-      next_page = Continuation<T>{
+      next_page = Continuation{
           .prefix = c.prefix,
           .start_key = key,
           .forward = true,
@@ -543,7 +542,7 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     // We were going backwards, and now we want the next page. This is a
     // reversal, to set the start key to the first record we saw and mark that
     // it's off by one.
-    next_page = Continuation<T>{
+    next_page = Continuation{
         .prefix = c.prefix,
         .start_key = *first_key,
         .forward = true,
@@ -552,11 +551,11 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
     };
   }
 
-  std::optional<Continuation<T>> prev_page;
+  std::optional<Continuation> prev_page;
   if (c.forward) {
     // We were going forwards, and now we want the previous page. Set the search
     // key to the first result we saw, and mark that it's off by one.
-    prev_page = Continuation<T>{
+    prev_page = Continuation{
         .prefix = c.prefix,
         .start_key = *first_key,
         .forward = false,
@@ -568,7 +567,7 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
       // We were going backwards, and we still want to go backwards.
       std::pmr::string key{it->key().data(), it->key().size(),
                            &memory::kSpiRamResource};
-      prev_page = Continuation<T>{
+      prev_page = Continuation{
           .prefix = c.prefix,
           .start_key = key,
           .forward = false,
@@ -582,10 +581,10 @@ auto Database::dbGetPage(const Continuation<T>& c) -> Result<T>* {
   return new Result<T>(std::move(records), next_page, prev_page);
 }
 
-template auto Database::dbGetPage<Track>(const Continuation<Track>& c)
+template auto Database::dbGetPage<Track>(const Continuation& c)
     -> Result<Track>*;
-template auto Database::dbGetPage<std::pmr::string>(
-    const Continuation<std::pmr::string>& c) -> Result<std::pmr::string>*;
+template auto Database::dbGetPage<std::pmr::string>(const Continuation& c)
+    -> Result<std::pmr::string>*;
 
 template <>
 auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
@@ -668,13 +667,13 @@ auto IndexRecord::track() const -> std::optional<TrackId> {
 }
 
 auto IndexRecord::Expand(std::size_t page_size) const
-    -> std::optional<Continuation<IndexRecord>> {
+    -> std::optional<Continuation> {
   if (track_) {
     return {};
   }
   IndexKey::Header new_header = ExpandHeader(key_.header, key_.item);
   OwningSlice new_prefix = EncodeIndexPrefix(new_header);
-  return Continuation<IndexRecord>{
+  return Continuation{
       .prefix = new_prefix.data,
       .start_key = new_prefix.data,
       .forward = true,

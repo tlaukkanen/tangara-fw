@@ -31,7 +31,6 @@
 
 namespace database {
 
-template <typename T>
 struct Continuation {
   std::pmr::string prefix;
   std::pmr::string start_key;
@@ -52,12 +51,12 @@ class Result {
     return values_;
   }
 
-  auto next_page() -> std::optional<Continuation<T>>& { return next_page_; }
-  auto prev_page() -> std::optional<Continuation<T>>& { return prev_page_; }
+  auto next_page() -> std::optional<Continuation>& { return next_page_; }
+  auto prev_page() -> std::optional<Continuation>& { return prev_page_; }
 
   Result(const std::vector<std::shared_ptr<T>>&& values,
-         std::optional<Continuation<T>> next,
-         std::optional<Continuation<T>> prev)
+         std::optional<Continuation> next,
+         std::optional<Continuation> prev)
       : values_(values), next_page_(next), prev_page_(prev) {}
 
   Result(const Result&) = delete;
@@ -65,8 +64,8 @@ class Result {
 
  private:
   std::vector<std::shared_ptr<T>> values_;
-  std::optional<Continuation<T>> next_page_;
-  std::optional<Continuation<T>> prev_page_;
+  std::optional<Continuation> next_page_;
+  std::optional<Continuation> prev_page_;
 };
 
 class IndexRecord {
@@ -78,7 +77,7 @@ class IndexRecord {
   auto text() const -> std::optional<std::pmr::string>;
   auto track() const -> std::optional<TrackId>;
 
-  auto Expand(std::size_t) const -> std::optional<Continuation<IndexRecord>>;
+  auto Expand(std::size_t) const -> std::optional<Continuation>;
 
  private:
   IndexKey key_;
@@ -120,7 +119,7 @@ class Database {
   auto GetDump(std::size_t page_size) -> std::future<Result<std::pmr::string>*>;
 
   template <typename T>
-  auto GetPage(Continuation<T>* c) -> std::future<Result<T>*>;
+  auto GetPage(Continuation* c) -> std::future<Result<T>*>;
 
   Database(const Database&) = delete;
   Database& operator=(const Database&) = delete;
@@ -153,7 +152,7 @@ class Database {
   auto dbCreateIndexesForTrack(const Track& track) -> void;
 
   template <typename T>
-  auto dbGetPage(const Continuation<T>& c) -> Result<T>*;
+  auto dbGetPage(const Continuation& c) -> Result<T>*;
 
   template <typename T>
   auto ParseRecord(const leveldb::Slice& key, const leveldb::Slice& val)

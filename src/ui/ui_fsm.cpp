@@ -299,7 +299,7 @@ void Browse::react(const internal::RecordSelected& ev) {
     if (!cont) {
       return;
     }
-    auto query = db->GetPage(&cont.value());
+    auto query = db->GetPage<database::IndexRecord>(&cont.value());
     std::pmr::string title = record->text().value_or("TODO");
     PushScreen(std::make_shared<screens::TrackBrowser>(
         sTopBarModel, sServices->database(), title, std::move(query)));

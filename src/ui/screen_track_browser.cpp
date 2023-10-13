@@ -262,7 +262,7 @@ auto TrackBrowser::FetchNewPage(Position pos) -> void {
     return;
   }
 
-  std::optional<database::Continuation<database::IndexRecord>> cont;
+  std::optional<database::Continuation> cont;
   switch (pos) {
     case START:
       cont = current_pages_.front()->prev_page();
@@ -294,7 +294,7 @@ auto TrackBrowser::FetchNewPage(Position pos) -> void {
   }
 
   loading_pos_ = pos;
-  loading_page_ = db->GetPage(&cont.value());
+  loading_page_ = db->GetPage<database::IndexRecord>(&cont.value());
 }
 
 auto TrackBrowser::GetNumRecords() -> std::size_t {

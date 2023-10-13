@@ -194,7 +194,7 @@ int CmdDbTracks(int argc, char** argv) {
     }
     if (res->next_page()) {
       auto continuation = res->next_page().value();
-      res.reset(db->GetPage(&continuation).get());
+      res.reset(db->GetPage<database::Track>(&continuation).get());
     } else {
       break;
     }

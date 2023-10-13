@@ -68,7 +68,7 @@ auto IndexRecordSource::Advance() -> std::optional<database::TrackId> {
       return {};
     }
 
-    current_page_.reset(db->GetPage(&*next_page).get());
+    current_page_.reset(db->GetPage<database::IndexRecord>(&*next_page).get());
     current_item_ = 0;
   }
 
@@ -92,7 +92,7 @@ auto IndexRecordSource::Previous() -> std::optional<database::TrackId> {
       return {};
     }
 
-    current_page_.reset(db->GetPage(&*prev_page).get());
+    current_page_.reset(db->GetPage<database::IndexRecord>(&*prev_page).get());
     current_item_ = current_page_->values().size() - 1;
   }
 
@@ -124,7 +124,7 @@ auto IndexRecordSource::Peek(std::size_t n, std::vector<database::TrackId>* out)
       }
       // TODO(jacqueline): It would probably be a good idea to hold onto these
       // peeked pages, to avoid needing to look them up again later.
-      working_page.reset(db->GetPage(&*next_page).get());
+      working_page.reset(db->GetPage<database::IndexRecord>(&*next_page).get());
       working_item = 0;
     }
 
