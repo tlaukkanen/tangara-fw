@@ -256,6 +256,7 @@ auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path)
 
 auto OpusTagParser::ReadAndParseTags(const std::pmr::string& path)
     -> std::shared_ptr<TrackTags> {
+  auto lock = drivers::acquire_spi();
   std::pmr::string vfs_path = "/sdcard" + path;
   int err;
   OggOpusFile* f = op_test_file(vfs_path.c_str(), &err);

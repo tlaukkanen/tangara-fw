@@ -70,6 +70,7 @@ auto FileGathererImpl::FindFiles(
       }
     }
 
+    auto lock = drivers::acquire_spi();
     f_closedir(&dir);
     to_explore.pop_front();
   }
