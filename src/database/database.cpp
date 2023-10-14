@@ -44,9 +44,32 @@ namespace database {
 static SingletonEnv<leveldb::EspEnv> sEnv;
 static const char* kTag = "DB";
 
-static const char kTrackIdKey[] = "next_track_id";
+static const char kDbPath[] = "/.tangara-db";
+
+static const char kKeyDbVersion[] = "schema_version";
+static const uint8_t kCurrentDbVersion = 1;
+
+static const char kKeyTrackId[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
+
+static auto CreateNewDatabase(leveldb::Options& options) -> leveldb::DB* {
+  Database::Destroy();
+  leveldb::DB* db;
+  options.create_if_missing = true;
+  auto status = leveldb::DB::Open(options, kDbPath, &db);
+  if (!status.ok()) {
+    ESP_LOGE(kTag, "failed to open db, status %s", status.ToString().c_str());
+    return nullptr;
+  }
+  auto version_str = std::to_string(kCurrentDbVersion);
+  status = db->Put(leveldb::WriteOptions{}, kKeyDbVersion, version_str);
+  if (!status.ok()) {
+    delete db;
+    return nullptr;
+  }
+  return db;
+}
 
 auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
     -> cpp::result<Database*, DatabaseError> {
@@ -66,25 +89,43 @@ auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
       ->Dispatch<cpp::result<Database*, DatabaseError>>(
           [&]() -> cpp::result<Database*, DatabaseError> {
             leveldb::DB* db;
-            leveldb::Cache* cache = leveldb::NewLRUCache(24 * 1024);
+            std::unique_ptr<leveldb::Cache> cache{
+                leveldb::NewLRUCache(24 * 1024)};
+
             leveldb::Options options;
             options.env = sEnv.env();
-            options.create_if_missing = true;
             options.write_buffer_size = 48 * 1024;
             options.max_file_size = 32;
-            options.block_cache = cache;
+            options.block_cache = cache.get();
             options.block_size = 512;
 
-            auto status = leveldb::DB::Open(options, "/.db", &db);
+            auto status = leveldb::DB::Open(options, kDbPath, &db);
             if (!status.ok()) {
-              delete cache;
-              ESP_LOGE(kTag, "failed to open db, status %s",
-                       status.ToString().c_str());
-              return cpp::fail(FAILED_TO_OPEN);
+              ESP_LOGI(kTag, "opening db failed. recreating.");
+              db = CreateNewDatabase(options);
+              if (db == nullptr) {
+                return cpp::fail(FAILED_TO_OPEN);
+              }
+            }
+
+            std::string raw_version;
+            std::optional<uint8_t> version{};
+            status =
+                db->Get(leveldb::ReadOptions{}, kKeyDbVersion, &raw_version);
+            if (status.ok()) {
+              version = std::stoi(raw_version);
+            }
+            if (!version || *version != kCurrentDbVersion) {
+              ESP_LOGI(kTag, "db version missing or incorrect. recreating.");
+              delete db;
+              db = CreateNewDatabase(options);
+              if (db == nullptr) {
+                return cpp::fail(FAILED_TO_OPEN);
+              }
             }
 
             ESP_LOGI(kTag, "Database opened successfully");
-            return new Database(db, cache, gatherer, parser, worker);
+            return new Database(db, cache.release(), gatherer, parser, worker);
           })
       .get();
 }
@@ -92,7 +133,7 @@ auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
 auto Database::Destroy() -> void {
   leveldb::Options options;
   options.env = sEnv.env();
-  leveldb::DestroyDB("/.db", options);
+  leveldb::DestroyDB(kDbPath, options);
 }
 
 Database::Database(leveldb::DB* db,
@@ -412,7 +453,7 @@ template auto Database::GetPage<std::pmr::string>(Continuation* c)
 auto Database::dbMintNewTrackId() -> TrackId {
   TrackId next_id = 1;
   std::string val;
-  auto status = db_->Get(leveldb::ReadOptions(), kTrackIdKey, &val);
+  auto status = db_->Get(leveldb::ReadOptions(), kKeyTrackId, &val);
   if (status.ok()) {
     next_id = BytesToTrackId(val).value_or(next_id);
   } else if (!status.IsNotFound()) {
@@ -420,7 +461,7 @@ auto Database::dbMintNewTrackId() -> TrackId {
     ESP_LOGE(kTag, "failed to get next track id");
   }
 
-  if (!db_->Put(leveldb::WriteOptions(), kTrackIdKey,
+  if (!db_->Put(leveldb::WriteOptions(), kKeyTrackId,
                 TrackIdToBytes(next_id + 1))
            .ok()) {
     ESP_LOGE(kTag, "failed to write next track id");
@@ -560,8 +601,8 @@ auto Database::dbGetPage(const Continuation& c) -> Result<T>* {
 
   std::optional<Continuation> prev_page;
   if (c.forward) {
-    // We were going forwards, and now we want the previous page. Set the search
-    // key to the first result we saw, and mark that it's off by one.
+    // We were going forwards, and now we want the previous page. Set the
+    // search key to the first result we saw, and mark that it's off by one.
     prev_page = Continuation{
         .prefix = c.prefix,
         .start_key = *first_key,
