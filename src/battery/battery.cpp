@@ -57,13 +57,7 @@ auto Battery::Update() -> void {
   std::lock_guard<std::mutex> lock{state_mutex_};
 
   auto charge_state = samd_.GetChargeStatus();
-  if (charge_state && *charge_state == ChargeStatus::kNoBattery) {
-    if (state_) {
-      EmitEvent();
-    }
-    state_.reset();
-    return;
-  }
+
   // FIXME: So what we *should* do here is measure the actual real-life
   // time from full battery -> empty battery, store it in NVS, then rely on
   // that. If someone could please do this, it would be lovely. Thanks!
