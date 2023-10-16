@@ -119,6 +119,8 @@ void Decoder::Main() {
 }
 
 auto Decoder::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
+  // Ensure any previous codec is freed before creating a new one.
+  codec_.reset();
   codec_.reset(codecs::CreateCodecForType(stream->type()).value_or(nullptr));
   if (!codec_) {
     ESP_LOGE(kTag, "no codec found");
@@ -162,6 +164,10 @@ auto Decoder::ContinueDecoding() -> bool {
 
   if (timer_) {
     timer_->AddSamples(res->samples_written);
+  }
+
+  if (res->is_stream_finished) {
+    codec_.reset();
   }
 
   return res->is_stream_finished;
