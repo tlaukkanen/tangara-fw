@@ -111,38 +111,23 @@ I2SDac::~I2SDac() {
 
 auto I2SDac::Start() -> void {
   std::lock_guard<std::mutex> lock(configure_mutex_);
-
-  gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, false);
-
-  // Ensure the DAC powers up to a muted state.
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
-
-  // Enable MCLK; this has the side effect of triggering the DAC's startup
-  // sequence.
-  i2s_channel_enable(i2s_handle_);
-  i2s_active_ = true;
-
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
-  gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, true);
 }
 
 auto I2SDac::Stop() -> void {
   std::lock_guard<std::mutex> lock(configure_mutex_);
-
-  // Mute the DAC.
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
-  vTaskDelay(pdMS_TO_TICKS(5));
-  // Silence the output.
-  gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, false);
-
-  vTaskDelay(pdMS_TO_TICKS(5));
-
-  // Turn everything off.
+  set_channel(false);
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
-  i2s_channel_disable(i2s_handle_);
-  i2s_active_ = false;
+}
 
-  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, false);
+auto I2SDac::SetPaused(bool paused) -> void {
+  if (paused) {
+    gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, false);
+    set_channel(false);
+  } else {
+    set_channel(true);
+    gpio_.WriteSync(IGpios::Pin::kAmplifierUnmute, true);
+  }
 }
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
@@ -258,6 +243,18 @@ auto I2SDac::SetSource(StreamBufferHandle_t buffer) -> void {
   i2s_channel_register_event_callback(i2s_handle_, &callbacks, buffer);
   if (i2s_active_) {
     ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
+  }
+}
+
+auto I2SDac::set_channel(bool enabled) -> void {
+  if (i2s_active_ == enabled) {
+    return;
+  }
+  i2s_active_ = enabled;
+  if (enabled) {
+    i2s_channel_enable(i2s_handle_);
+  } else {
+    i2s_channel_disable(i2s_handle_);
   }
 }
 

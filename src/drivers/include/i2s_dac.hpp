@@ -46,6 +46,7 @@ class I2SDac {
 
   auto Start() -> void;
   auto Stop() -> void;
+  auto SetPaused(bool) -> void;
 
   enum Channels {
     CHANNELS_MONO,
@@ -75,6 +76,8 @@ class I2SDac {
   I2SDac& operator=(const I2SDac&) = delete;
 
  private:
+  auto set_channel(bool) -> void;
+
   IGpios& gpio_;
   i2s_chan_handle_t i2s_handle_;
   bool i2s_active_;

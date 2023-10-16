@@ -24,7 +24,7 @@ class BluetoothAudioOutput : public IAudioOutput {
   BluetoothAudioOutput(StreamBufferHandle_t, drivers::Bluetooth& bt);
   ~BluetoothAudioOutput();
 
-  auto SetInUse(bool) -> void override;
+  auto SetMode(Modes) -> void override;
 
   auto SetVolumeImbalance(int_fast8_t balance) -> void override;
   auto SetVolume(uint_fast8_t percent) -> void override;

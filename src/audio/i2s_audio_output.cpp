@@ -48,6 +48,7 @@ I2SAudioOutput::I2SAudioOutput(StreamBufferHandle_t s,
     : IAudioOutput(s),
       expander_(expander),
       dac_(std::move(dac)),
+      current_mode_(Modes::kOff),
       current_config_(),
       left_difference_(0),
       current_volume_(0),
@@ -60,12 +61,18 @@ I2SAudioOutput::~I2SAudioOutput() {
   dac_->SetSource(nullptr);
 }
 
-auto I2SAudioOutput::SetInUse(bool in_use) -> void {
-  if (in_use) {
-    dac_->Start();
-  } else {
-    dac_->Stop();
+auto I2SAudioOutput::SetMode(Modes mode) -> void {
+  if (mode == current_mode_) {
+    return;
   }
+  if (mode == Modes::kOff) {
+    dac_->Stop();
+    return;
+  } else if (current_mode_ == Modes::kOff) {
+    dac_->Start();
+  }
+  current_mode_ = mode;
+  dac_->SetPaused(mode == Modes::kOnPaused);
 }
 
 auto I2SAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {

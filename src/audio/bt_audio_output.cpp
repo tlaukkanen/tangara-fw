@@ -33,8 +33,8 @@ BluetoothAudioOutput::BluetoothAudioOutput(StreamBufferHandle_t s,
 
 BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
-auto BluetoothAudioOutput::SetInUse(bool in_use) -> void {
-  if (in_use) {
+auto BluetoothAudioOutput::SetMode(Modes mode) -> void {
+  if (mode == Modes::kOnPlaying) {
     bluetooth_.SetSource(stream());
   } else {
     bluetooth_.SetSource(nullptr);

@@ -31,11 +31,17 @@ class IAudioOutput {
 
   virtual ~IAudioOutput() {}
 
+  enum class Modes {
+    kOff,
+    kOnPaused,
+    kOnPlaying,
+  };
+
   /*
    * Indicates whether this output is currently being sent samples. If this is
    * false, the output should place itself into a low power state.
    */
-  virtual auto SetInUse(bool) -> void = 0;
+  virtual auto SetMode(Modes) -> void = 0;
 
   virtual auto SetVolumeImbalance(int_fast8_t balance) -> void = 0;
   virtual auto SetVolume(uint_fast8_t percent) -> void = 0;

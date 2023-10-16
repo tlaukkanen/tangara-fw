@@ -81,6 +81,7 @@ void AudioState::react(const OutputModeChanged& ev) {
   // TODO: handle SetInUse
   ESP_LOGI(kTag, "output mode changed");
   auto new_mode = sServices->nvs().OutputMode();
+  sOutput->SetMode(IAudioOutput::Modes::kOff);
   switch (new_mode) {
     case drivers::NvsStorage::Output::kBluetooth:
       sOutput = sBtOutput;
@@ -89,6 +90,7 @@ void AudioState::react(const OutputModeChanged& ev) {
       sOutput = sI2SOutput;
       break;
   }
+  sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
 }
 
 namespace states {
@@ -125,6 +127,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   } else {
     sOutput = sBtOutput;
   }
+  sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
 
   sSampleConverter.reset(new SampleConverter());
   sSampleConverter->SetOutput(sOutput);
@@ -170,7 +173,7 @@ void Standby::react(const TogglePlayPause& ev) {
 
 void Playback::entry() {
   ESP_LOGI(kTag, "beginning playback");
-  sOutput->SetInUse(true);
+  sOutput->SetMode(IAudioOutput::Modes::kOnPlaying);
 
   events::System().Dispatch(PlaybackStarted{});
   events::Ui().Dispatch(PlaybackStarted{});
@@ -181,7 +184,7 @@ void Playback::exit() {
   // TODO(jacqueline): Second case where it's useful to wait for the i2s buffer
   // to drain.
   vTaskDelay(pdMS_TO_TICKS(10));
-  sOutput->SetInUse(false);
+  sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
 
   events::System().Dispatch(PlaybackFinished{});
   events::Ui().Dispatch(PlaybackFinished{});

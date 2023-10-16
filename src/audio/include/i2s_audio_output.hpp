@@ -25,7 +25,7 @@ class I2SAudioOutput : public IAudioOutput {
                  std::unique_ptr<drivers::I2SDac> dac);
   ~I2SAudioOutput();
 
-  auto SetInUse(bool) -> void override;
+  auto SetMode(Modes) -> void override;
 
   auto SetMaxVolume(uint16_t) -> void;
   auto SetVolumeDb(uint16_t) -> void;
@@ -46,6 +46,7 @@ class I2SAudioOutput : public IAudioOutput {
   drivers::IGpios& expander_;
   std::unique_ptr<drivers::I2SDac> dac_;
 
+  Modes current_mode_;
   std::optional<Format> current_config_;
   int_fast8_t left_difference_;
   uint16_t current_volume_;
