@@ -64,7 +64,7 @@ auto FoxenFlacDecoder::OpenStream(std::shared_ptr<IStream> input)
 
   uint64_t num_samples = fx_flac_get_streaminfo(flac_, FLAC_KEY_N_SAMPLES);
   if (num_samples > 0) {
-    format.total_samples = num_samples;
+    format.total_samples = num_samples * channels;
   }
 
   return format;

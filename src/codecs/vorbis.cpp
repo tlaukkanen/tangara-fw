@@ -121,7 +121,7 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
   auto l = ov_pcm_total(&vorbis_, -1);
   std::optional<uint32_t> length;
   if (l > 0) {
-    length = l;
+    length = l * info->channels;
   }
 
   return OutputFormat{
