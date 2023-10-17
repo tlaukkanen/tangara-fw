@@ -103,6 +103,7 @@ AddToQueue::AddToQueue(Screen* host,
       }
     }
     events::Ui().Dispatch(internal::ModalCancelPressed{});
+    events::Ui().Dispatch(internal::ShowNowPlaying{});
   });
 
   bool has_queue = queue.GetCurrent().has_value();
