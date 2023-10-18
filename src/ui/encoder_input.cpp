@@ -9,7 +9,10 @@
 #include <sys/_stdint.h>
 #include <memory>
 
+#include "lvgl.h"
+
 #include "audio_events.hpp"
+#include "core/lv_event.h"
 #include "core/lv_group.h"
 #include "esp_timer.h"
 #include "event_queue.hpp"
@@ -19,6 +22,8 @@
 #include "relative_wheel.hpp"
 #include "touchwheel.hpp"
 #include "ui_events.hpp"
+
+static constexpr char kTag[] = "input";
 
 constexpr int kDPadAngleThreshold = 20;
 constexpr int kLongPressDelayMs = 500;
@@ -56,6 +61,11 @@ EncoderInput::EncoderInput(drivers::IGpios& gpios, drivers::TouchWheel& wheel)
 auto EncoderInput::Read(lv_indev_data_t* data) -> void {
   if (is_locked_) {
     return;
+  }
+
+  lv_obj_t* active_object = nullptr;
+  if (registration_ && registration_->group) {
+    active_object = lv_group_get_focused(registration_->group);
   }
 
   raw_wheel_.Update();
@@ -226,8 +236,9 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
           data->state = LV_INDEV_STATE_PRESSED;
           break;
         case Trigger::kLongPress:
-          // TODO: ???
-          data->state = LV_INDEV_STATE_PRESSED;
+          if (active_object) {
+            lv_event_send(active_object, LV_EVENT_LONG_PRESSED, NULL);
+          }
           break;
       }
 

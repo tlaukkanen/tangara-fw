@@ -11,6 +11,7 @@
 #include "audio_fsm.hpp"
 #include "battery.hpp"
 #include "core/lv_obj.h"
+#include "database.hpp"
 #include "misc/lv_gc.h"
 
 #include "audio_events.hpp"
@@ -112,8 +113,12 @@ void UiState::react(const audio::PlaybackUpdate& ev) {
 
 void UiState::react(const audio::QueueUpdate&) {
   auto& queue = sServices->track_queue();
+  bool had_queue = sPlaybackModel.current_track.get().has_value();
   sPlaybackModel.current_track.set(queue.GetCurrent());
   sPlaybackModel.upcoming_tracks.set(queue.GetUpcoming(10));
+  if (!had_queue) {
+    transit<states::Playing>();
+  }
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -285,14 +290,20 @@ void Browse::react(const internal::RecordSelected& ev) {
     return;
   }
 
+  auto& queue = sServices->track_queue();
   auto record = ev.page->values().at(ev.record);
   if (record->track()) {
     ESP_LOGI(kTag, "selected track '%s'", record->text()->c_str());
-    auto& queue = sServices->track_queue();
     auto source = std::make_shared<playlist::IndexRecordSource>(
         sServices->database(), ev.initial_page, 0, ev.page, ev.record);
-    sCurrentModal.reset(
-        new modals::AddToQueue(sCurrentScreen.get(), queue, source));
+    if (ev.show_menu) {
+      sCurrentModal.reset(
+          new modals::AddToQueue(sCurrentScreen.get(), queue, source));
+    } else {
+      queue.Clear();
+      queue.AddNext(source);
+      transit<Playing>();
+    }
   } else {
     ESP_LOGI(kTag, "selected record '%s'", record->text()->c_str());
     auto cont = record->Expand(kRecordsPerPage);
@@ -300,9 +311,17 @@ void Browse::react(const internal::RecordSelected& ev) {
       return;
     }
     auto query = db->GetPage<database::IndexRecord>(&cont.value());
-    std::pmr::string title = record->text().value_or("TODO");
-    PushScreen(std::make_shared<screens::TrackBrowser>(
-        sTopBarModel, sServices->database(), title, std::move(query)));
+    if (ev.show_menu) {
+      std::shared_ptr<database::Result<database::IndexRecord>> res{query.get()};
+      auto source = playlist::CreateSourceFromResults(db, res);
+      sCurrentModal.reset(
+          new modals::AddToQueue(sCurrentScreen.get(), queue, source, true));
+    } else {
+      std::pmr::string title = record->text().value_or("");
+      PushScreen(std::make_shared<screens::TrackBrowser>(
+          sTopBarModel, sServices->track_queue(), sServices->database(),
+          ev.new_crumbs, std::move(query)));
+    }
   }
 }
 
@@ -314,8 +333,10 @@ void Browse::react(const internal::IndexSelected& ev) {
 
   ESP_LOGI(kTag, "selected index %s", ev.index.name.c_str());
   auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
+  std::pmr::vector<std::pmr::string> crumbs = {ev.index.name};
   PushScreen(std::make_shared<screens::TrackBrowser>(
-      sTopBarModel, sServices->database(), ev.index.name, std::move(query)));
+      sTopBarModel, sServices->track_queue(), sServices->database(), crumbs,
+      std::move(query)));
 }
 
 void Browse::react(const internal::BackPressed& ev) {

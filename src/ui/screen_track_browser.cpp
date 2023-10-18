@@ -16,6 +16,7 @@
 #include "font/lv_symbol_def.h"
 #include "lvgl.h"
 #include "misc/lv_anim.h"
+#include "misc/lv_color.h"
 #include "model_top_bar.hpp"
 #include "screen_menu.hpp"
 
@@ -30,6 +31,9 @@
 #include "hal/lv_hal_disp.h"
 #include "misc/lv_area.h"
 #include "screen_track_browser.hpp"
+#include "source.hpp"
+#include "themes.hpp"
+#include "track_queue.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
 #include "widget_top_bar.hpp"
@@ -61,12 +65,17 @@ static void item_select_cb(lv_event_t* ev) {
 
 TrackBrowser::TrackBrowser(
     models::TopBar& top_bar_model,
+    audio::TrackQueue& queue,
     std::weak_ptr<database::Database> db,
-    const std::pmr::string& title,
+    const std::pmr::vector<std::pmr::string>& crumbs,
     std::future<database::Result<database::IndexRecord>*>&& initial_page)
-    : db_(db),
+    : queue_(queue),
+      db_(db),
+      play_button_(nullptr),
+      enqueue_button_(nullptr),
       list_(nullptr),
       loading_indicator_(nullptr),
+      breadcrumbs_(crumbs),
       loading_pos_(END),
       loading_page_(move(initial_page)),
       initial_page_(),
@@ -76,22 +85,111 @@ TrackBrowser::TrackBrowser(
   lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER);
 
-  // The default scrollbar is deceptive because we load in items progressively.
-  lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
-  // Wrapping behaves in surprising ways, again due to progressing loading.
-  lv_group_set_wrap(group_, false);
-
   widgets::TopBar::Configuration config{
       .show_back_button = true,
-      .title = title,
+      .title = breadcrumbs_[0],
   };
   auto top_bar = CreateTopBar(content_, config, top_bar_model);
   back_button_ = top_bar->button();
 
-  list_ = lv_list_create(content_);
-  lv_obj_set_width(list_, lv_pct(100));
-  lv_obj_set_flex_grow(list_, 1);
-  lv_obj_center(list_);
+  lv_obj_t* scrollable = lv_obj_create(content_);
+  lv_obj_set_width(scrollable, lv_pct(100));
+  lv_obj_set_flex_grow(scrollable, 1);
+  lv_obj_set_layout(scrollable, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(scrollable, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(scrollable, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START);
+
+  if (crumbs.size() > 1) {
+    lv_obj_t* header = lv_obj_create(scrollable);
+    lv_obj_set_size(header, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(header, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START);
+
+    lv_obj_set_style_pad_left(header, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(header, 4, LV_PART_MAIN);
+
+    lv_obj_t* spacer = lv_obj_create(header);
+    lv_obj_set_size(spacer, 1, 2);
+
+    for (size_t i = 1; i < crumbs.size(); i++) {
+      lv_obj_t* crumb = lv_label_create(header);
+      lv_label_set_text(crumb, crumbs[i].c_str());
+
+      spacer = lv_obj_create(header);
+      lv_obj_set_size(spacer, 1, 2);
+    }
+
+    spacer = lv_obj_create(header);
+    lv_obj_set_size(spacer, 1, 2);
+
+    lv_obj_t* buttons_container = lv_obj_create(header);
+    lv_obj_set_width(buttons_container, lv_pct(100));
+    lv_obj_set_height(buttons_container, LV_SIZE_CONTENT);
+    lv_obj_set_layout(buttons_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(buttons_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(buttons_container, LV_FLEX_ALIGN_END,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t* label;
+
+    play_button_ = lv_btn_create(buttons_container);
+    label = lv_label_create(play_button_);
+    lv_label_set_text(label, "Play all");
+    lv_group_add_obj(group_, play_button_);
+    themes::Theme::instance()->ApplyStyle(play_button_,
+                                          themes::Style::kButtonPrimary);
+
+    lv_bind(play_button_, LV_EVENT_CLICKED, [&](lv_obj_t*) {
+      if (!initial_page_) {
+        return;
+      }
+      queue_.Clear();
+      queue_.IncludeNext(playlist::CreateSourceFromResults(db_, initial_page_));
+      events::Ui().Dispatch(internal::ShowNowPlaying{});
+    });
+
+    if (queue_.GetCurrent()) {
+      spacer = lv_obj_create(buttons_container);
+      lv_obj_set_size(spacer, 4, 1);
+
+      enqueue_button_ = lv_btn_create(buttons_container);
+      label = lv_label_create(enqueue_button_);
+      lv_label_set_text(label, "Enqueue");
+      lv_group_add_obj(group_, enqueue_button_);
+      themes::Theme::instance()->ApplyStyle(enqueue_button_,
+                                            themes::Style::kButtonPrimary);
+
+      lv_bind(enqueue_button_, LV_EVENT_CLICKED, [&](lv_obj_t*) {
+        if (!initial_page_) {
+          return;
+        }
+        queue_.IncludeNext(
+            playlist::CreateSourceFromResults(db_, initial_page_));
+      });
+    }
+
+    lv_obj_set_style_border_width(header, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(header, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_border_side(header, LV_BORDER_SIDE_BOTTOM, LV_PART_MAIN);
+
+    spacer = lv_obj_create(header);
+    lv_obj_set_size(spacer, 1, 4);
+
+    lv_obj_set_style_border_width(header, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(
+        header, lv_palette_lighten(LV_PALETTE_GREY, 3), LV_PART_MAIN);
+  }
+
+  list_ = lv_list_create(scrollable);
+  lv_obj_set_size(list_, lv_pct(100), LV_SIZE_CONTENT);
+
+  // The default scrollbar is deceptive because we load in items progressively.
+  lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
+  // Wrapping behaves in surprising ways, again due to progressing loading.
+  lv_group_set_wrap(group_, false);
 }
 
 auto TrackBrowser::Tick() -> void {
@@ -138,7 +236,12 @@ auto TrackBrowser::OnItemClicked(lv_event_t* ev) -> void {
   for (const auto& page : current_pages_) {
     for (std::size_t i = 0; i < page->values().size(); i++) {
       if (index == 0) {
+        auto text = page->values()[i]->text();
+        auto crumbs = breadcrumbs_;
+        crumbs.push_back(text.value());
         events::Ui().Dispatch(internal::RecordSelected{
+            .show_menu = ev->code == LV_EVENT_LONG_PRESSED,
+            .new_crumbs = crumbs,
             .initial_page = initial_page_,
             .page = page,
             .record = i,
@@ -181,6 +284,7 @@ auto TrackBrowser::AddResults(
     lv_obj_t* item = lv_list_add_btn(list_, NULL, text->c_str());
     lv_label_set_long_mode(lv_obj_get_child(item, -1), LV_LABEL_LONG_DOT);
     lv_obj_add_event_cb(item, item_click_cb, LV_EVENT_CLICKED, this);
+    lv_obj_add_event_cb(item, item_click_cb, LV_EVENT_LONG_PRESSED, this);
     lv_obj_add_event_cb(item, item_select_cb, LV_EVENT_FOCUSED, this);
 
     if (pos == START) {
@@ -217,6 +321,12 @@ auto TrackBrowser::AddResults(
 
   lv_group_remove_all_objs(group_);
   lv_group_add_obj(group_, back_button_);
+  if (play_button_) {
+    lv_group_add_obj(group_, play_button_);
+  }
+  if (enqueue_button_) {
+    lv_group_add_obj(group_, enqueue_button_);
+  }
   int num_children = lv_obj_get_child_cnt(list_);
   for (int i = 0; i < num_children; i++) {
     lv_group_add_obj(group_, lv_obj_get_child(list_, i));

@@ -37,12 +37,53 @@ namespace modals {
 
 AddToQueue::AddToQueue(Screen* host,
                        audio::TrackQueue& queue,
-                       std::shared_ptr<playlist::IndexRecordSource> item)
+                       std::shared_ptr<playlist::IResetableSource> item,
+                       bool all_tracks_only)
     : Modal(host), queue_(queue), item_(item), all_tracks_(0) {
   lv_obj_set_layout(root_, LV_LAYOUT_FLEX);
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START,
                         LV_FLEX_ALIGN_CENTER);
+
+  if (all_tracks_only) {
+    all_tracks_ = true;
+  } else {
+    lv_obj_t* button_container = lv_obj_create(root_);
+    lv_obj_set_size(button_container, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(button_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(button_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(button_container, LV_FLEX_ALIGN_SPACE_EVENLY,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    selected_track_btn_ = lv_btn_create(button_container);
+    lv_obj_t* label = lv_label_create(selected_track_btn_);
+    lv_label_set_text(label, "Selected");
+    lv_group_add_obj(group_, selected_track_btn_);
+    lv_obj_add_state(selected_track_btn_, LV_STATE_CHECKED);
+    themes::Theme::instance()->ApplyStyle(selected_track_btn_,
+                                          themes::Style::kTab);
+
+    lv_bind(selected_track_btn_, LV_EVENT_CLICKED, [this](lv_obj_t*) {
+      lv_obj_add_state(selected_track_btn_, LV_STATE_CHECKED);
+      lv_obj_clear_state(all_tracks_btn_, LV_STATE_CHECKED);
+      all_tracks_ = false;
+    });
+
+    all_tracks_btn_ = lv_btn_create(button_container);
+    label = lv_label_create(all_tracks_btn_);
+    lv_label_set_text(label, "From here");
+    lv_group_add_obj(group_, all_tracks_btn_);
+    themes::Theme::instance()->ApplyStyle(all_tracks_btn_, themes::Style::kTab);
+
+    lv_bind(all_tracks_btn_, LV_EVENT_CLICKED, [this](lv_obj_t*) {
+      lv_obj_clear_state(selected_track_btn_, LV_STATE_CHECKED);
+      lv_obj_add_state(all_tracks_btn_, LV_STATE_CHECKED);
+      all_tracks_ = true;
+    });
+
+    lv_obj_t* spacer = lv_obj_create(root_);
+    lv_obj_set_size(spacer, 1, 4);
+  }
 
   lv_obj_t* button_container = lv_obj_create(root_);
   lv_obj_set_size(button_container, lv_pct(100), LV_SIZE_CONTENT);
@@ -51,44 +92,8 @@ AddToQueue::AddToQueue(Screen* host,
   lv_obj_set_flex_align(button_container, LV_FLEX_ALIGN_SPACE_EVENLY,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  selected_track_btn_ = lv_btn_create(button_container);
-  lv_obj_t* label = lv_label_create(selected_track_btn_);
-  lv_label_set_text(label, "Selected");
-  lv_group_add_obj(group_, selected_track_btn_);
-  lv_obj_add_state(selected_track_btn_, LV_STATE_CHECKED);
-  themes::Theme::instance()->ApplyStyle(selected_track_btn_,
-                                        themes::Style::kTab);
-
-  lv_bind(selected_track_btn_, LV_EVENT_CLICKED, [this](lv_obj_t*) {
-    lv_obj_add_state(selected_track_btn_, LV_STATE_CHECKED);
-    lv_obj_clear_state(all_tracks_btn_, LV_STATE_CHECKED);
-    all_tracks_ = false;
-  });
-
-  all_tracks_btn_ = lv_btn_create(button_container);
-  label = lv_label_create(all_tracks_btn_);
-  lv_label_set_text(label, "All tracks");
-  lv_group_add_obj(group_, all_tracks_btn_);
-  themes::Theme::instance()->ApplyStyle(all_tracks_btn_, themes::Style::kTab);
-
-  lv_bind(all_tracks_btn_, LV_EVENT_CLICKED, [this](lv_obj_t*) {
-    lv_obj_clear_state(selected_track_btn_, LV_STATE_CHECKED);
-    lv_obj_add_state(all_tracks_btn_, LV_STATE_CHECKED);
-    all_tracks_ = true;
-  });
-
-  lv_obj_t* spacer = lv_obj_create(root_);
-  lv_obj_set_size(spacer, 1, 4);
-
-  button_container = lv_obj_create(root_);
-  lv_obj_set_size(button_container, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_layout(button_container, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(button_container, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(button_container, LV_FLEX_ALIGN_SPACE_EVENLY,
-                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
   lv_obj_t* btn = lv_btn_create(button_container);
-  label = lv_label_create(btn);
+  lv_obj_t* label = lv_label_create(btn);
   lv_label_set_text(label, "Play now");
   lv_group_add_obj(group_, btn);
 
@@ -112,7 +117,7 @@ AddToQueue::AddToQueue(Screen* host,
     label = lv_label_create(root_);
     lv_label_set_text(label, "Enqueue");
 
-    spacer = lv_obj_create(root_);
+    lv_obj_t* spacer = lv_obj_create(root_);
     lv_obj_set_size(spacer, 1, 4);
 
     button_container = lv_obj_create(root_);
@@ -151,7 +156,7 @@ AddToQueue::AddToQueue(Screen* host,
     });
   }
 
-  spacer = lv_obj_create(root_);
+  lv_obj_t* spacer = lv_obj_create(root_);
   lv_obj_set_size(spacer, 1, 4);
 
   button_container = lv_obj_create(root_);

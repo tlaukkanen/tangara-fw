@@ -16,6 +16,7 @@
 #include "database.hpp"
 #include "model_top_bar.hpp"
 #include "screen.hpp"
+#include "track_queue.hpp"
 
 namespace ui {
 namespace screens {
@@ -23,9 +24,10 @@ namespace screens {
 class TrackBrowser : public Screen {
  public:
   TrackBrowser(
-      models::TopBar&,
+      models::TopBar& top_bar,
+      audio::TrackQueue& queue,
       std::weak_ptr<database::Database> db,
-      const std::pmr::string& title,
+      const std::pmr::vector<std::pmr::string>& breadcrumbs,
       std::future<database::Result<database::IndexRecord>*>&& initial_page);
   ~TrackBrowser() {}
 
@@ -49,10 +51,15 @@ class TrackBrowser : public Screen {
   auto GetNumRecords() -> std::size_t;
   auto GetItemIndex(lv_obj_t* obj) -> std::optional<std::size_t>;
 
+  audio::TrackQueue& queue_;
   std::weak_ptr<database::Database> db_;
   lv_obj_t* back_button_;
+  lv_obj_t* play_button_;
+  lv_obj_t* enqueue_button_;
   lv_obj_t* list_;
   lv_obj_t* loading_indicator_;
+
+  std::pmr::vector<std::pmr::string> breadcrumbs_;
 
   std::optional<Position> loading_pos_;
   std::optional<std::future<database::Result<database::IndexRecord>*>>

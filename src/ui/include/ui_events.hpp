@@ -27,6 +27,8 @@ struct OnSystemError : tinyfsm::Event {};
 namespace internal {
 
 struct RecordSelected : tinyfsm::Event {
+  bool show_menu;
+  std::pmr::vector<std::pmr::string> new_crumbs;
   std::shared_ptr<database::Result<database::IndexRecord>> initial_page;
   std::shared_ptr<database::Result<database::IndexRecord>> page;
   std::size_t record;

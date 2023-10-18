@@ -73,6 +73,11 @@ class IResetableSource : public ISource {
   virtual auto Reset() -> void = 0;
 };
 
+auto CreateSourceFromResults(
+    std::weak_ptr<database::Database>,
+    std::shared_ptr<database::Result<database::IndexRecord>>)
+    -> std::shared_ptr<IResetableSource>;
+
 class IndexRecordSource : public IResetableSource {
  public:
   IndexRecordSource(std::weak_ptr<database::Database> db,
@@ -100,6 +105,34 @@ class IndexRecordSource : public IResetableSource {
 
   std::shared_ptr<database::Result<database::IndexRecord>> current_page_;
   ssize_t current_item_;
+};
+
+class NestedSource : public IResetableSource {
+ public:
+  NestedSource(std::weak_ptr<database::Database> db,
+               std::shared_ptr<database::Result<database::IndexRecord>>);
+
+  auto Current() -> std::optional<database::TrackId> override;
+  auto Advance() -> std::optional<database::TrackId> override;
+  auto Peek(std::size_t n, std::vector<database::TrackId>*)
+      -> std::size_t override;
+
+  auto Previous() -> std::optional<database::TrackId> override;
+  auto Reset() -> void override;
+
+ private:
+  auto CreateChild(std::shared_ptr<database::IndexRecord> page)
+      -> std::shared_ptr<IResetableSource>;
+
+  std::weak_ptr<database::Database> db_;
+
+  std::shared_ptr<database::Result<database::IndexRecord>> initial_page_;
+  ssize_t initial_item_;
+
+  std::shared_ptr<database::Result<database::IndexRecord>> current_page_;
+  ssize_t current_item_;
+
+  std::shared_ptr<IResetableSource> current_child_;
 };
 
 }  // namespace playlist

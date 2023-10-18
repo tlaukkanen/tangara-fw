@@ -24,11 +24,12 @@ class AddToQueue : public Modal {
  public:
   AddToQueue(Screen*,
              audio::TrackQueue&,
-             std::shared_ptr<playlist::IndexRecordSource>);
+             std::shared_ptr<playlist::IResetableSource>,
+             bool all_tracks_only = false);
 
  private:
   audio::TrackQueue& queue_;
-  std::shared_ptr<playlist::IndexRecordSource> item_;
+  std::shared_ptr<playlist::IResetableSource> item_;
   lv_obj_t* container_;
 
   lv_obj_t* selected_track_btn_;
