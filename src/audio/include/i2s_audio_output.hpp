@@ -21,8 +21,7 @@ namespace audio {
 class I2SAudioOutput : public IAudioOutput {
  public:
   I2SAudioOutput(StreamBufferHandle_t,
-                 drivers::IGpios& expander,
-                 std::unique_ptr<drivers::I2SDac> dac);
+                 drivers::IGpios& expander);
   ~I2SAudioOutput();
 
   auto SetMode(Modes) -> void override;

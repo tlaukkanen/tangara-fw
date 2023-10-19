@@ -91,15 +91,12 @@ I2SDac::I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle)
                                                        I2S_SLOT_MODE_STEREO)) {
   clock_config_.clk_src = I2S_CLK_SRC_APLL;
 
-  // Keep the 5V circuity off until it's needed.
-  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, false);
+  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, true);
 
   // Reset all registers back to their default values.
   wm8523::WriteRegister(wm8523::Register::kReset, 1);
   vTaskDelay(pdMS_TO_TICKS(10));
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
-
-  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, true);
 }
 
 I2SDac::~I2SDac() {

@@ -43,18 +43,15 @@ static constexpr uint16_t kDefaultVolume = 0x100;
 static constexpr size_t kDrainBufferSize = 8 * 1024;
 
 I2SAudioOutput::I2SAudioOutput(StreamBufferHandle_t s,
-                               drivers::IGpios& expander,
-                               std::unique_ptr<drivers::I2SDac> dac)
+                               drivers::IGpios& expander)
     : IAudioOutput(s),
       expander_(expander),
-      dac_(std::move(dac)),
+      dac_(),
       current_mode_(Modes::kOff),
       current_config_(),
       left_difference_(0),
       current_volume_(0),
-      max_volume_(0) {
-  dac_->SetSource(stream());
-}
+      max_volume_(0) {}
 
 I2SAudioOutput::~I2SAudioOutput() {
   dac_->Stop();
@@ -67,8 +64,15 @@ auto I2SAudioOutput::SetMode(Modes mode) -> void {
   }
   if (mode == Modes::kOff) {
     dac_->Stop();
+    dac_.reset();
     return;
   } else if (current_mode_ == Modes::kOff) {
+    auto instance = drivers::I2SDac::create(expander_);
+    if (!instance) {
+      return;
+    }
+    dac_.reset(*instance);
+    dac_->SetSource(stream());
     dac_->Start();
   }
   current_mode_ = mode;

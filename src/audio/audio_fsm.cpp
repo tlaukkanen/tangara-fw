@@ -98,13 +98,6 @@ namespace states {
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
-  auto dac = drivers::I2SDac::create(sServices->gpios());
-  if (!dac) {
-    events::System().Dispatch(system_fsm::FatalError{});
-    events::Ui().Dispatch(system_fsm::FatalError{});
-    return;
-  }
-
   constexpr size_t kDrainBufferSize =
       drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2 * 8;
   ESP_LOGI(kTag, "allocating drain buffer, size %u KiB",
@@ -113,8 +106,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       kDrainBufferSize, sizeof(sample::Sample) * 2, MALLOC_CAP_DMA);
 
   sFileSource.reset(new FatfsAudioInput(sServices->tag_parser()));
-  sI2SOutput.reset(new I2SAudioOutput(stream, sServices->gpios(),
-                                      std::unique_ptr<drivers::I2SDac>{*dac}));
+  sI2SOutput.reset(new I2SAudioOutput(stream, sServices->gpios()));
   sBtOutput.reset(new BluetoothAudioOutput(stream, sServices->bluetooth()));
 
   auto& nvs = sServices->nvs();
