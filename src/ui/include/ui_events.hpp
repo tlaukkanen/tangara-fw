@@ -24,6 +24,8 @@ struct OnStorageChange : tinyfsm::Event {
 
 struct OnSystemError : tinyfsm::Event {};
 
+struct RequestScreenshot : tinyfsm::Event {}; // TODO: path
+
 namespace internal {
 
 struct RecordSelected : tinyfsm::Event {

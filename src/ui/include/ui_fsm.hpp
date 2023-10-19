@@ -61,6 +61,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const audio::PlaybackUpdate&);
   void react(const audio::QueueUpdate&);
 
+  void react(const RequestScreenshot&);
+
   virtual void react(const system_fsm::KeyLockChanged&);
 
   virtual void react(const internal::RecordSelected&) {}

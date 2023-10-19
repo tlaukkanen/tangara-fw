@@ -2,4 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 
-idf_component_register(SRCS INCLUDE_DIRS "include" REQUIRES "database")
+idf_component_register(
+  SRCS "random.cpp" "bitmap.cpp"
+  INCLUDE_DIRS "include"
+  REQUIRES "database")

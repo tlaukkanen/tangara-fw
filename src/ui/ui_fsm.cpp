@@ -11,7 +11,11 @@
 #include "audio_fsm.hpp"
 #include "battery.hpp"
 #include "core/lv_obj.h"
+#include "draw/lv_img_buf.h"
+#include "extra/others/snapshot/lv_snapshot.h"
+#include "ff.h"
 #include "misc/lv_gc.h"
+#include "bitmap.hpp"
 
 #include "audio_events.hpp"
 #include "display.hpp"
@@ -33,6 +37,7 @@
 #include "screen_splash.hpp"
 #include "screen_track_browser.hpp"
 #include "source.hpp"
+#include "spi.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
@@ -121,6 +126,48 @@ void UiState::react(const internal::ControlSchemeChanged&) {
     return;
   }
   sInput->mode(sServices->nvs().PrimaryInput());
+}
+
+void UiState::react(const RequestScreenshot&) {
+  auto root = sCurrentScreen->root();
+  lv_coord_t width  = lv_obj_get_width(root);
+  lv_coord_t height = lv_obj_get_height(root);
+
+  lv_img_dsc_t image{};
+  size_t buf_size = width * height * sizeof(lv_color_t); // TODO: * 2
+  std::byte *buf = new std::byte[buf_size];
+  
+  lv_snapshot_take_to_buf(
+    root,
+    LV_IMG_CF_TRUE_COLOR,
+    &image,
+    buf,
+    buf_size
+  );
+
+// TODO: LV_COLOR_DEPTH
+  
+  {
+    auto lock = drivers::acquire_spi();
+    FIL fp{};
+    UINT bw;
+    FRESULT fr = f_open(&fp, "/example.bin", FA_CREATE_ALWAYS | FA_WRITE);
+    if (fr == FR_OK) {
+      f_write(&fp, buf, buf_size, &bw);
+    }
+    f_close(&fp);
+    ESP_LOGI(kTag, "Screenshot written to %s (bytes written: %u)", "/example.bin", bw);
+  }
+
+  delete[] buf;
+
+  // lv_result_t lv_snapshot_take_to_buf(
+  //    lv_obj_t * obj,
+  //    lv_color_format_t cf,
+  //    lv_image_dsc_t * dsc,
+  //    void * buf,
+  //    uint32_t buff_size
+  // );
 }
 
 namespace states {

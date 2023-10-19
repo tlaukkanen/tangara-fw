@@ -39,6 +39,7 @@
 #include "memory_resource.hpp"
 #include "service_locator.hpp"
 #include "track.hpp"
+#include "ui_events.hpp"
 
 namespace console {
 
@@ -646,6 +647,22 @@ void RegisterCoreDump() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdUiScreenshot(int argc, char** argv) {
+  // TODO: path...?
+  events::Ui().Dispatch(ui::RequestScreenshot{});
+
+  return 0;
+}
+
+void RegisterUiScreenshot() {
+  esp_console_cmd_t cmd{.command = "screenshot",
+                        .help = "Take a screenshot and dump to SD card",
+                        .hint = NULL,
+                        .func = &CmdUiScreenshot,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -669,6 +686,8 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterBtList();
   RegisterSamd();
   RegisterCoreDump();
+
+  RegisterUiScreenshot();
 }
 
 }  // namespace console
