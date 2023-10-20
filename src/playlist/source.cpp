@@ -139,9 +139,12 @@ auto IndexRecordSource::Peek(std::size_t n, std::vector<database::TrackId>* out)
       working_item = 0;
     }
 
-    out->push_back(working_page->values().at(working_item)->track().value());
-    n--;
-    items_added++;
+    auto record = working_page->values().at(working_item);
+    if (record->track()) {
+      out->push_back(record->track().value());
+      n--;
+      items_added++;
+    }
     working_item++;
   }
 

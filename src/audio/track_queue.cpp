@@ -100,6 +100,7 @@ auto TrackQueue::AddNext(std::shared_ptr<playlist::ISource> src) -> void {
 
 auto TrackQueue::IncludeNext(std::shared_ptr<playlist::IResetableSource> src)
     -> void {
+  assert(src.get() != nullptr);
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_front(src);
 
@@ -128,6 +129,7 @@ auto TrackQueue::AddLast(std::shared_ptr<playlist::ISource> src) -> void {
 
 auto TrackQueue::IncludeLast(std::shared_ptr<playlist::IResetableSource> src)
     -> void {
+  assert(src.get() != nullptr);
   const std::lock_guard<std::mutex> lock(mutex_);
   enqueued_.push_back(src);
 
