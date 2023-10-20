@@ -50,7 +50,7 @@ I2SAudioOutput::I2SAudioOutput(StreamBufferHandle_t s,
       current_mode_(Modes::kOff),
       current_config_(),
       left_difference_(0),
-      current_volume_(0),
+      current_volume_(kDefaultVolume),
       max_volume_(0) {}
 
 I2SAudioOutput::~I2SAudioOutput() {
@@ -71,6 +71,7 @@ auto I2SAudioOutput::SetMode(Modes mode) -> void {
     if (!instance) {
       return;
     }
+    SetVolume(GetVolume());
     dac_.reset(*instance);
     dac_->SetSource(stream());
     dac_->Start();
