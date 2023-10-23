@@ -5,9 +5,11 @@
  */
 
 #include "collation.hpp"
+#include "haptics.hpp"
 #include "system_fsm.hpp"
 
 #include <stdint.h>
+#include <memory>
 
 #include "assert.h"
 #include "esp_err.h"
@@ -70,6 +72,7 @@ auto Booting::entry() -> void {
       std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
   sServices->touchwheel(
       std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
+  sServices->haptics(std::make_unique<drivers::Haptics>());
 
   auto adc = drivers::AdcBattery::Create();
   sServices->battery(std::make_unique<battery::Battery>(
@@ -100,6 +103,9 @@ auto Booting::exit() -> void {
   sAppConsole = new console::AppConsole();
   sAppConsole->sServices = sServices;
   sAppConsole->Launch();
+
+  auto& haptics = sServices->haptics();
+  haptics.Go(); // make a little buzz
 }
 
 auto Booting::react(const BootComplete& ev) -> void {
