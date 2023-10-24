@@ -97,8 +97,8 @@ class TrackTags {
 };
 
 /*
- * Immutable owning container for all of the metadata we store for a particular
- * track. This includes two main kinds of metadata:
+ * Owning container for all of the metadata we store for a particular track.
+ * This includes two main kinds of metadata:
  *  1. static(ish) attributes, such as the id, path on disk, hash of the tags
  *  2. dynamic attributes, such as the number of times this track has been
  *  played.
@@ -113,66 +113,25 @@ class TrackTags {
  * properly restore dynamic attributes (such as play count) if the track later
  * re-appears on disk.
  */
-class TrackData {
- private:
-  const TrackId id_;
-  const std::pmr::string filepath_;
-  const uint64_t tags_hash_;
-  const bool is_tombstoned_;
-  const std::pair<uint16_t, uint16_t> modified_at_;
-
+struct TrackData {
  public:
-  /* Constructor used when adding new tracks to the database. */
-  TrackData(TrackId id,
-            const std::pmr::string& path,
-            uint64_t hash,
-            std::pair<uint16_t, uint16_t> modified_at)
-      : id_(id),
-        filepath_(path, &memory::kSpiRamResource),
-        tags_hash_(hash),
-        is_tombstoned_(false),
-        modified_at_(modified_at) {}
+  TrackData()
+      : id(0),
+        filepath(&memory::kSpiRamResource),
+        tags_hash(0),
+        is_tombstoned(false),
+        modified_at() {}
 
-  TrackData(TrackId id,
-            const std::pmr::string& path,
-            uint64_t hash,
-            bool is_tombstoned,
-            std::pair<uint16_t, uint16_t> modified_at)
-      : id_(id),
-        filepath_(path, &memory::kSpiRamResource),
-        tags_hash_(hash),
-        is_tombstoned_(is_tombstoned),
-        modified_at_(modified_at) {}
+  TrackId id;
+  std::pmr::string filepath;
+  uint64_t tags_hash;
+  bool is_tombstoned;
+  std::pair<uint16_t, uint16_t> modified_at;
 
   TrackData(TrackData&& other) = delete;
   TrackData& operator=(TrackData& other) = delete;
 
   bool operator==(const TrackData&) const = default;
-
-  auto id() const -> TrackId { return id_; }
-  auto filepath() const -> std::pmr::string { return filepath_; }
-  auto tags_hash() const -> uint64_t { return tags_hash_; }
-  auto is_tombstoned() const -> bool { return is_tombstoned_; }
-  auto modified_at() const -> std::pair<uint16_t, uint16_t> {
-    return modified_at_;
-  }
-
-  auto UpdateHash(uint64_t new_hash) const -> TrackData;
-
-  /*
-   * Marks this track data as a 'tombstone'. Tombstoned tracks are not playable,
-   * and should not generally be shown to users.
-   */
-  auto Entomb() const -> TrackData;
-
-  /*
-   * Clears the tombstone bit of this track, and updates the path to reflect its
-   * new location.
-   */
-  auto Exhume(const std::pmr::string& new_path) const -> TrackData;
-
-  auto UpdateModifiedAt(const std::pair<uint16_t, uint16_t>&) const
-      -> TrackData;
 };
 
 /*
@@ -199,7 +158,7 @@ class Track {
   auto TitleOrFilename() const -> std::pmr::string;
 
  private:
-  std::shared_ptr<TrackData> data_;
+  std::shared_ptr<const TrackData> data_;
   std::shared_ptr<TrackTags> tags_;
 };
 

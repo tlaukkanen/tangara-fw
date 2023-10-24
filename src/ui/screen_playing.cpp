@@ -173,7 +173,7 @@ Playing::Playing(models::TopBar& top_bar_model,
         if (!id) {
           return;
         }
-        if (current_track_.get() && current_track_.get()->data().id() == *id) {
+        if (current_track_.get() && current_track_.get()->data().id == *id) {
           return;
         }
         auto db = db_.lock();

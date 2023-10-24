@@ -63,12 +63,12 @@ auto EncodeDataKey(const TrackId& id) -> std::string {
 
 auto EncodeDataValue(const TrackData& track) -> std::string {
   cppbor::Array val{
-      cppbor::Uint{track.id()},
-      cppbor::Tstr{track.filepath()},
-      cppbor::Uint{track.tags_hash()},
-      cppbor::Bool{track.is_tombstoned()},
-      cppbor::Uint{track.modified_at().first},
-      cppbor::Uint{track.modified_at().second},
+      cppbor::Uint{track.id},
+      cppbor::Tstr{track.filepath},
+      cppbor::Uint{track.tags_hash},
+      cppbor::Bool{track.is_tombstoned},
+      cppbor::Uint{track.modified_at.first},
+      cppbor::Uint{track.modified_at.second},
   };
   return val.toString();
 }
@@ -88,16 +88,15 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
       vals->get(5)->type() != cppbor::UINT) {
     return {};
   }
-  TrackId id = vals->get(0)->asUint()->unsignedValue();
-  auto path = vals->get(1)->asViewTstr()->view();
-  uint64_t hash = vals->get(2)->asUint()->unsignedValue();
-  bool tombstoned = vals->get(3)->asBool()->value();
-  auto modified_at = std::make_pair<uint16_t, uint16_t>(
+  auto res = std::make_shared<TrackData>();
+  res->id = vals->get(0)->asUint()->unsignedValue();
+  res->filepath = vals->get(1)->asViewTstr()->view();
+  res->tags_hash = vals->get(2)->asUint()->unsignedValue();
+  res->is_tombstoned = vals->get(3)->asBool()->value();
+  res->modified_at = std::make_pair<uint16_t, uint16_t>(
       vals->get(4)->asUint()->unsignedValue(),
       vals->get(5)->asUint()->unsignedValue());
-  return std::make_shared<TrackData>(id,
-                                     std::pmr::string{path.data(), path.size()},
-                                     hash, tombstoned, modified_at);
+  return res;
 }
 
 /* 'H/ 0xBEEF' */

@@ -202,8 +202,8 @@ auto Database::Update() -> std::future<void> {
           continue;
         }
 
-        if (track->is_tombstoned()) {
-          ESP_LOGW(kTag, "skipping tombstoned %lx", track->id());
+        if (track->is_tombstoned) {
+          ESP_LOGW(kTag, "skipping tombstoned %lx", track->id);
           it->Next();
           continue;
         }
@@ -212,25 +212,28 @@ auto Database::Update() -> std::future<void> {
         FILINFO info;
         {
           auto lock = drivers::acquire_spi();
-          res = f_stat(track->filepath().c_str(), &info);
+          res = f_stat(track->filepath.c_str(), &info);
         }
 
         std::pair<uint16_t, uint16_t> modified_at{0, 0};
         if (res == FR_OK) {
           modified_at = {info.fdate, info.ftime};
         }
-        if (modified_at == track->modified_at()) {
+        if (modified_at == track->modified_at) {
           newest_track = std::max(modified_at, newest_track);
+        } else {
+          track->modified_at = modified_at;
         }
 
         std::shared_ptr<TrackTags> tags =
-            tag_parser_.ReadAndParseTags(track->filepath());
+            tag_parser_.ReadAndParseTags(track->filepath);
         if (!tags || tags->encoding() == Container::kUnsupported) {
           // We couldn't read the tags for this track. Either they were
           // malformed, or perhaps the file is missing. Either way, tombstone
           // this record.
-          ESP_LOGW(kTag, "entombing missing #%lx", track->id());
-          dbPutTrackData(track->Entomb().UpdateModifiedAt(modified_at));
+          ESP_LOGW(kTag, "entombing missing #%lx", track->id);
+          track->is_tombstoned = true;
+          dbPutTrackData(*track);
           it->Next();
           continue;
         }
@@ -239,15 +242,15 @@ auto Database::Update() -> std::future<void> {
         // location. All that's left to do is update any metadata about it.
 
         uint64_t new_hash = tags->Hash();
-        if (new_hash != track->tags_hash()) {
+        if (new_hash != track->tags_hash) {
           // This track's tags have changed. Since the filepath is exactly the
           // same, we assume this is a legitimate correction. Update the
           // database.
-          ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash(),
+          ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash,
                    new_hash);
-          dbPutTrackData(
-              track->UpdateHash(new_hash).UpdateModifiedAt(modified_at));
-          dbPutHash(new_hash, track->id());
+          track->tags_hash = new_hash;
+          dbPutTrackData(*track);
+          dbPutHash(new_hash, track->id);
         }
 
         Track t{track, tags};
@@ -274,7 +277,6 @@ auto Database::Update() -> std::future<void> {
 
       std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
       if (modified < newest_track) {
-        ESP_LOGI(kTag, "skipping old file");
         return;
       }
 
@@ -299,7 +301,11 @@ auto Database::Update() -> std::future<void> {
         TrackId id = dbMintNewTrackId();
         ESP_LOGI(kTag, "recording new 0x%lx", id);
 
-        auto data = std::make_shared<TrackData>(id, path, hash, modified);
+        auto data = std::make_shared<TrackData>();
+        data->id = id;
+        data->filepath = path;
+        data->tags_hash = hash;
+        data->modified_at = modified;
 
         dbPutTrackData(*data);
         dbPutHash(hash, id);
@@ -311,22 +317,27 @@ auto Database::Update() -> std::future<void> {
       std::shared_ptr<TrackData> existing_data = dbGetTrackData(*existing_hash);
       if (!existing_data) {
         // We found a hash that matches, but there's no data record? Weird.
-        auto new_data =
-            std::make_shared<TrackData>(*existing_hash, path, hash, modified);
+        auto new_data = std::make_shared<TrackData>();
+        new_data->id = dbMintNewTrackId();
+        new_data->filepath = path;
+        new_data->tags_hash = hash;
+        new_data->modified_at = modified;
         dbPutTrackData(*new_data);
         auto t = std::make_shared<Track>(new_data, tags);
         dbCreateIndexesForTrack(*t);
         return;
       }
 
-      if (existing_data->is_tombstoned()) {
-        ESP_LOGI(kTag, "exhuming track %lu", existing_data->id());
-        dbPutTrackData(existing_data->Exhume(path));
+      if (existing_data->is_tombstoned) {
+        ESP_LOGI(kTag, "exhuming track %lu", existing_data->id);
+        existing_data->is_tombstoned = false;
+        existing_data->modified_at = modified;
+        dbPutTrackData(*existing_data);
         auto t = std::make_shared<Track>(existing_data, tags);
         dbCreateIndexesForTrack(*t);
-      } else if (existing_data->filepath() != path) {
+      } else if (existing_data->filepath != path) {
         ESP_LOGW(kTag, "tag hash collision for %s and %s",
-                 existing_data->filepath().c_str(), path.c_str());
+                 existing_data->filepath.c_str(), path.c_str());
         ESP_LOGI(kTag, "hash components: %s, %s, %s",
                  tags->at(Tag::kTitle).value_or("no title").c_str(),
                  tags->at(Tag::kArtist).value_or("no artist").c_str(),
@@ -343,7 +354,7 @@ auto Database::GetTrackPath(TrackId id)
       [=, this]() -> std::optional<std::pmr::string> {
         auto track_data = dbGetTrackData(id);
         if (track_data) {
-          return track_data->filepath();
+          return track_data->filepath;
         }
         return {};
       });
@@ -353,11 +364,11 @@ auto Database::GetTrack(TrackId id) -> std::future<std::shared_ptr<Track>> {
   return worker_task_->Dispatch<std::shared_ptr<Track>>(
       [=, this]() -> std::shared_ptr<Track> {
         std::shared_ptr<TrackData> data = dbGetTrackData(id);
-        if (!data || data->is_tombstoned()) {
+        if (!data || data->is_tombstoned) {
           return {};
         }
         std::shared_ptr<TrackTags> tags =
-            tag_parser_.ReadAndParseTags(data->filepath());
+            tag_parser_.ReadAndParseTags(data->filepath);
         if (!tags) {
           return {};
         }
@@ -505,10 +516,10 @@ auto Database::dbEntomb(TrackId id, uint64_t hash) -> void {
 }
 
 auto Database::dbPutTrackData(const TrackData& s) -> void {
-  std::string key = EncodeDataKey(s.id());
+  std::string key = EncodeDataKey(s.id);
   std::string val = EncodeDataValue(s);
   if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
-    ESP_LOGE(kTag, "failed to write data for #%lx", s.id());
+    ESP_LOGE(kTag, "failed to write data for #%lx", s.id);
   }
 }
 
@@ -682,11 +693,11 @@ auto Database::ParseRecord<Track>(const leveldb::Slice& key,
                                   const leveldb::Slice& val)
     -> std::shared_ptr<Track> {
   std::shared_ptr<TrackData> data = ParseDataValue(val);
-  if (!data || data->is_tombstoned()) {
+  if (!data || data->is_tombstoned) {
     return {};
   }
   std::shared_ptr<TrackTags> tags =
-      tag_parser_.ReadAndParseTags(data->filepath());
+      tag_parser_.ReadAndParseTags(data->filepath);
   if (!tags) {
     return {};
   }

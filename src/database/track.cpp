@@ -53,33 +53,16 @@ auto TrackTags::Hash() const -> uint64_t {
   return komihash_stream_final(&stream);
 }
 
-auto TrackData::UpdateHash(uint64_t new_hash) const -> TrackData {
-  return TrackData(id_, filepath_, new_hash, is_tombstoned_, modified_at_);
-}
-
-auto TrackData::Entomb() const -> TrackData {
-  return TrackData(id_, filepath_, tags_hash_, true, modified_at_);
-}
-
-auto TrackData::Exhume(const std::pmr::string& new_path) const -> TrackData {
-  return TrackData(id_, new_path, tags_hash_, false, modified_at_);
-}
-
-auto TrackData::UpdateModifiedAt(
-    const std::pair<uint16_t, uint16_t>& new_time) const -> TrackData {
-  return TrackData(id_, filepath_, tags_hash_, false, new_time);
-}
-
 auto Track::TitleOrFilename() const -> std::pmr::string {
   auto title = tags().at(Tag::kTitle);
   if (title) {
     return *title;
   }
-  auto start = data().filepath().find_last_of('/');
+  auto start = data().filepath.find_last_of('/');
   if (start == std::pmr::string::npos) {
-    return data().filepath();
+    return data().filepath;
   }
-  return data().filepath().substr(start);
+  return data().filepath.substr(start);
 }
 
 }  // namespace database

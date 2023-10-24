@@ -89,7 +89,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
     // If this is the last component, then we should also fill in the track id
     // and title.
     if (i == info.components.size() - 1) {
-      key.track = t.data().id();
+      key.track = t.data().id;
       value = t.TitleOrFilename();
     }
 
