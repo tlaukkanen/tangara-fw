@@ -59,8 +59,9 @@ static auto missing_component_text(const Track& track, Tag tag)
   }
 }
 
-auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
-    -> bool {
+auto Index(const IndexInfo& info, const Track& t)
+    -> std::vector<std::pair<IndexKey, std::pmr::string>> {
+  std::vector<std::pair<IndexKey, std::pmr::string>> out;
   IndexKey key{
       .header{
           .id = info.id,
@@ -93,8 +94,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       value = t.TitleOrFilename();
     }
 
-    auto encoded = EncodeIndexKey(key);
-    batch->Put(encoded, {value.data(), value.size()});
+    out.push_back(std::make_pair(key, value));
 
     // If there are more components after this, then we need to finish by
     // narrowing the header with the current title.
@@ -102,7 +102,7 @@ auto Index(const IndexInfo& info, const Track& t, leveldb::WriteBatch* batch)
       key.header = ExpandHeader(key.header, key.item);
     }
   }
-  return true;
+  return out;
 }
 
 auto ExpandHeader(const IndexKey::Header& header,

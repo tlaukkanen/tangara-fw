@@ -48,6 +48,7 @@ static const char* kTag = "RECORDS";
 
 static const char kDataPrefix = 'D';
 static const char kHashPrefix = 'H';
+static const char kTagHashPrefix = 'T';
 static const char kIndexPrefix = 'I';
 static const char kFieldSeparator = '\0';
 
@@ -62,6 +63,11 @@ auto EncodeDataKey(const TrackId& id) -> std::string {
 }
 
 auto EncodeDataValue(const TrackData& track) -> std::string {
+  auto* tag_hashes = new cppbor::Map{};  // Free'd by Array's dtor.
+  for (const auto& entry : track.individual_tag_hashes) {
+    tag_hashes->add(cppbor::Uint{static_cast<uint32_t>(entry.first)},
+                    cppbor::Uint{entry.second});
+  }
   cppbor::Array val{
       cppbor::Uint{track.id},
       cppbor::Tstr{track.filepath},
@@ -69,6 +75,7 @@ auto EncodeDataValue(const TrackData& track) -> std::string {
       cppbor::Bool{track.is_tombstoned},
       cppbor::Uint{track.modified_at.first},
       cppbor::Uint{track.modified_at.second},
+      tag_hashes,
   };
   return val.toString();
 }
@@ -80,12 +87,13 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
     return nullptr;
   }
   auto vals = item->asArray();
-  if (vals->size() != 6 || vals->get(0)->type() != cppbor::UINT ||
+  if (vals->size() != 7 || vals->get(0)->type() != cppbor::UINT ||
       vals->get(1)->type() != cppbor::TSTR ||
       vals->get(2)->type() != cppbor::UINT ||
       vals->get(3)->type() != cppbor::SIMPLE ||
       vals->get(4)->type() != cppbor::UINT ||
-      vals->get(5)->type() != cppbor::UINT) {
+      vals->get(5)->type() != cppbor::UINT ||
+      vals->get(6)->type() != cppbor::MAP) {
     return {};
   }
   auto res = std::make_shared<TrackData>();
@@ -96,6 +104,12 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
   res->modified_at = std::make_pair<uint16_t, uint16_t>(
       vals->get(4)->asUint()->unsignedValue(),
       vals->get(5)->asUint()->unsignedValue());
+
+  auto tag_hashes = vals->get(6)->asMap();
+  for (const auto& entry : *tag_hashes) {
+    auto tag = static_cast<Tag>(entry.first->asUint()->unsignedValue());
+    res->individual_tag_hashes[tag] = entry.second->asUint()->unsignedValue();
+  }
   return res;
 }
 
@@ -111,6 +125,12 @@ auto ParseHashValue(const leveldb::Slice& slice) -> std::optional<TrackId> {
 
 auto EncodeHashValue(TrackId id) -> std::string {
   return TrackIdToBytes(id);
+}
+
+/* 'T/ 0xBEEF' */
+auto EncodeTagHashKey(const uint64_t& hash) -> std::string {
+  return std::string{kTagHashPrefix, kFieldSeparator} +
+         cppbor::Uint{hash}.toString();
 }
 
 /* 'I/' */

@@ -83,6 +83,10 @@ class TrackTags {
   auto at(const Tag& key) const -> std::optional<std::pmr::string>;
   auto operator[](const Tag& key) const -> std::optional<std::pmr::string>;
 
+  auto tags() const -> const std::pmr::unordered_map<Tag, std::pmr::string>& {
+    return tags_;
+  }
+
   /*
    * Returns a hash of the 'identifying' tags of this track. That is, a hash
    * that can be used to determine if one track is likely the same as another,
@@ -119,12 +123,14 @@ struct TrackData {
       : id(0),
         filepath(&memory::kSpiRamResource),
         tags_hash(0),
+        individual_tag_hashes(&memory::kSpiRamResource),
         is_tombstoned(false),
         modified_at() {}
 
   TrackId id;
   std::pmr::string filepath;
   uint64_t tags_hash;
+  std::pmr::unordered_map<Tag, uint64_t> individual_tag_hashes;
   bool is_tombstoned;
   std::pair<uint16_t, uint16_t> modified_at;
 

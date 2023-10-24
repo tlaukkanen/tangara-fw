@@ -52,6 +52,9 @@ auto EncodeHashKey(const uint64_t& hash) -> std::string;
  */
 auto EncodeHashValue(TrackId id) -> std::string;
 
+/* Encodes a hash key for the specified hash. */
+auto EncodeTagHashKey(const uint64_t& hash) -> std::string;
+
 /*
  * Parses bytes previously encoded via EncodeHashValue back into a track id. May
  * return nullopt if parsing fails.

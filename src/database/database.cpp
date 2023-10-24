@@ -21,6 +21,7 @@
 #include "ff.h"
 #include "freertos/projdefs.h"
 #include "index.hpp"
+#include "komihash.h"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
@@ -48,7 +49,7 @@ static const char* kTag = "DB";
 static const char kDbPath[] = "/.tangara-db";
 
 static const char kKeyDbVersion[] = "schema_version";
-static const uint8_t kCurrentDbVersion = 1;
+static const uint8_t kCurrentDbVersion = 2;
 
 static const char kKeyTrackId[] = "next_track_id";
 
@@ -163,20 +164,6 @@ auto Database::Update() -> std::future<void> {
     leveldb::ReadOptions read_options;
     read_options.fill_cache = false;
 
-    // Stage 0: discard indexes
-    // TODO(jacqueline): I think it should be possible to incrementally update
-    // indexes, but my brain hurts.
-    ESP_LOGI(kTag, "dropping stale indexes");
-    {
-      std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
-      std::string prefix = EncodeAllIndexesPrefix();
-      it->Seek(prefix);
-      while (it->Valid() && it->key().starts_with(prefix)) {
-        db_->Delete(leveldb::WriteOptions(), it->key());
-        it->Next();
-      }
-    }
-
     std::pair<uint16_t, uint16_t> newest_track{0, 0};
 
     // Stage 1: verify all existing tracks are still valid.
@@ -185,8 +172,8 @@ auto Database::Update() -> std::future<void> {
       uint64_t num_processed = 0;
       std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
       std::string prefix = EncodeDataPrefix();
-      it->Seek(prefix);
-      while (it->Valid() && it->key().starts_with(prefix)) {
+      for (it->Seek(prefix); it->Valid() && it->key().starts_with(prefix);
+           it->Next()) {
         num_processed++;
         events::Ui().Dispatch(event::UpdateProgress{
             .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
@@ -198,13 +185,11 @@ auto Database::Update() -> std::future<void> {
           // The value was malformed. Drop this record.
           ESP_LOGW(kTag, "dropping malformed metadata");
           db_->Delete(leveldb::WriteOptions(), it->key());
-          it->Next();
           continue;
         }
 
         if (track->is_tombstoned) {
           ESP_LOGW(kTag, "skipping tombstoned %lx", track->id);
-          it->Next();
           continue;
         }
 
@@ -221,6 +206,7 @@ auto Database::Update() -> std::future<void> {
         }
         if (modified_at == track->modified_at) {
           newest_track = std::max(modified_at, newest_track);
+          continue;
         } else {
           track->modified_at = modified_at;
         }
@@ -232,9 +218,9 @@ auto Database::Update() -> std::future<void> {
           // malformed, or perhaps the file is missing. Either way, tombstone
           // this record.
           ESP_LOGW(kTag, "entombing missing #%lx", track->id);
+          dbRemoveIndexes(track);
           track->is_tombstoned = true;
           dbPutTrackData(*track);
-          it->Next();
           continue;
         }
 
@@ -248,16 +234,13 @@ auto Database::Update() -> std::future<void> {
           // database.
           ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash,
                    new_hash);
+          dbRemoveIndexes(track);
+
           track->tags_hash = new_hash;
+          dbIngestTagHashes(*tags, track->individual_tag_hashes);
           dbPutTrackData(*track);
           dbPutHash(new_hash, track->id);
         }
-
-        Track t{track, tags};
-
-        dbCreateIndexesForTrack(t);
-
-        it->Next();
       }
     }
 
@@ -306,6 +289,7 @@ auto Database::Update() -> std::future<void> {
         data->filepath = path;
         data->tags_hash = hash;
         data->modified_at = modified;
+        dbIngestTagHashes(*tags, data->individual_tag_hashes);
 
         dbPutTrackData(*data);
         dbPutHash(hash, id);
@@ -322,6 +306,7 @@ auto Database::Update() -> std::future<void> {
         new_data->filepath = path;
         new_data->tags_hash = hash;
         new_data->modified_at = modified;
+        dbIngestTagHashes(*tags, new_data->individual_tag_hashes);
         dbPutTrackData(*new_data);
         auto t = std::make_shared<Track>(new_data, tags);
         dbCreateIndexesForTrack(*t);
@@ -554,10 +539,76 @@ auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
 auto Database::dbCreateIndexesForTrack(const Track& track) -> void {
   for (const IndexInfo& index : GetIndexes()) {
     leveldb::WriteBatch writes;
-    if (Index(index, track, &writes)) {
-      db_->Write(leveldb::WriteOptions(), &writes);
+    auto entries = Index(index, track);
+    for (const auto& it : entries) {
+      writes.Put(EncodeIndexKey(it.first),
+                 {it.second.data(), it.second.size()});
+    }
+    db_->Write(leveldb::WriteOptions(), &writes);
+  }
+}
+
+auto Database::dbRemoveIndexes(std::shared_ptr<TrackData> data) -> void {
+  auto tags = dbRecoverTagsFromHashes(data->individual_tag_hashes);
+  if (!tags) {
+    return;
+  }
+  Track track{data, tags};
+  for (const IndexInfo& index : GetIndexes()) {
+    auto entries = Index(index, track);
+    for (auto it = entries.rbegin(); it != entries.rend(); it++) {
+      auto key = EncodeIndexKey(it->first);
+      auto status = db_->Delete(leveldb::WriteOptions{}, key);
+      if (!status.ok()) {
+        return;
+      }
+
+      std::unique_ptr<leveldb::Iterator> cursor{db_->NewIterator({})};
+      cursor->Seek(key);
+      cursor->Prev();
+
+      auto prev_key = ParseIndexKey(cursor->key());
+      if (prev_key && prev_key->header == it->first.header) {
+        break;
+      }
+
+      cursor->Next();
+      auto next_key = ParseIndexKey(cursor->key());
+      if (next_key && next_key->header == it->first.header) {
+        break;
+      }
     }
   }
+}
+
+auto Database::dbIngestTagHashes(const TrackTags& tags,
+                                 std::pmr::unordered_map<Tag, uint64_t>& out)
+    -> void {
+  leveldb::WriteBatch batch{};
+  for (auto& entry : tags.tags()) {
+    auto hash =
+        komihash_stream_oneshot(entry.second.data(), entry.second.size(), 0);
+    batch.Put(EncodeTagHashKey(hash), entry.second.c_str());
+    out[entry.first] = hash;
+  }
+  db_->Write(leveldb::WriteOptions{}, &batch);
+}
+
+auto Database::dbRecoverTagsFromHashes(
+    const std::pmr::unordered_map<Tag, uint64_t>& hashes)
+    -> std::shared_ptr<TrackTags> {
+  auto out = std::make_shared<TrackTags>();
+  for (const auto& entry : hashes) {
+    std::string value;
+    auto res = db_->Get(leveldb::ReadOptions{}, EncodeTagHashKey(entry.second),
+                        &value);
+    if (!res.ok()) {
+      ESP_LOGI(kTag, "failed to retrieve tag!");
+      continue;
+    }
+    out->set(entry.first, {value.data(), value.size()});
+  }
+  return out;
 }
 
 template <typename T>

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <sys/_stdint.h>
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -150,6 +151,11 @@ class Database {
   auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
   auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
   auto dbCreateIndexesForTrack(const Track& track) -> void;
+  auto dbRemoveIndexes(std::shared_ptr<TrackData>) -> void;
+  auto dbIngestTagHashes(const TrackTags&,
+                         std::pmr::unordered_map<Tag, uint64_t>&) -> void;
+  auto dbRecoverTagsFromHashes(const std::pmr::unordered_map<Tag, uint64_t>&)
+      -> std::shared_ptr<TrackTags>;
 
   template <typename T>
   auto dbGetPage(const Continuation& c) -> Result<T>*;

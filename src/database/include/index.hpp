@@ -46,6 +46,8 @@ struct IndexKey {
     // an index consists of { kArtist, kAlbum, kTitle }, and we are at depth = 2
     // then this may contain hash(hash("Jacqueline"), "My Cool Album").
     std::uint64_t components_hash;
+
+    bool operator==(const Header&) const = default;
   };
   Header header;
 
@@ -58,7 +60,9 @@ struct IndexKey {
   std::optional<TrackId> track;
 };
 
-auto Index(const IndexInfo&, const Track&, leveldb::WriteBatch*) -> bool;
+auto Index(const IndexInfo&, const Track&)
+    -> std::vector<std::pair<IndexKey, std::pmr::string>>;
+
 auto ExpandHeader(const IndexKey::Header&,
                   const std::optional<std::pmr::string>&) -> IndexKey::Header;
 
