@@ -27,20 +27,10 @@ static constexpr char kTag[] = "haptics";
 static constexpr uint8_t kHapticsAddress = 0x5A;
 
 Haptics::Haptics() {
-  // TODO: is this needed?
+  // TODO(robin): is this needed?
   vTaskDelay(pdMS_TO_TICKS(300));
 
   PowerUp();
-
-  // disable real-time feedback
-  // WriteRegister(Register::kRealtimePlaybackInput, 0);
-
-  // WriteRegister(Register::kSustainTimeOffsetPositive, 0);
-  // WriteRegister(Register::kSustainTimeOffsetNegative, 0);
-  // WriteRegister(Register::kBrakeTimeOffset, 0);
-
-  // TODO uhhhh remove
-  // WriteRegister(Register::kAudioToVibeOutputLevelMax, 0x64);
 
   // Put into ERM Open Loop:
   // (§8.5.4.1 Programming for ERM Open-Loop Operation)
@@ -54,6 +44,7 @@ Haptics::Haptics() {
                     ControlMask::kErmOpenLoop);
 
   // Set library
+  // TODO(robin): try the other libraries and test response
   WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(Library::A));
 
   // Set up a default effect (sequence of one effect)
@@ -450,7 +441,7 @@ auto Haptics::Tour() -> void {
       case Effect::kTransitionRampUpShortSharp_20to50Pct:
         label = "Transition Ramp Up Short Sharp (20→50%)";
         break;
-      case Effect::kLongbuzzforprogrammaticstopping_100Pct:
+      case Effect::kDontUseThis_Longbuzzforprogrammaticstopping_100Pct:
         // not you
         continue;
       case Effect::kSmoothHum1NoKickOrBrakePulse_50Pct:
@@ -473,9 +464,11 @@ auto Haptics::Tour() -> void {
     }
 
     ESP_LOGI(kTag, "%u: %s", effect, label);
+
     SetWaveformEffect(static_cast<Effect>(effect));
     Go();
-    vTaskDelay(pdMS_TO_TICKS(500 /*ms*/));
+
+    vTaskDelay(pdMS_TO_TICKS(900 /*ms*/));
   }
 }
 

@@ -10,6 +10,7 @@
 
 #include "battery.hpp"
 #include "database.hpp"
+#include "haptics.hpp"
 #include "service_locator.hpp"
 #include "tinyfsm.hpp"
 
@@ -54,6 +55,14 @@ struct BatteryStateChanged : tinyfsm::Event {
 };
 
 struct BluetoothDevicesChanged : tinyfsm::Event {};
+
+struct HapticTrigger : tinyfsm::Event {
+  drivers::Haptics::Effect effect;
+};
+// TODO(robin): maaaybe? for better control, have a list of effects with the envelope-style controls for each.
+//struct HapticTriggerSequence : tinyfsm::Event {
+//  drivers::Haptics::Effect effect;
+//};
 
 namespace internal {
 

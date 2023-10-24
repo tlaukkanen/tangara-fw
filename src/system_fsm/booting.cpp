@@ -103,9 +103,6 @@ auto Booting::exit() -> void {
   sAppConsole = new console::AppConsole();
   sAppConsole->sServices = sServices;
   sAppConsole->Launch();
-
-  auto& haptics = sServices->haptics();
-  haptics.Go(); // make a little buzz
 }
 
 auto Booting::react(const BootComplete& ev) -> void {

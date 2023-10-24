@@ -50,6 +50,8 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   void react(const internal::GpioInterrupt&);
   void react(const internal::SamdInterrupt&);
 
+  void react(const HapticTrigger&);
+
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}
   virtual void react(const StorageMounted&) {}

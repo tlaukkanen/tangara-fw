@@ -29,6 +29,12 @@ void SystemState::react(const FatalError& err) {
   }
 }
 
+void SystemState::react(const HapticTrigger& trigger) {
+  auto& haptics = sServices->haptics();
+  haptics.SetWaveformEffect(trigger.effect);
+  haptics.Go();
+}
+
 void SystemState::react(const internal::GpioInterrupt&) {
   auto& gpios = sServices->gpios();
   bool prev_key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
