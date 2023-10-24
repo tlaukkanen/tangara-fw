@@ -7,6 +7,7 @@
 #include "track.hpp"
 
 #include <komihash.h>
+#include <sys/_stdint.h>
 
 #include "memory_resource.hpp"
 
@@ -62,6 +63,11 @@ auto TrackData::Entomb() const -> TrackData {
 
 auto TrackData::Exhume(const std::pmr::string& new_path) const -> TrackData {
   return TrackData(id_, new_path, tags_hash_, false, modified_at_);
+}
+
+auto TrackData::UpdateModifiedAt(
+    const std::pair<uint16_t, uint16_t>& new_time) const -> TrackData {
+  return TrackData(id_, filepath_, tags_hash_, false, new_time);
 }
 
 auto Track::TitleOrFilename() const -> std::pmr::string {

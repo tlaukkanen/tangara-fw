@@ -35,6 +35,7 @@
 #include "memory_resource.hpp"
 #include "records.hpp"
 #include "result.hpp"
+#include "spi.hpp"
 #include "tag_parser.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
@@ -176,6 +177,8 @@ auto Database::Update() -> std::future<void> {
       }
     }
 
+    std::pair<uint16_t, uint16_t> newest_track{0, 0};
+
     // Stage 1: verify all existing tracks are still valid.
     ESP_LOGI(kTag, "verifying existing tracks");
     {
@@ -205,6 +208,21 @@ auto Database::Update() -> std::future<void> {
           continue;
         }
 
+        FRESULT res;
+        FILINFO info;
+        {
+          auto lock = drivers::acquire_spi();
+          res = f_stat(track->filepath().c_str(), &info);
+        }
+
+        std::pair<uint16_t, uint16_t> modified_at{0, 0};
+        if (res == FR_OK) {
+          modified_at = {info.fdate, info.ftime};
+        }
+        if (modified_at == track->modified_at()) {
+          newest_track = std::max(modified_at, newest_track);
+        }
+
         std::shared_ptr<TrackTags> tags =
             tag_parser_.ReadAndParseTags(track->filepath());
         if (!tags || tags->encoding() == Container::kUnsupported) {
@@ -212,7 +230,7 @@ auto Database::Update() -> std::future<void> {
           // malformed, or perhaps the file is missing. Either way, tombstone
           // this record.
           ESP_LOGW(kTag, "entombing missing #%lx", track->id());
-          dbPutTrackData(track->Entomb());
+          dbPutTrackData(track->Entomb().UpdateModifiedAt(modified_at));
           it->Next();
           continue;
         }
@@ -227,7 +245,8 @@ auto Database::Update() -> std::future<void> {
           // database.
           ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash(),
                    new_hash);
-          dbPutTrackData(track->UpdateHash(new_hash));
+          dbPutTrackData(
+              track->UpdateHash(new_hash).UpdateModifiedAt(modified_at));
           dbPutHash(new_hash, track->id());
         }
 
@@ -238,6 +257,9 @@ auto Database::Update() -> std::future<void> {
         it->Next();
       }
     }
+
+    ESP_LOGI(kTag, "newest unmodified was at %u,%u", newest_track.first,
+             newest_track.second);
 
     // Stage 2: search for newly added files.
     ESP_LOGI(kTag, "scanning for new tracks");
@@ -251,6 +273,10 @@ auto Database::Update() -> std::future<void> {
       });
 
       std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
+      if (modified < newest_track) {
+        ESP_LOGI(kTag, "skipping old file");
+        return;
+      }
 
       std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
       if (!tags || tags->encoding() == Container::kUnsupported) {

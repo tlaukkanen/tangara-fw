@@ -170,6 +170,9 @@ class TrackData {
    * new location.
    */
   auto Exhume(const std::pmr::string& new_path) const -> TrackData;
+
+  auto UpdateModifiedAt(const std::pair<uint16_t, uint16_t>&) const
+      -> TrackData;
 };
 
 /*
