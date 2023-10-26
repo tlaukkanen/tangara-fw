@@ -15,3 +15,7 @@ idf_build_set_property(COMPILE_OPTIONS "-DTCB_SPAN_NO_CONTRACT_CHECKING" APPEND)
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")
 
 project(tangara)
+
+add_custom_target(check-for-sdkconfig-changes ALL
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake/check-for-sdkconfig-changes.sh
+)
