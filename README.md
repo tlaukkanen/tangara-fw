@@ -18,5 +18,4 @@ management of the ESP32.
 
 ## Contributing
 
-This repo is currently unlisted until we've gotten some kind of crowdfund together.
-How did you get here?
+We're still working on getting stuff together; please check back soon!
