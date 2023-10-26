@@ -81,6 +81,19 @@ auto Haptics::SetWaveformEffect(Effect effect) -> void {
                 static_cast<uint8_t>(Effect::kStop));
 }
 
+auto Haptics::TourLibraries() -> void {
+  // TODO(robin): try the other libraries and test response
+  for (uint8_t lib = 1; lib <= 5; lib++) {
+    WriteRegister(Register::kWaveformLibrary, lib);
+    for (uint8_t eff = 1; eff <= 3; eff++) {
+      ESP_LOGI(kTag, "Lib %u, # %d", lib, eff);
+      SetWaveformEffect(static_cast<Effect>(44));
+      Go();
+      vTaskDelay(pdMS_TO_TICKS(900 /*ms*/));
+    }
+  }
+}
+
 // TODO: parameterise? remove?
 auto Haptics::Tour() -> void {
   ESP_LOGI(kTag, "%s", "=== Waveform Library Effects List ===");

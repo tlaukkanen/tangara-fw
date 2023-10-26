@@ -161,6 +161,7 @@ class Haptics {
   auto Go() -> void;
 
   auto Tour() -> void;  // TODO(robin): remove or parameterise
+  auto TourLibraries() -> void;
 
  private:
   // §8.4.2 Changing Modes of Operation

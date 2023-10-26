@@ -35,9 +35,11 @@
 #include "ff.h"
 #include "freertos/FreeRTOSConfig_arch.h"
 #include "freertos/projdefs.h"
+#include "haptics.hpp"
 #include "index.hpp"
 #include "memory_resource.hpp"
 #include "service_locator.hpp"
+#include "system_events.hpp"
 #include "track.hpp"
 
 namespace console {
@@ -646,6 +648,50 @@ void RegisterCoreDump() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdHaptics(int argc, char** argv) {
+  static const std::pmr::string usage = "usage: haptics [all|1|2|...|123]";
+  if (argc != 2) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+
+  auto& haptics = AppConsole::sServices->haptics();
+
+  std::pmr::string cmd{argv[1]};
+  if (cmd == "all") {
+    // TODO(robin): move the contents of Tour() in here, to allow for more
+    // custom calls (eg. ranges).
+    haptics.Tour();
+  } else if (cmd == "libs" ) {
+    haptics.TourLibraries();
+  } else {
+    std::istringstream raw_effect_id{argv[1]};
+
+    int effect_id = 0;
+    raw_effect_id >> effect_id;
+
+    if (effect_id > 0 && effect_id < 123) {
+      events::System().Dispatch(system_fsm::HapticTrigger{
+          .effect = static_cast<drivers::Haptics::Effect>(effect_id)
+      });
+    } else {
+      std::cout << usage << std::endl;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+void RegisterHaptics() {
+  esp_console_cmd_t cmd{.command = "haptics",
+                        .help = "Plays some or all effects",
+                        .hint = NULL,
+                        .func = &CmdHaptics,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -669,6 +715,8 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterBtList();
   RegisterSamd();
   RegisterCoreDump();
+
+  RegisterHaptics();
 }
 
 }  // namespace console
