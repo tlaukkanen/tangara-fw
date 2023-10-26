@@ -139,7 +139,7 @@ void Splash::exit() {
 
   // buzz a bit to tell the user we're done booting
   events::System().Dispatch(system_fsm::HapticTrigger{
-  .effect = drivers::Haptics::Effect::kLongDoubleSharpTick1_100Pct,
+      .effect = drivers::Haptics::Effect::kLongDoubleSharpTick1_100Pct,
   });
 }
 

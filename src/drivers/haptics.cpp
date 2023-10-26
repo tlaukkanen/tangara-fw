@@ -45,7 +45,7 @@ Haptics::Haptics() {
 
   // Set library
   // TODO(robin): try the other libraries and test response
-  WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(Library::A));
+  WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(Library::D));
 
   // Set up a default effect (sequence of one effect)
   SetWaveformEffect(Effect::kStrongBuzz_100Pct);
