@@ -37,6 +37,7 @@ class UiTask {
 
   std::shared_ptr<EncoderInput> input_;
   std::shared_ptr<Screen> current_screen_;
+
 };
 
 }  // namespace ui
