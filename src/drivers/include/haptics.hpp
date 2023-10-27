@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 #include <initializer_list>
+#include <mutex>
+#include <optional>
 
 namespace drivers {
 
@@ -154,16 +156,21 @@ class Haptics {
     kDontUseThis_Longbuzzforprogrammaticstopping_100Pct = 118,
   };
 
+  static constexpr Effect kStartupEffect = Effect::kLongDoubleSharpTick1_100Pct;
+
   auto PowerDown() -> void;
   auto Reset() -> void;
 
-  auto SetWaveformEffect(Effect effect) -> void;
-  auto Go() -> void;
+  auto PlayWaveformEffect(Effect effect) -> void;
 
   auto Tour() -> void;  // TODO(robin): remove or parameterise
   auto TourLibraries() -> void;
 
  private:
+
+  std::optional<Effect> current_effect_;
+  std::mutex playing_effect_;
+
   // §8.4.2 Changing Modes of Operation
   enum class Mode : uint8_t {
     kInternalTrigger = 0,
@@ -288,6 +295,9 @@ class Haptics {
 
   auto PowerUp() -> void;
   auto WriteRegister(Register reg, uint8_t val) -> void;
+
+  auto SetWaveformEffect(Effect effect) -> void;
+  auto Go() -> void;
 };
 
 }  // namespace drivers

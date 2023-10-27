@@ -31,8 +31,7 @@ void SystemState::react(const FatalError& err) {
 
 void SystemState::react(const HapticTrigger& trigger) {
   auto& haptics = sServices->haptics();
-  haptics.SetWaveformEffect(trigger.effect);
-  haptics.Go();
+  haptics.PlayWaveformEffect(trigger.effect);
 }
 
 void SystemState::react(const internal::GpioInterrupt&) {

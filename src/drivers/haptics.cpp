@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <mutex>
 
 #include "assert.h"
 #include "driver/gpio.h"
@@ -44,14 +45,15 @@ Haptics::Haptics() {
                     ControlMask::kErmOpenLoop);
 
   // Set library
-  // TODO(robin): try the other libraries and test response
+  // TODO(robin): try the other libraries and test response. C is marginal, D
+  // too much?
   WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(Library::D));
-
-  // Set up a default effect (sequence of one effect)
-  SetWaveformEffect(Effect::kStrongBuzz_100Pct);
 
   // Set mode (internal trigger, on writing 1 to Go register)
   WriteRegister(Register::kMode, static_cast<uint8_t>(Mode::kInternalTrigger));
+
+  // Set up a default effect (sequence of one effect)
+  SetWaveformEffect(kStartupEffect);
 }
 
 Haptics::~Haptics() {}
@@ -69,6 +71,13 @@ void Haptics::WriteRegister(Register reg, uint8_t val) {
   }
 }
 
+auto Haptics::PlayWaveformEffect(Effect effect) -> void {
+  const std::lock_guard<std::mutex> lock{playing_effect_};  // locks until freed
+
+  SetWaveformEffect(effect);
+  Go();
+}
+
 // Starts the pre-programmed sequence
 auto Haptics::Go() -> void {
   WriteRegister(Register::kGo,
@@ -76,9 +85,13 @@ auto Haptics::Go() -> void {
 }
 
 auto Haptics::SetWaveformEffect(Effect effect) -> void {
-  WriteRegister(Register::kWaveformSequenceSlot1, static_cast<uint8_t>(effect));
-  WriteRegister(Register::kWaveformSequenceSlot2,
-                static_cast<uint8_t>(Effect::kStop));
+  if (!current_effect_ || current_effect_.value() != effect) {
+    WriteRegister(Register::kWaveformSequenceSlot1,
+                  static_cast<uint8_t>(effect));
+    WriteRegister(Register::kWaveformSequenceSlot2,
+                  static_cast<uint8_t>(Effect::kStop));
+  }
+  current_effect_ = effect;
 }
 
 auto Haptics::TourLibraries() -> void {
