@@ -69,35 +69,24 @@ A regular build will generate `build/compile_commands.json`, which clangd will
 automatically pick up. However, there are a couple of additional steps to get
 everything to play nicely.
 
-First, you will need to download the xtensa clang toolchain. You can do this
-via ESP-IDF by running  `idf_tools.py install xtensa-clang`
-
-This will install their prebuild clang into a path like `~/.espressif/tools/xtensa-clang/VERSION/xtensa-esp32-elf-clang/`
-
-Next, you will need to configure clangd to use this version of clang, plus
-forcible remove a couple of GCC-specific build flags. Do this by creating
-`.clangd` in the root directory of your project, with contents like so:
+First, create a `.clangd` file in the this directory, with contents like:
 
 ```
 CompileFlags:
   Add: [
-    -ferror-limit=0,
-    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/include,
-    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf/include,
-    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf/include/c++/8.4.0,
-    -I/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf/include/c++/8.4.0/xtensa-esp32-elf,
-    -isysroot=/Users/YOU/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/xtensa-esp32-elf,
+    -D__XTENSA__,
+    --target=mipsel-linux-gnu,
   ]
   Remove: [
-    -Wduplicated-cond,
-    -Wduplicated-branches,
-    -Wlogical-op,
     -fno-tree-switch-conversion,
-    -mtext-section-literals,
     -mlongcalls,
     -fstrict-volatile-bitfields,
   ]
-  Compiler: /Users/YOU/.espressif/tools/xtensa-clang/esp-clang/bin/clang++
 ```
+
+You may need to tweak the `target` flag until `clangd` is happy to build.
+
+If you get errors involving missing C++ includes, then you may need to edit
+your editor's LSP invocation to include `--query-driver=**`.
 
 You should then get proper LSP integration via clangd.
