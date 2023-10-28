@@ -39,7 +39,7 @@
 #include "widget_top_bar.hpp"
 #include "widgets/lv_label.h"
 
-static constexpr char kTag[] = "browser";
+[[maybe_unused]] static constexpr char kTag[] = "browser";
 
 static constexpr int kMaxPages = 4;
 static constexpr int kPageBuffer = 6;

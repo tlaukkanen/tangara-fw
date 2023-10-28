@@ -21,7 +21,7 @@
 
 namespace drivers {
 
-static constexpr char kTag[] = "nvm";
+[[maybe_unused]] static constexpr char kTag[] = "nvm";
 static constexpr uint8_t kSchemaVersion = 1;
 
 static constexpr char kKeyVersion[] = "ver";

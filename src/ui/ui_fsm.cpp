@@ -43,7 +43,7 @@
 
 namespace ui {
 
-static constexpr char kTag[] = "ui_fsm";
+[[maybe_unused]] static constexpr char kTag[] = "ui_fsm";
 
 static const std::size_t kRecordsPerPage = 15;
 

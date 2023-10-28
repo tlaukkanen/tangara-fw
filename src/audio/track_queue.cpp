@@ -19,7 +19,7 @@
 
 namespace audio {
 
-static constexpr char kTag[] = "tracks";
+[[maybe_unused]] static constexpr char kTag[] = "tracks";
 
 TrackQueue::TrackQueue() {}
 

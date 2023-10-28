@@ -25,7 +25,7 @@
 #include "result.hpp"
 #include "wm8523.hpp"
 
-static const char* kTag = "I2SOUT";
+[[maybe_unused]] static const char* kTag = "I2SOUT";
 
 namespace audio {
 

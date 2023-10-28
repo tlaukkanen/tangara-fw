@@ -36,7 +36,7 @@
 
 namespace drivers {
 
-static const char* kTag = "i2s_dac";
+[[maybe_unused]] static const char* kTag = "i2s_dac";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
 auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {

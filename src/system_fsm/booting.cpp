@@ -38,7 +38,7 @@
 namespace system_fsm {
 namespace states {
 
-static const char kTag[] = "BOOT";
+[[maybe_unused]] static const char kTag[] = "BOOT";
 
 static auto bt_event_cb(drivers::bluetooth::Event ev) -> void {
   if (ev == drivers::bluetooth::Event::kKnownDevicesChanged) {

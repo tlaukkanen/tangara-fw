@@ -23,7 +23,7 @@
 
 namespace codecs {
 
-static constexpr char kTag[] = "mad";
+[[maybe_unused]] static constexpr char kTag[] = "mad";
 
 static constexpr uint32_t kMallocCapsPrefer =
     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;

@@ -14,7 +14,7 @@
 #include "tag_parser.hpp"
 #include "track_queue.hpp"
 
-static const char kTag[] = "system";
+[[maybe_unused]] static const char kTag[] = "system";
 
 namespace system_fsm {
 

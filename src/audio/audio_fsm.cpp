@@ -37,7 +37,7 @@
 
 namespace audio {
 
-static const char kTag[] = "audio_fsm";
+[[maybe_unused]] static const char kTag[] = "audio_fsm";
 
 std::shared_ptr<system_fsm::ServiceLocator> AudioState::sServices;
 

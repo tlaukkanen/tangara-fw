@@ -38,7 +38,7 @@
 #include "track.hpp"
 #include "types.hpp"
 
-static const char* kTag = "SRC";
+[[maybe_unused]] static const char* kTag = "SRC";
 
 namespace audio {
 

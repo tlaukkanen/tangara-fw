@@ -26,7 +26,7 @@
 
 namespace codecs {
 
-static constexpr char kTag[] = "opus";
+[[maybe_unused]] static constexpr char kTag[] = "opus";
 
 static int read_cb(void* src, unsigned char* ptr, int nbytes) {
   IStream* source = reinterpret_cast<IStream*>(src);

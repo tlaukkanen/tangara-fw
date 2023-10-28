@@ -22,7 +22,7 @@ enum Registers : uint8_t {
 };
 
 static const uint8_t kAddress = 0x45;
-static const char kTag[] = "SAMD";
+[[maybe_unused]] static const char kTag[] = "SAMD";
 
 namespace drivers {
 

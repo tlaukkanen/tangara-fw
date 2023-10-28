@@ -16,7 +16,7 @@
 
 namespace codecs {
 
-static const char kTag[] = "flac";
+[[maybe_unused]] static const char kTag[] = "flac";
 
 FoxenFlacDecoder::FoxenFlacDecoder()
     : input_(), buffer_(), flac_(FX_FLAC_ALLOC(FLAC_MAX_BLOCK_SIZE, 2)) {}

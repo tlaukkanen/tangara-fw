@@ -21,7 +21,7 @@
 namespace system_fsm {
 namespace states {
 
-static const char kTag[] = "RUN";
+[[maybe_unused]] static const char kTag[] = "RUN";
 
 static database::IFileGatherer* sFileGatherer;
 

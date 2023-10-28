@@ -47,7 +47,7 @@
 
 namespace ui {
 
-static const char* kTag = "ui_task";
+[[maybe_unused]] static const char* kTag = "ui_task";
 
 UiTask::UiTask() {}
 

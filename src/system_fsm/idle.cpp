@@ -21,7 +21,7 @@
 namespace system_fsm {
 namespace states {
 
-static const char kTag[] = "IDLE";
+[[maybe_unused]] static const char kTag[] = "IDLE";
 static const TickType_t kTicksBeforeSleep = pdMS_TO_TICKS(10000);
 
 static void timer_callback(TimerHandle_t timer) {

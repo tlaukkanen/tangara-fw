@@ -37,7 +37,7 @@
 #include "spi.hpp"
 #include "tasks.hpp"
 
-static const char* kTag = "DISPLAY";
+[[maybe_unused]] static const char* kTag = "DISPLAY";
 
 // TODO(jacqueline): Encode width and height variations in the init data.
 static const uint8_t kDisplayHeight = 128 + 2;

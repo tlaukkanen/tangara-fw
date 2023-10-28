@@ -23,7 +23,7 @@
 #include "touchwheel.hpp"
 #include "ui_events.hpp"
 
-static constexpr char kTag[] = "input";
+[[maybe_unused]] static constexpr char kTag[] = "input";
 
 constexpr int kDPadAngleThreshold = 20;
 constexpr int kLongPressDelayMs = 500;

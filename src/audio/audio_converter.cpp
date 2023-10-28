@@ -22,7 +22,7 @@
 #include "sample.hpp"
 #include "tasks.hpp"
 
-static constexpr char kTag[] = "mixer";
+[[maybe_unused]] static constexpr char kTag[] = "mixer";
 
 static constexpr std::size_t kSampleBufferLength =
     drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;

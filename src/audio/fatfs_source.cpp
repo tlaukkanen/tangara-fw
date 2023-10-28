@@ -20,7 +20,7 @@
 
 namespace audio {
 
-static constexpr char kTag[] = "fatfs_src";
+[[maybe_unused]] static constexpr char kTag[] = "fatfs_src";
 
 FatfsSource::FatfsSource(codecs::StreamType t, std::unique_ptr<FIL> file)
     : IStream(t), file_(std::move(file)) {}

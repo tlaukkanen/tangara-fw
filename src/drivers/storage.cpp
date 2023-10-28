@@ -26,7 +26,7 @@
 #include "gpios.hpp"
 #include "memory_resource.hpp"
 
-static const char* kTag = "SDSTORAGE";
+[[maybe_unused]] static const char* kTag = "SDSTORAGE";
 static const uint8_t kMaxOpenFiles = 8;
 
 namespace drivers {

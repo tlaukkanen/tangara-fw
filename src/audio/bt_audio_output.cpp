@@ -23,7 +23,7 @@
 #include "result.hpp"
 #include "wm8523.hpp"
 
-static const char* kTag = "BTOUT";
+[[maybe_unused]] static const char* kTag = "BTOUT";
 
 namespace audio {
 

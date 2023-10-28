@@ -44,11 +44,11 @@
 
 namespace database {
 
-static const char* kTag = "RECORDS";
+[[maybe_unused]] static const char* kTag = "RECORDS";
 
 static const char kDataPrefix = 'D';
 static const char kHashPrefix = 'H';
-static const char kTagHashPrefix = 'T';
+[[maybe_unused]] static const char kTagHashPrefix = 'T';
 static const char kIndexPrefix = 'I';
 static const char kFieldSeparator = '\0';
 

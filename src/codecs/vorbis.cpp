@@ -32,7 +32,7 @@
 
 namespace codecs {
 
-static constexpr char kTag[] = "vorbis";
+[[maybe_unused]] static constexpr char kTag[] = "vorbis";
 
 static size_t read_cb(void* ptr, size_t size, size_t nmemb, void* instance) {
   IStream* source = reinterpret_cast<IStream*>(instance);

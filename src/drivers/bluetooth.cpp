@@ -29,7 +29,7 @@
 
 namespace drivers {
 
-static constexpr char kTag[] = "bluetooth";
+[[maybe_unused]] static constexpr char kTag[] = "bluetooth";
 
 DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
 

@@ -125,7 +125,7 @@ static void toc(Tagctx* ctx, int ms, int offset) {}
 }  // namespace libtags
 
 static const std::size_t kBufSize = 1024;
-static const char* kTag = "TAGS";
+[[maybe_unused]] static const char* kTag = "TAGS";
 
 TagParserImpl::TagParserImpl() {
   extension_to_parser_["opus"] = std::make_unique<OpusTagParser>();

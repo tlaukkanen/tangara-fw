@@ -44,7 +44,7 @@
 namespace database {
 
 static SingletonEnv<leveldb::EspEnv> sEnv;
-static const char* kTag = "DB";
+[[maybe_unused]] static const char* kTag = "DB";
 
 static const char kDbPath[] = "/.tangara-db";
 

@@ -45,7 +45,7 @@
 
 namespace audio {
 
-static const char* kTag = "audio_dec";
+[[maybe_unused]] static const char* kTag = "audio_dec";
 
 static constexpr std::size_t kCodecBufferLength =
     drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;
