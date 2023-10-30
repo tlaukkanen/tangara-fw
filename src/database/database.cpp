@@ -51,7 +51,7 @@ static SingletonEnv<leveldb::EspEnv> sEnv;
 static const char kDbPath[] = "/.tangara-db";
 
 static const char kKeyDbVersion[] = "schema_version";
-static const uint8_t kCurrentDbVersion = 3;
+static const uint8_t kCurrentDbVersion = 4;
 static const char kKeyCollator[] = "collator";
 static const char kKeyTrackId[] = "next_track_id";
 

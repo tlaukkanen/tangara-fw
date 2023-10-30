@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <sstream>
+#include <string>
 #include <variant>
 
 #include "collation.hpp"
@@ -55,7 +56,7 @@ static auto missing_component_text(const Track& track, Tag tag)
     case Tag::kTitle:
       return track.TitleOrFilename();
     case Tag::kAlbumTrack:
-      return "0000";
+      return "0";
     case Tag::kDuration:
     default:
       return {};
@@ -76,17 +77,29 @@ auto Index(locale::ICollator& collator, const IndexInfo& info, const Track& t)
   };
 
   for (std::uint8_t i = 0; i < info.components.size(); i++) {
+    Tag component = info.components.at(i);
     // Fill in the text for this depth.
-    auto text = t.tags().at(info.components.at(i));
     std::pmr::string value;
-    if (text) {
-      std::pmr::string orig = *text;
-      auto xfrm = collator.Transform({orig.data(), orig.size()});
-      key.item = {xfrm.data(), xfrm.size()};
-      value = *text;
+
+    if (component == Tag::kAlbumTrack) {
+      // Track numbers are a special case, since they're numbers rather than
+      // text.
+      auto pmr_num = t.tags().at(component).value_or("0");
+      // std::pmr continues to be a true disappointment.
+      std::string raw_num{pmr_num.data(), pmr_num.size()};
+      uint32_t num = std::stoi(raw_num);
+      key.item = std::pmr::string{reinterpret_cast<char*>(&num), 4};
     } else {
-      key.item = {};
-      value = missing_component_text(t, info.components.at(i)).value_or("");
+      auto text = t.tags().at(component);
+      if (text) {
+        std::pmr::string orig = *text;
+        auto xfrm = collator.Transform({orig.data(), orig.size()});
+        key.item = {xfrm.data(), xfrm.size()};
+        value = *text;
+      } else {
+        key.item = {};
+        value = missing_component_text(t, info.components.at(i)).value_or("");
+      }
     }
 
     // If this is the last component, then we should also fill in the track id
