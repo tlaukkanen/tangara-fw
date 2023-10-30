@@ -17,6 +17,7 @@
 #include <optional>
 #include <sstream>
 
+#include "collation.hpp"
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/projdefs.h"
@@ -49,7 +50,7 @@ static SingletonEnv<leveldb::EspEnv> sEnv;
 static const char kDbPath[] = "/.tangara-db";
 
 static const char kKeyDbVersion[] = "schema_version";
-static const uint8_t kCurrentDbVersion = 2;
+static const uint8_t kCurrentDbVersion = 3;
 
 static const char kKeyTrackId[] = "next_track_id";
 
@@ -73,7 +74,9 @@ static auto CreateNewDatabase(leveldb::Options& options) -> leveldb::DB* {
   return db;
 }
 
-auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
+auto Database::Open(IFileGatherer& gatherer,
+                    ITagParser& parser,
+                    locale::ICollator& collator)
     -> cpp::result<Database*, DatabaseError> {
   // TODO(jacqueline): Why isn't compare_and_exchange_* available?
   if (sIsDbOpen.exchange(true)) {
@@ -127,7 +130,8 @@ auto Database::Open(IFileGatherer& gatherer, ITagParser& parser)
             }
 
             ESP_LOGI(kTag, "Database opened successfully");
-            return new Database(db, cache.release(), gatherer, parser, worker);
+            return new Database(db, cache.release(), gatherer, parser, collator,
+                                worker);
           })
       .get();
 }
@@ -142,12 +146,14 @@ Database::Database(leveldb::DB* db,
                    leveldb::Cache* cache,
                    IFileGatherer& file_gatherer,
                    ITagParser& tag_parser,
+                   locale::ICollator& collator,
                    std::shared_ptr<tasks::Worker> worker)
     : db_(db),
       cache_(cache),
       worker_task_(worker),
       file_gatherer_(file_gatherer),
-      tag_parser_(tag_parser) {}
+      tag_parser_(tag_parser),
+      collator_(collator) {}
 
 Database::~Database() {
   // Delete db_ first so that any outstanding background work finishes before
@@ -539,7 +545,7 @@ auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
 auto Database::dbCreateIndexesForTrack(const Track& track) -> void {
   for (const IndexInfo& index : GetIndexes()) {
     leveldb::WriteBatch writes;
-    auto entries = Index(index, track);
+    auto entries = Index(collator_, index, track);
     for (const auto& it : entries) {
       writes.Put(EncodeIndexKey(it.first),
                  {it.second.data(), it.second.size()});
@@ -555,7 +561,7 @@ auto Database::dbRemoveIndexes(std::shared_ptr<TrackData> data) -> void {
   }
   Track track{data, tags};
   for (const IndexInfo& index : GetIndexes()) {
-    auto entries = Index(index, track);
+    auto entries = Index(collator_, index, track);
     for (auto it = entries.rbegin(); it != entries.rend(); it++) {
       auto key = EncodeIndexKey(it->first);
       auto status = db_->Delete(leveldb::WriteOptions{}, key);

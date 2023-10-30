@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "collation.hpp"
 #include "system_fsm.hpp"
 
 #include <stdint.h>
@@ -76,6 +77,7 @@ auto Booting::entry() -> void {
 
   sServices->track_queue(std::make_unique<audio::TrackQueue>());
   sServices->tag_parser(std::make_unique<database::TagParserImpl>());
+  sServices->collator(locale::CreateCollator());
 
   ESP_LOGI(kTag, "init bluetooth");
   sServices->bluetooth(std::make_unique<drivers::Bluetooth>(sServices->nvs()));

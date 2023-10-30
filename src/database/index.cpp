@@ -7,8 +7,11 @@
 #include "index.hpp"
 
 #include <cstdint>
+#include <sstream>
 #include <variant>
 
+#include "collation.hpp"
+#include "esp_log.h"
 #include "komihash.h"
 #include "leveldb/write_batch.h"
 
@@ -59,7 +62,7 @@ static auto missing_component_text(const Track& track, Tag tag)
   }
 }
 
-auto Index(const IndexInfo& info, const Track& t)
+auto Index(locale::ICollator& collator, const IndexInfo& info, const Track& t)
     -> std::vector<std::pair<IndexKey, std::pmr::string>> {
   std::vector<std::pair<IndexKey, std::pmr::string>> out;
   IndexKey key{
@@ -72,15 +75,14 @@ auto Index(const IndexInfo& info, const Track& t)
       .track = {},
   };
 
-  auto& col = std::use_facet<std::collate<char>>(std::locale());
-
   for (std::uint8_t i = 0; i < info.components.size(); i++) {
     // Fill in the text for this depth.
     auto text = t.tags().at(info.components.at(i));
     std::pmr::string value;
     if (text) {
       std::pmr::string orig = *text;
-      key.item = col.transform(&orig[0], &orig[0] + orig.size());
+      auto xfrm = collator.Transform({orig.data(), orig.size()});
+      key.item = {xfrm.data(), xfrm.size()};
       value = *text;
     } else {
       key.item = {};

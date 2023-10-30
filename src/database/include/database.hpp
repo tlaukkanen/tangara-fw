@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "collation.hpp"
 #include "file_gatherer.hpp"
 #include "index.hpp"
 #include "leveldb/cache.h"
@@ -92,9 +93,10 @@ class Database {
     ALREADY_OPEN,
     FAILED_TO_OPEN,
   };
-  static auto Open(IFileGatherer& file_gatherer, ITagParser& tag_parser)
+  static auto Open(IFileGatherer& file_gatherer,
+                   ITagParser& tag_parser,
+                   locale::ICollator& collator)
       -> cpp::result<Database*, DatabaseError>;
-  static auto Open() -> cpp::result<Database*, DatabaseError>;
 
   static auto Destroy() -> void;
 
@@ -136,11 +138,13 @@ class Database {
   // Not owned.
   IFileGatherer& file_gatherer_;
   ITagParser& tag_parser_;
+  locale::ICollator& collator_;
 
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
            IFileGatherer& file_gatherer,
            ITagParser& tag_parser,
+           locale::ICollator& collator,
            std::shared_ptr<tasks::Worker> worker);
 
   auto dbMintNewTrackId() -> TrackId;

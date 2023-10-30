@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 idf_component_register(
-  SRCS "system_fsm.cpp" "running.cpp" "booting.cpp" "idle.cpp" "service_locator.cpp"
+  SRCS "collation.cpp" "strxfrm_l.c"
   INCLUDE_DIRS "include"
-  REQUIRES "tinyfsm" "drivers" "database" "ui" "result" "events" "audio" "app_console" "battery" "locale")
+  PRIV_INCLUDE_DIRS "priv_include"
+  REQUIRES "span" "esp_partition" "spi_flash")
+
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

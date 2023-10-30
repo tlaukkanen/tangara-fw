@@ -13,6 +13,7 @@
 #include <variant>
 #include <vector>
 
+#include "collation.hpp"
 #include "leveldb/db.h"
 #include "leveldb/slice.h"
 
@@ -60,7 +61,7 @@ struct IndexKey {
   std::optional<TrackId> track;
 };
 
-auto Index(const IndexInfo&, const Track&)
+auto Index(locale::ICollator&, const IndexInfo&, const Track&)
     -> std::vector<std::pair<IndexKey, std::pmr::string>>;
 
 auto ExpandHeader(const IndexKey::Header&,

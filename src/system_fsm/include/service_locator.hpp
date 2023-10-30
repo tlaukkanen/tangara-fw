@@ -10,6 +10,7 @@
 
 #include "battery.hpp"
 #include "bluetooth.hpp"
+#include "collation.hpp"
 #include "database.hpp"
 #include "gpios.hpp"
 #include "nvs.hpp"
@@ -101,6 +102,15 @@ class ServiceLocator {
     queue_ = std::move(i);
   }
 
+  auto collator() -> locale::ICollator& {
+    assert(collator_ != nullptr);
+    return *collator_;
+  }
+
+  auto collator(std::unique_ptr<locale::ICollator> i) {
+    collator_ = std::move(i);
+  }
+
   // Not copyable or movable.
   ServiceLocator(const ServiceLocator&) = delete;
   ServiceLocator& operator=(const ServiceLocator&) = delete;
@@ -117,6 +127,7 @@ class ServiceLocator {
 
   std::shared_ptr<database::Database> database_;
   std::unique_ptr<database::ITagParser> tag_parser_;
+  std::unique_ptr<locale::ICollator> collator_;
 
   drivers::SdState sd_;
 };
