@@ -30,8 +30,9 @@ const static std::array<std::pair<const char*, Tag>, 5> kVorbisIdToTag = {{
 }};
 
 static auto convert_track_number(int number) -> std::pmr::string {
-  std::string s = std::to_string(number);
-  return {s.data(), s.size()};
+  std::ostringstream oss;
+  oss << std::setw(4) << std::setfill('0') << number;
+  return std::pmr::string(oss.str());
 }
 
 static auto convert_track_number(const std::pmr::string& raw)
@@ -166,7 +167,8 @@ auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path)
     }
   }
 
-  // Normalise track numbers to ensure that they're actually numbers.
+  // Normalise track numbers; they're usually treated as strings, but we would
+  // like to sort them lexicographically.
   tags->set(Tag::kAlbumTrack,
             convert_track_number(tags->at(Tag::kAlbumTrack).value_or("0")));
 
