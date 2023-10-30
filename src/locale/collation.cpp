@@ -58,19 +58,26 @@ auto GLibCollator::create() -> GLibCollator* {
     return nullptr;
   }
 
+  // We reserve the first 8 bytes of the partition for an identifier / name.
+  // Copy it out, then crop the rest of the region so that the LC_COLLATE parser
+  // doesn't see it.
+  std::string name{static_cast<const char*>(region)};
+  region = static_cast<const std::byte*>(region) + 8;
+
   auto data = std::make_unique<locale_data_t>();
-  if (!parse_locale_data(region, partition->size, data.get())) {
+  if (!parse_locale_data(region, partition->size - 8, data.get())) {
     ESP_LOGE(kTag, "parsing locale data failed");
     esp_partition_munmap(handle);
     return nullptr;
   }
 
-  return new GLibCollator(handle, std::move(data));
+  return new GLibCollator(name, handle, std::move(data));
 }
 
-GLibCollator::GLibCollator(const esp_partition_mmap_handle_t handle,
+GLibCollator::GLibCollator(const std::string& name,
+                           const esp_partition_mmap_handle_t handle,
                            std::unique_ptr<locale_data_t> locale)
-    : handle_(handle), locale_data_(std::move(locale)) {}
+    : name_(name), handle_(handle), locale_data_(std::move(locale)) {}
 
 GLibCollator::~GLibCollator() {
   esp_partition_munmap(handle_);

@@ -28,6 +28,7 @@
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
+#include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 
 #include "db_events.hpp"
@@ -51,12 +52,13 @@ static const char kDbPath[] = "/.tangara-db";
 
 static const char kKeyDbVersion[] = "schema_version";
 static const uint8_t kCurrentDbVersion = 3;
-
+static const char kKeyCollator[] = "collator";
 static const char kKeyTrackId[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
-static auto CreateNewDatabase(leveldb::Options& options) -> leveldb::DB* {
+static auto CreateNewDatabase(leveldb::Options& options, locale::ICollator& col)
+    -> leveldb::DB* {
   Database::Destroy();
   leveldb::DB* db;
   options.create_if_missing = true;
@@ -71,7 +73,46 @@ static auto CreateNewDatabase(leveldb::Options& options) -> leveldb::DB* {
     delete db;
     return nullptr;
   }
+  ESP_LOGI(kTag, "opening db with collator %s",
+           col.Describe().value_or("NULL").c_str());
+  status = db->Put(leveldb::WriteOptions{}, kKeyCollator,
+                   col.Describe().value_or(""));
+  if (!status.ok()) {
+    delete db;
+    return nullptr;
+  }
   return db;
+}
+
+static auto CheckDatabase(leveldb::DB& db, locale::ICollator& col) -> bool {
+  leveldb::Status status;
+
+  std::string raw_version;
+  std::optional<uint8_t> version{};
+  status = db.Get(leveldb::ReadOptions{}, kKeyDbVersion, &raw_version);
+  if (status.ok()) {
+    version = std::stoi(raw_version);
+  }
+  if (!version || *version != kCurrentDbVersion) {
+    ESP_LOGW(kTag, "db version missing or incorrect");
+    return false;
+  }
+
+  std::string collator;
+  status = db.Get(leveldb::ReadOptions{}, kKeyCollator, &collator);
+  if (!status.ok()) {
+    ESP_LOGW(kTag, "db collator is unknown");
+    return false;
+  }
+  auto needed = col.Describe();
+
+  if ((needed && needed.value() != collator) ||
+      (!needed && !collator.empty())) {
+    ESP_LOGW(kTag, "db collator is mismatched");
+    return false;
+  }
+
+  return true;
 }
 
 auto Database::Open(IFileGatherer& gatherer,
@@ -107,23 +148,16 @@ auto Database::Open(IFileGatherer& gatherer,
             auto status = leveldb::DB::Open(options, kDbPath, &db);
             if (!status.ok()) {
               ESP_LOGI(kTag, "opening db failed. recreating.");
-              db = CreateNewDatabase(options);
+              db = CreateNewDatabase(options, collator);
               if (db == nullptr) {
                 return cpp::fail(FAILED_TO_OPEN);
               }
             }
 
-            std::string raw_version;
-            std::optional<uint8_t> version{};
-            status =
-                db->Get(leveldb::ReadOptions{}, kKeyDbVersion, &raw_version);
-            if (status.ok()) {
-              version = std::stoi(raw_version);
-            }
-            if (!version || *version != kCurrentDbVersion) {
-              ESP_LOGI(kTag, "db version missing or incorrect. recreating.");
+            if (!CheckDatabase(*db, collator)) {
+              ESP_LOGI(kTag, "db incompatible. recreating.");
               delete db;
-              db = CreateNewDatabase(options);
+              db = CreateNewDatabase(options, collator);
               if (db == nullptr) {
                 return cpp::fail(FAILED_TO_OPEN);
               }
