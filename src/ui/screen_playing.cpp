@@ -256,9 +256,6 @@ Playing::Playing(models::TopBar& top_bar_model,
   lv_obj_set_style_text_font(next_up_hint_, &font_symbols, 0);
   lv_obj_set_size(next_up_hint_, LV_SIZE_CONTENT, lv_pct(100));
 
-  lv_obj_t* next_up_spinner_ = lv_spinner_create(next_up_header_, 4000, 30);
-  lv_obj_set_size(next_up_spinner_, 12, 12);
-
   next_up_container_ = lv_list_create(content_);
   lv_obj_set_layout(next_up_container_, LV_LAYOUT_FLEX);
   lv_obj_set_size(next_up_container_, lv_pct(100), lv_disp_get_ver_res(NULL));
@@ -273,8 +270,6 @@ Playing::Playing(models::TopBar& top_bar_model,
           return;
         }
         lv_label_set_text(next_up_label_, "Next up");
-        lv_obj_add_flag(next_up_hint_, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(next_up_spinner_, LV_OBJ_FLAG_HIDDEN);
 
         new_next_tracks_.reset(new database::FutureFetcher<
                                std::vector<std::shared_ptr<database::Track>>>(
@@ -283,9 +278,6 @@ Playing::Playing(models::TopBar& top_bar_model,
 
   data_bindings_.emplace_back(next_tracks_.onChangedAndNow(
       [=](const std::vector<std::shared_ptr<database::Track>>& tracks) {
-        lv_obj_clear_flag(next_up_hint_, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(next_up_spinner_, LV_OBJ_FLAG_HIDDEN);
-
         // TODO(jacqueline): Do a proper diff to maintain selection.
         int children = lv_obj_get_child_cnt(next_up_container_);
         while (children > 0) {
