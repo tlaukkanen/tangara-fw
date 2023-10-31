@@ -6,7 +6,8 @@
 
 #include "collation.hpp"
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstring>
 #include <memory>
 
 #include "esp_flash_spi_init.h"
@@ -61,7 +62,8 @@ auto GLibCollator::create() -> GLibCollator* {
   // We reserve the first 8 bytes of the partition for an identifier / name.
   // Copy it out, then crop the rest of the region so that the LC_COLLATE parser
   // doesn't see it.
-  std::string name{static_cast<const char*>(region)};
+  const char* region_as_str = static_cast<const char*>(region);
+  std::string name{region_as_str, strnlen(region_as_str, 8)};
   region = static_cast<const std::byte*>(region) + 8;
 
   auto data = std::make_unique<locale_data_t>();
