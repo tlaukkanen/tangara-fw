@@ -33,10 +33,11 @@ class Settings : public MenuScreen {
 class Bluetooth : public MenuScreen {
  public:
   Bluetooth(models::TopBar&, drivers::Bluetooth& bt, drivers::NvsStorage& nvs);
+  ~Bluetooth();
 
   auto ChangeEnabledState(bool enabled) -> void;
   auto RefreshDevicesList() -> void;
-  auto OnDeviceSelected(size_t index) -> void;
+  auto OnDeviceSelected(ssize_t index) -> void;
 
  private:
   auto RemoveAllDevices() -> void;

@@ -32,6 +32,12 @@ class Bluetooth {
   auto Disable() -> void;
   auto IsEnabled() -> bool;
 
+  /*
+   * Sets whether or not the bluetooth stack is allowed to actively scan for
+   * new devices.
+   */
+  auto SetDeviceDiscovery(bool) -> void;
+
   auto KnownDevices() -> std::vector<bluetooth::Device>;
   auto SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void;
 
@@ -47,6 +53,10 @@ struct Disable : public tinyfsm::Event {};
 
 struct PreferredDeviceChanged : public tinyfsm::Event {};
 struct SourceChanged : public tinyfsm::Event {};
+struct DiscoveryChanged : public tinyfsm::Event {};
+struct DeviceDiscovered : public tinyfsm::Event {
+  const Device& device;
+};
 
 namespace internal {
 struct Gap : public tinyfsm::Event {
@@ -64,13 +74,37 @@ struct Avrc : public tinyfsm::Event {
 }  // namespace internal
 }  // namespace events
 
+/*
+ * Utility for managing scanning, independent of the current connection state.
+ */
+class Scanner {
+ public:
+  Scanner();
+
+  auto ScanContinuously() -> void;
+  auto ScanOnce() -> void;
+  auto StopScanning() -> void;
+  auto StopScanningNow() -> void;
+
+  auto HandleGapEvent(const events::internal::Gap&) -> void;
+
+ private:
+  bool enabled_;
+  bool is_discovering_;
+
+  auto HandleDeviceDiscovery(const esp_bt_gap_cb_param_t& param) -> void;
+};
+
 class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
  public:
   static auto Init(NvsStorage& storage) -> void;
 
   static auto devices() -> std::vector<Device>;
   static auto preferred_device() -> std::optional<mac_addr_t>;
-  static auto preferred_device(const mac_addr_t&) -> void;
+  static auto preferred_device(std::optional<mac_addr_t>) -> void;
+
+  static auto discovery() -> bool;
+  static auto discovery(bool) -> void;
 
   static auto source() -> StreamBufferHandle_t;
   static auto source(StreamBufferHandle_t) -> void;
@@ -86,6 +120,9 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(const events::Disable& ev) = 0;
   virtual void react(const events::PreferredDeviceChanged& ev){};
   virtual void react(const events::SourceChanged& ev){};
+  virtual void react(const events::DiscoveryChanged&);
+
+  virtual void react(const events::DeviceDiscovered&);
 
   virtual void react(const events::internal::Gap& ev) = 0;
   virtual void react(const events::internal::A2dp& ev){};
@@ -93,11 +130,13 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
  protected:
   static NvsStorage* sStorage_;
+  static Scanner* sScanner_;
 
   static std::mutex sDevicesMutex_;
   static std::map<mac_addr_t, Device> sDevices_;
   static std::optional<mac_addr_t> sPreferredDevice_;
   static mac_addr_t sCurrentDevice_;
+  static bool sIsDiscoveryAllowed_;
 
   static std::atomic<StreamBufferHandle_t> sSource_;
   static std::function<void(Event)> sEventHandler_;
@@ -106,19 +145,21 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 class Disabled : public BluetoothState {
  public:
   void entry() override;
+  void exit() override;
 
   void react(const events::Enable& ev) override;
   void react(const events::Disable& ev) override{};
 
   void react(const events::internal::Gap& ev) override {}
   void react(const events::internal::A2dp& ev) override {}
+  void react(const events::DiscoveryChanged& ev) override{};
+
   using BluetoothState::react;
 };
 
-class Scanning : public BluetoothState {
+class Idle : public BluetoothState {
  public:
   void entry() override;
-  void exit() override;
 
   void react(const events::Disable& ev) override;
   void react(const events::PreferredDeviceChanged& ev) override;
@@ -126,9 +167,6 @@ class Scanning : public BluetoothState {
   void react(const events::internal::Gap& ev) override;
 
   using BluetoothState::react;
-
- private:
-  auto OnDeviceDiscovered(esp_bt_gap_cb_param_t*) -> void;
 };
 
 class Connecting : public BluetoothState {

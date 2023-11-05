@@ -97,6 +97,15 @@ auto Bluetooth::SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void {
       bluetooth::events::PreferredDeviceChanged{});
 }
 
+auto Bluetooth::SetDeviceDiscovery(bool allowed) -> void {
+  if (allowed == bluetooth::BluetoothState::discovery()) {
+    return;
+  }
+  bluetooth::BluetoothState::discovery(allowed);
+  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+      bluetooth::events::DiscoveryChanged{});
+}
+
 auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
   if (src == bluetooth::BluetoothState::source()) {
     return;
@@ -122,12 +131,144 @@ auto DeviceName() -> std::pmr::string {
 
 namespace bluetooth {
 
+static constexpr uint8_t kDiscoveryTimeSeconds = 5;
+static constexpr uint8_t kDiscoveryMaxResults = 0;
+
+Scanner::Scanner() : enabled_(false), is_discovering_(false) {}
+
+auto Scanner::ScanContinuously() -> void {
+  if (enabled_) {
+    return;
+  }
+  ESP_LOGI(kTag, "beginning continuous scan");
+  enabled_ = true;
+  if (enabled_ && !is_discovering_) {
+    ScanOnce();
+  }
+}
+
+auto Scanner::ScanOnce() -> void {
+  if (is_discovering_) {
+    return;
+  }
+  is_discovering_ = true;
+  ESP_LOGI(kTag, "scanning...");
+  esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY,
+                             kDiscoveryTimeSeconds, kDiscoveryMaxResults);
+}
+
+auto Scanner::StopScanning() -> void {
+  ESP_LOGI(kTag, "stopping scan");
+  enabled_ = false;
+}
+
+auto Scanner::StopScanningNow() -> void {
+  StopScanning();
+  if (is_discovering_) {
+    ESP_LOGI(kTag, "cancelling scan");
+    is_discovering_ = false;
+    esp_bt_gap_cancel_discovery();
+  }
+}
+
+auto Scanner::HandleGapEvent(const events::internal::Gap& ev) -> void {
+  switch (ev.type) {
+    case ESP_BT_GAP_DISC_RES_EVT:
+      if (ev.param != nullptr) {
+        // Handle device discovery even if we've been told to stop discovering.
+        HandleDeviceDiscovery(*ev.param);
+      }
+      break;
+    case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
+      if (ev.param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STOPPED) {
+        ESP_LOGI(kTag, "discovery finished");
+        if (enabled_) {
+          ESP_LOGI(kTag, "restarting discovery");
+          esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY,
+                                     kDiscoveryTimeSeconds,
+                                     kDiscoveryMaxResults);
+        } else {
+          is_discovering_ = false;
+        }
+      }
+      break;
+    case ESP_BT_GAP_MODE_CHG_EVT:
+      // todo: mode change. is this important?
+      ESP_LOGI(kTag, "GAP mode changed");
+      break;
+    default:
+      ESP_LOGW(kTag, "unhandled GAP event: %u", ev.type);
+  }
+}
+
+auto Scanner::HandleDeviceDiscovery(const esp_bt_gap_cb_param_t& param)
+    -> void {
+  Device device{};
+  std::copy(std::begin(param.disc_res.bda), std::end(param.disc_res.bda),
+            device.address.begin());
+
+  // Discovery results come back to us as a grab-bag of different key/value
+  // pairs. Parse these into a more structured format first so that they're
+  // easier to work with.
+  uint8_t* eir = nullptr;
+  for (size_t i = 0; i < param.disc_res.num_prop; i++) {
+    esp_bt_gap_dev_prop_t& property = param.disc_res.prop[i];
+    switch (property.type) {
+      case ESP_BT_GAP_DEV_PROP_BDNAME:
+        // Ignored -- we get the device name from the EIR field instead.
+        break;
+      case ESP_BT_GAP_DEV_PROP_COD:
+        device.class_of_device = *reinterpret_cast<uint32_t*>(property.val);
+        break;
+      case ESP_BT_GAP_DEV_PROP_RSSI:
+        device.signal_strength = *reinterpret_cast<int8_t*>(property.val);
+        break;
+      case ESP_BT_GAP_DEV_PROP_EIR:
+        eir = reinterpret_cast<uint8_t*>(property.val);
+        break;
+      default:
+        ESP_LOGW(kTag, "unknown GAP param %u", property.type);
+    }
+  }
+
+  // Ignore devices with missing or malformed data.
+  if (!esp_bt_gap_is_valid_cod(device.class_of_device) || eir == nullptr) {
+    return;
+  }
+
+  // Note: ESP-IDF example code does additional filterering by class of device
+  // at this point. We don't! Per the Bluetooth spec; "No assumptions should be
+  // made about specific functionality or characteristics of any application
+  // based solely on the assignment of the Major or Minor device class."
+
+  // Resolve the name of the device.
+  uint8_t* name;
+  uint8_t length;
+  name = esp_bt_gap_resolve_eir_data(eir, ESP_BT_EIR_TYPE_CMPL_LOCAL_NAME,
+                                     &length);
+  if (!name) {
+    name = esp_bt_gap_resolve_eir_data(eir, ESP_BT_EIR_TYPE_SHORT_LOCAL_NAME,
+                                       &length);
+  }
+
+  if (!name) {
+    return;
+  }
+
+  device.name = std::pmr::string{reinterpret_cast<char*>(name),
+                                 static_cast<size_t>(length)};
+  events::DeviceDiscovered ev{.device = device};
+  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(ev);
+}
+
 NvsStorage* BluetoothState::sStorage_;
+Scanner* BluetoothState::sScanner_;
 
 std::mutex BluetoothState::sDevicesMutex_{};
 std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
 std::optional<mac_addr_t> BluetoothState::sPreferredDevice_{};
-mac_addr_t BluetoothState::sCurrentDevice_;
+mac_addr_t BluetoothState::sCurrentDevice_{0};
+bool BluetoothState::sIsDiscoveryAllowed_{false};
 
 std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
 std::function<void(Event)> BluetoothState::sEventHandler_;
@@ -152,9 +293,19 @@ auto BluetoothState::preferred_device() -> std::optional<mac_addr_t> {
   return sPreferredDevice_;
 }
 
-auto BluetoothState::preferred_device(const mac_addr_t& addr) -> void {
+auto BluetoothState::preferred_device(std::optional<mac_addr_t> addr) -> void {
   std::lock_guard lock{sDevicesMutex_};
   sPreferredDevice_ = addr;
+}
+
+auto BluetoothState::discovery() -> bool {
+  std::lock_guard lock{sDevicesMutex_};
+  return sIsDiscoveryAllowed_;
+}
+
+auto BluetoothState::discovery(bool en) -> void {
+  std::lock_guard lock{sDevicesMutex_};
+  sIsDiscoveryAllowed_ = en;
 }
 
 auto BluetoothState::source() -> StreamBufferHandle_t {
@@ -172,19 +323,65 @@ auto BluetoothState::event_handler(std::function<void(Event)> cb) -> void {
   sEventHandler_ = cb;
 }
 
+auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
+  ESP_LOGI(kTag, "discovered device %s", ev.device.name.c_str());
+  bool is_preferred = false;
+  {
+    std::lock_guard<std::mutex> lock{sDevicesMutex_};
+    sDevices_[ev.device.address] = ev.device;
+
+    if (ev.device.address == sPreferredDevice_) {
+      sCurrentDevice_ = ev.device.address;
+      is_preferred = true;
+    }
+
+    if (sEventHandler_) {
+      std::invoke(sEventHandler_, Event::kKnownDevicesChanged);
+    }
+  }
+
+  if (is_preferred && is_in_state<Idle>()) {
+    ESP_LOGI(kTag, "new device is preferred. connecting.");
+    transit<Connecting>();
+  }
+}
+
+auto BluetoothState::react(const events::DiscoveryChanged& ev) -> void {
+  if (sIsDiscoveryAllowed_) {
+    sScanner_->ScanContinuously();
+  } else {
+    sScanner_->StopScanning();
+  }
+}
+
 static bool sIsFirstEntry = true;
 
 void Disabled::entry() {
   if (sIsFirstEntry) {
     // We only use BT Classic, to claw back ~60KiB from the BLE firmware.
     esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
+    sScanner_ = new Scanner();
     sIsFirstEntry = false;
     return;
   }
 
+  sScanner_->StopScanningNow();
+
   esp_bluedroid_disable();
   esp_bluedroid_deinit();
   esp_bt_controller_disable();
+}
+
+void Disabled::exit() {
+  if (sIsDiscoveryAllowed_) {
+    ESP_LOGI(kTag, "bt enabled, beginning discovery");
+    sScanner_->ScanContinuously();
+  } else if (sPreferredDevice_) {
+    ESP_LOGI(kTag, "bt enabled, checking for preferred device");
+    sScanner_->ScanOnce();
+  } else {
+    ESP_LOGI(kTag, "bt enabled, but not scanning");
+  }
 }
 
 void Disabled::react(const events::Enable&) {
@@ -237,103 +434,18 @@ void Disabled::react(const events::Enable&) {
   // Don't let anyone interact with us before we're ready.
   esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
-  transit<Scanning>();
+  transit<Idle>();
 }
 
-static constexpr uint8_t kDiscoveryTimeSeconds = 10;
-static constexpr uint8_t kDiscoveryMaxResults = 0;
-
-void Scanning::entry() {
-  ESP_LOGI(kTag, "scanning for devices");
-  esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY,
-                             kDiscoveryTimeSeconds, kDiscoveryMaxResults);
+void Idle::entry() {
+  ESP_LOGI(kTag, "bt is idle");
 }
 
-void Scanning::exit() {
-  esp_bt_gap_cancel_discovery();
-}
-
-void Scanning::react(const events::Disable& ev) {
+void Idle::react(const events::Disable& ev) {
   transit<Disabled>();
 }
 
-auto Scanning::OnDeviceDiscovered(esp_bt_gap_cb_param_t* param) -> void {
-  Device device{};
-  std::copy(std::begin(param->disc_res.bda), std::end(param->disc_res.bda),
-            device.address.begin());
-
-  // Discovery results come back to us as a grab-bag of different key/value
-  // pairs. Parse these into a more structured format first so that they're
-  // easier to work with.
-  uint8_t* eir = nullptr;
-  for (size_t i = 0; i < param->disc_res.num_prop; i++) {
-    esp_bt_gap_dev_prop_t& property = param->disc_res.prop[i];
-    switch (property.type) {
-      case ESP_BT_GAP_DEV_PROP_BDNAME:
-        // Ignored -- we get the device name from the EIR field instead.
-        break;
-      case ESP_BT_GAP_DEV_PROP_COD:
-        device.class_of_device = *reinterpret_cast<uint32_t*>(property.val);
-        break;
-      case ESP_BT_GAP_DEV_PROP_RSSI:
-        device.signal_strength = *reinterpret_cast<int8_t*>(property.val);
-        break;
-      case ESP_BT_GAP_DEV_PROP_EIR:
-        eir = reinterpret_cast<uint8_t*>(property.val);
-        break;
-      default:
-        ESP_LOGW(kTag, "unknown GAP param %u", property.type);
-    }
-  }
-
-  // Ignore devices with missing or malformed data.
-  if (!esp_bt_gap_is_valid_cod(device.class_of_device) || eir == nullptr) {
-    return;
-  }
-
-  // Note: ESP-IDF example code does additional filterering by class of device
-  // at this point. We don't! Per the Bluetooth spec; "No assumptions should be
-  // made about specific functionality or characteristics of any application
-  // based solely on the assignment of the Major or Minor device class."
-
-  // Resolve the name of the device.
-  uint8_t* name;
-  uint8_t length;
-  name = esp_bt_gap_resolve_eir_data(eir, ESP_BT_EIR_TYPE_CMPL_LOCAL_NAME,
-                                     &length);
-  if (!name) {
-    name = esp_bt_gap_resolve_eir_data(eir, ESP_BT_EIR_TYPE_SHORT_LOCAL_NAME,
-                                       &length);
-  }
-
-  if (!name) {
-    return;
-  }
-
-  device.name = std::pmr::string{reinterpret_cast<char*>(name),
-                                 static_cast<size_t>(length)};
-
-  bool is_preferred = false;
-  {
-    std::lock_guard<std::mutex> lock{sDevicesMutex_};
-    sDevices_[device.address] = device;
-
-    if (device.address == sPreferredDevice_) {
-      sCurrentDevice_ = device.address;
-      is_preferred = true;
-    }
-
-    if (sEventHandler_) {
-      std::invoke(sEventHandler_, Event::kKnownDevicesChanged);
-    }
-  }
-
-  if (is_preferred) {
-    transit<Connecting>();
-  }
-}
-
-void Scanning::react(const events::PreferredDeviceChanged& ev) {
+void Idle::react(const events::PreferredDeviceChanged& ev) {
   bool is_discovered = false;
   {
     std::lock_guard<std::mutex> lock{sDevicesMutex_};
@@ -342,28 +454,13 @@ void Scanning::react(const events::PreferredDeviceChanged& ev) {
     }
   }
   if (is_discovered) {
+    ESP_LOGI(kTag, "selected known device");
     transit<Connecting>();
   }
 }
 
-void Scanning::react(const events::internal::Gap& ev) {
-  switch (ev.type) {
-    case ESP_BT_GAP_DISC_RES_EVT:
-      OnDeviceDiscovered(ev.param);
-      break;
-    case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
-      if (ev.param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STOPPED) {
-        esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY,
-                                   kDiscoveryTimeSeconds, kDiscoveryMaxResults);
-      }
-      break;
-    case ESP_BT_GAP_MODE_CHG_EVT:
-      // todo: mode change. is this important?
-      ESP_LOGI(kTag, "GAP mode changed");
-      break;
-    default:
-      ESP_LOGW(kTag, "unhandled GAP event: %u", ev.type);
-  }
+void Idle::react(const events::internal::Gap& ev) {
+  sScanner_->HandleGapEvent(ev);
 }
 
 void Connecting::entry() {
@@ -375,6 +472,7 @@ void Connecting::exit() {}
 
 void Connecting::react(const events::Disable& ev) {
   // TODO: disconnect gracefully
+  transit<Disabled>();
 }
 
 void Connecting::react(const events::PreferredDeviceChanged& ev) {
@@ -382,12 +480,13 @@ void Connecting::react(const events::PreferredDeviceChanged& ev) {
 }
 
 void Connecting::react(const events::internal::Gap& ev) {
+  sScanner_->HandleGapEvent(ev);
   switch (ev.type) {
     case ESP_BT_GAP_AUTH_CMPL_EVT:
       if (ev.param->auth_cmpl.stat != ESP_BT_STATUS_SUCCESS) {
         ESP_LOGE(kTag, "auth failed");
         sPreferredDevice_ = {};
-        transit<Scanning>();
+        transit<Idle>();
       }
       break;
     case ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT:
@@ -397,22 +496,22 @@ void Connecting::react(const events::internal::Gap& ev) {
     case ESP_BT_GAP_PIN_REQ_EVT:
       ESP_LOGW(kTag, "device needs a pin to connect");
       sPreferredDevice_ = {};
-      transit<Scanning>();
+      transit<Idle>();
       break;
     case ESP_BT_GAP_CFM_REQ_EVT:
       ESP_LOGW(kTag, "user needs to do cfm. idk man.");
       sPreferredDevice_ = {};
-      transit<Scanning>();
+      transit<Idle>();
       break;
     case ESP_BT_GAP_KEY_NOTIF_EVT:
       ESP_LOGW(kTag, "the device is telling us a password??");
       sPreferredDevice_ = {};
-      transit<Scanning>();
+      transit<Idle>();
       break;
     case ESP_BT_GAP_KEY_REQ_EVT:
       ESP_LOGW(kTag, "the device wants a password!");
       sPreferredDevice_ = {};
-      transit<Scanning>();
+      transit<Idle>();
       break;
     case ESP_BT_GAP_MODE_CHG_EVT:
       ESP_LOGI(kTag, "GAP mode changed");
@@ -464,6 +563,7 @@ void Connected::exit() {
 
 void Connected::react(const events::Disable& ev) {
   // TODO: disconnect gracefully
+  transit<Disabled>();
 }
 
 void Connected::react(const events::PreferredDeviceChanged& ev) {
@@ -481,6 +581,7 @@ void Connected::react(const events::SourceChanged& ev) {
 }
 
 void Connected::react(const events::internal::Gap& ev) {
+  sScanner_->HandleGapEvent(ev);
   switch (ev.type) {
     case ESP_BT_GAP_MODE_CHG_EVT:
       // todo: is this important?

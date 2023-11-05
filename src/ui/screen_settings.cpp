@@ -119,6 +119,11 @@ static auto select_device_cb(lv_event_t* ev) {
   instance->OnDeviceSelected(lv_obj_get_index(ev->target));
 }
 
+static auto remove_preferred_cb(lv_event_t* ev) {
+  Bluetooth* instance = reinterpret_cast<Bluetooth*>(ev->user_data);
+  instance->OnDeviceSelected(-1);
+}
+
 Bluetooth::Bluetooth(models::TopBar& bar,
                      drivers::Bluetooth& bt,
                      drivers::NvsStorage& nvs)
@@ -141,6 +146,11 @@ Bluetooth::Bluetooth(models::TopBar& bar,
 
   devices_list_ = lv_list_create(content_);
   RefreshDevicesList();
+  bt_.SetDeviceDiscovery(true);
+}
+
+Bluetooth::~Bluetooth() {
+  bt_.SetDeviceDiscovery(false);
 }
 
 auto Bluetooth::ChangeEnabledState(bool enabled) -> void {
@@ -228,6 +238,11 @@ auto Bluetooth::RemoveAllDevices() -> void {
 auto Bluetooth::AddPreferredDevice(const drivers::bluetooth::Device& dev)
     -> void {
   preferred_device_ = lv_list_add_btn(devices_list_, NULL, dev.name.c_str());
+  lv_obj_t* remove = lv_btn_create(preferred_device_);
+  lv_obj_t* remove_icon = lv_label_create(remove);
+  lv_label_set_text(remove_icon, "x");
+  lv_group_add_obj(group_, remove);
+
   macs_in_list_.push_back(dev.address);
 }
 
@@ -238,7 +253,16 @@ auto Bluetooth::AddDevice(const drivers::bluetooth::Device& dev) -> void {
   macs_in_list_.push_back(dev.address);
 }
 
-auto Bluetooth::OnDeviceSelected(size_t index) -> void {
+auto Bluetooth::OnDeviceSelected(ssize_t index) -> void {
+  if (index == -1) {
+    events::System().RunOnTask([=]() {
+      nvs_.PreferredBluetoothDevice({});
+      bt_.SetPreferredDevice({});
+    });
+    RefreshDevicesList();
+    return;
+  }
+
   // Tell the bluetooth driver that our preference changed.
   auto it = macs_in_list_.begin();
   std::advance(it, index);
