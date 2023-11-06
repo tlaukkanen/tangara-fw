@@ -38,8 +38,8 @@ enum class Type {
   kAudioConverter,
   // Task for running database queries.
   kDatabase,
-  // Task for internal database operations
-  kDatabaseBackground,
+  // Task for async background work
+  kBackgroundWorker,
 };
 
 template <Type t>

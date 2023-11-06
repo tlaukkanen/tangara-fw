@@ -66,7 +66,7 @@ auto Booting::entry() -> void {
 
   ESP_LOGI(kTag, "starting bg worker");
   sServices->bg_worker(std::unique_ptr<tasks::Worker>{
-      tasks::Worker::Start<tasks::Type::kDatabaseBackground>()});
+      tasks::Worker::Start<tasks::Type::kBackgroundWorker>()});
 
   ESP_LOGI(kTag, "installing remaining drivers");
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));

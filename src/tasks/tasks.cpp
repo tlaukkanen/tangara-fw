@@ -36,8 +36,8 @@ auto Name<Type::kDatabase>() -> std::pmr::string {
   return "db_fg";
 }
 template <>
-auto Name<Type::kDatabaseBackground>() -> std::pmr::string {
-  return "db_bg";
+auto Name<Type::kBackgroundWorker>() -> std::pmr::string {
+  return "bg_worker";
 }
 
 template <Type t>
@@ -77,7 +77,7 @@ auto AllocateStack<Type::kDatabase>() -> cpp::span<StackType_t> {
           size};
 }
 template <>
-auto AllocateStack<Type::kDatabaseBackground>() -> cpp::span<StackType_t> {
+auto AllocateStack<Type::kBackgroundWorker>() -> cpp::span<StackType_t> {
   std::size_t size = 256 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
@@ -119,7 +119,7 @@ auto Priority<Type::kDatabase>() -> UBaseType_t {
   return 2;
 }
 template <>
-auto Priority<Type::kDatabaseBackground>() -> UBaseType_t {
+auto Priority<Type::kBackgroundWorker>() -> UBaseType_t {
   return 1;
 }
 
@@ -131,7 +131,7 @@ auto WorkerQueueSize<Type::kDatabase>() -> std::size_t {
   return 8;
 }
 template <>
-auto WorkerQueueSize<Type::kDatabaseBackground>() -> std::size_t {
+auto WorkerQueueSize<Type::kBackgroundWorker>() -> std::size_t {
   return 8;
 }
 
