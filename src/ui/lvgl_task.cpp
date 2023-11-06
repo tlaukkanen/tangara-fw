@@ -102,9 +102,9 @@ auto UiTask::Start() -> UiTask* {
 }
 
 static auto group_focus_cb(lv_group_t *group) -> void {
-  // TODO: we probably want to vary this, configure this, etc
+  // TODO(robin): we probably want to vary this, configure this, etc
   events::System().Dispatch(system_fsm::HapticTrigger{
-    .effect = drivers::Haptics::Effect::kSharpTick2_80Pct,
+    .effect = drivers::Haptics::Effect::kMediumClick1_100Pct,
   });
 }
 
