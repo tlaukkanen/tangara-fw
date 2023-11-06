@@ -58,7 +58,7 @@ class FatfsAudioInput : public IAudioSource {
   std::mutex new_stream_mutex_;
   std::shared_ptr<codecs::IStream> new_stream_;
 
-  SemaphoreHandle_t has_new_stream_;
+  std::atomic<bool> has_new_stream_;
 
   std::unique_ptr<database::FutureFetcher<std::optional<std::pmr::string>>>
       pending_path_;

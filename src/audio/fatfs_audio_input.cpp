@@ -47,12 +47,10 @@ FatfsAudioInput::FatfsAudioInput(database::ITagParser& tag_parser)
       tag_parser_(tag_parser),
       new_stream_mutex_(),
       new_stream_(),
-      has_new_stream_(xSemaphoreCreateBinary()),
+      has_new_stream_(false),
       pending_path_() {}
 
-FatfsAudioInput::~FatfsAudioInput() {
-  vSemaphoreDelete(has_new_stream_);
-}
+FatfsAudioInput::~FatfsAudioInput() {}
 
 auto FatfsAudioInput::SetPath(std::future<std::optional<std::pmr::string>> fut)
     -> void {
@@ -61,36 +59,40 @@ auto FatfsAudioInput::SetPath(std::future<std::optional<std::pmr::string>> fut)
       new database::FutureFetcher<std::optional<std::pmr::string>>(
           std::move(fut)));
 
-  xSemaphoreGive(has_new_stream_);
+  has_new_stream_ = true;
+  has_new_stream_.notify_one();
 }
 
 auto FatfsAudioInput::SetPath(const std::pmr::string& path) -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   if (OpenFile(path)) {
-    xSemaphoreGive(has_new_stream_);
+    has_new_stream_ = true;
+    has_new_stream_.notify_one();
   }
 }
 
 auto FatfsAudioInput::SetPath() -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   new_stream_.reset();
-  xSemaphoreGive(has_new_stream_);
+  has_new_stream_ = true;
+  has_new_stream_.notify_one();
 }
 
 auto FatfsAudioInput::HasNewStream() -> bool {
-  bool res = xSemaphoreTake(has_new_stream_, 0);
-  if (res) {
-    xSemaphoreGive(has_new_stream_);
-  }
-  return res;
+  return has_new_stream_;
 }
 
 auto FatfsAudioInput::NextStream() -> std::shared_ptr<codecs::IStream> {
   while (true) {
-    xSemaphoreTake(has_new_stream_, portMAX_DELAY);
+    has_new_stream_.wait(false);
 
     {
       std::lock_guard<std::mutex> guard{new_stream_mutex_};
+      if (!has_new_stream_.exchange(false)) {
+        // If the new stream went away, then we need to go back to waiting.
+        continue;
+      }
+
       // If the path is a future, then wait for it to complete.
       if (pending_path_) {
         auto res = pending_path_->Result();
