@@ -649,46 +649,69 @@ void RegisterCoreDump() {
 }
 
 int CmdHaptics(int argc, char** argv) {
-  static const std::pmr::string usage = "usage: haptics [all|1|2|...|123]";
-  if (argc != 2) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
+  static const std::pmr::string usage =
+      "There are 123 waveform effects, and 5 'libraries' (motor types);\n"
+      "see the DRV2624 datasheet for more details.\n\n"
+      "Usages:\n"
+      "  haptic_effect\n"
+      "  haptic_effect library\n"
+      "  haptic_effect from-effect to-effect\n"
+      "  haptic_effect from-effect to-effect library\n"
+      "eg.\n"
+      "  haptic_effect        (plays from 1 to 123 with the default library)\n"
+      "  haptic_effect 3      (plays from 1 to 123 with library 3\n"
+      "  haptic_effect 1 100  (plays from 1 to 100 with the default library)\n"
+      "  haptic_effect 1 10 4 (plays from 1 to 10 with library 4)";
 
   auto& haptics = AppConsole::sServices->haptics();
 
-  std::pmr::string cmd{argv[1]};
-  if (cmd == "all") {
-    // TODO(robin): move the contents of Tour() in here, to allow for more
-    // custom calls (eg. ranges).
-    haptics.Tour();
-  } else if (cmd == "libs" ) {
-    haptics.TourLibraries();
+  if (argc == 1) {
+    haptics.TourEffects();
+
+  } else if (argc == 2 && argv[1] != std::string{"help"}) {
+    std::istringstream raw_library_id{argv[1]};
+    int library_id = 0;
+    raw_library_id >> library_id;
+
+    haptics.TourEffects(static_cast<drivers::Haptics::Library>(library_id));
+
+  } else if (argc == 3) {
+    std::istringstream raw_effect_from_id{argv[1]};
+    std::istringstream raw_effect_to_id{argv[2]};
+    int effect_from_id, effect_to_id = 0;
+    raw_effect_from_id >> effect_from_id;
+    raw_effect_to_id >> effect_to_id;
+
+    haptics.TourEffects(static_cast<drivers::Haptics::Effect>(effect_from_id),
+                        static_cast<drivers::Haptics::Effect>(effect_to_id));
+
+  } else if (argc == 4) {
+    std::istringstream raw_effect_from_id{argv[1]};
+    std::istringstream raw_effect_to_id{argv[2]};
+    std::istringstream raw_library_id{argv[3]};
+    int effect_from_id, effect_to_id, library_id = 0;
+    raw_effect_from_id >> effect_from_id;
+    raw_effect_to_id >> effect_to_id;
+    raw_library_id >> library_id;
+
+    haptics.TourEffects(static_cast<drivers::Haptics::Effect>(effect_from_id),
+                        static_cast<drivers::Haptics::Effect>(effect_to_id),
+                        static_cast<drivers::Haptics::Library>(library_id));
   } else {
-    std::istringstream raw_effect_id{argv[1]};
-
-    int effect_id = 0;
-    raw_effect_id >> effect_id;
-
-    if (effect_id > 0 && effect_id < 123) {
-      events::System().Dispatch(system_fsm::HapticTrigger{
-          .effect = static_cast<drivers::Haptics::Effect>(effect_id)
-      });
-    } else {
-      std::cout << usage << std::endl;
-      return 1;
-    }
+    std::cout << usage << std::endl;
+    return 1;
   }
-
   return 0;
 }
 
-void RegisterHaptics() {
-  esp_console_cmd_t cmd{.command = "haptics",
-                        .help = "Plays some or all effects",
-                        .hint = NULL,
-                        .func = &CmdHaptics,
-                        .argtable = NULL};
+void RegisterHapticEffect() {
+  esp_console_cmd_t cmd{
+      .command = "haptic_effect",
+      .help =
+          "Plays one, a range of, or all effects from a DRV2624 effect library; run 'haptic_effect help' for more.",
+      .hint = NULL,
+      .func = &CmdHaptics,
+      .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
 
@@ -716,7 +739,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterSamd();
   RegisterCoreDump();
 
-  RegisterHaptics();
+  RegisterHapticEffect();
 }
 
 }  // namespace console

@@ -154,20 +154,42 @@ class Haptics {
 
     // We can't use this one; need to have the EN pin hooked up.
     kDontUseThis_Longbuzzforprogrammaticstopping_100Pct = 118,
+
+    kFirst = kStrongClick_100Pct,
+    kLast = kSmoothHum5NoKickOrBrakePulse_10Pct,
   };
 
   static constexpr Effect kStartupEffect = Effect::kLongDoubleSharpTick1_100Pct;
+
+  // §8.3.5.2 Internal Memory Interface
+  // Pick the ERM Library matching the motor.
+  enum class Library : uint8_t {
+    A = 1,  // 1.3V-3V, Rise: 40-60ms,   Brake: 20-40ms
+    B = 2,  // 3V, Rise: 40-60ms,   Brake: 5-15ms
+    C = 3,  // 3V, Rise: 60-80ms,   Brake: 10-20ms
+    D = 4,  // 3V, Rise: 100-140ms, Brake: 15-25ms
+    E = 5   // 3V, Rise: >140ms,    Brake: >30ms
+    // 6 is LRA-only, 7 is 4.5V+
+  };
+
+  static constexpr Library kDefaultLibrary = Library::C;
 
   auto PowerDown() -> void;
   auto Reset() -> void;
 
   auto PlayWaveformEffect(Effect effect) -> void;
 
-  auto Tour() -> void;  // TODO(robin): remove or parameterise
-  auto TourLibraries() -> void;
+  // Play a range of Effects
+  auto TourEffects() -> void;
+  auto TourEffects(Effect from, Effect to) -> void;
+  auto TourEffects(Library lib) -> void;
+  auto TourEffects(Effect from, Effect to, Library lib) -> void;
+
+  // Play a range of Effects to all the Libraries we support.
+  // TODO(robin): remove; I'm leaving this around for temporary testing
+  auto TourLibraries(Effect from, Effect to) -> void;
 
  private:
-
   std::optional<Effect> current_effect_;
   std::mutex playing_effect_;
 
@@ -282,22 +304,13 @@ class Haptics {
     kLraResonancePeriod = 0,
   };
 
-  // §8.3.5.2 Internal Memory Interface
-  // Pick the ERM Library matching the motor.
-  enum class Library : uint8_t {
-    A = 1,  // 1.3V-3V, Rise: 40-60ms,   Brake: 20-40ms
-    B = 2,  // 3V, Rise: 40-60ms,   Brake: 5-15ms
-    C = 3,  // 3V, Rise: 60-80ms,   Brake: 10-20ms
-    D = 4,  // 3V, Rise: 100-140ms, Brake: 15-25ms
-    E = 5   // 3V, Rise: >140ms,    Brake: >30ms
-    // 6 is LRA-only, 7 is 4.5V+
-  };
-
   auto PowerUp() -> void;
   auto WriteRegister(Register reg, uint8_t val) -> void;
 
   auto SetWaveformEffect(Effect effect) -> void;
   auto Go() -> void;
+
+  auto EffectToLabel(Effect effect) -> std::string;
 };
 
 }  // namespace drivers
