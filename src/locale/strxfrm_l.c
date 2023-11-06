@@ -595,7 +595,7 @@ size_t glib_strxfrm(char* dest,
     size_t srclen = strlen(src);
 
     if (n != 0) {
-      strncpy(dest, src, MIN(srclen + 1, n));
+      memcpy(dest, src, MIN(srclen + 1, n));
     }
 
     return srclen;
