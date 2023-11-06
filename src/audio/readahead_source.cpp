@@ -37,6 +37,7 @@ ReadaheadSource::ReadaheadSource(tasks::Worker& worker,
       tell_(wrapped_->CurrentPosition()) {}
 
 ReadaheadSource::~ReadaheadSource() {
+  is_refilling_.wait(true);
   vStreamBufferDeleteWithCaps(buffer_);
 }
 
