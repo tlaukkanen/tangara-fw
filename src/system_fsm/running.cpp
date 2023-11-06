@@ -55,8 +55,9 @@ void Running::entry() {
 
   ESP_LOGI(kTag, "opening database");
   sFileGatherer = new database::FileGathererImpl();
-  auto database_res = database::Database::Open(
-      *sFileGatherer, sServices->tag_parser(), sServices->collator());
+  auto database_res =
+      database::Database::Open(*sFileGatherer, sServices->tag_parser(),
+                               sServices->collator(), sServices->bg_worker());
   if (database_res.has_error()) {
     ESP_LOGW(kTag, "failed to open!");
     events::System().Dispatch(StorageError{});

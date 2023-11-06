@@ -32,6 +32,7 @@
 #include "spi.hpp"
 #include "system_events.hpp"
 #include "tag_parser.hpp"
+#include "tasks.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_fsm.hpp"
@@ -62,6 +63,10 @@ auto Booting::entry() -> void {
     events::System().Dispatch(FatalError{});
     return;
   }
+
+  ESP_LOGI(kTag, "starting bg worker");
+  sServices->bg_worker(std::unique_ptr<tasks::Worker>{
+      tasks::Worker::Start<tasks::Type::kDatabaseBackground>()});
 
   ESP_LOGI(kTag, "installing remaining drivers");
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));

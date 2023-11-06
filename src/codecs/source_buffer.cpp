@@ -18,7 +18,7 @@
 namespace codecs {
 
 [[maybe_unused]] static constexpr char kTag[] = "dec_buf";
-static constexpr size_t kBufferSize = 1024 * 128;
+static constexpr size_t kBufferSize = 1024 * 16;
 static constexpr size_t kReadThreshold = 1024 * 8;
 
 SourceBuffer::SourceBuffer()

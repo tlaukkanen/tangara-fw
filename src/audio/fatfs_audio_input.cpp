@@ -23,6 +23,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "idf_additions.h"
+#include "readahead_source.hpp"
 #include "span.hpp"
 
 #include "audio_events.hpp"
@@ -42,9 +43,11 @@
 
 namespace audio {
 
-FatfsAudioInput::FatfsAudioInput(database::ITagParser& tag_parser)
+FatfsAudioInput::FatfsAudioInput(database::ITagParser& tag_parser,
+                                 tasks::Worker& bg_worker)
     : IAudioSource(),
       tag_parser_(tag_parser),
+      bg_worker_(bg_worker),
       new_stream_mutex_(),
       new_stream_(),
       has_new_stream_(false),
@@ -142,7 +145,9 @@ auto FatfsAudioInput::OpenFile(const std::pmr::string& path) -> bool {
     return false;
   }
 
-  new_stream_.reset(new FatfsSource(stream_type.value(), std::move(file)));
+  auto source =
+      std::make_unique<FatfsSource>(stream_type.value(), std::move(file));
+  new_stream_.reset(new ReadaheadSource(bg_worker_, std::move(source)));
   return true;
 }
 

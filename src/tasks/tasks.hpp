@@ -106,7 +106,7 @@ class Worker {
    * asynchronously returns the result as a future.
    */
   template <typename T>
-  auto Dispatch(const std::function<T(void)>& fn) -> std::future<T> {
+  auto Dispatch(const std::function<T(void)> fn) -> std::future<T> {
     std::shared_ptr<std::promise<T>> promise =
         std::make_shared<std::promise<T>>();
     WorkItem item{
@@ -125,6 +125,6 @@ class Worker {
 
 /* Specialisation of Evaluate for functions that return nothing. */
 template <>
-auto Worker::Dispatch(const std::function<void(void)>& fn) -> std::future<void>;
+auto Worker::Dispatch(const std::function<void(void)> fn) -> std::future<void>;
 
 }  // namespace tasks

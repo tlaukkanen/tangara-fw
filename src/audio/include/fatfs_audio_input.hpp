@@ -19,6 +19,7 @@
 #include "codec.hpp"
 #include "future_fetcher.hpp"
 #include "tag_parser.hpp"
+#include "tasks.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -30,7 +31,7 @@ namespace audio {
  */
 class FatfsAudioInput : public IAudioSource {
  public:
-  explicit FatfsAudioInput(database::ITagParser& tag_parser);
+  explicit FatfsAudioInput(database::ITagParser&, tasks::Worker&);
   ~FatfsAudioInput();
 
   /*
@@ -54,6 +55,7 @@ class FatfsAudioInput : public IAudioSource {
       -> std::optional<codecs::StreamType>;
 
   database::ITagParser& tag_parser_;
+  tasks::Worker& bg_worker_;
 
   std::mutex new_stream_mutex_;
   std::shared_ptr<codecs::IStream> new_stream_;

@@ -17,6 +17,7 @@
 #include "samd.hpp"
 #include "storage.hpp"
 #include "tag_parser.hpp"
+#include "tasks.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 
@@ -111,6 +112,15 @@ class ServiceLocator {
     collator_ = std::move(i);
   }
 
+  auto bg_worker() -> tasks::Worker& {
+    assert(bg_worker_ != nullptr);
+    return *bg_worker_;
+  }
+
+  auto bg_worker(std::unique_ptr<tasks::Worker> w) -> void {
+    bg_worker_ = std::move(w);
+  }
+
   // Not copyable or movable.
   ServiceLocator(const ServiceLocator&) = delete;
   ServiceLocator& operator=(const ServiceLocator&) = delete;
@@ -128,6 +138,8 @@ class ServiceLocator {
   std::shared_ptr<database::Database> database_;
   std::unique_ptr<database::ITagParser> tag_parser_;
   std::unique_ptr<locale::ICollator> collator_;
+
+  std::unique_ptr<tasks::Worker> bg_worker_;
 
   drivers::SdState sd_;
 };

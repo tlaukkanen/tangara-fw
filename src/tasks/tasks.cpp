@@ -195,8 +195,7 @@ Worker::~Worker() {
 }
 
 template <>
-auto Worker::Dispatch(const std::function<void(void)>& fn)
-    -> std::future<void> {
+auto Worker::Dispatch(const std::function<void(void)> fn) -> std::future<void> {
   std::shared_ptr<std::promise<void>> promise =
       std::make_shared<std::promise<void>>();
   WorkItem item{

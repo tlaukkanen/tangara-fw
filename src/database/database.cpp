@@ -117,16 +117,15 @@ static auto CheckDatabase(leveldb::DB& db, locale::ICollator& col) -> bool {
 
 auto Database::Open(IFileGatherer& gatherer,
                     ITagParser& parser,
-                    locale::ICollator& collator)
+                    locale::ICollator& collator,
+                    tasks::Worker& bg_worker)
     -> cpp::result<Database*, DatabaseError> {
-  // TODO(jacqueline): Why isn't compare_and_exchange_* available?
   if (sIsDbOpen.exchange(true)) {
     return cpp::fail(DatabaseError::ALREADY_OPEN);
   }
 
   if (!leveldb::sBackgroundThread) {
-    leveldb::sBackgroundThread.reset(
-        tasks::Worker::Start<tasks::Type::kDatabaseBackground>());
+    leveldb::sBackgroundThread = &bg_worker;
   }
 
   std::shared_ptr<tasks::Worker> worker(
