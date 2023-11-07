@@ -42,64 +42,64 @@ ReadaheadSource::~ReadaheadSource() {
 }
 
 auto ReadaheadSource::Read(cpp::span<std::byte> dest) -> ssize_t {
-  // Optismise for the most frequent case: the buffer already contains enough
-  // data for this call.
-  size_t bytes_read =
-      xStreamBufferReceive(buffer_, dest.data(), dest.size_bytes(), 0);
-
-  tell_ += bytes_read;
-  if (bytes_read == dest.size_bytes()) {
-    return bytes_read;
+  size_t bytes_written = 0;
+  // Fill the destination from our buffer, until either the buffer is drained
+  // or the destination is full.
+  while (!dest.empty() && (is_refilling_ || !xStreamBufferIsEmpty(buffer_))) {
+    size_t bytes_read = xStreamBufferReceive(buffer_, dest.data(),
+                                             dest.size_bytes(), portMAX_DELAY);
+    tell_ += bytes_read;
+    bytes_written += bytes_read;
+    dest = dest.subspan(bytes_read);
   }
 
-  dest = dest.subspan(bytes_read);
+  // After the loop, we've either written everything that was asked for, or
+  // we're out of data.
+  if (!dest.empty()) {
+    // Out of data in the buffer. Finish using the wrapped stream.
+    size_t extra_bytes = wrapped_->Read(dest);
+    tell_ += extra_bytes;
+    bytes_written += extra_bytes;
 
-  // Are we currently fetching more bytes?
-  ssize_t extra_bytes = 0;
-  if (!is_refilling_) {
-    // No! Pass through directly to the wrapped source for the fastest
-    // response.
-    extra_bytes = wrapped_->Read(dest);
-  } else {
-    // Yes! Wait for the refill to catch up, then try again.
-    is_refilling_.wait(true);
-    extra_bytes =
-        xStreamBufferReceive(buffer_, dest.data(), dest.size_bytes(), 0);
-  }
-
-  // No need to check whether the dest buffer is actually filled, since at this
-  // point we've read as many bytes as were available.
-  tell_ += extra_bytes;
-  bytes_read += extra_bytes;
-
-  // Before returning, make sure the readahead task is kicked off again.
-  ESP_LOGI(kTag, "triggering readahead");
-  is_refilling_ = true;
-  std::function<void(void)> refill = [this]() {
-    // Try to keep larger than most reasonable FAT sector sizes for more
-    // efficient disk reads.
-    constexpr size_t kMaxSingleRead = 1024 * 64;
-    std::byte working_buf[kMaxSingleRead];
-    for (;;) {
-      size_t bytes_to_read = std::min<size_t>(
-          kMaxSingleRead, xStreamBufferSpacesAvailable(buffer_));
-      if (bytes_to_read == 0) {
-        break;
-      }
-      size_t read = wrapped_->Read({working_buf, bytes_to_read});
-      if (read > 0) {
-        xStreamBufferSend(buffer_, working_buf, read, 0);
-      }
-      if (read < bytes_to_read) {
-        break;
-      }
+    // Check for EOF in the wrapped stream.
+    if (extra_bytes < dest.size_bytes()) {
+      return bytes_written;
     }
-    is_refilling_ = false;
-    is_refilling_.notify_all();
-  };
-  worker_.Dispatch(refill);
+  }
+  // After this point, we're done writing to `dest`. It's either empty, or the
+  // underlying source is EOF.
 
-  return bytes_read;
+  // If we're here, then there is more data to be read from the wrapped stream.
+  // Ensure the readahead is running.
+  if (!is_refilling_ &&
+      xStreamBufferBytesAvailable(buffer_) < kBufferSize / 4) {
+    is_refilling_ = true;
+    std::function<void(void)> refill = [this]() {
+      // Try to keep larger than most reasonable FAT sector sizes for more
+      // efficient disk reads.
+      constexpr size_t kMaxSingleRead = 1024 * 16;
+      std::byte working_buf[kMaxSingleRead];
+      for (;;) {
+        size_t bytes_to_read = std::min<size_t>(
+            kMaxSingleRead, xStreamBufferSpacesAvailable(buffer_));
+        if (bytes_to_read == 0) {
+          break;
+        }
+        size_t read = wrapped_->Read({working_buf, bytes_to_read});
+        if (read > 0) {
+          xStreamBufferSend(buffer_, working_buf, read, 0);
+        }
+        if (read < bytes_to_read) {
+          break;
+        }
+      }
+      is_refilling_ = false;
+      is_refilling_.notify_all();
+    };
+    worker_.Dispatch(refill);
+  }
+
+  return bytes_written;
 }
 
 auto ReadaheadSource::CanSeek() -> bool {
@@ -109,6 +109,7 @@ auto ReadaheadSource::CanSeek() -> bool {
 auto ReadaheadSource::SeekTo(int64_t destination, SeekFrom from) -> void {
   // Seeking blows away all of our prefetched data. To do this safely, we
   // first need to wait for the refill task to finish.
+  ESP_LOGI(kTag, "dropping readahead due to seek");
   is_refilling_.wait(true);
   // It's now safe to clear out the buffer.
   xStreamBufferReset(buffer_);
