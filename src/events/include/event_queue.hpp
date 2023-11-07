@@ -29,7 +29,7 @@ class Queue {
   auto Add(std::function<void(void)> fn) {
     {
       std::lock_guard<std::mutex> lock{mut_};
-      events_.push(fn);
+      events_.push_back(fn);
     }
     xSemaphoreGive(has_events_);
   }
@@ -50,7 +50,7 @@ class Queue {
         }
         had_work = true;
         fn = events_.front();
-        events_.pop();
+        events_.pop_front();
       }
       std::invoke(fn);
     }
@@ -64,7 +64,7 @@ class Queue {
  private:
   SemaphoreHandle_t has_events_;
   std::mutex mut_;
-  std::queue<std::function<void(void)>> events_;
+  std::list<std::function<void(void)>> events_;
 };
 
 template <class Machine>
