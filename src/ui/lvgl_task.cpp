@@ -49,6 +49,8 @@ namespace ui {
 
 [[maybe_unused]] static const char* kTag = "ui_task";
 
+static auto group_focus_cb(lv_group_t *group) -> void;
+
 UiTask::UiTask() {}
 
 UiTask::~UiTask() {
@@ -75,6 +77,7 @@ auto UiTask::Main() -> void {
     if (input_ && current_screen_->group() != current_group) {
       current_group = current_screen_->group();
       lv_indev_set_group(input_->registration(), current_group);
+      lv_group_set_focus_cb(current_group, &group_focus_cb);
     }
 
     if (current_screen_) {
@@ -96,6 +99,13 @@ auto UiTask::Start() -> UiTask* {
   UiTask* ret = new UiTask();
   tasks::StartPersistent<tasks::Type::kUi>([=]() { ret->Main(); });
   return ret;
+}
+
+static auto group_focus_cb(lv_group_t *group) -> void {
+  // TODO(robin): we probably want to vary this, configure this, etc
+  events::System().Dispatch(system_fsm::HapticTrigger{
+    .effect = drivers::Haptics::Effect::kMediumClick1_100Pct,
+  });
 }
 
 }  // namespace ui

@@ -12,6 +12,7 @@
 #include "battery.hpp"
 #include "core/lv_obj.h"
 #include "database.hpp"
+#include "haptics.hpp"
 #include "misc/lv_gc.h"
 
 #include "audio_events.hpp"
@@ -135,6 +136,11 @@ void Splash::exit() {
     sDisplay->SetDisplayOn(
         sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock));
   }
+
+  // buzz a bit to tell the user we're done booting
+  events::System().Dispatch(system_fsm::HapticTrigger{
+      .effect = drivers::Haptics::Effect::kLongDoubleSharpTick1_100Pct,
+  });
 }
 
 void Splash::react(const system_fsm::BootComplete& ev) {
