@@ -3,6 +3,10 @@ Upstream-Name: Tangara
 Upstream-Contact: jacqueline <me@jacqueline.id.au>
 Source: cooltech.zone
 
+Files: lib/bindey/*
+Copyright: 2021 Kevin Dixon
+License: MIT
+
 Files: lib/catch2/include/*
 Copyright: 2022 Two Blue Cubes Ltd.
 License: BSL-1.0
@@ -11,6 +15,10 @@ Files: lib/cbor/*
 Copyright: 2017 Intel Corporation
 License: MIT
 
+Files: lib/fatfs/*
+Copyright: 2021-2022 Espressif Systems (Shanghai) CO LTD
+License: Apache-2.0
+
 Files: lib/komihash/include/*
 Copyright: 2021-2022 Aleksey Vaneev
 License: MIT
@@ -18,6 +26,10 @@ License: MIT
 Files: lib/leveldb/*
 Copyright: 2011 The LevelDB Authors
 License: LicenseRef-LevelDB
+
+Files: lib/libcppbor/*
+Copyright: 2019 Google LLC
+License: Apache-2.0
 
 Files: lib/libfoxenflac/*
 Copyright: 2018-2022  Andreas Stöckel
@@ -35,6 +47,21 @@ Files: lib/lvgl/*
 Copyright: 2021 LVGL Kft
 License: MIT
 
+Files: lib/ogg/*
+Copyright: 2002 	Xiph.org Foundation
+License: BSD-3-Clause
+
+Files: lib/opus/*
+Copyright: 2001-2011 Xiph.Org, Skype Limited, Octasic,
+                    Jean-Marc Valin, Timothy B. Terriberry,
+                    CSIRO, Gregory Maxwell, Mark Borgerding,
+                    Erik de Castro Lopo
+License: BSD-3-Clause
+
+Files: lib/opusfile/*
+Copyright: 1994-2013 Xiph.Org Foundation and contributors
+License: BSD-3-Clause
+
 Files: lib/result/include/*
 Copyright: 2017-2021 Matthew Rodusek
 License: MIT
@@ -43,9 +70,23 @@ Files: lib/span/include/*
 Copyright: 2018 Tristan Brindle
 License: BSL-1.0
 
+Files: lib/speexdsp/*
+Copyright: 2002-2008 	Xiph.org Foundation
+           2002-2008 	Jean-Marc Valin
+           2005-2007	Analog Devices Inc.
+           2005-2008	Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+           1993, 2002, 2006 David Rowe
+           2003 		EpicGames
+           1992-1994	Jutta Degener, Carsten Bormann
+License: BSD-3-Clause
+
 Files: lib/stb_vorbis/*
 Copyright: 2017 Sean Barrett
 License: Unlicense
+
+Files: lib/tremor/*
+Copyright: 2002, Xiph.org Foundation
+License: BSD-3-Clause
 
 Files: lib/tinyfsm/*
 Copyright: 2012-2022 Axel Burri
