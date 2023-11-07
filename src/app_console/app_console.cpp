@@ -35,9 +35,11 @@
 #include "ff.h"
 #include "freertos/FreeRTOSConfig_arch.h"
 #include "freertos/projdefs.h"
+#include "haptics.hpp"
 #include "index.hpp"
 #include "memory_resource.hpp"
 #include "service_locator.hpp"
+#include "system_events.hpp"
 #include "track.hpp"
 
 namespace console {
@@ -646,6 +648,73 @@ void RegisterCoreDump() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdHaptics(int argc, char** argv) {
+  static const std::pmr::string usage =
+      "There are 123 waveform effects, and 5 'libraries' (motor types);\n"
+      "see the DRV2624 datasheet for more details.\n\n"
+      "Usages:\n"
+      "  haptic_effect\n"
+      "  haptic_effect library\n"
+      "  haptic_effect from-effect to-effect\n"
+      "  haptic_effect from-effect to-effect library\n"
+      "eg.\n"
+      "  haptic_effect        (plays from 1 to 123 with the default library)\n"
+      "  haptic_effect 3      (plays from 1 to 123 with library 3\n"
+      "  haptic_effect 1 100  (plays from 1 to 100 with the default library)\n"
+      "  haptic_effect 1 10 4 (plays from 1 to 10 with library 4)";
+
+  auto& haptics = AppConsole::sServices->haptics();
+
+  if (argc == 1) {
+    haptics.TourEffects();
+
+  } else if (argc == 2 && argv[1] != std::string{"help"}) {
+    std::istringstream raw_library_id{argv[1]};
+    int library_id = 0;
+    raw_library_id >> library_id;
+
+    haptics.TourEffects(static_cast<drivers::Haptics::Library>(library_id));
+
+  } else if (argc == 3) {
+    std::istringstream raw_effect_from_id{argv[1]};
+    std::istringstream raw_effect_to_id{argv[2]};
+    int effect_from_id, effect_to_id = 0;
+    raw_effect_from_id >> effect_from_id;
+    raw_effect_to_id >> effect_to_id;
+
+    haptics.TourEffects(static_cast<drivers::Haptics::Effect>(effect_from_id),
+                        static_cast<drivers::Haptics::Effect>(effect_to_id));
+
+  } else if (argc == 4) {
+    std::istringstream raw_effect_from_id{argv[1]};
+    std::istringstream raw_effect_to_id{argv[2]};
+    std::istringstream raw_library_id{argv[3]};
+    int effect_from_id, effect_to_id, library_id = 0;
+    raw_effect_from_id >> effect_from_id;
+    raw_effect_to_id >> effect_to_id;
+    raw_library_id >> library_id;
+
+    haptics.TourEffects(static_cast<drivers::Haptics::Effect>(effect_from_id),
+                        static_cast<drivers::Haptics::Effect>(effect_to_id),
+                        static_cast<drivers::Haptics::Library>(library_id));
+  } else {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+  return 0;
+}
+
+void RegisterHapticEffect() {
+  esp_console_cmd_t cmd{
+      .command = "haptic_effect",
+      .help =
+          "Plays one, a range of, or all effects from a DRV2624 effect library; run 'haptic_effect help' for more.",
+      .hint = NULL,
+      .func = &CmdHaptics,
+      .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -669,6 +738,8 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterBtList();
   RegisterSamd();
   RegisterCoreDump();
+
+  RegisterHapticEffect();
 }
 
 }  // namespace console
