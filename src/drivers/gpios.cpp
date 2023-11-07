@@ -11,7 +11,9 @@
 #include <cstdint>
 
 #include "driver/gpio.h"
+#include "esp_attr.h"
 #include "hal/gpio_types.h"
+
 #include "i2c.hpp"
 
 namespace drivers {
@@ -60,7 +62,7 @@ constexpr std::pair<uint8_t, uint8_t> unpack(uint16_t ba) {
 
 SemaphoreHandle_t Gpios::sReadPending;
 
-static void interrupt_isr(void* arg) {
+IRAM_ATTR static void interrupt_isr(void* arg) {
   SemaphoreHandle_t sem = reinterpret_cast<SemaphoreHandle_t>(arg);
   xSemaphoreGive(sem);
 }
