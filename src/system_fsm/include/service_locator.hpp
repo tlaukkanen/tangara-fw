@@ -13,6 +13,7 @@
 #include "collation.hpp"
 #include "database.hpp"
 #include "gpios.hpp"
+#include "haptics.hpp"
 #include "nvs.hpp"
 #include "samd.hpp"
 #include "storage.hpp"
@@ -79,6 +80,14 @@ class ServiceLocator {
     touchwheel_ = std::move(i);
   }
 
+  auto haptics() -> drivers::Haptics& {
+    return *haptics_;
+  }
+
+  auto haptics(std::unique_ptr<drivers::Haptics> i) {
+    haptics_ = std::move(i);
+  }
+
   auto database() -> std::weak_ptr<database::Database> { return database_; }
 
   auto database(std::unique_ptr<database::Database> i) {
@@ -130,6 +139,7 @@ class ServiceLocator {
   std::unique_ptr<drivers::Samd> samd_;
   std::unique_ptr<drivers::NvsStorage> nvs_;
   std::unique_ptr<drivers::TouchWheel> touchwheel_;
+  std::unique_ptr<drivers::Haptics> haptics_;
   std::unique_ptr<drivers::Bluetooth> bluetooth_;
 
   std::unique_ptr<audio::TrackQueue> queue_;
