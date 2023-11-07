@@ -305,7 +305,7 @@ static inline uint64_t fx_bitstream_peek_msb(fx_bitstream_t *reader,
  * optimization. Furthermore, some platforms (WASM) do not allow unaligned
  * memory access.
  */
-#define FX_ALIGN 16
+#define FX_ALIGN 1
 
 /**
  * Macro telling the compiler that P is aligned with the specified alignment

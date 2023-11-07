@@ -19,7 +19,13 @@ namespace codecs {
 [[maybe_unused]] static const char kTag[] = "flac";
 
 FoxenFlacDecoder::FoxenFlacDecoder()
-    : input_(), buffer_(), flac_(FX_FLAC_ALLOC(FLAC_MAX_BLOCK_SIZE, 2)) {}
+    : input_(),
+      buffer_(),
+      flac_(fx_flac_init(
+          heap_caps_malloc(fx_flac_size(FLAC_SUBSET_MAX_BLOCK_SIZE_48KHZ, 2),
+                           MALLOC_CAP_SPIRAM),
+          FLAC_SUBSET_MAX_BLOCK_SIZE_48KHZ,
+          2)) {}
 
 FoxenFlacDecoder::~FoxenFlacDecoder() {
   free(flac_);
