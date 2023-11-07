@@ -28,9 +28,6 @@ static constexpr char kTag[] = "haptics";
 static constexpr uint8_t kHapticsAddress = 0x5A;
 
 Haptics::Haptics() {
-  // TODO(robin): is this needed?
-  vTaskDelay(pdMS_TO_TICKS(300));
-
   PowerUp();
 
   // Put into ERM Open Loop:
