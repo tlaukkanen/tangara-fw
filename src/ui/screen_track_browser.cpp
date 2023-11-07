@@ -187,6 +187,7 @@ TrackBrowser::TrackBrowser(
   lv_obj_set_size(list_, lv_pct(100), LV_SIZE_CONTENT);
 
   // The default scrollbar is deceptive because we load in items progressively.
+  // TODO/FIXME: this doesn't actually turn off the scrollbar, it seems.
   lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
   // Wrapping behaves in surprising ways, again due to progressing loading.
   lv_group_set_wrap(group_, false);
