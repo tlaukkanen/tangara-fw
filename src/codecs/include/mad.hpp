@@ -45,9 +45,9 @@ class MadMp3Decoder : public ICodec {
   std::shared_ptr<IStream> input_;
   SourceBuffer buffer_;
 
-  mad_stream* stream_;
-  mad_frame* frame_;
-  mad_synth* synth_;
+  std::unique_ptr<mad_stream> stream_;
+  std::unique_ptr<mad_frame> frame_;
+  std::unique_ptr<mad_synth> synth_;
 
   int current_sample_;
   bool is_eof_;

@@ -25,37 +25,29 @@ namespace codecs {
 
 [[maybe_unused]] static constexpr char kTag[] = "mad";
 
-static constexpr uint32_t kMallocCapsPrefer =
-    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
-static constexpr uint32_t kMallocCapsFallback =
-    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+static constexpr uint32_t kMallocCaps = MALLOC_CAP_SPIRAM;
 
 MadMp3Decoder::MadMp3Decoder()
     : input_(),
       buffer_(),
       stream_(reinterpret_cast<mad_stream*>(
-          heap_caps_malloc_prefer(sizeof(mad_stream),
-                                  kMallocCapsPrefer,
-                                  kMallocCapsFallback))),
+          heap_caps_malloc(sizeof(mad_stream), kMallocCaps))),
       frame_(reinterpret_cast<mad_frame*>(
-          heap_caps_malloc_prefer(sizeof(mad_frame),
-                                  kMallocCapsPrefer,
-                                  kMallocCapsFallback))),
+          heap_caps_malloc(sizeof(mad_frame), kMallocCaps))),
       synth_(reinterpret_cast<mad_synth*>(
-          heap_caps_malloc_prefer(sizeof(mad_synth),
-                                  kMallocCapsPrefer,
-                                  kMallocCapsFallback))),
+          heap_caps_malloc(sizeof(mad_synth),
+                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT))),
       current_sample_(-1),
       is_eof_(false),
       is_eos_(false) {
-  mad_stream_init(stream_);
-  mad_frame_init(frame_);
-  mad_synth_init(synth_);
+  mad_stream_init(stream_.get());
+  mad_frame_init(frame_.get());
+  mad_synth_init(synth_.get());
 }
 MadMp3Decoder::~MadMp3Decoder() {
-  mad_stream_finish(stream_);
-  mad_frame_finish(frame_);
-  mad_synth_finish(synth_);
+  mad_stream_finish(stream_.get());
+  mad_frame_finish(frame_.get());
+  mad_synth_finish(synth_.get());
 }
 
 auto MadMp3Decoder::GetBytesUsed() -> std::size_t {
@@ -82,11 +74,11 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
     eof = buffer_.Refill(input_.get());
 
     buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
-      mad_stream_buffer(stream_,
+      mad_stream_buffer(stream_.get(),
                         reinterpret_cast<const unsigned char*>(buf.data()),
                         buf.size_bytes());
 
-      while (mad_header_decode(&header, stream_) < 0) {
+      while (mad_header_decode(&header, stream_.get()) < 0) {
         if (MAD_RECOVERABLE(stream_->error)) {
           // Recoverable errors are usually malformed parts of the stream.
           // We can recover from them by just retrying the decode.
@@ -142,13 +134,13 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
     }
 
     buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
-      mad_stream_buffer(stream_,
+      mad_stream_buffer(stream_.get(),
                         reinterpret_cast<const unsigned char*>(buf.data()),
                         buf.size());
 
       // Decode the next frame. To signal errors, this returns -1 and
       // stashes an error code in the stream structure.
-      while (mad_frame_decode(frame_, stream_) < 0) {
+      while (mad_frame_decode(frame_.get(), stream_.get()) < 0) {
         if (MAD_RECOVERABLE(stream_->error)) {
           // Recoverable errors are usually malformed parts of the stream.
           // We can recover from them by just retrying the decode.
@@ -168,7 +160,7 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
 
       // We've successfully decoded a frame! Now synthesize samples to write
       // out.
-      mad_synth_frame(synth_, frame_);
+      mad_synth_frame(synth_.get(), frame_.get());
       current_sample_ = 0;
       return GetBytesUsed();
     });
