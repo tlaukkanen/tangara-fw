@@ -25,7 +25,7 @@ extern "C" void app_main(void) {
   // weird early init stuff; by being explicit about initialisation order, we're
   // able to handle GPIO ISR notifcations + system events from the same task,
   // and a little mess with worth not needing to allocate a whole extra stack.
-  QueueSetHandle_t set = xQueueCreateSet(2);
+  QueueSetHandle_t set = xQueueCreateSet(3);
   auto* event_queue = events::queues::SystemAndAudio();
   xQueueAddToSet(event_queue->has_events(), set);
   xQueueAddToSet(gpios_semphr, set);
