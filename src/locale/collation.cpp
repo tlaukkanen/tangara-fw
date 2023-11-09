@@ -86,16 +86,12 @@ GLibCollator::~GLibCollator() {
 }
 
 auto GLibCollator::Transform(const std::string& in) -> std::string {
-  char dest[256];
-  size_t size = glib_strxfrm(dest, in.c_str(), 256, locale_data_.get());
-  if (size >= 256) {
-    char* larger_dest = new char[size + 1]{0};
-    glib_strxfrm(larger_dest, in.c_str(), size, locale_data_.get());
-    std::string out{larger_dest, size};
-    delete[] larger_dest;
-    return out;
-  }
-  return {dest, size};
+  size_t size = glib_strxfrm(NULL, in.c_str(), 0, locale_data_.get());
+  char* dest = new char[size + 1]{0};
+  glib_strxfrm(dest, in.c_str(), size, locale_data_.get());
+  std::string out{dest, strnlen(dest, size)};
+  delete[] dest;
+  return out;
 }
 
 }  // namespace locale
