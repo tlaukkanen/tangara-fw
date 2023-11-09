@@ -49,7 +49,7 @@ void Idle::exit() {
 }
 
 void Idle::react(const KeyLockChanged& ev) {
-  if (ev.falling) {
+  if (!ev.locking) {
     transit<Running>();
   }
 }

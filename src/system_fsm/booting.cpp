@@ -114,9 +114,9 @@ auto Booting::react(const BootComplete& ev) -> void {
   ESP_LOGI(kTag, "bootup completely successfully");
 
   if (sServices->gpios().Get(drivers::Gpios::Pin::kKeyLock)) {
-    transit<Running>();
-  } else {
     transit<Idle>();
+  } else {
+    transit<Running>();
   }
 }
 

@@ -43,7 +43,7 @@ struct StorageMounted : tinyfsm::Event {};
 struct StorageError : tinyfsm::Event {};
 
 struct KeyLockChanged : tinyfsm::Event {
-  bool falling;
+  bool locking;
 };
 struct HasPhonesChanged : tinyfsm::Event {
   bool falling;

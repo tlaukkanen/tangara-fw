@@ -91,8 +91,8 @@ void UiState::PopScreen() {
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
-  sDisplay->SetDisplayOn(ev.falling);
-  sInput->lock(!ev.falling);
+  sDisplay->SetDisplayOn(!ev.locking);
+  sInput->lock(ev.locking);
 }
 
 void UiState::react(const system_fsm::BatteryStateChanged& ev) {

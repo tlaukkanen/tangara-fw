@@ -45,7 +45,7 @@ void SystemState::react(const internal::GpioInterrupt&) {
   bool has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
   if (key_lock != prev_key_lock) {
-    KeyLockChanged ev{.falling = key_lock};
+    KeyLockChanged ev{.locking = key_lock};
     events::System().Dispatch(ev);
     events::Ui().Dispatch(ev);
   }
@@ -77,7 +77,7 @@ void SystemState::react(const internal::SamdInterrupt&) {
 }
 
 auto SystemState::IdleCondition() -> bool {
-  return !sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock) &&
+  return sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock) &&
          audio::AudioState::is_in_state<audio::states::Standby>();
 }
 
