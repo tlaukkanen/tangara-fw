@@ -72,6 +72,7 @@ auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
 
   sCurrentScreen.reset(new screens::Splash());
   sTask.reset(UiTask::Start());
+  sDisplay->SetDisplayOn(!gpios.Get(drivers::IGpios::Pin::kKeyLock));
   return true;
 }
 
@@ -132,11 +133,6 @@ void UiState::react(const internal::ControlSchemeChanged&) {
 namespace states {
 
 void Splash::exit() {
-  if (sDisplay != nullptr) {
-    sDisplay->SetDisplayOn(
-        sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock));
-  }
-
   // buzz a bit to tell the user we're done booting
   events::System().Dispatch(system_fsm::HapticTrigger{
       .effect = drivers::Haptics::Effect::kLongDoubleSharpTick1_100Pct,
