@@ -72,7 +72,6 @@ auto Booting::entry() -> void {
 
   ESP_LOGI(kTag, "installing remaining drivers");
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
-  vTaskDelay(pdMS_TO_TICKS(1000));
   sServices->nvs(
       std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
   sServices->touchwheel(
