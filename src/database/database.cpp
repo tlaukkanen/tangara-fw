@@ -453,12 +453,12 @@ auto Database::GetIndexes() -> std::vector<IndexInfo> {
   };
 }
 
-auto Database::GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
+auto Database::GetTracksByIndex(IndexId index, std::size_t page_size)
     -> std::future<Result<IndexRecord>*> {
   return worker_task_->Dispatch<Result<IndexRecord>*>(
       [=, this]() -> Result<IndexRecord>* {
         IndexKey::Header header{
-            .id = index.id,
+            .id = index,
             .depth = 0,
             .components_hash = 0,
         };

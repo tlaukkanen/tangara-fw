@@ -30,6 +30,7 @@
 #include "hal/gpio_types.h"
 #include "hal/lv_hal_indev.h"
 #include "hal/spi_types.h"
+#include "lua.h"
 #include "lv_api_map.h"
 #include "lvgl/lvgl.h"
 #include "misc/lv_color.h"

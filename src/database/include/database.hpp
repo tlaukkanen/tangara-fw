@@ -117,7 +117,7 @@ class Database {
       -> std::future<std::vector<std::shared_ptr<Track>>>;
 
   auto GetIndexes() -> std::vector<IndexInfo>;
-  auto GetTracksByIndex(const IndexInfo& index, std::size_t page_size)
+  auto GetTracksByIndex(IndexId index, std::size_t page_size)
       -> std::future<Result<IndexRecord>*>;
   auto GetTracks(std::size_t page_size) -> std::future<Result<Track>*>;
   auto GetDump(std::size_t page_size) -> std::future<Result<std::pmr::string>*>;

@@ -10,9 +10,16 @@
 
 #include "audio_fsm.hpp"
 #include "battery.hpp"
+#include "core/lv_group.h"
 #include "core/lv_obj.h"
+#include "core/lv_obj_tree.h"
 #include "database.hpp"
+#include "esp_heap_caps.h"
 #include "haptics.hpp"
+#include "lauxlib.h"
+#include "lua.hpp"
+#include "lua_thread.hpp"
+#include "luavgl.h"
 #include "misc/lv_gc.h"
 
 #include "audio_events.hpp"
@@ -28,19 +35,21 @@
 #include "nvs.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
-#include "screen_menu.hpp"
+#include "screen_lua.hpp"
 #include "screen_onboarding.hpp"
 #include "screen_playing.hpp"
 #include "screen_settings.hpp"
 #include "screen_splash.hpp"
 #include "screen_track_browser.hpp"
 #include "source.hpp"
+#include "spiffs.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
 #include "widget_top_bar.hpp"
+#include "widgets/lv_label.h"
 
 namespace ui {
 
@@ -56,6 +65,9 @@ std::shared_ptr<EncoderInput> UiState::sInput;
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
 std::shared_ptr<Modal> UiState::sCurrentModal;
+std::shared_ptr<lua::LuaThread> UiState::sLua;
+
+std::weak_ptr<screens::Bluetooth> UiState::bluetooth_screen_;
 
 models::Playback UiState::sPlaybackModel;
 models::TopBar UiState::sTopBarModel{{},
@@ -83,12 +95,13 @@ void UiState::PushScreen(std::shared_ptr<Screen> screen) {
   sCurrentScreen = screen;
 }
 
-void UiState::PopScreen() {
+int UiState::PopScreen() {
   if (sScreens.empty()) {
-    return;
+    return 0;
   }
   sCurrentScreen = sScreens.top();
   sScreens.pop();
+  return sScreens.size();
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
@@ -159,12 +172,48 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   } else {
     ESP_LOGE(kTag, "no input devices initialised!");
   }
+}
 
-  if (sServices->nvs().HasShownOnboarding()) {
-    transit<Browse>();
-  } else {
-    transit<Onboarding>();
+void Splash::react(const system_fsm::StorageMounted&) {
+  transit<Lua>();
+}
+
+void Lua::entry() {
+  if (!sLua) {
+    sCurrentScreen.reset(new Screen());
+    lv_group_set_default(sCurrentScreen->group());
+
+    sLua.reset(lua::LuaThread::Start(*sServices, sCurrentScreen->content()));
+    sLua->RunScript("/lua/main.lua");
+
+    lv_group_set_default(NULL);
   }
+}
+
+void Lua::exit() {}
+
+void Lua::react(const internal::IndexSelected& ev) {
+  auto db = sServices->database().lock();
+  if (!db) {
+    return;
+  }
+
+  ESP_LOGI(kTag, "selected index %u", ev.id);
+  auto query = db->GetTracksByIndex(ev.id, kRecordsPerPage);
+  std::pmr::vector<std::pmr::string> crumbs = {""};
+  PushScreen(std::make_shared<screens::TrackBrowser>(
+      sTopBarModel, sServices->track_queue(), sServices->database(), crumbs,
+      std::move(query)));
+  transit<Browse>();
+}
+
+void Lua::react(const internal::ShowNowPlaying&) {
+  transit<Playing>();
+}
+
+void Lua::react(const internal::ShowSettingsPage& ev) {
+  PushScreen(std::shared_ptr<Screen>(new screens::Settings(sTopBarModel)));
+  transit<Browse>();
 }
 
 void Onboarding::entry() {
@@ -218,31 +267,7 @@ void Onboarding::react(const internal::OnboardingNavigate& ev) {
   }
 }
 
-static bool sBrowseFirstEntry = true;
-
-void Browse::entry() {
-  if (sBrowseFirstEntry) {
-    auto db = sServices->database().lock();
-    if (!db) {
-      return;
-    }
-    sCurrentScreen =
-        std::make_shared<screens::Menu>(sTopBarModel, db->GetIndexes());
-    sBrowseFirstEntry = false;
-  }
-}
-
-void Browse::react(const system_fsm::StorageMounted& ev) {
-  if (sBrowseFirstEntry) {
-    auto db = sServices->database().lock();
-    if (!db) {
-      return;
-    }
-    sCurrentScreen =
-        std::make_shared<screens::Menu>(sTopBarModel, db->GetIndexes());
-    sBrowseFirstEntry = false;
-  }
-}
+void Browse::entry() {}
 
 void Browse::react(const internal::ShowNowPlaying& ev) {
   transit<Playing>();
@@ -327,22 +352,10 @@ void Browse::react(const internal::RecordSelected& ev) {
   }
 }
 
-void Browse::react(const internal::IndexSelected& ev) {
-  auto db = sServices->database().lock();
-  if (!db) {
-    return;
-  }
-
-  ESP_LOGI(kTag, "selected index %s", ev.index.name.c_str());
-  auto query = db->GetTracksByIndex(ev.index, kRecordsPerPage);
-  std::pmr::vector<std::pmr::string> crumbs = {ev.index.name};
-  PushScreen(std::make_shared<screens::TrackBrowser>(
-      sTopBarModel, sServices->track_queue(), sServices->database(), crumbs,
-      std::move(query)));
-}
-
 void Browse::react(const internal::BackPressed& ev) {
-  PopScreen();
+  if (PopScreen() == 0) {
+    transit<Lua>();
+  }
 }
 
 void Browse::react(const system_fsm::BluetoothDevicesChanged&) {
@@ -368,11 +381,14 @@ void Playing::entry() {
 
 void Playing::exit() {
   sPlayingScreen.reset();
-  PopScreen();
 }
 
 void Playing::react(const internal::BackPressed& ev) {
-  transit<Browse>();
+  if (PopScreen() == 0) {
+    transit<Lua>();
+  } else {
+    transit<Browse>();
+  }
 }
 
 static std::shared_ptr<modals::Progress> sIndexProgress;

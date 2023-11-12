@@ -6,6 +6,7 @@
 
 #include "collation.hpp"
 #include "haptics.hpp"
+#include "spiffs.hpp"
 #include "system_fsm.hpp"
 
 #include <stdint.h>
@@ -71,6 +72,7 @@ auto Booting::entry() -> void {
       tasks::Worker::Start<tasks::Type::kBackgroundWorker>()});
 
   ESP_LOGI(kTag, "installing remaining drivers");
+  drivers::spiffs_mount();
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
   sServices->nvs(
       std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));

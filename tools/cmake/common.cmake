@@ -26,6 +26,8 @@ list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/span")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/speexdsp")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/tinyfsm")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/tremor")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/esp-idf-lua")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/luavgl")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 

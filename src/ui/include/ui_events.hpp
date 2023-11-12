@@ -35,7 +35,7 @@ struct RecordSelected : tinyfsm::Event {
 };
 
 struct IndexSelected : tinyfsm::Event {
-  database::IndexInfo index;
+  database::IndexId id;
 };
 
 struct ControlSchemeChanged : tinyfsm::Event {};

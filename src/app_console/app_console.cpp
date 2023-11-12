@@ -245,7 +245,7 @@ int CmdDbIndex(int argc, char** argv) {
   }
 
   std::shared_ptr<database::Result<database::IndexRecord>> res(
-      db->GetTracksByIndex(*index, 20).get());
+      db->GetTracksByIndex(index->id, 20).get());
   int choice_index = 2;
 
   if (res->values().empty()) {
@@ -708,7 +708,8 @@ void RegisterHapticEffect() {
   esp_console_cmd_t cmd{
       .command = "haptic_effect",
       .help =
-          "Plays one, a range of, or all effects from a DRV2624 effect library; run 'haptic_effect help' for more.",
+          "Plays one, a range of, or all effects from a DRV2624 effect "
+          "library; run 'haptic_effect help' for more.",
       .hint = NULL,
       .func = &CmdHaptics,
       .argtable = NULL};

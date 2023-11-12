@@ -16,6 +16,7 @@
 #include "bindey/property.h"
 #include "db_events.hpp"
 #include "gpios.hpp"
+#include "lua_thread.hpp"
 #include "lvgl_task.hpp"
 #include "model_playback.hpp"
 #include "model_top_bar.hpp"
@@ -89,7 +90,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
  protected:
   void PushScreen(std::shared_ptr<Screen>);
-  void PopScreen();
+  int PopScreen();
 
   static std::unique_ptr<UiTask> sTask;
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
@@ -99,6 +100,9 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
   static std::shared_ptr<Modal> sCurrentModal;
+  static std::shared_ptr<lua::LuaThread> sLua;
+
+  static std::weak_ptr<screens::Bluetooth> bluetooth_screen_;
 
   static models::Playback sPlaybackModel;
   static models::TopBar sTopBarModel;
@@ -110,6 +114,19 @@ class Splash : public UiState {
  public:
   void exit() override;
   void react(const system_fsm::BootComplete&) override;
+  void react(const system_fsm::StorageMounted&) override;
+  using UiState::react;
+};
+
+class Lua : public UiState {
+ public:
+  void entry() override;
+  void exit() override;
+
+  void react(const internal::IndexSelected&) override;
+  void react(const internal::ShowNowPlaying&) override;
+  void react(const internal::ShowSettingsPage&) override;
+
   using UiState::react;
 };
 
@@ -131,20 +148,15 @@ class Browse : public UiState {
   void entry() override;
 
   void react(const internal::RecordSelected&) override;
-  void react(const internal::IndexSelected&) override;
   void react(const internal::BackPressed&) override;
 
   void react(const internal::ShowNowPlaying&) override;
   void react(const internal::ShowSettingsPage&) override;
   void react(const internal::ReindexDatabase&) override;
 
-  void react(const system_fsm::StorageMounted&) override;
   void react(const system_fsm::BluetoothDevicesChanged&) override;
 
   using UiState::react;
-
- private:
-  std::weak_ptr<screens::Bluetooth> bluetooth_screen_;
 };
 
 class Playing : public UiState {

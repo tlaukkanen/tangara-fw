@@ -16,6 +16,8 @@ list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")
 
 project(tangara)
 
+spiffs_create_partition_image(lua lua FLASH_IN_PROJECT)
+
 add_custom_target(check-for-sdkconfig-changes ALL
   COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake/check-for-sdkconfig-changes.sh
 )
