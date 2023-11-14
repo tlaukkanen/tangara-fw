@@ -5,8 +5,9 @@ local database = require("database")
 
 local main_menu = {}
 
-function main_menu:Create()
-  local root = lvgl.Object(nil, {
+function main_menu:Create(parent)
+  local menu = {}
+  menu.root = lvgl.Object(parent, {
     flex = {
       flex_direction = "column",
       flex_wrap = "wrap",
@@ -17,31 +18,33 @@ function main_menu:Create()
     w = lvgl.HOR_RES(),
     h = lvgl.VER_RES(),
   })
-  root:center()
+  menu.root:center()
 
-  widgets.StatusBar(root, {})
+  menu.status_bar = widgets.StatusBar(menu.root, {})
 
-  local list = lvgl.List(root, {
+  menu.list = lvgl.List(menu.root, {
     w = lvgl.PCT(100),
     h = lvgl.PCT(100),
     flex_grow = 1,
   })
 
-  list:add_btn(nil, "Now Playing"):onClicked(function()
+  menu.list:add_btn(nil, "Now Playing"):onClicked(function()
     legacy_ui.open_now_playing();
   end)
 
   local indexes = database.get_indexes()
   for id, name in ipairs(indexes) do
-    local btn = list:add_btn(nil, name)
+    local btn = menu.list:add_btn(nil, name)
     btn:onClicked(function()
       legacy_ui.open_browse(id);
     end)
   end
 
-  list:add_btn(nil, "Settings"):onClicked(function()
+  menu.list:add_btn(nil, "Settings"):onClicked(function()
     legacy_ui.open_settings();
   end)
+
+  return menu
 end
 
 return main_menu

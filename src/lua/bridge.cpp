@@ -10,10 +10,12 @@
 #include <string>
 
 #include "esp_log.h"
-#include "event_queue.hpp"
-#include "lua.h"
+#include "lauxlib.h"
 #include "lua.hpp"
 #include "lvgl.h"
+
+#include "event_queue.hpp"
+#include "property.hpp"
 #include "service_locator.hpp"
 #include "ui_events.hpp"
 
@@ -53,9 +55,7 @@ static auto lua_legacy_ui(lua_State* state) -> int {
 }
 
 static auto get_indexes(lua_State* state) -> int {
-  lua_pushstring(state, kBridgeKey);
-  lua_gettable(state, LUA_REGISTRYINDEX);
-  Bridge* instance = reinterpret_cast<Bridge*>(lua_touserdata(state, -1));
+  Bridge* instance = Bridge::Get(state);
 
   lua_newtable(state);
 
@@ -80,8 +80,14 @@ static auto lua_database(lua_State* state) -> int {
   return 1;
 }
 
+auto Bridge::Get(lua_State* state) -> Bridge* {
+  lua_pushstring(state, kBridgeKey);
+  lua_gettable(state, LUA_REGISTRYINDEX);
+  return reinterpret_cast<Bridge*>(lua_touserdata(state, -1));
+}
+
 Bridge::Bridge(system_fsm::ServiceLocator& services, lua_State& s)
-    : services_(services), state_(s) {
+    : services_(services), state_(s), bindings_(s) {
   lua_pushstring(&s, kBridgeKey);
   lua_pushlightuserdata(&s, this);
   lua_settable(&s, LUA_REGISTRYINDEX);
@@ -91,6 +97,33 @@ Bridge::Bridge(system_fsm::ServiceLocator& services, lua_State& s)
 
   luaL_requiref(&s, "database", lua_database, true);
   lua_pop(&s, 1);
+}
+
+static auto new_property_module(lua_State* state) -> int {
+  const char* name = luaL_checkstring(state, 1);
+  luaL_newmetatable(state, name);
+
+  lua_pushstring(state, "__index");
+  lua_pushvalue(state, -2);
+  lua_settable(state, -3);  // metatable.__index = metatable
+
+  return 1;
+}
+
+auto Bridge::AddPropertyModule(
+    const std::string& name,
+    std::vector<std::pair<std::string, std::shared_ptr<Property>>> props)
+    -> void {
+  // Create the module (or retrieve it if one with this name already exists)
+  luaL_requiref(&state_, name.c_str(), new_property_module, true);
+
+  for (const auto& prop : props) {
+    lua_pushstring(&state_, prop.first.c_str());
+    bindings_.Register(&state_, prop.second.get());
+    lua_settable(&state_, -3);  // metatable.propname = property
+  }
+
+  lua_pop(&state_, 1);  // pop the module off the stack
 }
 
 }  // namespace lua

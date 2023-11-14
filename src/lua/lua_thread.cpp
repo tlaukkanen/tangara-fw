@@ -5,11 +5,11 @@
  */
 
 #include "lua_thread.hpp"
+
 #include <memory>
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "lua.h"
 #include "lua.hpp"
 #include "luavgl.h"
 #include "service_locator.hpp"

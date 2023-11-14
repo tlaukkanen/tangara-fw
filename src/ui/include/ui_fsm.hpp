@@ -21,6 +21,7 @@
 #include "model_playback.hpp"
 #include "model_top_bar.hpp"
 #include "nvs.hpp"
+#include "property.hpp"
 #include "relative_wheel.hpp"
 #include "screen_playing.hpp"
 #include "screen_settings.hpp"
@@ -56,9 +57,9 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
-  void react(const system_fsm::BatteryStateChanged&);
-  void react(const audio::PlaybackStarted&);
-  void react(const audio::PlaybackFinished&);
+  virtual void react(const system_fsm::BatteryStateChanged&);
+  virtual void react(const audio::PlaybackStarted&);
+  virtual void react(const audio::PlaybackFinished&);
   void react(const audio::PlaybackUpdate&);
   void react(const audio::QueueUpdate&);
 
@@ -127,7 +128,19 @@ class Lua : public UiState {
   void react(const internal::ShowNowPlaying&) override;
   void react(const internal::ShowSettingsPage&) override;
 
+  void react(const system_fsm::BatteryStateChanged&) override;
+  void react(const audio::PlaybackStarted&) override;
+  void react(const audio::PlaybackFinished&) override;
+
   using UiState::react;
+
+ private:
+  std::shared_ptr<lua::Property> battery_pct_;
+  std::shared_ptr<lua::Property> battery_mv_;
+  std::shared_ptr<lua::Property> battery_charging_;
+  std::shared_ptr<lua::Property> bluetooth_en_;
+  std::shared_ptr<lua::Property> playback_playing_;
+  std::shared_ptr<lua::Property> playback_track_;
 };
 
 class Onboarding : public UiState {

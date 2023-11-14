@@ -33,6 +33,7 @@
 #include "modal_progress.hpp"
 #include "model_playback.hpp"
 #include "nvs.hpp"
+#include "property.hpp"
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "screen_lua.hpp"
@@ -183,7 +184,36 @@ void Lua::entry() {
     sCurrentScreen.reset(new Screen());
     lv_group_set_default(sCurrentScreen->group());
 
+    auto bat =
+        sServices->battery().State().value_or(battery::Battery::BatteryState{});
+    battery_pct_ =
+        std::make_shared<lua::Property>(static_cast<int>(bat.percent));
+    battery_mv_ =
+        std::make_shared<lua::Property>(static_cast<int>(bat.millivolts));
+    battery_charging_ = std::make_shared<lua::Property>(bat.is_charging);
+
+    bluetooth_en_ = std::make_shared<lua::Property>(false);
+    playback_playing_ = std::make_shared<lua::Property>(false);
+    playback_track_ = std::make_shared<lua::Property>();
+
     sLua.reset(lua::LuaThread::Start(*sServices, sCurrentScreen->content()));
+    sLua->bridge().AddPropertyModule("power",
+                                     {
+                                         {"battery_pct", battery_pct_},
+                                         {"battery_millivolts", battery_mv_},
+                                         {"plugged_in", battery_charging_},
+                                     });
+    sLua->bridge().AddPropertyModule("bluetooth",
+                                     {
+                                         {"enabled", bluetooth_en_},
+                                         {"connected", bluetooth_en_},
+                                     });
+    sLua->bridge().AddPropertyModule("playback",
+                                     {
+                                         {"playing", playback_playing_},
+                                         {"track", playback_track_},
+                                     });
+
     sLua->RunScript("/lua/main.lua");
 
     lv_group_set_default(NULL);
@@ -214,6 +244,19 @@ void Lua::react(const internal::ShowNowPlaying&) {
 void Lua::react(const internal::ShowSettingsPage& ev) {
   PushScreen(std::shared_ptr<Screen>(new screens::Settings(sTopBarModel)));
   transit<Browse>();
+}
+
+void Lua::react(const system_fsm::BatteryStateChanged& ev) {
+  battery_pct_->Update(static_cast<int>(ev.new_state.percent));
+  battery_mv_->Update(static_cast<int>(ev.new_state.millivolts));
+}
+
+void Lua::react(const audio::PlaybackStarted&) {
+  playback_playing_->Update(true);
+}
+
+void Lua::react(const audio::PlaybackFinished&) {
+  playback_playing_->Update(false);
 }
 
 void Onboarding::entry() {

@@ -27,6 +27,8 @@ class LuaThread {
 
   auto RunScript(const std::string& path) -> bool;
 
+  auto bridge() -> Bridge& { return *bridge_; }
+
  private:
   LuaThread(std::unique_ptr<Allocator>&, std::unique_ptr<Bridge>&, lua_State*);
 
