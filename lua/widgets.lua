@@ -16,7 +16,16 @@ function widgets.StatusBar(parent, opts)
       align_content = "center",
     },
     w = lvgl.HOR_RES(),
-    h = 18,
+    h = lvgl.SIZE_CONTENT,
+    bg_opa = lvgl.OPA(100),
+    bg_color = "#fff",
+    pad_top = 1,
+    pad_bottom = 1,
+    pad_column = 1,
+    shadow_width = 6,
+    shadow_opa = lvgl.OPA(50),
+    shaddow_ofs_x = 0,
+    scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
   }
 
   if opts.back_cb then
