@@ -13,6 +13,8 @@ sdkconfig.old
 compile_commands.json
 warnings.txt
 
+doc/
+
 test/build/
 test/dependencies.lock
 test/sdkconfig
