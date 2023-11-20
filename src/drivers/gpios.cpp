@@ -86,8 +86,7 @@ Gpios::Gpios() : ports_(pack(kPortADefault, kPortBDefault)), inputs_(0) {
       .intr_type = GPIO_INTR_NEGEDGE,
   };
   gpio_config(&config);
-  gpio_install_isr_service(ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_SHARED |
-                           ESP_INTR_FLAG_IRAM);
+  gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
   gpio_isr_handler_add(GPIO_NUM_34, &interrupt_isr, sReadPending);
 }
 
