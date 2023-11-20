@@ -110,16 +110,32 @@ static auto new_property_module(lua_State* state) -> int {
   return 1;
 }
 
+template <class... Ts>
+inline constexpr bool always_false_v = false;
+
 auto Bridge::AddPropertyModule(
     const std::string& name,
-    std::vector<std::pair<std::string, std::shared_ptr<Property>>> props)
-    -> void {
+    std::vector<std::pair<std::string,
+                          std::variant<LuaFunction, std::shared_ptr<Property>>>>
+        props) -> void {
   // Create the module (or retrieve it if one with this name already exists)
   luaL_requiref(&state_, name.c_str(), new_property_module, true);
 
   for (const auto& prop : props) {
     lua_pushstring(&state_, prop.first.c_str());
-    bindings_.Register(&state_, prop.second.get());
+    std::visit(
+        [&](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, LuaFunction>) {
+            bindings_.Register(&state_, arg);
+          } else if constexpr (std::is_same_v<T, std::shared_ptr<Property>>) {
+            bindings_.Register(&state_, arg.get());
+          } else {
+            static_assert(always_false_v<T>, "missing case");
+          }
+        },
+        prop.second);
+
     lua_settable(&state_, -3);  // metatable.propname = property
   }
 

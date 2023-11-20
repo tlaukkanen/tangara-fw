@@ -5,10 +5,12 @@
  */
 
 #include "property.hpp"
+#include <sys/_stdint.h>
 
 #include <memory>
 #include <string>
 
+#include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
 #include "lvgl.h"
@@ -16,11 +18,13 @@
 
 namespace lua {
 
-static const char kMetatableName[] = "property";
+static const char kPropertyMetatable[] = "property";
+static const char kFunctionMetatable[] = "function";
 static const char kBindingsTable[] = "bindings";
+static const char kBinderKey[] = "binder";
 
 static auto check_property(lua_State* state) -> Property* {
-  void* data = luaL_checkudata(state, 1, kMetatableName);
+  void* data = luaL_checkudata(state, 1, kPropertyMetatable);
   luaL_argcheck(state, data != NULL, 1, "`property` expected");
   return *reinterpret_cast<Property**>(data);
 }
@@ -71,9 +75,25 @@ static const struct luaL_Reg kPropertyBindingFuncs[] = {{"get", property_get},
                                                         {"bind", property_bind},
                                                         {NULL, NULL}};
 
+static auto generic_function_cb(lua_State* state) -> int {
+  lua_pushstring(state, kBinderKey);
+  lua_gettable(state, LUA_REGISTRYINDEX);
+  PropertyBindings* binder =
+      reinterpret_cast<PropertyBindings*>(lua_touserdata(state, -1));
+
+  size_t* index =
+      reinterpret_cast<size_t*>(luaL_checkudata(state, 1, kFunctionMetatable));
+  const LuaFunction& fn = binder->GetFunction(*index);
+  return std::invoke(fn, state);
+}
+
 PropertyBindings::PropertyBindings(lua_State& s) {
+  lua_pushstring(&s, kBinderKey);
+  lua_pushlightuserdata(&s, this);
+  lua_settable(&s, LUA_REGISTRYINDEX);
+
   // Create the metatable responsible for the Property API.
-  luaL_newmetatable(&s, kMetatableName);
+  luaL_newmetatable(&s, kPropertyMetatable);
 
   lua_pushliteral(&s, "__index");
   lua_pushvalue(&s, -2);
@@ -94,15 +114,37 @@ PropertyBindings::PropertyBindings(lua_State& s) {
   lua_setmetatable(&s, -2);  // setmetatable(bindings, meta)
 
   lua_settable(&s, LUA_REGISTRYINDEX);  // REGISTRY[kBindingsTable] = bindings
+
+  // Create the metatable for C++ functions.
+  luaL_newmetatable(&s, kFunctionMetatable);
+
+  lua_pushliteral(&s, "__call");
+  lua_pushcfunction(&s, generic_function_cb);
+  lua_settable(&s, -3);  // metatable.__call = metatable
+
+  lua_pop(&s, 1);  // Clean up the function metatable
 }
 
 auto PropertyBindings::Register(lua_State* s, Property* prop) -> void {
   Property** data =
-      reinterpret_cast<Property**>(lua_newuserdata(s, sizeof(Property*)));
+      reinterpret_cast<Property**>(lua_newuserdata(s, sizeof(uintptr_t)));
   *data = prop;
 
-  luaL_setmetatable(s, kMetatableName);
+  luaL_setmetatable(s, kPropertyMetatable);
 }
+
+auto PropertyBindings::Register(lua_State* s, LuaFunction fn) -> void {
+  size_t* index = reinterpret_cast<size_t*>(lua_newuserdata(s, sizeof(size_t)));
+  *index = functions_.size();
+  functions_.push_back(fn);
+
+  luaL_setmetatable(s, kFunctionMetatable);
+}
+
+auto PropertyBindings::GetFunction(size_t i) -> const LuaFunction& {
+  assert(i < functions_.size());
+  return functions_[i];
+};
 
 template <class... Ts>
 inline constexpr bool always_false_v = false;

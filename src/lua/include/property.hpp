@@ -16,6 +16,7 @@
 namespace lua {
 
 using LuaValue = std::variant<std::monostate, int, float, bool, std::string>;
+using LuaFunction = std::function<int(lua_State*)>;
 
 class Property {
  public:
@@ -42,6 +43,12 @@ class PropertyBindings {
   PropertyBindings(lua_State&);
 
   auto Register(lua_State*, Property*) -> void;
+  auto Register(lua_State*, LuaFunction) -> void;
+
+  auto GetFunction(size_t i) -> const LuaFunction&;
+
+ private:
+  std::vector<LuaFunction> functions_;
 };
 
 }  // namespace lua

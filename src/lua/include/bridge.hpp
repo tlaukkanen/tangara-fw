@@ -24,7 +24,10 @@ class Bridge {
 
   auto AddPropertyModule(
       const std::string&,
-      std::vector<std::pair<std::string, std::shared_ptr<Property>>>) -> void;
+      std::vector<
+          std::pair<std::string,
+                    std::variant<LuaFunction, std::shared_ptr<Property>>>>)
+      -> void;
 
   system_fsm::ServiceLocator& services() { return services_; }
   PropertyBindings& bindings() { return bindings_; }
