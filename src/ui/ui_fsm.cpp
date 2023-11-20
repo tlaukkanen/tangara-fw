@@ -8,6 +8,9 @@
 
 #include <memory>
 
+#include "lua.h"
+#include "lua.hpp"
+
 #include "audio_fsm.hpp"
 #include "battery.hpp"
 #include "core/lv_group.h"
@@ -17,7 +20,6 @@
 #include "esp_heap_caps.h"
 #include "haptics.hpp"
 #include "lauxlib.h"
-#include "lua.hpp"
 #include "lua_thread.hpp"
 #include "luavgl.h"
 #include "misc/lv_gc.h"
@@ -181,9 +183,6 @@ void Splash::react(const system_fsm::StorageMounted&) {
 
 void Lua::entry() {
   if (!sLua) {
-    sCurrentScreen.reset(new Screen());
-    lv_group_set_default(sCurrentScreen->group());
-
     auto bat =
         sServices->battery().State().value_or(battery::Battery::BatteryState{});
     battery_pct_ =
@@ -213,11 +212,53 @@ void Lua::entry() {
                                          {"playing", playback_playing_},
                                          {"track", playback_track_},
                                      });
+    sLua->bridge().AddPropertyModule(
+        "backstack",
+        {
+            {"push", [&](lua_State* s) { return PushLuaScreen(s); }},
+            {"pop", [&](lua_State* s) { return PopLuaScreen(s); }},
+        });
 
     sLua->RunScript("/lua/main.lua");
-
-    lv_group_set_default(NULL);
   }
+}
+
+auto Lua::PushLuaScreen(lua_State* s) -> int {
+  // Ensure the arg looks right before continuing.
+  luaL_checktype(s, 1, LUA_TFUNCTION);
+
+  // First, create a new plain old Screen object. We will use its root and
+  // group for the Lua screen.
+  auto new_screen = std::make_shared<screens::Lua>();
+
+  // Tell lvgl about the new roots.
+  luavgl_set_root(s, new_screen->root());
+  lv_group_set_default(new_screen->group());
+
+  // Call the constructor for this screen.
+  lua_settop(s, 1);  // Make sure the function is actually at top of stack
+  // FIXME: This should ideally be lua_pcall, for safety.
+  lua_call(s, 0, 1);
+
+  // Store the reference for the table the constructor returned.
+  new_screen->SetObjRef(s);
+
+  // Ensure that we don't pollute the new screen's group. We leave the luavgl
+  // root alone.
+  // FIXME: maybe we should set the luavgl root to some catch-all that throws
+  // when anything is added to it? this may help catch bugs!
+  lv_group_set_default(NULL);
+
+  // Finally, push the now-initialised screen as if it were a regular C++
+  // screen.
+  PushScreen(new_screen);
+
+  return 0;
+}
+
+auto Lua::PopLuaScreen(lua_State*) -> int {
+  PopScreen();
+  return 0;
 }
 
 void Lua::exit() {}

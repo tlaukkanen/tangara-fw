@@ -6,13 +6,26 @@
 
 #include "screen_lua.hpp"
 
+#include "lauxlib.h"
+#include "lua.h"
 #include "lua.hpp"
 #include "luavgl.h"
 
 namespace ui {
 namespace screens {
 
-Lua::Lua(lua_State* l) {
+Lua::Lua() : s_(nullptr), obj_ref_() {}
+
+Lua::~Lua() {
+  if (s_ && obj_ref_) {
+    luaL_unref(s_, LUA_REGISTRYINDEX, *obj_ref_);
+  }
+}
+
+auto Lua::SetObjRef(lua_State* s) -> void {
+  assert(s_ == nullptr);
+  s_ = s;
+  obj_ref_ = luaL_ref(s, LUA_REGISTRYINDEX);
 }
 
 }  // namespace screens

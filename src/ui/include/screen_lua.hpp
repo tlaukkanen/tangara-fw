@@ -15,7 +15,14 @@ namespace screens {
 
 class Lua : public Screen {
  public:
-  explicit Lua(lua_State* l);
+  Lua();
+  ~Lua();
+
+  auto SetObjRef(lua_State*) -> void;
+
+ private:
+  lua_State* s_;
+  std::optional<int> obj_ref_;
 };
 
 }  // namespace screens

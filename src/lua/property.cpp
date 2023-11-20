@@ -5,13 +5,10 @@
  */
 
 #include "property.hpp"
-#include <sys/_stdint.h>
 
 #include <memory>
 #include <string>
 
-#include "lauxlib.h"
-#include "lua.h"
 #include "lua.hpp"
 #include "lvgl.h"
 #include "service_locator.hpp"
@@ -19,7 +16,7 @@
 namespace lua {
 
 static const char kPropertyMetatable[] = "property";
-static const char kFunctionMetatable[] = "function";
+static const char kFunctionMetatable[] = "c_func";
 static const char kBindingsTable[] = "bindings";
 static const char kBinderKey[] = "binder";
 
@@ -63,7 +60,7 @@ static auto property_bind(lua_State* state) -> int {
 
   p->AddLuaBinding(state, ref);
 
-  // Pop the bindings table, leaving one of the copiesw of the callback fn at
+  // Pop the bindings table, leaving one of the copies of the callback fn at
   // the top of the stack.
   lua_pop(state, 1);
 
@@ -84,6 +81,11 @@ static auto generic_function_cb(lua_State* state) -> int {
   size_t* index =
       reinterpret_cast<size_t*>(luaL_checkudata(state, 1, kFunctionMetatable));
   const LuaFunction& fn = binder->GetFunction(*index);
+
+  // Ensure the C++ function is called with a clean stack; we don't want it to
+  // see the index we just used.
+  lua_remove(state, 1);
+
   return std::invoke(fn, state);
 }
 

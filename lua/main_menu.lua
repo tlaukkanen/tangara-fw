@@ -3,11 +3,9 @@ local widgets = require("widgets")
 local legacy_ui = require("legacy_ui")
 local database = require("database")
 
-local main_menu = {}
-
-function main_menu:Create(parent)
+return function()
   local menu = {}
-  menu.root = lvgl.Object(parent, {
+  menu.root = lvgl.Object(nil, {
     flex = {
       flex_direction = "column",
       flex_wrap = "wrap",
@@ -46,5 +44,3 @@ function main_menu:Create(parent)
 
   return menu
 end
-
-return main_menu
