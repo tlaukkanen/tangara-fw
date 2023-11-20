@@ -32,6 +32,7 @@ ReadaheadSource::ReadaheadSource(tasks::Worker& worker,
     : IStream(wrapped->type()),
       worker_(worker),
       wrapped_(std::move(wrapped)),
+      readahead_enabled_(false),
       is_refilling_(false),
       buffer_(xStreamBufferCreateWithCaps(kBufferSize, 1, MALLOC_CAP_SPIRAM)),
       tell_(wrapped_->CurrentPosition()) {}
@@ -71,32 +72,9 @@ auto ReadaheadSource::Read(cpp::span<std::byte> dest) -> ssize_t {
 
   // If we're here, then there is more data to be read from the wrapped stream.
   // Ensure the readahead is running.
-  if (!is_refilling_ &&
+  if (!is_refilling_ && readahead_enabled_ &&
       xStreamBufferBytesAvailable(buffer_) < kBufferSize / 4) {
-    is_refilling_ = true;
-    std::function<void(void)> refill = [this]() {
-      // Try to keep larger than most reasonable FAT sector sizes for more
-      // efficient disk reads.
-      constexpr size_t kMaxSingleRead = 1024 * 16;
-      std::byte working_buf[kMaxSingleRead];
-      for (;;) {
-        size_t bytes_to_read = std::min<size_t>(
-            kMaxSingleRead, xStreamBufferSpacesAvailable(buffer_));
-        if (bytes_to_read == 0) {
-          break;
-        }
-        size_t read = wrapped_->Read({working_buf, bytes_to_read});
-        if (read > 0) {
-          xStreamBufferSend(buffer_, working_buf, read, 0);
-        }
-        if (read < bytes_to_read) {
-          break;
-        }
-      }
-      is_refilling_ = false;
-      is_refilling_.notify_all();
-    };
-    worker_.Dispatch(refill);
+    BeginReadahead();
   }
 
   return bytes_written;
@@ -123,4 +101,37 @@ auto ReadaheadSource::SeekTo(int64_t destination, SeekFrom from) -> void {
 auto ReadaheadSource::CurrentPosition() -> int64_t {
   return tell_;
 }
+
+auto ReadaheadSource::SetPreambleFinished() -> void {
+  readahead_enabled_ = true;
+  BeginReadahead();
+}
+
+auto ReadaheadSource::BeginReadahead() -> void {
+  is_refilling_ = true;
+  std::function<void(void)> refill = [this]() {
+    // Try to keep larger than most reasonable FAT sector sizes for more
+    // efficient disk reads.
+    constexpr size_t kMaxSingleRead = 1024 * 16;
+    std::byte working_buf[kMaxSingleRead];
+    for (;;) {
+      size_t bytes_to_read = std::min<size_t>(
+          kMaxSingleRead, xStreamBufferSpacesAvailable(buffer_));
+      if (bytes_to_read == 0) {
+        break;
+      }
+      size_t read = wrapped_->Read({working_buf, bytes_to_read});
+      if (read > 0) {
+        xStreamBufferSend(buffer_, working_buf, read, 0);
+      }
+      if (read < bytes_to_read) {
+        break;
+      }
+    }
+    is_refilling_ = false;
+    is_refilling_.notify_all();
+  };
+  worker_.Dispatch(refill);
+}
+
 }  // namespace audio

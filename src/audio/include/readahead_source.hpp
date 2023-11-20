@@ -38,13 +38,18 @@ class ReadaheadSource : public codecs::IStream {
 
   auto CurrentPosition() -> int64_t override;
 
+  auto SetPreambleFinished() -> void override;
+
   ReadaheadSource(const ReadaheadSource&) = delete;
   ReadaheadSource& operator=(const ReadaheadSource&) = delete;
 
  private:
+  auto BeginReadahead() -> void;
+
   tasks::Worker& worker_;
   std::unique_ptr<codecs::IStream> wrapped_;
 
+  bool readahead_enabled_;
   std::atomic<bool> is_refilling_;
   StreamBufferHandle_t buffer_;
   int64_t tell_;

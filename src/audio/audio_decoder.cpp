@@ -133,6 +133,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
              codecs::ICodec::ErrorString(open_res.error()).c_str());
     return false;
   }
+  stream->SetPreambleFinished();
 
   if (open_res->total_samples) {
     timer_.reset(new Timer(open_res.value()));

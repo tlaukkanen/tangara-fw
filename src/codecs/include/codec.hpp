@@ -49,6 +49,15 @@ class IStream {
 
   virtual auto CurrentPosition() -> int64_t = 0;
 
+  /*
+   * Called by codecs to indicate that they've finished parsing any header data
+   * within this stream, and are about to begin decoding.
+   * 
+   * Currently used as a hint to the readahead stream to begin prefetching file
+   * data.
+   */
+  virtual auto SetPreambleFinished() -> void {}
+
  protected:
   StreamType t_;
 };
