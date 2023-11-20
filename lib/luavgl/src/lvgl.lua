@@ -335,13 +335,19 @@ end
 function lvgl.Object(parent, property)
 end
 
+--- Create Button widget on parent
+--- @param parent? Object | nil
+--- @param property? StyleProp
+--- @return Button
+function lvgl.Button(parent, property)
+end
+
 --- Create Calendar widget on parent
 --- @param parent? Object | nil
 --- @param property? StyleProp
 --- @return Calendar
 function lvgl.Calendar(parent, property)
 end
-
 
 ---
 --- Create Label on parent
@@ -463,6 +469,13 @@ obj = {}
 --- @param property? StyleProp
 --- @return Object
 function obj:Object(property)
+end
+
+---
+--- Create button on object
+--- @param property? ButtonStyle
+--- @return Button
+function obj:Button(property)
 end
 
 ---
@@ -851,6 +864,18 @@ end
 --- create a calendar header with drop-drowns to select the year and month
 --- @return Object
 function calendar:Dropdown(p)
+end
+
+---
+--- Button widget
+---@class Button:Object
+---
+local button = {}
+
+--- set method for button widget
+--- @param p ButtonStyle
+--- @return nil
+function button:set(p)
 end
 
 ---
@@ -1350,6 +1375,8 @@ end
 --- @class LabelStyle :StyleProp
 --- @field text string
 
+--- Button style
+--- @class ButtonStyle :StyleProp
 
 --- Checkbox style
 --- @class CalendarStyle :StyleProp

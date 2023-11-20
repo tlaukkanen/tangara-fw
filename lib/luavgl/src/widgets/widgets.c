@@ -1,6 +1,10 @@
 #include "luavgl.h"
 #include "private.h"
 
+#if LV_USE_BTN
+#include "btn.c"
+#endif
+
 #if LV_USE_CALENDAR
 #include "calendar.c"
 #endif
@@ -45,6 +49,10 @@ static int luavgl_obj_create(lua_State *L);
 
 static const luaL_Reg widget_create_methods[] = {
     {"Object",   luavgl_obj_create     },
+
+#if LV_USE_BTN
+    {"Button", luavgl_btn_create},
+#endif
 
 #if LV_USE_CALENDAR
     {"Calendar", luavgl_calendar_create},
@@ -128,6 +136,10 @@ static void luavgl_widgets_init(lua_State *L)
 
 #if LV_USE_DROPDOWN
   luavgl_dropdown_init(L);
+#endif
+
+#if LV_USE_BTN
+  luavgl_btn_init(L);
 #endif
 
 }
