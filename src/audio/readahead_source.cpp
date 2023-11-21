@@ -48,7 +48,7 @@ auto ReadaheadSource::Read(cpp::span<std::byte> dest) -> ssize_t {
   // or the destination is full.
   while (!dest.empty() && (is_refilling_ || !xStreamBufferIsEmpty(buffer_))) {
     size_t bytes_read = xStreamBufferReceive(buffer_, dest.data(),
-                                             dest.size_bytes(), portMAX_DELAY);
+                                             dest.size_bytes(), 1);
     tell_ += bytes_read;
     bytes_written += bytes_read;
     dest = dest.subspan(bytes_read);
