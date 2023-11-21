@@ -857,4 +857,48 @@ auto IndexRecord::Expand(std::size_t page_size) const
   };
 }
 
+Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
+    : db_(db), prev_pos_(), current_pos_() {
+  std::string prefix = EncodeIndexPrefix(
+      IndexKey::Header{.id = idx.id, .depth = 0, .components_hash = 0});
+  current_pos_ = Continuation{.prefix = {prefix.data(), prefix.size()},
+                              .start_key = {prefix.data(), prefix.size()},
+                              .forward = true,
+                              .was_prev_forward = true,
+                              .page_size = 1};
+}
+
+Iterator::Iterator(std::weak_ptr<Database> db, const Continuation& c)
+    : db_(db), prev_pos_(), current_pos_(c) {}
+
+auto Iterator::Prev() -> std::optional<IndexRecord> {
+  if (!prev_pos_) {
+    return {};
+  }
+  auto db = db_.lock();
+  if (!db) {
+    return {};
+  }
+  std::unique_ptr<Result<IndexRecord>> res{
+      db->GetPage<IndexRecord>(&*prev_pos_).get()};
+  prev_pos_ = res->prev_page();
+  current_pos_ = prev_pos_;
+  return *res->values()[0];
+}
+
+auto Iterator::Next() -> std::optional<IndexRecord> {
+  if (!current_pos_) {
+    return {};
+  }
+  auto db = db_.lock();
+  if (!db) {
+    return {};
+  }
+  std::unique_ptr<Result<IndexRecord>> res{
+      db->GetPage<IndexRecord>(&*current_pos_).get()};
+  prev_pos_ = current_pos_;
+  current_pos_ = res->next_page();
+  return *res->values()[0];
+}
+
 }  // namespace database

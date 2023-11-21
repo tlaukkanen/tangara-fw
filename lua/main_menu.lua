@@ -30,9 +30,9 @@ return function()
     legacy_ui.open_now_playing();
   end)
 
-  local indexes = database.get_indexes()
-  for id, name in ipairs(indexes) do
-    local btn = menu.list:add_btn(nil, name)
+  local indexes = database.indexes()
+  for id, idx in ipairs(indexes) do
+    local btn = menu.list:add_btn(nil, tostring(idx))
     btn:onClicked(function()
       legacy_ui.open_browse(id);
     end)

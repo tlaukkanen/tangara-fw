@@ -183,4 +183,21 @@ auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
                                              const leveldb::Slice& val)
     -> std::shared_ptr<std::pmr::string>;
 
+/*
+ * Utility for accessing a large set of database records, one record at a time.
+ */
+class Iterator {
+ public:
+  Iterator(std::weak_ptr<Database>, const IndexInfo&);
+  Iterator(std::weak_ptr<Database>, const Continuation&);
+
+  auto Prev() -> std::optional<IndexRecord>;
+  auto Next() -> std::optional<IndexRecord>;
+
+ private:
+  std::weak_ptr<Database> db_;
+  std::optional<Continuation> prev_pos_;
+  std::optional<Continuation> current_pos_;
+};
+
 }  // namespace database
