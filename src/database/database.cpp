@@ -858,7 +858,7 @@ auto IndexRecord::Expand(std::size_t page_size) const
 }
 
 Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
-    : db_(db), prev_pos_(), current_pos_() {
+    : db_(db), pos_mutex_(), current_pos_(), prev_pos_() {
   std::string prefix = EncodeIndexPrefix(
       IndexKey::Header{.id = idx.id, .depth = 0, .components_hash = 0});
   current_pos_ = Continuation{.prefix = {prefix.data(), prefix.size()},
@@ -869,36 +869,50 @@ Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
 }
 
 Iterator::Iterator(std::weak_ptr<Database> db, const Continuation& c)
-    : db_(db), prev_pos_(), current_pos_(c) {}
+    : db_(db), pos_mutex_(), current_pos_(c), prev_pos_() {}
 
-auto Iterator::Prev() -> std::optional<IndexRecord> {
-  if (!prev_pos_) {
-    return {};
-  }
+auto Iterator::Next(Callback cb) -> void {
   auto db = db_.lock();
   if (!db) {
-    return {};
+    InvokeNull(cb);
+    return;
   }
-  std::unique_ptr<Result<IndexRecord>> res{
-      db->GetPage<IndexRecord>(&*prev_pos_).get()};
-  prev_pos_ = res->prev_page();
-  current_pos_ = prev_pos_;
-  return *res->values()[0];
+  db->worker_task_->Dispatch<void>([=]() {
+    std::lock_guard lock{pos_mutex_};
+    if (!current_pos_) {
+      InvokeNull(cb);
+      return;
+    }
+    std::unique_ptr<Result<IndexRecord>> res{
+        db->dbGetPage<IndexRecord>(*current_pos_)};
+    prev_pos_ = current_pos_;
+    current_pos_ = res->next_page();
+    std::invoke(cb, *res->values()[0]);
+  });
 }
 
-auto Iterator::Next() -> std::optional<IndexRecord> {
-  if (!current_pos_) {
-    return {};
-  }
+auto Iterator::Prev(Callback cb) -> void {
   auto db = db_.lock();
   if (!db) {
-    return {};
+    InvokeNull(cb);
+    return;
   }
-  std::unique_ptr<Result<IndexRecord>> res{
-      db->GetPage<IndexRecord>(&*current_pos_).get()};
-  prev_pos_ = current_pos_;
-  current_pos_ = res->next_page();
-  return *res->values()[0];
+  db->worker_task_->Dispatch<void>([=]() {
+    std::lock_guard lock{pos_mutex_};
+    if (!prev_pos_) {
+      InvokeNull(cb);
+      return;
+    }
+    std::unique_ptr<Result<IndexRecord>> res{
+        db->dbGetPage<IndexRecord>(*current_pos_)};
+    current_pos_ = prev_pos_;
+    prev_pos_ = res->prev_page();
+    std::invoke(cb, *res->values()[0]);
+  });
+}
+
+auto Iterator::InvokeNull(Callback cb) -> void {
+  std::invoke(cb, std::optional<IndexRecord>{});
 }
 
 }  // namespace database

@@ -129,6 +129,8 @@ class Database {
   Database& operator=(const Database&) = delete;
 
  private:
+  friend class Iterator;
+
   // Owned. Dumb pointers because destruction needs to be done in an explicit
   // order.
   leveldb::DB* db_;
@@ -191,13 +193,19 @@ class Iterator {
   Iterator(std::weak_ptr<Database>, const IndexInfo&);
   Iterator(std::weak_ptr<Database>, const Continuation&);
 
-  auto Prev() -> std::optional<IndexRecord>;
-  auto Next() -> std::optional<IndexRecord>;
+  using Callback = std::function<void(std::optional<IndexRecord>)>;
+
+  auto Next(Callback) -> void;
+  auto Prev(Callback) -> void;
 
  private:
+  auto InvokeNull(Callback) -> void;
+
   std::weak_ptr<Database> db_;
-  std::optional<Continuation> prev_pos_;
+
+  std::mutex pos_mutex_;
   std::optional<Continuation> current_pos_;
+  std::optional<Continuation> prev_pos_;
 };
 
 }  // namespace database

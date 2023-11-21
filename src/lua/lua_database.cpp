@@ -56,17 +56,28 @@ static const struct luaL_Reg kDatabaseFuncs[] = {{"indexes", indexes},
                                                  {NULL, NULL}};
 
 static auto db_iterate(lua_State* state) -> int {
+  luaL_checktype(state, 1, LUA_TFUNCTION);
+  int callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
+
   database::Iterator* it = *reinterpret_cast<database::Iterator**>(
       lua_touserdata(state, lua_upvalueindex(1)));
 
-  auto res = it->Next();
-  if (res) {
-    database::IndexRecord** record = reinterpret_cast<database::IndexRecord**>(
-        lua_newuserdata(state, sizeof(uintptr_t)));
-    *record = new database::IndexRecord(*res);
-    luaL_setmetatable(state, kDbRecordMetatable);
-    return 1;
-  }
+  it->Next([=](std::optional<database::IndexRecord> res) {
+    events::Ui().RunOnTask([=]() {
+      lua_rawgeti(state, LUA_REGISTRYINDEX, callback_ref);
+      if (res) {
+        database::IndexRecord** record =
+            reinterpret_cast<database::IndexRecord**>(
+                lua_newuserdata(state, sizeof(uintptr_t)));
+        *record = new database::IndexRecord(*res);
+        luaL_setmetatable(state, kDbRecordMetatable);
+      } else {
+        lua_pushnil(state);
+      }
+      lua_call(state, 1, 0);
+      luaL_unref(state, LUA_REGISTRYINDEX, callback_ref);
+    });
+  });
   return 0;
 }
 
