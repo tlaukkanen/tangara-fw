@@ -2,6 +2,8 @@ local lvgl = require("lvgl")
 local widgets = require("widgets")
 local legacy_ui = require("legacy_ui")
 local database = require("database")
+local backstack = require("backstack")
+local browser = require("browser")
 
 return function()
   local menu = {}
@@ -35,6 +37,12 @@ return function()
     local btn = menu.list:add_btn(nil, tostring(idx))
     btn:onClicked(function()
       legacy_ui.open_browse(id);
+      -- backstack.push(function()
+      --   return browser {
+      --     title = tostring(idx),
+      --     iterator = idx:iter()
+      --   }
+      -- end)
     end)
   end
 

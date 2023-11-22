@@ -219,6 +219,7 @@ void Lua::entry() {
             {"pop", [&](lua_State* s) { return PopLuaScreen(s); }},
         });
 
+    sCurrentScreen.reset();
     sLua->RunScript("/lua/main.lua");
   }
 }
@@ -243,12 +244,6 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   // Store the reference for the table the constructor returned.
   new_screen->SetObjRef(s);
 
-  // Ensure that we don't pollute the new screen's group. We leave the luavgl
-  // root alone.
-  // FIXME: maybe we should set the luavgl root to some catch-all that throws
-  // when anything is added to it? this may help catch bugs!
-  lv_group_set_default(NULL);
-
   // Finally, push the now-initialised screen as if it were a regular C++
   // screen.
   PushScreen(new_screen);
@@ -256,12 +251,16 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   return 0;
 }
 
-auto Lua::PopLuaScreen(lua_State*) -> int {
+auto Lua::PopLuaScreen(lua_State* s) -> int {
   PopScreen();
+  luavgl_set_root(s, sCurrentScreen->root());
+  lv_group_set_default(sCurrentScreen->group());
   return 0;
 }
 
-void Lua::exit() {}
+void Lua::exit() {
+  lv_group_set_default(NULL);
+}
 
 void Lua::react(const internal::IndexSelected& ev) {
   auto db = sServices->database().lock();

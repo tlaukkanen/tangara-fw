@@ -91,7 +91,7 @@ lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * icon, const char * txt)
     if(txt) {
         lv_obj_t * label = lv_label_create(obj);
         lv_label_set_text(label, txt);
-        lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL_CIRCULAR);
+        lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
         lv_obj_set_flex_grow(label, 1);
     }
 

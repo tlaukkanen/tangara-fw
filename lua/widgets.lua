@@ -17,23 +17,20 @@ function widgets.StatusBar(parent, opts)
     },
     w = lvgl.HOR_RES(),
     h = lvgl.SIZE_CONTENT,
-    bg_opa = lvgl.OPA(100),
-    bg_color = "#fff",
     pad_top = 1,
     pad_bottom = 1,
     pad_column = 1,
-    shadow_width = 6,
-    shadow_opa = lvgl.OPA(50),
-    shaddow_ofs_x = 0,
+    bg_opa = lvgl.OPA(100),
+    bg_color = "#e1bee7",
     scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
   }
 
   if opts.back_cb then
-    status_bar.back = status_bar.root:Label {
+    status_bar.back = status_bar.root:Button {
       w = lvgl.SIZE_CONTENT,
       h = 12,
-      text = "<",
     }
+    status_bar.back:Label({ text = "<", align = lvgl.ALIGN.CENTER })
     status_bar.back:onClicked(opts.back_cb)
   end
 
@@ -44,7 +41,7 @@ function widgets.StatusBar(parent, opts)
     flex_grow = 1,
   }
   if opts.title then
-    status_bar.title.set { text = opts.title }
+    status_bar.title:set { text = opts.title }
   end
 
   status_bar.playing = status_bar.root:Image {}

@@ -80,6 +80,7 @@ class IndexRecord {
   auto track() const -> std::optional<TrackId>;
 
   auto Expand(std::size_t) const -> std::optional<Continuation>;
+  auto ExpandHeader() const -> IndexKey::Header;
 
  private:
   IndexKey key_;

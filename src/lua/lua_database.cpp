@@ -20,7 +20,9 @@
 #include "event_queue.hpp"
 #include "index.hpp"
 #include "property.hpp"
+#include "records.hpp"
 #include "service_locator.hpp"
+#include "track.hpp"
 #include "ui_events.hpp"
 
 namespace lua {
@@ -55,6 +57,42 @@ static auto indexes(lua_State* state) -> int {
 static const struct luaL_Reg kDatabaseFuncs[] = {{"indexes", indexes},
                                                  {NULL, NULL}};
 
+/*
+ * Struct to be used as userdata for the Lua representation of database records.
+ * In order to push these large values into PSRAM as much as possible, memory
+ * for these is allocated and managed by Lua. This struct must therefore be
+ * trivially copyable.
+ */
+struct LuaRecord {
+  database::TrackId id_or_zero;
+  database::IndexKey::Header header_at_next_depth;
+  size_t text_size;
+  char text[];
+};
+
+static_assert(std::is_trivially_copyable_v<LuaRecord> == true);
+
+static auto push_lua_record(lua_State* L, const database::IndexRecord& r)
+    -> void {
+  // Bake out the text into something concrete.
+  auto text = r.text().value_or("");
+
+  // Create and init the userdata.
+  LuaRecord* record = reinterpret_cast<LuaRecord*>(
+      lua_newuserdata(L, sizeof(LuaRecord) + text.size()));
+  luaL_setmetatable(L, kDbRecordMetatable);
+
+  // Init all the fields
+  *record = {
+      .id_or_zero = r.track().value_or(0),
+      .header_at_next_depth = r.ExpandHeader(),
+      .text_size = text.size(),
+  };
+
+  // Copy the string data across.
+  std::memcpy(record->text, text.data(), text.size());
+}
+
 static auto db_iterate(lua_State* state) -> int {
   luaL_checktype(state, 1, LUA_TFUNCTION);
   int callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
@@ -66,11 +104,7 @@ static auto db_iterate(lua_State* state) -> int {
     events::Ui().RunOnTask([=]() {
       lua_rawgeti(state, LUA_REGISTRYINDEX, callback_ref);
       if (res) {
-        database::IndexRecord** record =
-            reinterpret_cast<database::IndexRecord**>(
-                lua_newuserdata(state, sizeof(uintptr_t)));
-        *record = new database::IndexRecord(*res);
-        luaL_setmetatable(state, kDbRecordMetatable);
+        push_lua_record(state, *res);
       } else {
         lua_pushnil(state);
       }
@@ -105,40 +139,37 @@ static auto push_iterator(
   lua_pushcclosure(state, db_iterate, 1);
 }
 
+
 static auto record_text(lua_State* state) -> int {
-  database::IndexRecord* data = *reinterpret_cast<database::IndexRecord**>(
+  LuaRecord* data = reinterpret_cast<LuaRecord*>(
       luaL_checkudata(state, 1, kDbRecordMetatable));
-  lua_pushstring(state,
-                 data->text().value_or("[tell jacqueline u saw this]").c_str());
+  lua_pushlstring(state, data->text, data->text_size);
   return 1;
 }
 
 static auto record_contents(lua_State* state) -> int {
-  database::IndexRecord* data = *reinterpret_cast<database::IndexRecord**>(
+  LuaRecord* data = reinterpret_cast<LuaRecord*>(
       luaL_checkudata(state, 1, kDbRecordMetatable));
 
-  if (data->track()) {
-    lua_pushinteger(state, *data->track());
+  if (data->id_or_zero) {
+    lua_pushinteger(state, data->id_or_zero);
   } else {
-    push_iterator(state, data->Expand(1).value());
+    std::string p = database::EncodeIndexPrefix(data->header_at_next_depth);
+    push_iterator(state, database::Continuation{
+                             .prefix = {p.data(), p.size()},
+                             .start_key = {p.data(), p.size()},
+                             .forward = true,
+                             .was_prev_forward = true,
+                             .page_size = 1,
+                         });
   }
 
   return 1;
-}
-
-static auto record_gc(lua_State* state) -> int {
-  database::IndexRecord** data = reinterpret_cast<database::IndexRecord**>(
-      luaL_checkudata(state, 1, kDbRecordMetatable));
-  if (data != NULL) {
-    delete *data;
-  }
-  return 0;
 }
 
 static const struct luaL_Reg kDbRecordFuncs[] = {{"title", record_text},
                                                  {"contents", record_contents},
                                                  {"__tostring", record_text},
-                                                 {"__gc", record_gc},
                                                  {NULL, NULL}};
 
 static auto index_name(lua_State* state) -> int {

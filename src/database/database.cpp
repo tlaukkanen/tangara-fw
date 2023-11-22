@@ -846,8 +846,7 @@ auto IndexRecord::Expand(std::size_t page_size) const
   if (track_) {
     return {};
   }
-  IndexKey::Header new_header = ExpandHeader(key_.header, key_.item);
-  std::string new_prefix = EncodeIndexPrefix(new_header);
+  std::string new_prefix = EncodeIndexPrefix(ExpandHeader());
   return Continuation{
       .prefix = {new_prefix.data(), new_prefix.size()},
       .start_key = {new_prefix.data(), new_prefix.size()},
@@ -855,6 +854,10 @@ auto IndexRecord::Expand(std::size_t page_size) const
       .was_prev_forward = true,
       .page_size = page_size,
   };
+}
+
+auto IndexRecord::ExpandHeader() const -> IndexKey::Header {
+  return ::database::ExpandHeader(key_.header, key_.item);
 }
 
 Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
@@ -887,6 +890,11 @@ auto Iterator::Next(Callback cb) -> void {
         db->dbGetPage<IndexRecord>(*current_pos_)};
     prev_pos_ = current_pos_;
     current_pos_ = res->next_page();
+    if (!res || res->values().empty() || !res->values()[0]) {
+      ESP_LOGI(kTag, "dropping empty result");
+      InvokeNull(cb);
+      return;
+    }
     std::invoke(cb, *res->values()[0]);
   });
 }
