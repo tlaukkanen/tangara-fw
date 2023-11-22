@@ -24,6 +24,10 @@ struct OnStorageChange : tinyfsm::Event {
 
 struct OnSystemError : tinyfsm::Event {};
 
+  struct OnLuaError : tinyfsm::Event {
+    std::string message;
+  };
+
 namespace internal {
 
 struct RecordSelected : tinyfsm::Event {

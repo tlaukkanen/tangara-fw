@@ -14,6 +14,7 @@
 #include "esp_log.h"
 #include "lauxlib.h"
 #include "lua.h"
+#include "lua_thread.hpp"
 #include "lvgl.h"
 
 #include "database.hpp"
@@ -108,7 +109,7 @@ static auto db_iterate(lua_State* state) -> int {
       } else {
         lua_pushnil(state);
       }
-      lua_call(state, 1, 0);
+      CallProtected(state, 1, 0);
       luaL_unref(state, LUA_REGISTRYINDEX, callback_ref);
     });
   });
@@ -138,7 +139,6 @@ static auto push_iterator(
   luaL_setmetatable(state, kDbIteratorMetatable);
   lua_pushcclosure(state, db_iterate, 1);
 }
-
 
 static auto record_text(lua_State* state) -> int {
   LuaRecord* data = reinterpret_cast<LuaRecord*>(

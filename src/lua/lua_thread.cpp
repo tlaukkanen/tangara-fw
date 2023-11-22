@@ -10,9 +10,11 @@
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "event_queue.hpp"
 #include "lua.hpp"
 #include "luavgl.h"
 #include "service_locator.hpp"
+#include "ui_events.hpp"
 
 namespace lua {
 
@@ -63,6 +65,7 @@ auto LuaThread::Start(system_fsm::ServiceLocator& services, lv_obj_t* lvgl_root)
 
   // FIXME: luavgl init should probably be a part of the bridge.
   if (lvgl_root) {
+    luavgl_set_pcall(state, CallProtected);
     luavgl_set_root(state, lvgl_root);
     luaL_requiref(state, "lvgl", luaopen_lvgl, true);
     lua_pop(state, 1);
@@ -85,14 +88,46 @@ auto LuaThread::RunScript(const std::string& path) -> bool {
   if (res != LUA_OK) {
     return false;
   }
-  res = lua_pcall(state_, 0, 0, 0);
-  if (res) {
-    const char* msg = lua_tostring(state_, -1);
-    lua_writestring(msg, strlen(msg));
-    lua_writeline();
-    lua_pop(state_, 1);
-  }
+  CallProtected(state_, 0, 0);
   return true;
+}
+
+static int msg_handler(lua_State* L) {
+  if (!lua_isstring(L, 1)) {
+    return 1;
+  }
+
+  const char* msg = lua_tostring(L, 1);
+  if (msg == NULL) {                         /* is error object not a string? */
+    if (luaL_callmeta(L, 1, "__tostring") && /* does it have a metamethod */
+        lua_type(L, -1) == LUA_TSTRING)      /* that produces a string? */
+      return 1;                              /* that is the message */
+    else
+      msg = lua_pushfstring(L, "(error object is a %s value)",
+                            luaL_typename(L, 1));
+  }
+
+  /* append a standard traceback */
+  luaL_traceback(L, L, msg, 1);
+  return 1;
+}
+
+auto CallProtected(lua_State* s, int nargs, int nresults) -> int {
+  int base = lua_gettop(s) - nargs;
+  // Place our message handler under the function to be called.
+  lua_pushcfunction(s, msg_handler);
+  lua_insert(s, base);
+
+  // Invoke the function.
+  int ret = lua_pcall(s, nargs, nresults, base);
+  if (ret != LUA_OK) {
+    events::Ui().Dispatch(ui::OnLuaError{.message = lua_tostring(s, -1)});
+  }
+
+  // Clean up our message handler
+  lua_remove(s, base);
+
+  return ret;
 }
 
 }  // namespace lua

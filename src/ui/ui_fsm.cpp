@@ -238,8 +238,7 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
 
   // Call the constructor for this screen.
   lua_settop(s, 1);  // Make sure the function is actually at top of stack
-  // FIXME: This should ideally be lua_pcall, for safety.
-  lua_call(s, 0, 1);
+  lua::CallProtected(s, 0, 1);
 
   // Store the reference for the table the constructor returned.
   new_screen->SetObjRef(s);
@@ -260,6 +259,10 @@ auto Lua::PopLuaScreen(lua_State* s) -> int {
 
 void Lua::exit() {
   lv_group_set_default(NULL);
+}
+
+void Lua::react(const OnLuaError& err) {
+  ESP_LOGE("lua", "%s", err.message.c_str());
 }
 
 void Lua::react(const internal::IndexSelected& ev) {

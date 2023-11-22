@@ -10,6 +10,7 @@
 #include <string>
 
 #include "lua.hpp"
+#include "lua_thread.hpp"
 #include "lvgl.h"
 #include "service_locator.hpp"
 
@@ -49,9 +50,8 @@ static auto property_bind(lua_State* state) -> int {
   // ...and another copy, since we return the original closure.
   lua_pushvalue(state, 2);
 
-  // FIXME: This should ideally be lua_pcall, for safety.
   p->PushValue(*state);
-  lua_call(state, 1, 0);  // Invoke the initial binding.
+  CallProtected(state, 1, 0); // Invoke the initial binding.
 
   lua_pushstring(state, kBindingsTable);
   lua_gettable(state, LUA_REGISTRYINDEX);  // REGISTRY[kBindingsTable]
@@ -229,7 +229,7 @@ auto Property::Update(const LuaValue& v) -> void {
     }
 
     PushValue(*b.first);      // push the argument
-    lua_call(b.first, 1, 0);  // invoke the closure
+    CallProtected(b.first, 1, 0); // invoke the closure
   }
 }
 

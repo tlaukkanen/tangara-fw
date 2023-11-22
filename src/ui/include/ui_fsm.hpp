@@ -64,6 +64,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const audio::QueueUpdate&);
 
   virtual void react(const system_fsm::KeyLockChanged&);
+  virtual void react(const OnLuaError&) {}
 
   virtual void react(const internal::RecordSelected&) {}
   virtual void react(const internal::IndexSelected&) {}
@@ -123,6 +124,8 @@ class Lua : public UiState {
  public:
   void entry() override;
   void exit() override;
+
+  void react(const OnLuaError&) override;
 
   void react(const internal::IndexSelected&) override;
   void react(const internal::ShowNowPlaying&) override;

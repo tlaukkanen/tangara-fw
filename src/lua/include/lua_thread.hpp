@@ -19,6 +19,8 @@ namespace lua {
 
 class Allocator;
 
+auto CallProtected(lua_State*, int nargs, int nresults) -> int;
+
 class LuaThread {
  public:
   static auto Start(system_fsm::ServiceLocator&, lv_obj_t* lvgl_root = nullptr)
