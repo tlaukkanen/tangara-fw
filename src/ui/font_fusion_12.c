@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 12 px
  * Bpp: 1
- * Opts: --font fonts/fusion/fusion-pixel-12px-proportional.ttf -r 0x2000-0x206F -r 0x20-0x7F,0xA0-0xFF -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF,0xFF00-0xFFEF,0x4E00-0x9FAF --size 12 --bpp 1 --format lvgl -o font_fusion.c
+ * Opts: --font fusion/fusion-pixel-12px-proportional.ttf -r 0x2000-0x206F -r 0x20-0x7F,0xA0-0xFF -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF,0xFF00-0xFFEF,0x4E00-0x9FAF --size 12 --bpp 1 --format lvgl -o font_fusion_12.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -10,11 +10,11 @@
 #include "lvgl/lvgl.h"
 #endif
 
-#ifndef FONT_FUSION
-#define FONT_FUSION 1
+#ifndef FONT_FUSION_12
+#define FONT_FUSION_12 1
 #endif
 
-#if FONT_FUSION
+#if FONT_FUSION_12
 
 /*-----------------
  *    BITMAPS
@@ -84546,9 +84546,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LV_VERSION_CHECK(8, 0, 0)
-const lv_font_t font_fusion = {
+const lv_font_t font_fusion_12 = {
 #else
-lv_font_t font_fusion = {
+lv_font_t font_fusion_12 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -84566,5 +84566,5 @@ lv_font_t font_fusion = {
 
 
 
-#endif /*#if FONT_FUSION*/
+#endif /*#if FONT_FUSION_12*/
 

@@ -8,13 +8,19 @@
 
 #include <memory>
 
+#include "lua.hpp"
+
+#include "font/lv_font_loader.h"
+#include "luavgl.h"
+
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "event_queue.hpp"
-#include "lua.hpp"
-#include "luavgl.h"
 #include "service_locator.hpp"
 #include "ui_events.hpp"
+
+LV_FONT_DECLARE(font_fusion_12);
+LV_FONT_DECLARE(font_fusion_10);
 
 namespace lua {
 
@@ -50,6 +56,21 @@ static int lua_panic(lua_State* L) {
   return 0;
 }
 
+static auto make_font_cb(const char* name, int size, int weight)
+    -> const lv_font_t* {
+  if (std::string{"fusion"} == name) {
+    if (size == 12) {
+      return &font_fusion_12;
+    }
+    if (size == 10) {
+      return &font_fusion_10;
+    }
+  }
+  return NULL;
+}
+
+static auto delete_font_cb(lv_font_t* font) -> void {}
+
 auto LuaThread::Start(system_fsm::ServiceLocator& services, lv_obj_t* lvgl_root)
     -> LuaThread* {
   auto alloc = std::make_unique<Allocator>();
@@ -66,6 +87,7 @@ auto LuaThread::Start(system_fsm::ServiceLocator& services, lv_obj_t* lvgl_root)
   // FIXME: luavgl init should probably be a part of the bridge.
   if (lvgl_root) {
     luavgl_set_pcall(state, CallProtected);
+    luavgl_set_font_extension(state, make_font_cb, delete_font_cb);
     luavgl_set_root(state, lvgl_root);
     luaL_requiref(state, "lvgl", luaopen_lvgl, true);
     lua_pop(state, 1);

@@ -3,6 +3,8 @@ local widgets = require("widgets")
 local legacy_ui = require("legacy_ui")
 local database = require("database")
 local backstack = require("backstack")
+local font = require("font")
+local playing = require("playing")
 
 local browser = {}
 
@@ -22,7 +24,6 @@ function browser.create(opts)
   screen.root:center()
 
   screen.status_bar = widgets.StatusBar(screen.root, {
-    back_cb = backstack.pop,
     title = opts.title,
   })
 
@@ -42,11 +43,14 @@ function browser.create(opts)
       pad_top = 2,
       pad_bottom = 2,
       bg_opa = lvgl.OPA(100),
-      bg_color = "#f3e5f5",
+      bg_color = "#fafafa",
       scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
     }
 
-    header:Label { text = opts.breadcrumb }
+    header:Label {
+      text = opts.breadcrumb,
+      text_font = font.fusion_10,
+    }
 
     local buttons = header:Object({
       flex = {
@@ -60,11 +64,9 @@ function browser.create(opts)
       h = lvgl.SIZE_CONTENT,
       pad_column = 4,
     })
-    local enqueue = buttons:Button {}
-    enqueue:Label { text = "Enqueue" }
-    enqueue:add_flag(lvgl.FLAG.HIDDEN)
-    local play = buttons:Button {}
-    play:Label { text = "Play all" }
+    local enqueue = widgets.IconBtn(buttons, "//lua/img/enqueue.png", "Enqueue")
+    -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
+    local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
   end
 
   screen.list = lvgl.List(screen.root, {
@@ -73,6 +75,9 @@ function browser.create(opts)
     flex_grow = 1,
     scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
   })
+
+  local back = screen.list:add_btn(nil, "< Back")
+  back:onClicked(backstack.pop)
 
   screen.focused_item = 0
   screen.last_item = 0
@@ -92,7 +97,9 @@ function browser.create(opts)
           })
         end)
       else
-        print("selected track", contents)
+        print("add", contents)
+        legacy_ui.open_now_playing()
+        -- backstack.push(playing)
       end
     end)
     btn:onevent(lvgl.EVENT.FOCUSED, function()

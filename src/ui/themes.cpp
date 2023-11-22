@@ -6,7 +6,7 @@
 #include "misc/lv_style.h"
 #include "widgets/lv_slider.h"
 
-LV_FONT_DECLARE(font_fusion);
+LV_FONT_DECLARE(font_fusion_12);
 
 namespace ui {
 namespace themes {
@@ -44,7 +44,7 @@ void Theme::Apply(void) {
 }
 
 void Theme::Callback(lv_obj_t* obj) {
-  lv_obj_set_style_text_font(obj, &font_fusion, 0);
+  lv_obj_set_style_text_font(obj, &font_fusion_12, 0);
   lv_obj_set_style_text_color(obj, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(obj, LV_OPA_TRANSP, LV_PART_MAIN);
   lv_obj_set_style_bg_color(obj, lv_palette_lighten(LV_PALETTE_BLUE, 5),
@@ -57,6 +57,8 @@ void Theme::Callback(lv_obj_t* obj) {
                      LV_PART_MAIN | LV_STATE_FOCUSED);
     if (lv_obj_check_type(obj, &lv_list_btn_class)) {
       lv_obj_set_style_radius(obj, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_left(obj, 1, LV_PART_MAIN);
+      lv_obj_set_style_pad_right(obj, 1, LV_PART_MAIN);
     }
   } else if (lv_obj_check_type(obj, &lv_slider_class)) {
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);

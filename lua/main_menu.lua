@@ -20,7 +20,7 @@ return function()
   })
   menu.root:center()
 
-  menu.status_bar = widgets.StatusBar(menu.root, {})
+  menu.status_bar = widgets.StatusBar(menu.root, {transparent_bg = true})
 
   menu.list = lvgl.List(menu.root, {
     w = lvgl.PCT(100),

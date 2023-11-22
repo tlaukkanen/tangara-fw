@@ -11,7 +11,6 @@
 #include "event_queue.hpp"
 #include "extra/layouts/flex/lv_flex.h"
 #include "font/lv_symbol_def.h"
-#include "font_symbols.hpp"
 #include "model_top_bar.hpp"
 #include "themes.hpp"
 #include "track.hpp"
@@ -51,8 +50,7 @@ TopBar::TopBar(lv_obj_t* parent,
     back_button_ = lv_btn_create(container_);
     lv_obj_set_size(back_button_, LV_SIZE_CONTENT, 12);
     lv_obj_t* button_icon = lv_label_create(back_button_);
-    lv_label_set_text(button_icon, "");
-    lv_obj_set_style_text_font(button_icon, &font_symbols, 0);
+    lv_label_set_text(button_icon, "<");
     lv_obj_add_event_cb(back_button_, back_click_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_center(button_icon);
   } else {

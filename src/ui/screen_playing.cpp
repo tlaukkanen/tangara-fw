@@ -19,7 +19,6 @@
 #include "extra/layouts/flex/lv_flex.h"
 #include "extra/layouts/grid/lv_grid.h"
 #include "font/lv_symbol_def.h"
-#include "font_symbols.hpp"
 #include "future_fetcher.hpp"
 #include "lvgl.h"
 
@@ -89,7 +88,6 @@ auto Playing::control_button(lv_obj_t* parent, char* icon) -> lv_obj_t* {
 
   lv_obj_t* icon_obj = lv_img_create(button);
   lv_img_set_src(icon_obj, icon);
-  lv_obj_set_style_text_font(icon_obj, &font_symbols, 0);
 
   return button;
 }
@@ -253,7 +251,6 @@ Playing::Playing(models::TopBar& top_bar_model,
 
   next_up_hint_ = lv_label_create(next_up_header_);
   lv_label_set_text(next_up_hint_, "");
-  lv_obj_set_style_text_font(next_up_hint_, &font_symbols, 0);
   lv_obj_set_size(next_up_hint_, LV_SIZE_CONTENT, lv_pct(100));
 
   next_up_container_ = lv_list_create(content_);

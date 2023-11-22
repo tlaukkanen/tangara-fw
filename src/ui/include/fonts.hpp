@@ -8,4 +8,6 @@
 
 #include "font/lv_font.h"
 
-LV_FONT_DECLARE(font_symbols);
+LV_FONT_DECLARE(font_fusion_12);
+LV_FONT_DECLARE(font_fusion_10);
+LV_FONT_DECLARE(font_fusion_8);

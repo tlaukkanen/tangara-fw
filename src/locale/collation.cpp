@@ -44,7 +44,8 @@ auto GLibCollator::create() -> GLibCollator* {
     ESP_LOGW(kTag, "no LC_COLLATE partition found");
   }
 
-  ESP_LOGI(kTag, "found LC_COLLATE partition of size %lu", partition->size);
+  ESP_LOGI(kTag, "found LC_COLLATE partition of size %lu KiB",
+           partition->size / 1024L);
   if (partition->size > data_pages * 64 * 1024) {
     ESP_LOGE(kTag, "not enough free pages to map LC_COLLATE partition!");
     return nullptr;

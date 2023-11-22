@@ -14,7 +14,7 @@ extern "C" {
 
 typedef const lv_font_t *(*make_font_cb)(const char *name, int size,
                                          int weight);
-typedef void (*delete_font_cb)(const lv_font_t *);
+typedef void (*delete_font_cb)(lv_font_t *);
 typedef int (*luavgl_pcall_t)(lua_State *L, int nargs, int nresults);
 
 typedef struct {

@@ -240,7 +240,7 @@ static int luavgl_font_create(lua_State *L)
 {
   int weight;
   int size;
-  char *str, *name;
+  const char *name;
   const lv_font_t *font = NULL;
 
   if (!lua_isstring(L, 1)) {
@@ -271,39 +271,9 @@ static int luavgl_font_create(lua_State *L)
     weight = FONT_WEIGHT_NORMAL;
   }
 
-  str = strdup(lua_tostring(L, 1));
-  if (str == NULL) {
-    return luaL_error(L, "no memory.");
-  }
+  name = lua_tostring(L, 1);
+  font = _luavgl_font_create(L, name, size, weight);
 
-  name = to_lower(str);
-  while (*name) {
-    if (*name == ' ') {
-      name++;
-      continue;
-    }
-
-    char *end = strchr(name, ',');
-    if (end != NULL) {
-      *end = '\0';
-    } else {
-      end = name + strlen(name);
-    }
-
-    char *trim = end - 1;
-    while (*trim == ' ') {
-      *trim-- = '\0'; /* trailing space. */
-    }
-
-    font = _luavgl_font_create(L, name, size, weight);
-    if (font) {
-      break;
-    }
-
-    name = end + 1; /* next */
-  }
-
-  free(str);
   if (font) {
     lua_pushlightuserdata(L, (void *)font);
     return 1;
