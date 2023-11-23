@@ -874,6 +874,12 @@ Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
 Iterator::Iterator(std::weak_ptr<Database> db, const Continuation& c)
     : db_(db), pos_mutex_(), current_pos_(c), prev_pos_() {}
 
+Iterator::Iterator(const Iterator& other)
+    : db_(other.db_),
+      pos_mutex_(),
+      current_pos_(other.current_pos_),
+      prev_pos_(other.prev_pos_) {}
+
 auto Iterator::Next(Callback cb) -> void {
   auto db = db_.lock();
   if (!db) {
@@ -897,6 +903,31 @@ auto Iterator::Next(Callback cb) -> void {
     }
     std::invoke(cb, *res->values()[0]);
   });
+}
+
+auto Iterator::NextSync() -> std::optional<IndexRecord> {
+  auto db = db_.lock();
+  if (!db) {
+    return {};
+  }
+  return db->worker_task_
+      ->Dispatch<std::optional<IndexRecord>>(
+          [=]() -> std::optional<IndexRecord> {
+            std::lock_guard lock{pos_mutex_};
+            if (!current_pos_) {
+              return {};
+            }
+            std::unique_ptr<Result<IndexRecord>> res{
+                db->dbGetPage<IndexRecord>(*current_pos_)};
+            prev_pos_ = current_pos_;
+            current_pos_ = res->next_page();
+            if (!res || res->values().empty() || !res->values()[0]) {
+              ESP_LOGI(kTag, "dropping empty result");
+              return {};
+            }
+            return *res->values()[0];
+          })
+      .get();
 }
 
 auto Iterator::Prev(Callback cb) -> void {

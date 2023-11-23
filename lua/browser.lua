@@ -4,7 +4,7 @@ local legacy_ui = require("legacy_ui")
 local database = require("database")
 local backstack = require("backstack")
 local font = require("font")
-local playing = require("playing")
+local queue = require("queue")
 
 local browser = {}
 
@@ -40,7 +40,6 @@ function browser.create(opts)
       h = lvgl.SIZE_CONTENT,
       pad_left = 4,
       pad_right = 4,
-      pad_top = 2,
       pad_bottom = 2,
       bg_opa = lvgl.OPA(100),
       bg_color = "#fafafa",
@@ -64,9 +63,18 @@ function browser.create(opts)
       h = lvgl.SIZE_CONTENT,
       pad_column = 4,
     })
+    local original_iterator = opts.iterator:clone()
     local enqueue = widgets.IconBtn(buttons, "//lua/img/enqueue.png", "Enqueue")
+    enqueue:onClicked(function()
+      queue.add(original_iterator)
+    end)
     -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
     local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
+    play:onClicked(function()
+      queue.clear()
+      queue.add(original_iterator)
+    end
+    )
   end
 
   screen.list = lvgl.List(screen.root, {
@@ -88,7 +96,7 @@ function browser.create(opts)
     local btn = screen.list:add_btn(nil, tostring(item))
     btn:onClicked(function()
       local contents = item:contents()
-      if type(contents) == "function" then
+      if type(contents) == "userdata" then
         backstack.push(function()
           return browser.create({
             title = opts.title,
@@ -97,7 +105,8 @@ function browser.create(opts)
           })
         end)
       else
-        print("add", contents)
+        queue.clear()
+        queue.add(contents)
         legacy_ui.open_now_playing()
         -- backstack.push(playing)
       end
@@ -105,13 +114,13 @@ function browser.create(opts)
     btn:onevent(lvgl.EVENT.FOCUSED, function()
       screen.focused_item = this_item
       if screen.last_item - 5 < this_item then
-        opts.iterator(screen.add_item)
+        opts.iterator:next(screen.add_item)
       end
     end)
   end
 
   for _ = 1, 8 do
-    opts.iterator(screen.add_item)
+    opts.iterator:next(screen.add_item)
   end
 
   return screen

@@ -22,6 +22,55 @@
 
 namespace playlist {
 
+[[maybe_unused]] static constexpr char kTag[] = "queue_src";
+
+IteratorSource::IteratorSource(const database::Iterator& it)
+    : start_(it), current_(), next_() {
+  Reset();
+  Advance();
+}
+
+auto IteratorSource::Current() -> std::optional<database::TrackId> {
+  return current_;
+}
+
+auto IteratorSource::Advance() -> std::optional<database::TrackId> {
+  ESP_LOGI(kTag, "advancing");
+  while (!next_.empty()) {
+    auto next = next_.top().NextSync();
+    if (!next) {
+      ESP_LOGI(kTag, "top was empty");
+      next_.pop();
+      continue;
+    }
+    if (next->track()) {
+      ESP_LOGI(kTag, "top held track %lu", next->track().value_or(0));
+      current_ = next->track();
+      return current_;
+    }
+    ESP_LOGI(kTag, "top held records");
+    next_.push(database::Iterator(start_.database(), next->Expand(1).value()));
+  }
+  ESP_LOGI(kTag, "exhausted");
+  return {};
+}
+
+auto IteratorSource::Peek(std::size_t n, std::vector<database::TrackId>*)
+    -> std::size_t {
+  return 0;
+}
+
+auto IteratorSource::Previous() -> std::optional<database::TrackId> {
+  return {};
+}
+
+auto IteratorSource::Reset() -> void {
+  while (!next_.empty()) {
+    next_.pop();
+  }
+  next_.push(start_);
+}
+
 auto CreateSourceFromResults(
     std::weak_ptr<database::Database> db,
     std::shared_ptr<database::Result<database::IndexRecord>> results)

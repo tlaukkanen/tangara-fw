@@ -9,6 +9,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <stack>
 #include <variant>
 #include <vector>
 
@@ -71,6 +72,24 @@ class IResetableSource : public ISource {
    * Restarts iteration from this source's initial value.
    */
   virtual auto Reset() -> void = 0;
+};
+
+class IteratorSource : public IResetableSource {
+ public:
+  IteratorSource(const database::Iterator&);
+
+  auto Current() -> std::optional<database::TrackId> override;
+  auto Advance() -> std::optional<database::TrackId> override;
+  auto Peek(std::size_t n, std::vector<database::TrackId>*)
+      -> std::size_t override;
+
+  auto Previous() -> std::optional<database::TrackId> override;
+  auto Reset() -> void override;
+
+ private:
+  const database::Iterator& start_;
+  std::optional<database::TrackId> current_;
+  std::stack<database::Iterator, std::vector<database::Iterator>> next_;
 };
 
 auto CreateSourceFromResults(

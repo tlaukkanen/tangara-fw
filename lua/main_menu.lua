@@ -36,13 +36,12 @@ return function()
   for id, idx in ipairs(indexes) do
     local btn = menu.list:add_btn(nil, tostring(idx))
     btn:onClicked(function()
-      legacy_ui.open_browse(id);
-      -- backstack.push(function()
-      --   return browser {
-      --     title = tostring(idx),
-      --     iterator = idx:iter()
-      --   }
-      -- end)
+      backstack.push(function()
+        return browser {
+          title = tostring(idx),
+          iterator = idx:iter()
+        }
+      end)
     end)
   end
 

@@ -8,7 +8,11 @@
 
 #include "lua.hpp"
 
+#include "database.hpp"
+
 namespace lua {
+
+auto db_check_iterator(lua_State*, int stack_pos) -> database::Iterator*;
 
 auto RegisterDatabaseModule(lua_State*) -> void;
 

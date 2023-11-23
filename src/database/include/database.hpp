@@ -193,11 +193,17 @@ class Iterator {
  public:
   Iterator(std::weak_ptr<Database>, const IndexInfo&);
   Iterator(std::weak_ptr<Database>, const Continuation&);
+  Iterator(const Iterator &);
+
+  auto database() const { return db_; }
 
   using Callback = std::function<void(std::optional<IndexRecord>)>;
 
   auto Next(Callback) -> void;
+  auto NextSync() -> std::optional<IndexRecord>;
+
   auto Prev(Callback) -> void;
+
 
  private:
   auto InvokeNull(Callback) -> void;

@@ -151,6 +151,7 @@ function widgets.IconBtn(parent, icon, text)
   }
   btn:Image { src = icon }
   btn:Label { text = text, text_font = font.fusion_10 }
+  return btn
 end
 
 return widgets
