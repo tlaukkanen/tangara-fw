@@ -6,6 +6,7 @@
 
 #include "system_fsm.hpp"
 #include "audio_fsm.hpp"
+#include "driver/gpio.h"
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "relative_wheel.hpp"
@@ -22,6 +23,15 @@ std::shared_ptr<ServiceLocator> SystemState::sServices;
 std::unique_ptr<drivers::SdStorage> SystemState::sStorage;
 
 console::AppConsole* SystemState::sAppConsole;
+
+void check_interrupts_cb(TimerHandle_t timer) {
+  if (!gpio_get_level(GPIO_NUM_34)) {
+    events::System().Dispatch(internal::GpioInterrupt{});
+  }
+  if (!gpio_get_level(GPIO_NUM_35)) {
+    events::System().Dispatch(internal::SamdInterrupt{});
+  }
+}
 
 void SystemState::react(const FatalError& err) {
   if (!is_in_state<states::Error>()) {

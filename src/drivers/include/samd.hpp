@@ -54,8 +54,6 @@ class Samd {
   auto ResetToFlashSamd() -> void;
   auto PowerDown() -> void;
 
-  static auto CreateReadPending() -> SemaphoreHandle_t;
-
   // Not copyable or movable. There should usually only ever be once instance
   // of this class, and that instance will likely have a static lifetime.
   Samd(const Samd&) = delete;
@@ -64,8 +62,6 @@ class Samd {
  private:
   std::optional<ChargeStatus> charge_status_;
   UsbStatus usb_status_;
-
-  static SemaphoreHandle_t sReadPending;
 };
 
 }  // namespace drivers

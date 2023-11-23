@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -108,8 +109,6 @@ class Gpios : public IGpios {
    */
   auto Read(void) -> bool;
 
-  static auto CreateReadPending() -> SemaphoreHandle_t;
-
   // Not copyable or movable. There should usually only ever be once instance
   // of this class, and that instance will likely have a static lifetime.
   Gpios(const Gpios&) = delete;
@@ -120,8 +119,6 @@ class Gpios : public IGpios {
 
   std::atomic<uint16_t> ports_;
   std::atomic<uint16_t> inputs_;
-
-  static SemaphoreHandle_t sReadPending;
 };
 
 }  // namespace drivers

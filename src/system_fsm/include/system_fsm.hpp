@@ -32,6 +32,8 @@
 
 namespace system_fsm {
 
+void check_interrupts_cb(TimerHandle_t timer);
+
 /*
  * State machine for the overall system state. Responsible for managing
  * peripherals, and bringing the rest of the system up and down.

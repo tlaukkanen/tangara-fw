@@ -35,7 +35,7 @@ static const uint32_t kEmptyChargeMilliVolts = 3200;  // BMS limit is 3100.
 
 using ChargeStatus = drivers::Samd::ChargeStatus;
 
-void check_voltage_cb(TimerHandle_t timer) {
+static void check_voltage_cb(TimerHandle_t timer) {
   Battery* instance = reinterpret_cast<Battery*>(pvTimerGetTimerID(timer));
   instance->Update();
 }

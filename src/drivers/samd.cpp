@@ -5,12 +5,15 @@
  */
 
 #include "samd.hpp"
-#include <stdint.h>
+
+#include <cstdint>
 #include <optional>
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
+
 #include "i2c.hpp"
 
 enum Registers : uint8_t {
@@ -26,23 +29,10 @@ static const uint8_t kAddress = 0x45;
 
 namespace drivers {
 
-SemaphoreHandle_t Samd::sReadPending;
-
-static void interrupt_isr(void* arg) {
-  SemaphoreHandle_t sem = reinterpret_cast<SemaphoreHandle_t>(arg);
-  xSemaphoreGive(sem);
-}
+static constexpr gpio_num_t kIntPin = GPIO_NUM_35;
 
 Samd::Samd() {
-  gpio_config_t config{
-      .pin_bit_mask = static_cast<uint64_t>(1) << GPIO_NUM_35,
-      .mode = GPIO_MODE_INPUT,
-      .pull_up_en = GPIO_PULLUP_ENABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_NEGEDGE,
-  };
-  gpio_config(&config);
-  gpio_isr_handler_add(GPIO_NUM_35, &interrupt_isr, sReadPending);
+  gpio_set_direction(kIntPin, GPIO_MODE_INPUT);
 
   // Being able to interface with the SAMD properly is critical. To ensure we
   // will be able to, we begin by checking the I2C protocol version is
@@ -151,11 +141,6 @@ auto Samd::PowerDown() -> void {
       .write_ack(Registers::kPowerControl, 0b1)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(3));
-}
-
-auto Samd::CreateReadPending() -> SemaphoreHandle_t {
-  sReadPending = xSemaphoreCreateBinary();
-  return sReadPending;
 }
 
 }  // namespace drivers

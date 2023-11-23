@@ -6,12 +6,13 @@
 
 #include "gpios.hpp"
 
-#include <stdint.h>
-
 #include <cstdint>
 
+#include "assert.h"
 #include "driver/gpio.h"
 #include "esp_attr.h"
+#include "esp_err.h"
+#include "esp_intr_alloc.h"
 #include "hal/gpio_types.h"
 
 #include "i2c.hpp"
@@ -60,12 +61,7 @@ constexpr std::pair<uint8_t, uint8_t> unpack(uint16_t ba) {
   return std::pair((uint8_t)ba, (uint8_t)(ba >> 8));
 }
 
-SemaphoreHandle_t Gpios::sReadPending;
-
-IRAM_ATTR static void interrupt_isr(void* arg) {
-  SemaphoreHandle_t sem = reinterpret_cast<SemaphoreHandle_t>(arg);
-  xSemaphoreGive(sem);
-}
+static constexpr gpio_num_t kIntPin = GPIO_NUM_34;
 
 auto Gpios::Create() -> Gpios* {
   Gpios* instance = new Gpios();
@@ -78,22 +74,10 @@ auto Gpios::Create() -> Gpios* {
 }
 
 Gpios::Gpios() : ports_(pack(kPortADefault, kPortBDefault)), inputs_(0) {
-  gpio_config_t config{
-      .pin_bit_mask = static_cast<uint64_t>(1) << GPIO_NUM_34,
-      .mode = GPIO_MODE_INPUT,
-      .pull_up_en = GPIO_PULLUP_ENABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_NEGEDGE,
-  };
-  gpio_config(&config);
-  gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
-  gpio_isr_handler_add(GPIO_NUM_34, &interrupt_isr, sReadPending);
+  gpio_set_direction(kIntPin, GPIO_MODE_INPUT);
 }
 
-Gpios::~Gpios() {
-  gpio_isr_handler_remove(GPIO_NUM_34);
-  gpio_uninstall_isr_service();
-}
+Gpios::~Gpios() {}
 
 auto Gpios::WriteBuffered(Pin pin, bool value) -> void {
   if (value) {
@@ -140,11 +124,6 @@ auto Gpios::Read() -> bool {
   }
   inputs_ = pack(input_a, input_b);
   return true;
-}
-
-auto Gpios::CreateReadPending() -> SemaphoreHandle_t {
-  sReadPending = xSemaphoreCreateBinary();
-  return sReadPending;
 }
 
 }  // namespace drivers

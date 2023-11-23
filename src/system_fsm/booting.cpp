@@ -51,6 +51,8 @@ static auto bt_event_cb(drivers::bluetooth::Event ev) -> void {
   }
 }
 
+static const TickType_t kInterruptCheckPeriod = pdMS_TO_TICKS(100);
+
 auto Booting::entry() -> void {
   ESP_LOGI(kTag, "beginning tangara boot");
   sServices.reset(new ServiceLocator());
@@ -109,6 +111,10 @@ auto Booting::exit() -> void {
   sAppConsole = new console::AppConsole();
   sAppConsole->sServices = sServices;
   sAppConsole->Launch();
+
+  TimerHandle_t timer = xTimerCreate("INTERRUPTS", kInterruptCheckPeriod, true,
+                                     NULL, check_interrupts_cb);
+  xTimerStart(timer, portMAX_DELAY);
 }
 
 auto Booting::react(const BootComplete& ev) -> void {
