@@ -136,6 +136,7 @@ class Lua : public UiState {
  private:
   auto PushLuaScreen(lua_State*) -> int;
   auto PopLuaScreen(lua_State*) -> int;
+  auto SetPlaying(const lua::LuaValue&) -> bool;
 
   std::shared_ptr<lua::Property> battery_pct_;
   std::shared_ptr<lua::Property> battery_mv_;

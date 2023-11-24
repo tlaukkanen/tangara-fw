@@ -107,7 +107,11 @@ return function(opts)
   controls:Image {
     src = "//lua/img/prev.png",
   }
-  local play_pause_img = controls:Image {
+  local play_pause_btn = controls:Button {}
+  play_pause_btn:onClicked(function()
+    playback.playing:set(not playback.playing:get())
+  end)
+  local play_pause_img = play_pause_btn:Image {
     src = "//lua/img/pause.png",
   }
   controls:Image {

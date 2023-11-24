@@ -7,6 +7,7 @@
 #include "ui_fsm.hpp"
 
 #include <memory>
+#include <variant>
 
 #include "lua.h"
 #include "lua.hpp"
@@ -179,7 +180,8 @@ void Lua::entry() {
     queue_position_ = std::make_shared<lua::Property>(0);
     queue_size_ = std::make_shared<lua::Property>(0);
 
-    playback_playing_ = std::make_shared<lua::Property>(false);
+    playback_playing_ = std::make_shared<lua::Property>(
+        false, [&](const lua::LuaValue& val) { return SetPlaying(val); });
     playback_track_ = std::make_shared<lua::Property>();
     playback_position_ = std::make_shared<lua::Property>();
 
@@ -248,6 +250,18 @@ auto Lua::PopLuaScreen(lua_State* s) -> int {
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
   return 0;
+}
+
+auto Lua::SetPlaying(const lua::LuaValue& val) -> bool {
+  bool current_val = std::get<bool>(playback_playing_->Get());
+  if (!std::holds_alternative<bool>(val)) {
+    return false;
+  }
+  bool new_val = std::get<bool>(val);
+  if (current_val != new_val) {
+    events::Audio().Dispatch(audio::TogglePlayPause{});
+  }
+  return true;
 }
 
 void Lua::exit() {

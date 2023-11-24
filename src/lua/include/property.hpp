@@ -26,6 +26,8 @@ class Property {
   Property(const LuaValue&);
   Property(const LuaValue&, std::function<bool(const LuaValue&)>);
 
+  auto Get() -> const LuaValue& { return value_; }
+
   auto IsTwoWay() -> bool { return cb_.has_value(); }
 
   auto PushValue(lua_State& s) -> int;

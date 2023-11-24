@@ -221,7 +221,7 @@ auto Property::PopValue(lua_State& s) -> bool {
       }
       break;
     case LUA_TBOOLEAN:
-      new_val = lua_toboolean(&s, 2);
+      new_val = static_cast<bool>(lua_toboolean(&s, 2));
       break;
     case LUA_TSTRING:
       new_val = lua_tostring(&s, 2);
