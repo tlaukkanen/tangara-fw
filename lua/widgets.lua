@@ -1,7 +1,6 @@
 local lvgl = require("lvgl")
 local power = require("power")
 local bluetooth = require("bluetooth")
-local playback = require("playback")
 local font = require("font")
 
 local widgets = {}
@@ -53,7 +52,6 @@ function widgets.StatusBar(parent, opts)
     status_bar.title:set { text = opts.title }
   end
 
-  status_bar.playing = status_bar.root:Image {}
   status_bar.bluetooth = status_bar.root:Image {}
   status_bar.battery = status_bar.root:Image {}
   status_bar.chg = status_bar.battery:Image {
@@ -64,7 +62,7 @@ function widgets.StatusBar(parent, opts)
   local is_charging = nil
   local percent = nil
 
-  function update_battery_icon()
+  local function update_battery_icon()
     if is_charging == nil or percent == nil then return end
     local src
     if percent >= 95 then
@@ -100,20 +98,6 @@ function widgets.StatusBar(parent, opts)
     power.plugged_in:bind(function(p)
       is_charging = p
       update_battery_icon()
-    end),
-    playback.playing:bind(function(playing)
-      if playing then
-        status_bar.playing:set_src("//lua/assets/play.png")
-      else
-        status_bar.playing:set_src("//lua/assets/pause.png")
-      end
-    end),
-    playback.track:bind(function(track)
-      if track then
-        status_bar.playing:clear_flag(lvgl.FLAG.HIDDEN)
-      else
-        status_bar.playing:add_flag(lvgl.FLAG.HIDDEN)
-      end
     end),
     bluetooth.enabled:bind(function(en)
       if en then

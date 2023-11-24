@@ -17,6 +17,23 @@
 
 namespace codecs {
 
+auto StreamTypeToString(StreamType t) -> std::string {
+  switch (t) {
+    case StreamType::kMp3:
+      return "Mp3";
+    case StreamType::kPcm:
+      return "Wav";
+    case StreamType::kVorbis:
+      return "Vorbis";
+    case StreamType::kFlac:
+      return "Flac";
+    case StreamType::kOpus:
+      return "Opus";
+    default:
+      return "";
+  }
+}
+
 auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
   switch (type) {
     case StreamType::kMp3:

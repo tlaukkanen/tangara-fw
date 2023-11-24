@@ -335,6 +335,13 @@ end
 function lvgl.Object(parent, property)
 end
 
+--- Create Bar widget on parent
+--- @param parent? Object | nil
+--- @param property? BarProp
+--- @return Bar
+function lvgl.Bar(parent, property)
+end
+
 --- Create Button widget on parent
 --- @param parent? Object | nil
 --- @param property? StyleProp
@@ -469,6 +476,13 @@ obj = {}
 --- @param property? StyleProp
 --- @return Object
 function obj:Object(property)
+end
+
+---
+--- Create bar on object
+--- @param property? BarStyle
+--- @return Bar
+function obj:Bar(property)
 end
 
 ---
@@ -864,6 +878,18 @@ end
 --- create a calendar header with drop-drowns to select the year and month
 --- @return Object
 function calendar:Dropdown(p)
+end
+
+---
+--- Bar widget
+---@class Bar:Object
+---
+local bar = {}
+
+--- set method for bar widget
+--- @param p BarStyle
+--- @return nil
+function bar:set(p)
 end
 
 ---
@@ -1375,6 +1401,11 @@ end
 --- @class LabelStyle :StyleProp
 --- @field text string
 
+--- Bar style
+--- @class BarStyle :StyleProp
+--- @field range BarRangePara
+--- @field value integer
+
 --- Button style
 --- @class ButtonStyle :StyleProp
 
@@ -1471,6 +1502,13 @@ end
 --- @field align_items flexAlignOptions
 --- @field align_content flexAlignOptions
 
+
+---
+--- BarRange para
+--- @class BarRangePara
+--- @field min integer
+--- @field max integer
+---
 
 ---
 --- CalendarToday para

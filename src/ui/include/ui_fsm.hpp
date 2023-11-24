@@ -6,8 +6,7 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <sys/_stdint.h>
+#include <cstdint>
 #include <memory>
 #include <stack>
 
@@ -23,7 +22,6 @@
 #include "nvs.hpp"
 #include "property.hpp"
 #include "relative_wheel.hpp"
-#include "screen_playing.hpp"
 #include "screen_settings.hpp"
 #include "service_locator.hpp"
 #include "tinyfsm.hpp"
@@ -60,16 +58,14 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const system_fsm::BatteryStateChanged&);
   virtual void react(const audio::PlaybackStarted&);
   virtual void react(const audio::PlaybackFinished&);
-  void react(const audio::PlaybackUpdate&);
-  void react(const audio::QueueUpdate&);
+  virtual void react(const audio::PlaybackUpdate&);
+  virtual void react(const audio::QueueUpdate&);
 
   virtual void react(const system_fsm::KeyLockChanged&);
   virtual void react(const OnLuaError&) {}
 
   virtual void react(const internal::RecordSelected&) {}
-  virtual void react(const internal::IndexSelected&) {}
   virtual void react(const internal::BackPressed&) {}
-  virtual void react(const internal::ShowNowPlaying&){};
   virtual void react(const internal::ShowSettingsPage&){};
   virtual void react(const internal::ModalCancelPressed&) {
     sCurrentModal.reset();
@@ -127,12 +123,12 @@ class Lua : public UiState {
 
   void react(const OnLuaError&) override;
 
-  void react(const internal::IndexSelected&) override;
-  void react(const internal::ShowNowPlaying&) override;
   void react(const internal::ShowSettingsPage&) override;
 
   void react(const system_fsm::BatteryStateChanged&) override;
+  void react(const audio::QueueUpdate&) override;
   void react(const audio::PlaybackStarted&) override;
+  void react(const audio::PlaybackUpdate&) override;
   void react(const audio::PlaybackFinished&) override;
 
   using UiState::react;
@@ -144,46 +140,27 @@ class Lua : public UiState {
   std::shared_ptr<lua::Property> battery_pct_;
   std::shared_ptr<lua::Property> battery_mv_;
   std::shared_ptr<lua::Property> battery_charging_;
+
   std::shared_ptr<lua::Property> bluetooth_en_;
+
   std::shared_ptr<lua::Property> playback_playing_;
   std::shared_ptr<lua::Property> playback_track_;
-};
+  std::shared_ptr<lua::Property> playback_position_;
 
-class Onboarding : public UiState {
- public:
-  void entry() override;
-
-  void react(const internal::OnboardingNavigate&) override;
-
-  using UiState::react;
-
- private:
-  uint8_t progress_;
-  bool has_formatted_;
+  std::shared_ptr<lua::Property> queue_position_;
+  std::shared_ptr<lua::Property> queue_size_;
 };
 
 class Browse : public UiState {
  public:
   void entry() override;
 
-  void react(const internal::RecordSelected&) override;
   void react(const internal::BackPressed&) override;
 
-  void react(const internal::ShowNowPlaying&) override;
   void react(const internal::ShowSettingsPage&) override;
   void react(const internal::ReindexDatabase&) override;
 
   void react(const system_fsm::BluetoothDevicesChanged&) override;
-
-  using UiState::react;
-};
-
-class Playing : public UiState {
- public:
-  void entry() override;
-  void exit() override;
-
-  void react(const internal::BackPressed&) override;
 
   using UiState::react;
 };

@@ -43,7 +43,7 @@ class FatfsAudioInput : public IAudioSource {
   auto SetPath() -> void;
 
   auto HasNewStream() -> bool override;
-  auto NextStream() -> std::shared_ptr<codecs::IStream> override;
+  auto NextStream() -> std::shared_ptr<TaggedStream> override;
 
   FatfsAudioInput(const FatfsAudioInput&) = delete;
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
@@ -58,7 +58,7 @@ class FatfsAudioInput : public IAudioSource {
   tasks::Worker& bg_worker_;
 
   std::mutex new_stream_mutex_;
-  std::shared_ptr<codecs::IStream> new_stream_;
+  std::shared_ptr<TaggedStream> new_stream_;
 
   std::atomic<bool> has_new_stream_;
 

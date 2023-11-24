@@ -30,7 +30,6 @@
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "lvgl_task.hpp"
-#include "modal_add_to_queue.hpp"
 #include "modal_confirm.hpp"
 #include "modal_progress.hpp"
 #include "model_playback.hpp"
@@ -39,11 +38,8 @@
 #include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "screen_lua.hpp"
-#include "screen_onboarding.hpp"
-#include "screen_playing.hpp"
 #include "screen_settings.hpp"
 #include "screen_splash.hpp"
-#include "screen_track_browser.hpp"
 #include "source.hpp"
 #include "spiffs.hpp"
 #include "storage.hpp"
@@ -51,14 +47,11 @@
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
-#include "widget_top_bar.hpp"
 #include "widgets/lv_label.h"
 
 namespace ui {
 
 [[maybe_unused]] static constexpr char kTag[] = "ui_fsm";
-
-static const std::size_t kRecordsPerPage = 15;
 
 std::unique_ptr<UiTask> UiState::sTask;
 std::shared_ptr<system_fsm::ServiceLocator> UiState::sServices;
@@ -116,27 +109,17 @@ void UiState::react(const system_fsm::BatteryStateChanged& ev) {
   sTopBarModel.battery_state.set(ev.new_state);
 }
 
-void UiState::react(const audio::PlaybackStarted&) {
-  sPlaybackModel.is_playing.set(true);
-}
+void UiState::react(const audio::PlaybackStarted&) {}
 
-void UiState::react(const audio::PlaybackFinished&) {
-  sPlaybackModel.is_playing.set(false);
-}
+void UiState::react(const audio::PlaybackFinished&) {}
 
-void UiState::react(const audio::PlaybackUpdate& ev) {
-  sPlaybackModel.current_track_duration.set(ev.seconds_total);
-  sPlaybackModel.current_track_position.set(ev.seconds_elapsed);
-}
+void UiState::react(const audio::PlaybackUpdate& ev) {}
 
 void UiState::react(const audio::QueueUpdate&) {
   auto& queue = sServices->track_queue();
   bool had_queue = sPlaybackModel.current_track.get().has_value();
   sPlaybackModel.current_track.set(queue.GetCurrent());
   sPlaybackModel.upcoming_tracks.set(queue.GetUpcoming(10));
-  if (!had_queue) {
-    transit<states::Playing>();
-  }
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -192,8 +175,13 @@ void Lua::entry() {
     battery_charging_ = std::make_shared<lua::Property>(bat.is_charging);
 
     bluetooth_en_ = std::make_shared<lua::Property>(false);
+
+    queue_position_ = std::make_shared<lua::Property>(0);
+    queue_size_ = std::make_shared<lua::Property>(0);
+
     playback_playing_ = std::make_shared<lua::Property>(false);
     playback_track_ = std::make_shared<lua::Property>();
+    playback_position_ = std::make_shared<lua::Property>();
 
     sLua.reset(lua::LuaThread::Start(*sServices, sCurrentScreen->content()));
     sLua->bridge().AddPropertyModule("power",
@@ -211,7 +199,12 @@ void Lua::entry() {
                                      {
                                          {"playing", playback_playing_},
                                          {"track", playback_track_},
+                                         {"position", playback_position_},
                                      });
+    sLua->bridge().AddPropertyModule("queue", {
+                                                  {"position", queue_position_},
+                                                  {"size", queue_size_},
+                                              });
     sLua->bridge().AddPropertyModule(
         "backstack",
         {
@@ -233,7 +226,7 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   auto new_screen = std::make_shared<screens::Lua>();
 
   // Tell lvgl about the new roots.
-  luavgl_set_root(s, new_screen->root());
+  luavgl_set_root(s, new_screen->content());
   lv_group_set_default(new_screen->group());
 
   // Call the constructor for this screen.
@@ -252,7 +245,7 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
 
 auto Lua::PopLuaScreen(lua_State* s) -> int {
   PopScreen();
-  luavgl_set_root(s, sCurrentScreen->root());
+  luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
   return 0;
 }
@@ -265,25 +258,6 @@ void Lua::react(const OnLuaError& err) {
   ESP_LOGE("lua", "%s", err.message.c_str());
 }
 
-void Lua::react(const internal::IndexSelected& ev) {
-  auto db = sServices->database().lock();
-  if (!db) {
-    return;
-  }
-
-  ESP_LOGI(kTag, "selected index %u", ev.id);
-  auto query = db->GetTracksByIndex(ev.id, kRecordsPerPage);
-  std::pmr::vector<std::pmr::string> crumbs = {""};
-  PushScreen(std::make_shared<screens::TrackBrowser>(
-      sTopBarModel, sServices->track_queue(), sServices->database(), crumbs,
-      std::move(query)));
-  transit<Browse>();
-}
-
-void Lua::react(const internal::ShowNowPlaying&) {
-  transit<Playing>();
-}
-
 void Lua::react(const internal::ShowSettingsPage& ev) {
   PushScreen(std::shared_ptr<Screen>(new screens::Settings(sTopBarModel)));
   transit<Browse>();
@@ -294,70 +268,26 @@ void Lua::react(const system_fsm::BatteryStateChanged& ev) {
   battery_mv_->Update(static_cast<int>(ev.new_state.millivolts));
 }
 
-void Lua::react(const audio::PlaybackStarted&) {
+void Lua::react(const audio::QueueUpdate&) {
+  auto& queue = sServices->track_queue();
+  queue_size_->Update(static_cast<int>(queue.Size()));
+  queue_position_->Update(static_cast<int>(queue.Position()));
+}
+
+void Lua::react(const audio::PlaybackStarted& ev) {
   playback_playing_->Update(true);
+}
+
+void Lua::react(const audio::PlaybackUpdate& ev) {
+  playback_track_->Update(*ev.track);
+  playback_position_->Update(static_cast<int>(ev.seconds_elapsed));
 }
 
 void Lua::react(const audio::PlaybackFinished&) {
   playback_playing_->Update(false);
 }
 
-void Onboarding::entry() {
-  progress_ = 0;
-  has_formatted_ = false;
-  sCurrentScreen.reset(new screens::onboarding::LinkToManual());
-}
-
-void Onboarding::react(const internal::OnboardingNavigate& ev) {
-  int dir = ev.forwards ? 1 : -1;
-  progress_ += dir;
-
-  for (;;) {
-    if (progress_ == 0) {
-      sCurrentScreen.reset(new screens::onboarding::LinkToManual());
-      return;
-    } else if (progress_ == 1) {
-      sCurrentScreen.reset(new screens::onboarding::Controls());
-      return;
-    } else if (progress_ == 2) {
-      if (sServices->sd() == drivers::SdState::kNotPresent) {
-        sCurrentScreen.reset(new screens::onboarding::MissingSdCard());
-        return;
-      } else {
-        progress_ += dir;
-      }
-    } else if (progress_ == 3) {
-      if (sServices->sd() == drivers::SdState::kNotFormatted) {
-        has_formatted_ = true;
-        sCurrentScreen.reset(new screens::onboarding::FormatSdCard());
-        return;
-      } else {
-        progress_ += dir;
-      }
-    } else if (progress_ == 4) {
-      if (has_formatted_) {
-        // If we formatted the SD card during this onboarding flow, then there
-        // is no music that needs indexing.
-        progress_ += dir;
-      } else {
-        sCurrentScreen.reset(new screens::onboarding::InitDatabase());
-        return;
-      }
-    } else {
-      // We finished onboarding! Ensure this flow doesn't appear again.
-      sServices->nvs().HasShownOnboarding(true);
-
-      transit<Browse>();
-      return;
-    }
-  }
-}
-
 void Browse::entry() {}
-
-void Browse::react(const internal::ShowNowPlaying& ev) {
-  transit<Playing>();
-}
 
 void Browse::react(const internal::ShowSettingsPage& ev) {
   std::shared_ptr<Screen> screen;
@@ -397,47 +327,6 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
   }
 }
 
-void Browse::react(const internal::RecordSelected& ev) {
-  auto db = sServices->database().lock();
-  if (!db) {
-    return;
-  }
-
-  auto& queue = sServices->track_queue();
-  auto record = ev.page->values().at(ev.record);
-  if (record->track()) {
-    ESP_LOGI(kTag, "selected track '%s'", record->text()->c_str());
-    auto source = std::make_shared<playlist::IndexRecordSource>(
-        sServices->database(), ev.initial_page, 0, ev.page, ev.record);
-    if (ev.show_menu) {
-      sCurrentModal.reset(
-          new modals::AddToQueue(sCurrentScreen.get(), queue, source));
-    } else {
-      queue.Clear();
-      queue.AddNext(source);
-      transit<Playing>();
-    }
-  } else {
-    ESP_LOGI(kTag, "selected record '%s'", record->text()->c_str());
-    auto cont = record->Expand(kRecordsPerPage);
-    if (!cont) {
-      return;
-    }
-    auto query = db->GetPage<database::IndexRecord>(&cont.value());
-    if (ev.show_menu) {
-      std::shared_ptr<database::Result<database::IndexRecord>> res{query.get()};
-      auto source = playlist::CreateSourceFromResults(db, res);
-      sCurrentModal.reset(
-          new modals::AddToQueue(sCurrentScreen.get(), queue, source, true));
-    } else {
-      std::pmr::string title = record->text().value_or("");
-      PushScreen(std::make_shared<screens::TrackBrowser>(
-          sTopBarModel, sServices->track_queue(), sServices->database(),
-          ev.new_crumbs, std::move(query)));
-    }
-  }
-}
-
 void Browse::react(const internal::BackPressed& ev) {
   if (PopScreen() == 0) {
     transit<Lua>();
@@ -453,28 +342,6 @@ void Browse::react(const system_fsm::BluetoothDevicesChanged&) {
 
 void Browse::react(const internal::ReindexDatabase& ev) {
   transit<Indexing>();
-}
-
-static std::shared_ptr<screens::Playing> sPlayingScreen;
-
-void Playing::entry() {
-  ESP_LOGI(kTag, "push playing screen");
-  sPlayingScreen.reset(new screens::Playing(sTopBarModel, sPlaybackModel,
-                                            sServices->database(),
-                                            sServices->track_queue()));
-  PushScreen(sPlayingScreen);
-}
-
-void Playing::exit() {
-  sPlayingScreen.reset();
-}
-
-void Playing::react(const internal::BackPressed& ev) {
-  if (PopScreen() == 0) {
-    transit<Lua>();
-  } else {
-    transit<Browse>();
-  }
 }
 
 static std::shared_ptr<modals::Progress> sIndexProgress;

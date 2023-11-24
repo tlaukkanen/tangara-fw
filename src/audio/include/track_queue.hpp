@@ -72,6 +72,9 @@ class TrackQueue {
    */
   auto Clear() -> void;
 
+  auto Position() -> size_t;
+  auto Size() -> size_t;
+
   TrackQueue(const TrackQueue&) = delete;
   TrackQueue& operator=(const TrackQueue&) = delete;
 

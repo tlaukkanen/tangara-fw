@@ -9,13 +9,15 @@
 #include <memory>
 #include <string>
 
+#include "audio_events.hpp"
 #include "lua.hpp"
 #include "lvgl.h"
 #include "service_locator.hpp"
 
 namespace lua {
 
-using LuaValue = std::variant<std::monostate, int, float, bool, std::string>;
+using LuaValue =
+    std::variant<std::monostate, int, float, bool, std::string, audio::Track>;
 using LuaFunction = std::function<int(lua_State*)>;
 
 class Property {

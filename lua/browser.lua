@@ -5,6 +5,7 @@ local database = require("database")
 local backstack = require("backstack")
 local font = require("font")
 local queue = require("queue")
+local playing = require("playing")
 
 local browser = {}
 
@@ -73,6 +74,7 @@ function browser.create(opts)
     play:onClicked(function()
       queue.clear()
       queue.add(original_iterator)
+      backstack.push(playing)
     end
     )
   end
@@ -107,8 +109,7 @@ function browser.create(opts)
       else
         queue.clear()
         queue.add(contents)
-        legacy_ui.open_now_playing()
-        -- backstack.push(playing)
+        backstack.push(playing)
       end
     end)
     btn:onevent(lvgl.EVENT.FOCUSED, function()

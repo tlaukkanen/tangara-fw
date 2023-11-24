@@ -8,10 +8,12 @@
 
 #include <algorithm>
 #include <mutex>
+#include <optional>
 #include <variant>
 
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
+#include "database.hpp"
 #include "event_queue.hpp"
 #include "source.hpp"
 #include "track.hpp"
@@ -215,6 +217,14 @@ auto TrackQueue::Clear() -> void {
 
   events::Audio().Dispatch(ev);
   events::Ui().Dispatch(ev);
+}
+
+auto TrackQueue::Position() -> size_t {
+  return played_.size() + (enqueued_.empty() ? 0 : 1);
+}
+
+auto TrackQueue::Size() -> size_t {
+  return played_.size() + enqueued_.size();
 }
 
 }  // namespace audio

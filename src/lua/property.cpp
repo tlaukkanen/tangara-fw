@@ -9,10 +9,13 @@
 #include <memory>
 #include <string>
 
+#include "lua.h"
 #include "lua.hpp"
 #include "lua_thread.hpp"
 #include "lvgl.h"
 #include "service_locator.hpp"
+#include "track.hpp"
+#include "types.hpp"
 
 namespace lua {
 
@@ -51,7 +54,7 @@ static auto property_bind(lua_State* state) -> int {
   lua_pushvalue(state, 2);
 
   p->PushValue(*state);
-  CallProtected(state, 1, 0); // Invoke the initial binding.
+  CallProtected(state, 1, 0);  // Invoke the initial binding.
 
   lua_pushstring(state, kBindingsTable);
   lua_gettable(state, LUA_REGISTRYINDEX);  // REGISTRY[kBindingsTable]
@@ -171,6 +174,31 @@ auto Property::PushValue(lua_State& s) -> int {
           lua_pushboolean(&s, arg);
         } else if constexpr (std::is_same_v<T, std::string>) {
           lua_pushstring(&s, arg.c_str());
+        } else if constexpr (std::is_same_v<T, audio::Track>) {
+          lua_newtable(&s);
+          int table = lua_gettop(&s);
+          for (const auto& [key, val] : arg.tags->tags()) {
+            lua_pushstring(&s, database::TagToString(key).c_str());
+            lua_pushstring(&s, val.c_str());
+            lua_settable(&s, table);
+          }
+          if (arg.db_info) {
+            lua_pushliteral(&s, "id");
+            lua_pushinteger(&s, arg.db_info->id);
+            lua_settable(&s, table);
+          }
+
+          lua_pushliteral(&s, "duration");
+          lua_pushinteger(&s, arg.duration);
+          lua_settable(&s, table);
+
+          lua_pushliteral(&s, "bitrate_kbps");
+          lua_pushinteger(&s, arg.bitrate_kbps);
+          lua_settable(&s, table);
+
+          lua_pushliteral(&s, "encoding");
+          lua_pushstring(&s, codecs::StreamTypeToString(arg.encoding).c_str());
+          lua_settable(&s, table);
         } else {
           static_assert(always_false_v<T>, "PushValue missing type");
         }
@@ -228,8 +256,8 @@ auto Property::Update(const LuaValue& v) -> void {
       continue;
     }
 
-    PushValue(*b.first);      // push the argument
-    CallProtected(b.first, 1, 0); // invoke the closure
+    PushValue(*b.first);           // push the argument
+    CallProtected(b.first, 1, 0);  // invoke the closure
   }
 }
 

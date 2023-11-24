@@ -56,6 +56,8 @@ enum class Tag {
   kDuration = 5,
 };
 
+auto TagToString(Tag t) -> std::string;
+
 /*
  * Owning container for tag-related track metadata that was extracted from a
  * file.

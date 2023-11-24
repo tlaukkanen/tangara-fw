@@ -85,7 +85,7 @@ auto FatfsAudioInput::HasNewStream() -> bool {
   return has_new_stream_;
 }
 
-auto FatfsAudioInput::NextStream() -> std::shared_ptr<codecs::IStream> {
+auto FatfsAudioInput::NextStream() -> std::shared_ptr<TaggedStream> {
   while (true) {
     has_new_stream_.wait(false);
 
@@ -147,8 +147,7 @@ auto FatfsAudioInput::OpenFile(const std::pmr::string& path) -> bool {
 
   auto source =
       std::make_unique<FatfsSource>(stream_type.value(), std::move(file));
-  // new_stream_.reset(new ReadaheadSource(bg_worker_, std::move(source)));
-  new_stream_ = std::move(source);
+  new_stream_.reset(new TaggedStream(tags, std::move(source)));
   return true;
 }
 

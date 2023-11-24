@@ -8,4 +8,8 @@ local playback = {}
 -- @treturn types.Property a boolean property
 function playback.playing() end
 
+function playback:track() end
+
+function playback:position() end
+
 return playback

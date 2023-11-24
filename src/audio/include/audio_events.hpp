@@ -8,20 +8,31 @@
 
 #include <stdint.h>
 #include <cstdint>
+#include <memory>
 #include <string>
 
 #include "tinyfsm.hpp"
 
 #include "track.hpp"
 #include "track_queue.hpp"
+#include "types.hpp"
 
 namespace audio {
+
+struct Track {
+  std::shared_ptr<database::TrackTags> tags;
+  std::shared_ptr<database::TrackData> db_info;
+
+  uint32_t duration;
+  uint32_t bitrate_kbps;
+  codecs::StreamType encoding;
+};
 
 struct PlaybackStarted : tinyfsm::Event {};
 
 struct PlaybackUpdate : tinyfsm::Event {
   uint32_t seconds_elapsed;
-  uint32_t seconds_total;
+  std::shared_ptr<Track> track;
 };
 
 struct PlaybackFinished : tinyfsm::Event {};

@@ -4,6 +4,7 @@ local legacy_ui = require("legacy_ui")
 local database = require("database")
 local backstack = require("backstack")
 local browser = require("browser")
+local playing = require("playing")
 
 return function()
   local menu = {}
@@ -29,7 +30,7 @@ return function()
   })
 
   menu.list:add_btn(nil, "Now Playing"):onClicked(function()
-    legacy_ui.open_now_playing();
+    backstack.push(playing)
   end)
 
   local indexes = database.indexes()

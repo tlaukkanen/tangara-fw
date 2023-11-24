@@ -18,4 +18,6 @@ enum class StreamType {
   kOpus,
 };
 
+auto StreamTypeToString(StreamType t) -> std::string;
+  
 }  // namespace codecs

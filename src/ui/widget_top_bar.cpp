@@ -19,16 +19,6 @@
 #include "widgets/lv_img.h"
 #include "widgets/lv_label.h"
 
-LV_IMG_DECLARE(kIconBluetooth);
-LV_IMG_DECLARE(kIconPlay);
-LV_IMG_DECLARE(kIconPause);
-LV_IMG_DECLARE(kIconBatteryEmpty);
-LV_IMG_DECLARE(kIconBattery20);
-LV_IMG_DECLARE(kIconBattery40);
-LV_IMG_DECLARE(kIconBattery60);
-LV_IMG_DECLARE(kIconBattery80);
-LV_IMG_DECLARE(kIconBatteryFull);
-
 namespace ui {
 namespace widgets {
 
@@ -63,46 +53,6 @@ TopBar::TopBar(lv_obj_t* parent,
 
   lv_label_set_text(title_, config.title.c_str());
   lv_label_set_long_mode(title_, LV_LABEL_LONG_DOT);
-
-  lv_obj_t* playback = lv_img_create(container_);
-
-  bindings_.push_back(model.is_playing.onChangedAndNow([=](bool is_playing) {
-    lv_img_set_src(playback, is_playing ? &kIconPlay : &kIconPause);
-  }));
-  bindings_.push_back(model.current_track.onChangedAndNow(
-      [=](const std::optional<database::TrackId>& id) {
-        if (id) {
-          lv_obj_clear_flag(playback, LV_OBJ_FLAG_HIDDEN);
-        } else {
-          lv_obj_add_flag(playback, LV_OBJ_FLAG_HIDDEN);
-        }
-      }));
-
-  lv_obj_t* battery = lv_img_create(container_);
-  lv_obj_t* charging = lv_label_create(container_);
-
-  bindings_.push_back(model.battery_state.onChangedAndNow(
-      [=](const battery::Battery::BatteryState& state) {
-        if (state.is_charging) {
-          lv_label_set_text(charging, "+");
-        } else {
-          lv_label_set_text(charging, "");
-        }
-
-        if (state.percent >= 95) {
-          lv_img_set_src(battery, &kIconBatteryFull);
-        } else if (state.percent >= 75) {
-          lv_img_set_src(battery, &kIconBattery80);
-        } else if (state.percent >= 55) {
-          lv_img_set_src(battery, &kIconBattery60);
-        } else if (state.percent >= 35) {
-          lv_img_set_src(battery, &kIconBattery40);
-        } else if (state.percent >= 15) {
-          lv_img_set_src(battery, &kIconBattery20);
-        } else {
-          lv_img_set_src(battery, &kIconBatteryEmpty);
-        }
-      }));
 
   themes::Theme::instance()->ApplyStyle(container_, themes::Style::kTopBar);
 }

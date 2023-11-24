@@ -6,9 +6,9 @@
 
 #include "screen_lua.hpp"
 
-#include "lauxlib.h"
-#include "lua.h"
+#include "core/lv_obj_tree.h"
 #include "lua.hpp"
+
 #include "luavgl.h"
 
 namespace ui {

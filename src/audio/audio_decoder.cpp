@@ -50,12 +50,16 @@ namespace audio {
 static constexpr std::size_t kCodecBufferLength =
     drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;
 
-Timer::Timer(const codecs::ICodec::OutputFormat& format)
-    : current_seconds_(0),
+Timer::Timer(std::shared_ptr<Track> t,
+             const codecs::ICodec::OutputFormat& format)
+    : track_(t),
+      current_seconds_(0),
       current_sample_in_second_(0),
       samples_per_second_(format.sample_rate_hz * format.num_channels),
       total_duration_seconds_(format.total_samples.value_or(0) /
-                              format.num_channels / format.sample_rate_hz) {}
+                              format.num_channels / format.sample_rate_hz) {
+  track_->duration = total_duration_seconds_;
+}
 
 auto Timer::AddSamples(std::size_t samples) -> void {
   bool incremented = false;
@@ -69,10 +73,10 @@ auto Timer::AddSamples(std::size_t samples) -> void {
   if (incremented) {
     if (total_duration_seconds_ < current_seconds_) {
       total_duration_seconds_ = current_seconds_;
+      track_->duration = total_duration_seconds_;
     }
 
-    PlaybackUpdate ev{.seconds_elapsed = current_seconds_,
-                      .seconds_total = total_duration_seconds_};
+    PlaybackUpdate ev{.seconds_elapsed = current_seconds_, .track = track_};
     events::Audio().Dispatch(ev);
     events::Ui().Dispatch(ev);
   }
@@ -102,7 +106,7 @@ Decoder::Decoder(std::shared_ptr<IAudioSource> source,
 void Decoder::Main() {
   for (;;) {
     if (source_->HasNewStream() || !stream_) {
-      std::shared_ptr<codecs::IStream> new_stream = source_->NextStream();
+      std::shared_ptr<TaggedStream> new_stream = source_->NextStream();
       ESP_LOGI(kTag, "decoder has new stream");
       if (new_stream && BeginDecoding(new_stream)) {
         stream_ = new_stream;
@@ -118,7 +122,7 @@ void Decoder::Main() {
   }
 }
 
-auto Decoder::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
+auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   // Ensure any previous codec is freed before creating a new one.
   codec_.reset();
   codec_.reset(codecs::CreateCodecForType(stream->type()).value_or(nullptr));
@@ -136,7 +140,13 @@ auto Decoder::BeginDecoding(std::shared_ptr<codecs::IStream> stream) -> bool {
   stream->SetPreambleFinished();
 
   if (open_res->total_samples) {
-    timer_.reset(new Timer(open_res.value()));
+    timer_.reset(new Timer(std::shared_ptr<Track>{new Track{
+                               .tags = stream->tags(),
+                               .db_info = {},
+                               .bitrate_kbps = 0,
+                               .encoding = stream->type(),
+                           }},
+                           open_res.value()));
   } else {
     timer_.reset();
   }

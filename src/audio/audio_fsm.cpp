@@ -211,7 +211,7 @@ void Playback::react(const TogglePlayPause& ev) {
 
 void Playback::react(const PlaybackUpdate& ev) {
   ESP_LOGI(kTag, "elapsed: %lu, total: %lu", ev.seconds_elapsed,
-           ev.seconds_total);
+           ev.track->duration);
 }
 
 void Playback::react(const internal::InputFileOpened& ev) {}

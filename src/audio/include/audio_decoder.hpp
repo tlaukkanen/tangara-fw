@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "audio_converter.hpp"
+#include "audio_events.hpp"
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
 #include "codec.hpp"
@@ -23,11 +24,13 @@ namespace audio {
  */
 class Timer {
  public:
-  Timer(const codecs::ICodec::OutputFormat& format);
+  Timer(std::shared_ptr<Track>, const codecs::ICodec::OutputFormat& format);
 
   auto AddSamples(std::size_t) -> void;
 
  private:
+  std::shared_ptr<Track> track_;
+
   uint32_t current_seconds_;
   uint32_t current_sample_in_second_;
   uint32_t samples_per_second_;
@@ -54,7 +57,7 @@ class Decoder {
   Decoder(std::shared_ptr<IAudioSource> source,
           std::shared_ptr<SampleConverter> converter);
 
-  auto BeginDecoding(std::shared_ptr<codecs::IStream>) -> bool;
+  auto BeginDecoding(std::shared_ptr<TaggedStream>) -> bool;
   auto ContinueDecoding() -> bool;
 
   std::shared_ptr<IAudioSource> source_;

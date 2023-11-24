@@ -13,6 +13,25 @@
 
 namespace database {
 
+auto TagToString(Tag t) -> std::string {
+  switch (t) {
+    case Tag::kTitle:
+      return "title";
+    case Tag::kArtist:
+      return "artist";
+    case Tag::kAlbum:
+      return "album";
+    case Tag::kAlbumTrack:
+      return "album_track";
+    case Tag::kGenre:
+      return "genre";
+    case Tag::kDuration:
+      return "duration";
+    default:
+      return "";
+  }
+}
+
 auto TrackTags::set(const Tag& key, const std::pmr::string& val) -> void {
   tags_[key] = val;
 }
@@ -64,5 +83,4 @@ auto Track::TitleOrFilename() const -> std::pmr::string {
   }
   return data().filepath.substr(start);
 }
-
 }  // namespace database
