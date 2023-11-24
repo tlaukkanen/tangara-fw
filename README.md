@@ -19,3 +19,9 @@ management of the ESP32.
 ## Contributing
 
 We're still working on getting stuff together; please check back soon!
+
+## Thanks, Aisler!
+
+[Aisler](https://aisler.net/) have very generously sponsored our (final?) round
+of pre-production prototype boards. We've gotten all of our prototype revisons
+from Aisler, and we couldn't be happier with their quality. Check them out!
