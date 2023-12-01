@@ -1,7 +1,8 @@
 # Tangara
 
-Tangara is an open-hardware portable music player. It runs on an ESP32, fits in
-your pocket, and has a battery that lasts all day.
+Tangara is a portable music player. It outputs high-quality sound through a 3.5-mm headphone jack, lasts a full day on a charge, and includes a processor that’s powerful enough to support any audio format you can throw at it. It’s also 100% open hardware running open-source software, which makes it easy to customize, repair, and upgrade. Tangara plays what you want to hear, however you want to hear it.
+
+We're currently trying to scrape together a crowdfunding campaign! Please check us out on [Crowd Supply](https://www.crowdsupply.com/cool-tech-zone/tangara)!
 
 ## Source Repositories
 
