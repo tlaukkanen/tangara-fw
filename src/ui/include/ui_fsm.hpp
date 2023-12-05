@@ -130,6 +130,7 @@ class Lua : public UiState {
   void react(const audio::PlaybackStarted&) override;
   void react(const audio::PlaybackUpdate&) override;
   void react(const audio::PlaybackFinished&) override;
+  void react(const internal::BackPressed&) override;
 
   using UiState::react;
 
