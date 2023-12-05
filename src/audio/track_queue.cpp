@@ -15,6 +15,7 @@
 #include "audio_fsm.hpp"
 #include "database.hpp"
 #include "event_queue.hpp"
+#include "memory_resource.hpp"
 #include "source.hpp"
 #include "track.hpp"
 #include "ui_fsm.hpp"
@@ -23,208 +24,207 @@ namespace audio {
 
 [[maybe_unused]] static constexpr char kTag[] = "tracks";
 
-TrackQueue::TrackQueue() {}
+TrackQueue::Editor::Editor(TrackQueue& queue)
+    : lock_(queue.mutex_), has_current_changed_(false) {}
 
-auto TrackQueue::GetCurrent() const -> std::optional<database::TrackId> {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  if (enqueued_.empty()) {
-    return {};
-  }
-  auto item = enqueued_.front();
-  if (std::holds_alternative<database::TrackId>(item)) {
-    return std::get<database::TrackId>(item);
-  }
-  if (std::holds_alternative<std::shared_ptr<playlist::ISource>>(item)) {
-    return std::get<std::shared_ptr<playlist::ISource>>(item)->Current();
-  }
-  if (std::holds_alternative<std::shared_ptr<playlist::IResetableSource>>(
-          item)) {
-    return std::get<std::shared_ptr<playlist::IResetableSource>>(item)
-        ->Current();
-  }
-  return {};
+TrackQueue::Editor::~Editor() {
+  QueueUpdate ev{.current_changed = has_current_changed_};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
 }
 
-auto TrackQueue::GetUpcoming(std::size_t limit) const
+TrackQueue::TrackQueue()
+    : mutex_(),
+      current_(),
+      played_(&memory::kSpiRamResource),
+      enqueued_(&memory::kSpiRamResource) {}
+
+auto TrackQueue::Edit() -> Editor {
+  return Editor(*this);
+}
+
+auto TrackQueue::Current() const -> std::optional<database::TrackId> {
+  const std::lock_guard<std::recursive_mutex> lock(mutex_);
+  return current_;
+}
+
+auto TrackQueue::PeekNext(std::size_t limit) const
     -> std::vector<database::TrackId> {
-  const std::lock_guard<std::mutex> lock(mutex_);
+  const std::lock_guard<std::recursive_mutex> lock(mutex_);
   std::vector<database::TrackId> ret;
 
-  auto it = enqueued_.begin();
-  if (it == enqueued_.end()) {
-    return ret;
-  }
-
-  // Don't include the current track. This is only relevant to raw track ids,
-  // since sources include multiple tracks.
-  if (std::holds_alternative<database::TrackId>(*it)) {
-    it++;
-  }
-
-  while (limit > 0 && it != enqueued_.end()) {
-    auto item = *it;
-    if (std::holds_alternative<database::TrackId>(item)) {
-      ret.push_back(std::get<database::TrackId>(item));
-      limit--;
-    } else if (std::holds_alternative<std::shared_ptr<playlist::ISource>>(
-                   item)) {
-      limit -=
-          std::get<std::shared_ptr<playlist::ISource>>(item)->Peek(limit, &ret);
-    } else if (std::holds_alternative<
-                   std::shared_ptr<playlist::IResetableSource>>(item)) {
-      limit -=
-          std::get<std::shared_ptr<playlist::IResetableSource>>(item)->Peek(
-              limit, &ret);
-    }
-    it++;
+  for (auto it = enqueued_.begin(); it != enqueued_.end() && limit > 0; it++) {
+    std::visit(
+        [&](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, database::TrackId>) {
+            ret.push_back(arg);
+            limit--;
+          } else if constexpr (std::is_same_v<T, database::TrackIterator>) {
+            auto copy = arg;
+            while (limit > 0) {
+              auto next = copy.Next();
+              if (!next) {
+                break;
+              }
+              ret.push_back(*next);
+              limit--;
+            }
+          }
+        },
+        *it);
   }
 
   return ret;
 }
 
-auto TrackQueue::AddNext(database::TrackId t) -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  enqueued_.push_front(t);
+auto TrackQueue::PeekPrevious(std::size_t limit) const
+    -> std::vector<database::TrackId> {
+  const std::lock_guard<std::recursive_mutex> lock(mutex_);
+  std::vector<database::TrackId> ret;
+  ret.reserve(limit);
 
-  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
+  for (auto it = played_.rbegin(); it != played_.rend(); it++, limit--) {
+    ret.push_back(*it);
+  }
+
+  return ret;
 }
 
-auto TrackQueue::AddNext(std::shared_ptr<playlist::ISource> src) -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  enqueued_.push_front(src);
-
-  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
+auto TrackQueue::GetCurrentPosition() const -> size_t {
+  const std::lock_guard<std::recursive_mutex> lock(mutex_);
+  size_t played = played_.size();
+  if (current_) {
+    played += 1;
+  }
+  return played;
 }
 
-auto TrackQueue::IncludeNext(std::shared_ptr<playlist::IResetableSource> src)
-    -> void {
-  assert(src.get() != nullptr);
-  const std::lock_guard<std::mutex> lock(mutex_);
-  enqueued_.push_front(src);
+auto TrackQueue::GetTotalSize() const -> size_t {
+  const std::lock_guard<std::recursive_mutex> lock(mutex_);
+  size_t total = GetCurrentPosition();
 
-  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
+  for (const auto& item : enqueued_) {
+    std::visit(
+        [&](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, database::TrackId>) {
+            total++;
+          } else if constexpr (std::is_same_v<T, database::TrackIterator>) {
+            total += arg.Size();
+          }
+        },
+        item);
+  }
+
+  return total;
 }
 
-auto TrackQueue::AddLast(database::TrackId t) -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  enqueued_.push_back(t);
+auto TrackQueue::Insert(Editor& ed, Item i, size_t index) -> void {
+  if (index == 0) {
+    enqueued_.insert(enqueued_.begin(), i);
+  }
 
-  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
-}
+  // We can't insert halfway through an iterator, so we need to ensure that the
+  // first `index` items in the queue are reified into track ids.
+  size_t current_index = 0;
+  while (current_index < index && current_index < enqueued_.size()) {
+    std::visit(
+        [&](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, database::TrackId>) {
+            // This item is already a track id; nothing to do.
+            current_index++;
+          } else if constexpr (std::is_same_v<T, database::TrackIterator>) {
+            // This item is an iterator. Push it back one, replacing its old
+            // index with the next value from it.
+            auto next = arg.Next();
+            auto iterator_index = enqueued_.begin() + current_index;
+            if (!next) {
+              // Out of values. Remove the iterator completely.
+              enqueued_.erase(iterator_index);
+              // Don't increment current_index, since the next item in the
+              // queue will have been moved down.
+            } else {
+              enqueued_.insert(iterator_index, *next);
+              current_index++;
+            }
+          }
+        },
+        enqueued_[current_index]);
+  }
 
-auto TrackQueue::AddLast(std::shared_ptr<playlist::ISource> src) -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  enqueued_.push_back(src);
-
-  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
-}
-
-auto TrackQueue::IncludeLast(std::shared_ptr<playlist::IResetableSource> src)
-    -> void {
-  assert(src.get() != nullptr);
-  const std::lock_guard<std::mutex> lock(mutex_);
-  enqueued_.push_back(src);
-
-  QueueUpdate ev{.current_changed = enqueued_.size() < 2};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
-}
-
-auto TrackQueue::Next() -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  if (enqueued_.empty()) {
+  // Double check the previous loop didn't run out of items.
+  if (index > enqueued_.size()) {
+    ESP_LOGE(kTag, "insert index was out of bounds");
     return;
   }
 
-  auto item = enqueued_.front();
-  if (std::holds_alternative<database::TrackId>(item)) {
-    played_.push_front(std::get<database::TrackId>(item));
-    enqueued_.pop_front();
-  }
-  if (std::holds_alternative<std::shared_ptr<playlist::ISource>>(item)) {
-    auto src = std::get<std::shared_ptr<playlist::ISource>>(item);
-    played_.push_front(*src->Current());
-    if (!src->Advance()) {
-      enqueued_.pop_front();
-    }
-  }
-  if (std::holds_alternative<std::shared_ptr<playlist::IResetableSource>>(
-          item)) {
-    auto src = std::get<std::shared_ptr<playlist::IResetableSource>>(item);
-    if (!src->Advance()) {
-      played_.push_back(src);
-      enqueued_.pop_front();
-    }
-  }
-
-  QueueUpdate ev{.current_changed = true};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
+  // Finally, we can now do the actual insertion.
+  enqueued_.insert(enqueued_.begin() + index, i);
 }
 
-auto TrackQueue::Previous() -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  if (!enqueued_.empty() &&
-      std::holds_alternative<std::shared_ptr<playlist::IResetableSource>>(
-          enqueued_.front())) {
-    auto src = std::get<std::shared_ptr<playlist::IResetableSource>>(
+auto TrackQueue::Append(Editor& ed, Item i) -> void {
+  enqueued_.push_back(i);
+  if (!current_) {
+    Next(ed);
+  }
+}
+
+auto TrackQueue::Next(Editor& ed) -> std::optional<database::TrackId> {
+  if (current_) {
+    ed.has_current_changed_ = true;
+    played_.push_back(*current_);
+  }
+  current_.reset();
+
+  while (!current_ && !enqueued_.empty()) {
+    ed.has_current_changed_ = true;
+    std::visit(
+        [&](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, database::TrackId>) {
+            current_ = arg;
+            enqueued_.erase(enqueued_.begin());
+          } else if constexpr (std::is_same_v<T, database::TrackIterator>) {
+            auto next = arg.Next();
+            if (!next) {
+              enqueued_.erase(enqueued_.begin());
+            } else {
+              current_ = *next;
+            }
+          }
+        },
         enqueued_.front());
-    if (src->Previous()) {
-      QueueUpdate ev{.current_changed = false};
-      events::Audio().Dispatch(ev);
-      events::Ui().Dispatch(ev);
-      return;
-    }
   }
 
-  if (played_.empty()) {
-    return;
-  }
-
-  auto item = played_.front();
-  if (std::holds_alternative<database::TrackId>(item)) {
-    enqueued_.push_front(std::get<database::TrackId>(item));
-  } else if (std::holds_alternative<
-                 std::shared_ptr<playlist::IResetableSource>>(item)) {
-    enqueued_.push_front(
-        std::get<std::shared_ptr<playlist::IResetableSource>>(item));
-  }
-  played_.pop_front();
-
-  QueueUpdate ev{.current_changed = true};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
+  return current_;
 }
 
-auto TrackQueue::Clear() -> void {
-  const std::lock_guard<std::mutex> lock(mutex_);
-  if (enqueued_.empty() && played_.empty()) {
-    return;
+auto TrackQueue::Previous(Editor& ed) -> std::optional<database::TrackId> {
+  if (played_.empty()) {
+    return current_;
   }
-  QueueUpdate ev{.current_changed = !enqueued_.empty()};
+  ed.has_current_changed_ = true;
+  if (current_) {
+    enqueued_.insert(enqueued_.begin(), *current_);
+  }
+  current_ = played_.back();
+  played_.pop_back();
+  return current_;
+}
+
+auto TrackQueue::SkipTo(Editor& ed, database::TrackId id) -> void {
+  while ((!current_ || *current_ != id) && !enqueued_.empty()) {
+    Next(ed);
+  }
+}
+
+auto TrackQueue::Clear(Editor& ed) -> void {
+  ed.has_current_changed_ = current_.has_value();
+  current_.reset();
   played_.clear();
   enqueued_.clear();
-
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
-}
-
-auto TrackQueue::Position() -> size_t {
-  return played_.size() + (enqueued_.empty() ? 0 : 1);
-}
-
-auto TrackQueue::Size() -> size_t {
-  return played_.size() + enqueued_.size();
 }
 
 }  // namespace audio

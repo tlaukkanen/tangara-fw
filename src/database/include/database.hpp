@@ -12,6 +12,7 @@
 #include <future>
 #include <memory>
 #include <optional>
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -168,6 +169,8 @@ class Database {
   template <typename T>
   auto dbGetPage(const Continuation& c) -> Result<T>*;
 
+  auto dbCount(const Continuation& c) -> size_t;
+
   template <typename T>
   auto ParseRecord(const leveldb::Slice& key, const leveldb::Slice& val)
       -> std::shared_ptr<T>;
@@ -193,7 +196,9 @@ class Iterator {
  public:
   Iterator(std::weak_ptr<Database>, const IndexInfo&);
   Iterator(std::weak_ptr<Database>, const Continuation&);
-  Iterator(const Iterator &);
+  Iterator(const Iterator&);
+
+  Iterator& operator=(const Iterator& other);
 
   auto database() const { return db_; }
 
@@ -204,8 +209,13 @@ class Iterator {
 
   auto Prev(Callback) -> void;
 
+  auto PeekSync() -> std::optional<IndexRecord>;
+
+  auto Size() const -> size_t;
 
  private:
+  friend class TrackIterator;
+
   auto InvokeNull(Callback) -> void;
 
   std::weak_ptr<Database> db_;
@@ -213,6 +223,23 @@ class Iterator {
   std::mutex pos_mutex_;
   std::optional<Continuation> current_pos_;
   std::optional<Continuation> prev_pos_;
+};
+
+class TrackIterator {
+ public:
+  TrackIterator(const Iterator&);
+  TrackIterator(const TrackIterator&);
+
+  TrackIterator& operator=(TrackIterator&& other);
+
+  auto Next() -> std::optional<TrackId>;
+  auto Size() const -> size_t;
+
+ private:
+  auto NextLeaf() -> void;
+
+  std::weak_ptr<Database> db_;
+  std::vector<Iterator> levels_;
 };
 
 }  // namespace database

@@ -143,7 +143,7 @@ void Standby::react(const internal::InputFileOpened& ev) {
 }
 
 void Standby::react(const QueueUpdate& ev) {
-  auto current_track = sServices->track_queue().GetCurrent();
+  auto current_track = sServices->track_queue().Current();
   if (!current_track || (sCurrentTrack && *sCurrentTrack == *current_track)) {
     return;
   }
@@ -187,7 +187,7 @@ void Playback::react(const QueueUpdate& ev) {
   if (!ev.current_changed) {
     return;
   }
-  auto current_track = sServices->track_queue().GetCurrent();
+  auto current_track = sServices->track_queue().Current();
   if (!current_track) {
     sFileSource->SetPath();
     sCurrentTrack.reset();
@@ -220,8 +220,9 @@ void Playback::react(const internal::InputFileClosed& ev) {}
 
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
-  sServices->track_queue().Next();
-  if (!sServices->track_queue().GetCurrent()) {
+  auto editor = sServices->track_queue().Edit();
+  sServices->track_queue().Next(editor);
+  if (!sServices->track_queue().Current()) {
     transit<Standby>();
   }
 }

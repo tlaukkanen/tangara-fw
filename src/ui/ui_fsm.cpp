@@ -118,9 +118,7 @@ void UiState::react(const audio::PlaybackUpdate& ev) {}
 
 void UiState::react(const audio::QueueUpdate&) {
   auto& queue = sServices->track_queue();
-  bool had_queue = sPlaybackModel.current_track.get().has_value();
-  sPlaybackModel.current_track.set(queue.GetCurrent());
-  sPlaybackModel.upcoming_tracks.set(queue.GetUpcoming(10));
+  sPlaybackModel.current_track.set(queue.Current());
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -283,9 +281,15 @@ void Lua::react(const system_fsm::BatteryStateChanged& ev) {
 }
 
 void Lua::react(const audio::QueueUpdate&) {
-  auto& queue = sServices->track_queue();
-  queue_size_->Update(static_cast<int>(queue.Size()));
-  queue_position_->Update(static_cast<int>(queue.Position()));
+  sServices->bg_worker().Dispatch<void>([=]() {
+    auto& queue = sServices->track_queue();
+    size_t total_size = queue.GetTotalSize();
+    size_t current_pos = queue.GetCurrentPosition();
+    events::Ui().RunOnTask([=]() {
+      queue_size_->Update(static_cast<int>(total_size));
+      queue_position_->Update(static_cast<int>(current_pos));
+    });
+  });
 }
 
 void Lua::react(const audio::PlaybackStarted& ev) {

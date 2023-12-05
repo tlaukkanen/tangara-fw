@@ -756,6 +756,18 @@ auto Database::dbGetPage(const Continuation& c) -> Result<T>* {
   return new Result<T>(std::move(records), next_page, prev_page);
 }
 
+auto Database::dbCount(const Continuation& c) -> size_t {
+  std::unique_ptr<leveldb::Iterator> it{
+      db_->NewIterator(leveldb::ReadOptions{})};
+  size_t count = 0;
+  for (it->Seek({c.start_key.data(), c.start_key.size()});
+       it->Valid() && it->key().starts_with({c.prefix.data(), c.prefix.size()});
+       it->Next()) {
+    count++;
+  }
+  return count;
+}
+
 template auto Database::dbGetPage<Track>(const Continuation& c)
     -> Result<Track>*;
 template auto Database::dbGetPage<std::pmr::string>(const Continuation& c)
@@ -880,6 +892,12 @@ Iterator::Iterator(const Iterator& other)
       current_pos_(other.current_pos_),
       prev_pos_(other.prev_pos_) {}
 
+Iterator& Iterator::operator=(const Iterator& other) {
+  current_pos_ = other.current_pos_;
+  prev_pos_ = other.prev_pos_;
+  return *this;
+}
+
 auto Iterator::Next(Callback cb) -> void {
   auto db = db_.lock();
   if (!db) {
@@ -910,24 +928,35 @@ auto Iterator::NextSync() -> std::optional<IndexRecord> {
   if (!db) {
     return {};
   }
-  return db->worker_task_
-      ->Dispatch<std::optional<IndexRecord>>(
-          [=]() -> std::optional<IndexRecord> {
-            std::lock_guard lock{pos_mutex_};
-            if (!current_pos_) {
-              return {};
-            }
-            std::unique_ptr<Result<IndexRecord>> res{
-                db->dbGetPage<IndexRecord>(*current_pos_)};
-            prev_pos_ = current_pos_;
-            current_pos_ = res->next_page();
-            if (!res || res->values().empty() || !res->values()[0]) {
-              ESP_LOGI(kTag, "dropping empty result");
-              return {};
-            }
-            return *res->values()[0];
-          })
-      .get();
+  std::lock_guard lock{pos_mutex_};
+  if (!current_pos_) {
+    return {};
+  }
+  std::unique_ptr<Result<IndexRecord>> res{
+      db->dbGetPage<IndexRecord>(*current_pos_)};
+  prev_pos_ = current_pos_;
+  current_pos_ = res->next_page();
+  if (!res || res->values().empty() || !res->values()[0]) {
+    ESP_LOGI(kTag, "dropping empty result");
+    return {};
+  }
+  return *res->values()[0];
+}
+
+auto Iterator::PeekSync() -> std::optional<IndexRecord> {
+  auto db = db_.lock();
+  if (!db) {
+    return {};
+  }
+  auto pos = current_pos_;
+  if (!pos) {
+    return {};
+  }
+  std::unique_ptr<Result<IndexRecord>> res{db->dbGetPage<IndexRecord>(*pos)};
+  if (!res || res->values().empty() || !res->values()[0]) {
+    return {};
+  }
+  return *res->values()[0];
 }
 
 auto Iterator::Prev(Callback cb) -> void {
@@ -950,8 +979,82 @@ auto Iterator::Prev(Callback cb) -> void {
   });
 }
 
+auto Iterator::Size() const -> size_t {
+  auto db = db_.lock();
+  if (!db) {
+    return {};
+  }
+  std::optional<Continuation> pos = current_pos_;
+  if (!pos) {
+    return 0;
+  }
+  return db->dbCount(*pos);
+}
+
 auto Iterator::InvokeNull(Callback cb) -> void {
   std::invoke(cb, std::optional<IndexRecord>{});
+}
+
+TrackIterator::TrackIterator(const Iterator& it) : db_(it.db_), levels_() {
+  if (it.current_pos_) {
+    levels_.push_back(it);
+  }
+  NextLeaf();
+}
+
+TrackIterator::TrackIterator(const TrackIterator& other)
+    : db_(other.db_), levels_(other.levels_) {}
+
+TrackIterator& TrackIterator::operator=(TrackIterator&& other) {
+  levels_ = std::move(other.levels_);
+  return *this;
+}
+
+auto TrackIterator::Next() -> std::optional<TrackId> {
+  std::optional<TrackId> next{};
+  while (!next && !levels_.empty()) {
+    auto next_record = levels_.back().NextSync();
+    if (!next_record) {
+      levels_.pop_back();
+      NextLeaf();
+      continue;
+    }
+    // May still be nullopt_t; hence the loop.
+    next = next_record->track();
+  }
+  return next;
+}
+
+auto TrackIterator::Size() const -> size_t {
+  size_t size = 0;
+  TrackIterator copy{*this};
+  while (!copy.levels_.empty()) {
+    size += copy.levels_.back().Size();
+    copy.levels_.pop_back();
+    copy.NextLeaf();
+  }
+  return size;
+}
+
+auto TrackIterator::NextLeaf() -> void {
+  while (!levels_.empty()) {
+    ESP_LOGI(kTag, "check next candidate");
+    Iterator& candidate = levels_.back();
+    auto next = candidate.PeekSync();
+    if (!next) {
+      ESP_LOGI(kTag, "candidate is empty");
+      levels_.pop_back();
+      continue;
+    }
+    if (!next->track()) {
+      ESP_LOGI(kTag, "candidate is a branch");
+      candidate.NextSync();
+      levels_.push_back(Iterator{db_, next->Expand(1).value()});
+      continue;
+    }
+    ESP_LOGI(kTag, "candidate is a leaf");
+    break;
+  }
 }
 
 }  // namespace database

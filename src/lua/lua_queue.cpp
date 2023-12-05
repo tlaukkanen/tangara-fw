@@ -22,6 +22,8 @@
 #include "property.hpp"
 #include "service_locator.hpp"
 #include "source.hpp"
+#include "track.hpp"
+#include "track_queue.hpp"
 #include "ui_events.hpp"
 
 namespace lua {
@@ -32,11 +34,19 @@ static auto queue_add(lua_State* state) -> int {
   Bridge* instance = Bridge::Get(state);
 
   if (lua_isinteger(state, 1)) {
-    instance->services().track_queue().AddLast(luaL_checkinteger(state, 1));
+    database::TrackId id = luaL_checkinteger(state, 1);
+    instance->services().bg_worker().Dispatch<void>([=]() {
+      audio::TrackQueue& queue = instance->services().track_queue();
+      auto editor = queue.Edit();
+      queue.Append(editor, id);
+    });
   } else {
-    database::Iterator* it = db_check_iterator(state, 1);
-    instance->services().track_queue().IncludeLast(
-        std::make_shared<playlist::IteratorSource>(*it));
+    database::Iterator it = *db_check_iterator(state, 1);
+    instance->services().bg_worker().Dispatch<void>([=]() {
+      audio::TrackQueue& queue = instance->services().track_queue();
+      auto editor = queue.Edit();
+      queue.Append(editor, database::TrackIterator{it});
+    });
   }
 
   return 0;
@@ -44,7 +54,9 @@ static auto queue_add(lua_State* state) -> int {
 
 static auto queue_clear(lua_State* state) -> int {
   Bridge* instance = Bridge::Get(state);
-  instance->services().track_queue().Clear();
+  audio::TrackQueue& queue = instance->services().track_queue();
+  auto editor = queue.Edit();
+  queue.Clear(editor);
   return 0;
 }
 
