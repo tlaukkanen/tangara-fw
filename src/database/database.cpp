@@ -18,6 +18,7 @@
 #include <sstream>
 
 #include "collation.hpp"
+#include "cppbor.h"
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/projdefs.h"
@@ -52,6 +53,8 @@ static const char kDbPath[] = "/.tangara-db";
 
 static const char kKeyDbVersion[] = "schema_version";
 static const uint8_t kCurrentDbVersion = 3;
+
+static const char kKeyCustom[] = "U\0";
 static const char kKeyCollator[] = "collator";
 static const char kKeyTrackId[] = "next_track_id";
 
@@ -195,6 +198,19 @@ Database::~Database() {
   delete cache_;
 
   sIsDbOpen.store(false);
+}
+
+auto Database::Put(const std::string& key, const std::string& val) -> void {
+  db_->Put(leveldb::WriteOptions{}, kKeyCustom + key, val);
+}
+
+auto Database::Get(const std::string& key) -> std::optional<std::string> {
+  std::string val;
+  auto res = db_->Get(leveldb::ReadOptions{}, kKeyCustom + key, &val);
+  if (!res.ok()) {
+    return {};
+  }
+  return val;
 }
 
 auto Database::Update() -> std::future<void> {
@@ -883,6 +899,45 @@ Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
                               .page_size = 1};
 }
 
+auto Iterator::Parse(std::weak_ptr<Database> db, const cppbor::Array& encoded)
+    -> std::optional<Iterator> {
+  // Ensure the input looks reasonable.
+  if (encoded.size() != 3) {
+    return {};
+  }
+
+  if (encoded[0]->type() != cppbor::TSTR) {
+    return {};
+  }
+  const std::string& prefix = encoded[0]->asTstr()->value();
+
+  std::optional<Continuation> current_pos{};
+  if (encoded[1]->type() == cppbor::TSTR) {
+    const std::string& key = encoded[1]->asTstr()->value();
+    current_pos = Continuation{
+        .prefix = {prefix.data(), prefix.size()},
+        .start_key = {key.data(), key.size()},
+        .forward = true,
+        .was_prev_forward = true,
+        .page_size = 1,
+    };
+  }
+
+  std::optional<Continuation> prev_pos{};
+  if (encoded[2]->type() == cppbor::TSTR) {
+    const std::string& key = encoded[2]->asTstr()->value();
+    current_pos = Continuation{
+        .prefix = {prefix.data(), prefix.size()},
+        .start_key = {key.data(), key.size()},
+        .forward = false,
+        .was_prev_forward = false,
+        .page_size = 1,
+    };
+  }
+
+  return Iterator{db, std::move(current_pos), std::move(prev_pos)};
+}
+
 Iterator::Iterator(std::weak_ptr<Database> db, const Continuation& c)
     : db_(db), pos_mutex_(), current_pos_(c), prev_pos_() {}
 
@@ -891,6 +946,11 @@ Iterator::Iterator(const Iterator& other)
       pos_mutex_(),
       current_pos_(other.current_pos_),
       prev_pos_(other.prev_pos_) {}
+
+Iterator::Iterator(std::weak_ptr<Database> db,
+                   std::optional<Continuation>&& cur,
+                   std::optional<Continuation>&& prev)
+    : db_(db), current_pos_(cur), prev_pos_(prev) {}
 
 Iterator& Iterator::operator=(const Iterator& other) {
   current_pos_ = other.current_pos_;
@@ -995,6 +1055,53 @@ auto Iterator::InvokeNull(Callback cb) -> void {
   std::invoke(cb, std::optional<IndexRecord>{});
 }
 
+auto Iterator::cbor() const -> cppbor::Array&& {
+  cppbor::Array res;
+
+  std::pmr::string prefix;
+  if (current_pos_) {
+    prefix = current_pos_->prefix;
+  } else if (prev_pos_) {
+    prefix = prev_pos_->prefix;
+  } else {
+    ESP_LOGW(kTag, "iterator has no prefix");
+    return std::move(res);
+  }
+
+  if (current_pos_) {
+    res.add(cppbor::Tstr(current_pos_->start_key));
+  } else {
+    res.add(cppbor::Null());
+  }
+
+  if (prev_pos_) {
+    res.add(cppbor::Tstr(prev_pos_->start_key));
+  } else {
+    res.add(cppbor::Null());
+  }
+
+  return std::move(res);
+}
+
+auto TrackIterator::Parse(std::weak_ptr<Database> db,
+                          const cppbor::Array& encoded)
+    -> std::optional<TrackIterator> {
+  TrackIterator ret{db};
+
+  for (const auto& item : encoded) {
+    if (item->type() == cppbor::ARRAY) {
+      auto it = Iterator::Parse(db, *item->asArray());
+      if (it) {
+        ret.levels_.push_back(std::move(*it));
+      } else {
+        return {};
+      }
+    }
+  }
+
+  return ret;
+}
+
 TrackIterator::TrackIterator(const Iterator& it) : db_(it.db_), levels_() {
   if (it.current_pos_) {
     levels_.push_back(it);
@@ -1004,6 +1111,8 @@ TrackIterator::TrackIterator(const Iterator& it) : db_(it.db_), levels_() {
 
 TrackIterator::TrackIterator(const TrackIterator& other)
     : db_(other.db_), levels_(other.levels_) {}
+
+TrackIterator::TrackIterator(std::weak_ptr<Database> db) : db_(db), levels_() {}
 
 TrackIterator& TrackIterator::operator=(TrackIterator&& other) {
   levels_ = std::move(other.levels_);
@@ -1055,6 +1164,14 @@ auto TrackIterator::NextLeaf() -> void {
     ESP_LOGI(kTag, "candidate is a leaf");
     break;
   }
+}
+
+auto TrackIterator::cbor() const -> cppbor::Array&& {
+  cppbor::Array res;
+  for (const auto& i : levels_) {
+    res.add(i.cbor());
+  }
+  return std::move(res);
 }
 
 }  // namespace database

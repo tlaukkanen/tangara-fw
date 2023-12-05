@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "collation.hpp"
+#include "cppbor.h"
 #include "file_gatherer.hpp"
 #include "index.hpp"
 #include "leveldb/cache.h"
@@ -104,6 +105,9 @@ class Database {
   static auto Destroy() -> void;
 
   ~Database();
+
+  auto Put(const std::string& key, const std::string& val) -> void;
+  auto Get(const std::string& key) -> std::optional<std::string>;
 
   auto Update() -> std::future<void>;
 
@@ -194,6 +198,9 @@ auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
  */
 class Iterator {
  public:
+  static auto Parse(std::weak_ptr<Database>, const cppbor::Array&)
+      -> std::optional<Iterator>;
+
   Iterator(std::weak_ptr<Database>, const IndexInfo&);
   Iterator(std::weak_ptr<Database>, const Continuation&);
   Iterator(const Iterator&);
@@ -213,7 +220,13 @@ class Iterator {
 
   auto Size() const -> size_t;
 
+  auto cbor() const -> cppbor::Array&&;
+
  private:
+  Iterator(std::weak_ptr<Database>,
+           std::optional<Continuation>&&,
+           std::optional<Continuation>&&);
+
   friend class TrackIterator;
 
   auto InvokeNull(Callback) -> void;
@@ -227,6 +240,9 @@ class Iterator {
 
 class TrackIterator {
  public:
+  static auto Parse(std::weak_ptr<Database>, const cppbor::Array&)
+      -> std::optional<TrackIterator>;
+
   TrackIterator(const Iterator&);
   TrackIterator(const TrackIterator&);
 
@@ -235,7 +251,11 @@ class TrackIterator {
   auto Next() -> std::optional<TrackId>;
   auto Size() const -> size_t;
 
+  auto cbor() const -> cppbor::Array&&;
+
  private:
+  TrackIterator(std::weak_ptr<Database>);
+
   auto NextLeaf() -> void;
 
   std::weak_ptr<Database> db_;

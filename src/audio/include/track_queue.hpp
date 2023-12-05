@@ -86,6 +86,9 @@ class TrackQueue {
    */
   auto Clear(Editor&) -> void;
 
+  auto Save(std::weak_ptr<database::Database>) -> void;
+  auto Load(std::weak_ptr<database::Database>) -> void;
+
   // Cannot be copied or moved.
   TrackQueue(const TrackQueue&) = delete;
   TrackQueue& operator=(const TrackQueue&) = delete;

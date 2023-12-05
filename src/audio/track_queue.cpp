@@ -5,6 +5,7 @@
  */
 
 #include "track_queue.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <mutex>
@@ -13,6 +14,8 @@
 
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
+#include "cppbor.h"
+#include "cppbor_parse.h"
 #include "database.hpp"
 #include "event_queue.hpp"
 #include "memory_resource.hpp"
@@ -23,6 +26,11 @@
 namespace audio {
 
 [[maybe_unused]] static constexpr char kTag[] = "tracks";
+
+static const std::string kSerialiseKey = "queue";
+static const std::string kCurrentKey = "cur";
+static const std::string kPlayedKey = "prev";
+static const std::string kEnqueuedKey = "next";
 
 TrackQueue::Editor::Editor(TrackQueue& queue)
     : lock_(queue.mutex_), has_current_changed_(false) {}
@@ -225,6 +233,179 @@ auto TrackQueue::Clear(Editor& ed) -> void {
   current_.reset();
   played_.clear();
   enqueued_.clear();
+}
+
+auto TrackQueue::Save(std::weak_ptr<database::Database> db) -> void {
+  cppbor::Map root{};
+
+  if (current_) {
+    root.add(cppbor::Bstr{kCurrentKey}, cppbor::Uint{*current_});
+  }
+
+  cppbor::Array played{};
+  for (const auto& id : played_) {
+    played.add(cppbor::Uint{id});
+  }
+  root.add(cppbor::Bstr{kPlayedKey}, std::move(played));
+
+  cppbor::Array enqueued{};
+  for (const auto& item : enqueued_) {
+    std::visit(
+        [&](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, database::TrackId>) {
+            enqueued.add(cppbor::Uint{arg});
+          } else if constexpr (std::is_same_v<T, database::TrackIterator>) {
+            enqueued.add(arg.cbor());
+          }
+        },
+        item);
+  }
+  root.add(cppbor::Bstr{kEnqueuedKey}, std::move(enqueued));
+
+  auto db_lock = db.lock();
+  if (!db_lock) {
+    return;
+  }
+  db_lock->Put(kSerialiseKey, root.toString());
+}
+
+class Parser : public cppbor::ParseClient {
+ public:
+  Parser(std::weak_ptr<database::Database> db,
+         std::optional<database::TrackId>& current,
+         std::pmr::vector<database::TrackId>& played,
+         std::pmr::vector<TrackQueue::Item>& enqueued)
+      : state_(State::kInit),
+        db_(db),
+        current_(current),
+        played_(played),
+        enqueued_(enqueued) {}
+
+  virtual ParseClient* item(std::unique_ptr<cppbor::Item>& item,
+                            const uint8_t* hdrBegin,
+                            const uint8_t* valueBegin,
+                            const uint8_t* end) override {
+    switch (state_) {
+      case State::kInit:
+        if (item->type() == cppbor::MAP) {
+          state_ = State::kRoot;
+        }
+        break;
+      case State::kRoot:
+        if (item->type() != cppbor::TSTR) {
+          break;
+        }
+        if (item->asTstr()->value() == kCurrentKey) {
+          state_ = State::kCurrent;
+        } else if (item->asTstr()->value() == kPlayedKey) {
+          state_ = State::kPlayed;
+        } else if (item->asTstr()->value() == kEnqueuedKey) {
+          state_ = State::kEnqueued;
+        }
+        break;
+      case State::kCurrent:
+        if (item->type() == cppbor::UINT) {
+          current_ = item->asUint()->value();
+        }
+        state_ = State::kRoot;
+        break;
+      case State::kPlayed:
+        if (item->type() == cppbor::UINT) {
+          played_.push_back(item->asUint()->value());
+        }
+        break;
+      case State::kEnqueued:
+        if (item->type() == cppbor::UINT) {
+          played_.push_back(item->asUint()->value());
+        } else if (item->type() == cppbor::ARRAY) {
+          queue_depth_ = 1;
+          state_ = State::kEnqueuedIterator;
+        }
+        break;
+      case State::kEnqueuedIterator:
+        if (item->type() == cppbor::MAP || item->type() == cppbor::ARRAY) {
+          queue_depth_++;
+        }
+        break;
+      case State::kFinished:
+        break;
+    }
+
+    return this;
+  }
+
+  ParseClient* itemEnd(std::unique_ptr<cppbor::Item>& item,
+                       const uint8_t* hdrBegin,
+                       const uint8_t* valueBegin,
+                       const uint8_t* end) override {
+    std::optional<database::TrackIterator> parsed_it;
+    switch (state_) {
+      case State::kInit:
+      case State::kRoot:
+      case State::kCurrent:
+        state_ = State::kFinished;
+        break;
+      case State::kEnqueued:
+      case State::kPlayed:
+        state_ = State::kRoot;
+        break;
+      case State::kEnqueuedIterator:
+        if (item->type() == cppbor::MAP || item->type() == cppbor::ARRAY) {
+          queue_depth_++;
+        }
+        if (queue_depth_ == 0) {
+          parsed_it = database::TrackIterator::Parse(db_, *item->asArray());
+          if (parsed_it) {
+            enqueued_.push_back(std::move(*parsed_it));
+          }
+        }
+        state_ = State::kEnqueued;
+        break;
+      case State::kFinished:
+        break;
+    }
+    return this;
+  }
+
+  void error(const uint8_t* position,
+             const std::string& errorMessage) override {
+    ESP_LOGE(kTag, "restoring saved queue failed: %s", errorMessage.c_str());
+  }
+
+ private:
+  enum class State {
+    kInit,
+    kRoot,
+    kCurrent,
+    kPlayed,
+    kEnqueued,
+    kEnqueuedIterator,
+    kFinished,
+  } state_;
+
+  std::weak_ptr<database::Database> db_;
+
+  int queue_depth_;
+
+  std::optional<database::TrackId>& current_;
+  std::pmr::vector<database::TrackId>& played_;
+  std::pmr::vector<TrackQueue::Item>& enqueued_;
+};
+
+auto TrackQueue::Load(std::weak_ptr<database::Database> db) -> void {
+  auto db_lock = db.lock();
+  if (!db_lock) {
+    return;
+  }
+  auto raw = db_lock->Get(kSerialiseKey);
+  if (!raw) {
+    return;
+  }
+
+  Parser p{db, current_, played_, enqueued_};
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(raw->data());
+  cppbor::parse(data, data + raw->size(), &p);
 }
 
 }  // namespace audio
