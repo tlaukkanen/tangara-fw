@@ -32,7 +32,7 @@ const static std::array<std::pair<const char*, Tag>, 5> kVorbisIdToTag = {{
 static auto convert_track_number(int number) -> std::pmr::string {
   std::ostringstream oss;
   oss << std::setw(4) << std::setfill('0') << number;
-  return std::pmr::string(oss.str());
+  return std::pmr::string(oss.str(), &memory::kSpiRamResource);
 }
 
 static auto convert_track_number(const std::pmr::string& raw)
@@ -131,11 +131,12 @@ TagParserImpl::TagParserImpl() {
   extension_to_parser_["opus"] = std::make_unique<OpusTagParser>();
 }
 
-auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path)
+auto TagParserImpl::ReadAndParseTags(const std::string& path)
     -> std::shared_ptr<TrackTags> {
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
-    std::optional<std::shared_ptr<TrackTags>> cached = cache_.Get(path);
+    std::optional<std::shared_ptr<TrackTags>> cached =
+        cache_.Get({path.data(), path.size()});
     if (cached) {
       return *cached;
     }
@@ -143,8 +144,8 @@ auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path)
 
   ITagParser* parser = &generic_parser_;
   auto dot_pos = path.find_last_of(".");
-  if (dot_pos != std::pmr::string::npos && path.size() - dot_pos > 1) {
-    std::pmr::string extension = path.substr(dot_pos + 1);
+  if (dot_pos != std::string::npos && path.size() - dot_pos > 1) {
+    std::string extension = path.substr(dot_pos + 1);
     std::transform(extension.begin(), extension.end(), extension.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     if (extension_to_parser_.contains(extension)) {
@@ -162,8 +163,9 @@ auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path)
   // start.
   if (!tags->at(Tag::kAlbumTrack)) {
     auto slash_pos = path.find_last_of("/");
-    if (slash_pos != std::pmr::string::npos && path.size() - slash_pos > 1) {
-      tags->set(Tag::kAlbumTrack, path.substr(slash_pos + 1));
+    if (slash_pos != std::string::npos && path.size() - slash_pos > 1) {
+      std::string trunc = path.substr(slash_pos + 1);
+      tags->set(Tag::kAlbumTrack, {trunc.data(), trunc.size()});
     }
   }
 
@@ -174,13 +176,13 @@ auto TagParserImpl::ReadAndParseTags(const std::pmr::string& path)
 
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
-    cache_.Put(path, tags);
+    cache_.Put({path.data(), path.size(), &memory::kSpiRamResource}, tags);
   }
 
   return tags;
 }
 
-auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path)
+auto GenericTagParser::ReadAndParseTags(const std::string& path)
     -> std::shared_ptr<TrackTags> {
   libtags::Aux aux;
   auto out = std::make_shared<TrackTags>();
@@ -254,10 +256,10 @@ auto GenericTagParser::ReadAndParseTags(const std::pmr::string& path)
   return out;
 }
 
-auto OpusTagParser::ReadAndParseTags(const std::pmr::string& path)
+auto OpusTagParser::ReadAndParseTags(const std::string& path)
     -> std::shared_ptr<TrackTags> {
   auto lock = drivers::acquire_spi();
-  std::pmr::string vfs_path = "/sdcard" + path;
+  std::string vfs_path = "/sdcard" + path;
   int err;
   OggOpusFile* f = op_test_file(vfs_path.c_str(), &err);
   if (f == NULL) {

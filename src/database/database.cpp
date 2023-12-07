@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <variant>
 
 #include "collation.hpp"
 #include "cppbor.h"
@@ -200,11 +201,11 @@ Database::~Database() {
   sIsDbOpen.store(false);
 }
 
-auto Database::Put(const std::string& key, const std::string& val) -> void {
+auto Database::put(const std::string& key, const std::string& val) -> void {
   db_->Put(leveldb::WriteOptions{}, kKeyCustom + key, val);
 }
 
-auto Database::Get(const std::string& key) -> std::optional<std::string> {
+auto Database::get(const std::string& key) -> std::optional<std::string> {
   std::string val;
   auto res = db_->Get(leveldb::ReadOptions{}, kKeyCustom + key, &val);
   if (!res.ok()) {
@@ -213,252 +214,28 @@ auto Database::Get(const std::string& key) -> std::optional<std::string> {
   return val;
 }
 
-auto Database::Update() -> std::future<void> {
-  events::Ui().Dispatch(event::UpdateStarted{});
-  return worker_task_->Dispatch<void>([&]() -> void {
-    leveldb::ReadOptions read_options;
-    read_options.fill_cache = false;
-
-    std::pair<uint16_t, uint16_t> newest_track{0, 0};
-
-    // Stage 1: verify all existing tracks are still valid.
-    ESP_LOGI(kTag, "verifying existing tracks");
-    {
-      uint64_t num_processed = 0;
-      std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
-      std::string prefix = EncodeDataPrefix();
-      for (it->Seek(prefix); it->Valid() && it->key().starts_with(prefix);
-           it->Next()) {
-        num_processed++;
-        events::Ui().Dispatch(event::UpdateProgress{
-            .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
-            .val = num_processed,
-        });
-
-        std::shared_ptr<TrackData> track = ParseDataValue(it->value());
-        if (!track) {
-          // The value was malformed. Drop this record.
-          ESP_LOGW(kTag, "dropping malformed metadata");
-          db_->Delete(leveldb::WriteOptions(), it->key());
-          continue;
-        }
-
-        if (track->is_tombstoned) {
-          ESP_LOGW(kTag, "skipping tombstoned %lx", track->id);
-          continue;
-        }
-
-        FRESULT res;
-        FILINFO info;
-        {
-          auto lock = drivers::acquire_spi();
-          res = f_stat(track->filepath.c_str(), &info);
-        }
-
-        std::pair<uint16_t, uint16_t> modified_at{0, 0};
-        if (res == FR_OK) {
-          modified_at = {info.fdate, info.ftime};
-        }
-        if (modified_at == track->modified_at) {
-          newest_track = std::max(modified_at, newest_track);
-          continue;
-        } else {
-          track->modified_at = modified_at;
-        }
-
-        std::shared_ptr<TrackTags> tags =
-            tag_parser_.ReadAndParseTags(track->filepath);
-        if (!tags || tags->encoding() == Container::kUnsupported) {
-          // We couldn't read the tags for this track. Either they were
-          // malformed, or perhaps the file is missing. Either way, tombstone
-          // this record.
-          ESP_LOGW(kTag, "entombing missing #%lx", track->id);
-          dbRemoveIndexes(track);
-          track->is_tombstoned = true;
-          dbPutTrackData(*track);
-          continue;
-        }
-
-        // At this point, we know that the track still exists in its original
-        // location. All that's left to do is update any metadata about it.
-
-        uint64_t new_hash = tags->Hash();
-        if (new_hash != track->tags_hash) {
-          // This track's tags have changed. Since the filepath is exactly the
-          // same, we assume this is a legitimate correction. Update the
-          // database.
-          ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash,
-                   new_hash);
-          dbRemoveIndexes(track);
-
-          track->tags_hash = new_hash;
-          dbIngestTagHashes(*tags, track->individual_tag_hashes);
-          dbPutTrackData(*track);
-          dbPutHash(new_hash, track->id);
-        }
-      }
-    }
-
-    ESP_LOGI(kTag, "newest unmodified was at %u,%u", newest_track.first,
-             newest_track.second);
-
-    // Stage 2: search for newly added files.
-    ESP_LOGI(kTag, "scanning for new tracks");
-    uint64_t num_processed = 0;
-    file_gatherer_.FindFiles("", [&](const std::pmr::string& path,
-                                     const FILINFO& info) {
-      num_processed++;
-      events::Ui().Dispatch(event::UpdateProgress{
-          .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
-          .val = num_processed,
-      });
-
-      std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
-      if (modified < newest_track) {
-        return;
-      }
-
-      std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
-      if (!tags || tags->encoding() == Container::kUnsupported) {
-        // No parseable tags; skip this fiile.
-        return;
-      }
-
-      // Check for any existing record with the same hash.
-      uint64_t hash = tags->Hash();
-      std::string key = EncodeHashKey(hash);
-      std::optional<TrackId> existing_hash;
-      std::string raw_entry;
-      if (db_->Get(leveldb::ReadOptions(), key, &raw_entry).ok()) {
-        existing_hash = ParseHashValue(raw_entry);
-      }
-
-      if (!existing_hash) {
-        // We've never met this track before! Or we have, but the entry is
-        // malformed. Either way, record this as a new track.
-        TrackId id = dbMintNewTrackId();
-        ESP_LOGI(kTag, "recording new 0x%lx", id);
-
-        auto data = std::make_shared<TrackData>();
-        data->id = id;
-        data->filepath = path;
-        data->tags_hash = hash;
-        data->modified_at = modified;
-        dbIngestTagHashes(*tags, data->individual_tag_hashes);
-
-        dbPutTrackData(*data);
-        dbPutHash(hash, id);
-        auto t = std::make_shared<Track>(data, tags);
-        dbCreateIndexesForTrack(*t);
-        return;
-      }
-
-      std::shared_ptr<TrackData> existing_data = dbGetTrackData(*existing_hash);
-      if (!existing_data) {
-        // We found a hash that matches, but there's no data record? Weird.
-        auto new_data = std::make_shared<TrackData>();
-        new_data->id = dbMintNewTrackId();
-        new_data->filepath = path;
-        new_data->tags_hash = hash;
-        new_data->modified_at = modified;
-        dbIngestTagHashes(*tags, new_data->individual_tag_hashes);
-        dbPutTrackData(*new_data);
-        auto t = std::make_shared<Track>(new_data, tags);
-        dbCreateIndexesForTrack(*t);
-        return;
-      }
-
-      if (existing_data->is_tombstoned) {
-        ESP_LOGI(kTag, "exhuming track %lu", existing_data->id);
-        existing_data->is_tombstoned = false;
-        existing_data->modified_at = modified;
-        dbPutTrackData(*existing_data);
-        auto t = std::make_shared<Track>(existing_data, tags);
-        dbCreateIndexesForTrack(*t);
-      } else if (existing_data->filepath != path) {
-        ESP_LOGW(kTag, "tag hash collision for %s and %s",
-                 existing_data->filepath.c_str(), path.c_str());
-        ESP_LOGI(kTag, "hash components: %s, %s, %s",
-                 tags->at(Tag::kTitle).value_or("no title").c_str(),
-                 tags->at(Tag::kArtist).value_or("no artist").c_str(),
-                 tags->at(Tag::kAlbum).value_or("no album").c_str());
-      }
-    });
-    events::Ui().Dispatch(event::UpdateFinished{});
-  });
+auto Database::getTrackPath(TrackId id) -> std::optional<std::string> {
+  auto track_data = dbGetTrackData(id);
+  if (!track_data) {
+    return {};
+  }
+  return std::string{track_data->filepath.data(), track_data->filepath.size()};
 }
 
-auto Database::GetTrackPath(TrackId id)
-    -> std::future<std::optional<std::pmr::string>> {
-  return worker_task_->Dispatch<std::optional<std::pmr::string>>(
-      [=, this]() -> std::optional<std::pmr::string> {
-        auto track_data = dbGetTrackData(id);
-        if (track_data) {
-          return track_data->filepath;
-        }
-        return {};
-      });
+auto Database::getTrack(TrackId id) -> std::shared_ptr<Track> {
+  std::shared_ptr<TrackData> data = dbGetTrackData(id);
+  if (!data || data->is_tombstoned) {
+    return {};
+  }
+  std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(
+      {data->filepath.data(), data->filepath.size()});
+  if (!tags) {
+    return {};
+  }
+  return std::make_shared<Track>(data, tags);
 }
 
-auto Database::GetTrack(TrackId id) -> std::future<std::shared_ptr<Track>> {
-  return worker_task_->Dispatch<std::shared_ptr<Track>>(
-      [=, this]() -> std::shared_ptr<Track> {
-        std::shared_ptr<TrackData> data = dbGetTrackData(id);
-        if (!data || data->is_tombstoned) {
-          return {};
-        }
-        std::shared_ptr<TrackTags> tags =
-            tag_parser_.ReadAndParseTags(data->filepath);
-        if (!tags) {
-          return {};
-        }
-        return std::make_shared<Track>(data, tags);
-      });
-}
-
-auto Database::GetBulkTracks(std::vector<TrackId> ids)
-    -> std::future<std::vector<std::shared_ptr<Track>>> {
-  return worker_task_->Dispatch<std::vector<std::shared_ptr<Track>>>(
-      [=, this]() -> std::vector<std::shared_ptr<Track>> {
-        std::map<TrackId, std::shared_ptr<Track>> id_to_track{};
-
-        // Sort the list of ids so that we can retrieve them all in a single
-        // iteration through the database, without re-seeking.
-        std::vector<TrackId> sorted_ids = ids;
-        std::sort(sorted_ids.begin(), sorted_ids.end());
-
-        std::unique_ptr<leveldb::Iterator> it{
-            db_->NewIterator(leveldb::ReadOptions{})};
-        for (const TrackId& id : sorted_ids) {
-          std::string key = EncodeDataKey(id);
-          it->Seek(key);
-          if (!it->Valid() || it->key() != key) {
-            // This id wasn't found at all. Skip it.
-            continue;
-          }
-          std::shared_ptr<Track> track =
-              ParseRecord<Track>(it->key(), it->value());
-          if (track) {
-            id_to_track.insert({id, track});
-          }
-        }
-
-        // We've fetched all of the ids in the request, so now just put them
-        // back into the order they were asked for in.
-        std::vector<std::shared_ptr<Track>> results;
-        for (const TrackId& id : ids) {
-          if (id_to_track.contains(id)) {
-            results.push_back(id_to_track.at(id));
-          } else {
-            // This lookup failed.
-            results.push_back({});
-          }
-        }
-        return results;
-      });
-}
-
-auto Database::GetIndexes() -> std::vector<IndexInfo> {
+auto Database::getIndexes() -> std::vector<IndexInfo> {
   // TODO(jacqueline): This probably needs to be async? When we have runtime
   // configurable indexes, they will need to come from somewhere.
   return {
@@ -469,63 +246,179 @@ auto Database::GetIndexes() -> std::vector<IndexInfo> {
   };
 }
 
-auto Database::GetTracksByIndex(IndexId index, std::size_t page_size)
-    -> std::future<Result<IndexRecord>*> {
-  return worker_task_->Dispatch<Result<IndexRecord>*>(
-      [=, this]() -> Result<IndexRecord>* {
-        IndexKey::Header header{
-            .id = index,
-            .depth = 0,
-            .components_hash = 0,
-        };
-        std::string prefix = EncodeIndexPrefix(header);
-        Continuation c{.prefix = {prefix.data(), prefix.size()},
-                       .start_key = {prefix.data(), prefix.size()},
-                       .forward = true,
-                       .was_prev_forward = true,
-                       .page_size = page_size};
-        return dbGetPage<IndexRecord>(c);
-      });
-}
+auto Database::updateIndexes() -> void {
+  events::Ui().Dispatch(event::UpdateStarted{});
+  leveldb::ReadOptions read_options;
+  read_options.fill_cache = false;
 
-auto Database::GetTracks(std::size_t page_size) -> std::future<Result<Track>*> {
-  return worker_task_->Dispatch<Result<Track>*>([=, this]() -> Result<Track>* {
+  std::pair<uint16_t, uint16_t> newest_track{0, 0};
+
+  // Stage 1: verify all existing tracks are still valid.
+  ESP_LOGI(kTag, "verifying existing tracks");
+  {
+    uint64_t num_processed = 0;
+    std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
     std::string prefix = EncodeDataPrefix();
-    Continuation c{.prefix = {prefix.data(), prefix.size()},
-                   .start_key = {prefix.data(), prefix.size()},
-                   .forward = true,
-                   .was_prev_forward = true,
-                   .page_size = page_size};
-    return dbGetPage<Track>(c);
-  });
-}
-
-auto Database::GetDump(std::size_t page_size)
-    -> std::future<Result<std::pmr::string>*> {
-  return worker_task_->Dispatch<Result<std::pmr::string>*>(
-      [=, this]() -> Result<std::pmr::string>* {
-        Continuation c{.prefix = "",
-                       .start_key = "",
-                       .forward = true,
-                       .was_prev_forward = true,
-                       .page_size = page_size};
-        return dbGetPage<std::pmr::string>(c);
+    for (it->Seek(prefix); it->Valid() && it->key().starts_with(prefix);
+         it->Next()) {
+      num_processed++;
+      events::Ui().Dispatch(event::UpdateProgress{
+          .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
+          .val = num_processed,
       });
-}
 
-template <typename T>
-auto Database::GetPage(Continuation* c) -> std::future<Result<T>*> {
-  Continuation copy = *c;
-  return worker_task_->Dispatch<Result<T>*>(
-      [=, this]() -> Result<T>* { return dbGetPage<T>(copy); });
-}
+      std::shared_ptr<TrackData> track = ParseDataValue(it->value());
+      if (!track) {
+        // The value was malformed. Drop this record.
+        ESP_LOGW(kTag, "dropping malformed metadata");
+        db_->Delete(leveldb::WriteOptions(), it->key());
+        continue;
+      }
 
-template auto Database::GetPage<Track>(Continuation* c)
-    -> std::future<Result<Track>*>;
-template auto Database::GetPage<IndexRecord>(Continuation* c)
-    -> std::future<Result<IndexRecord>*>;
-template auto Database::GetPage<std::pmr::string>(Continuation* c)
-    -> std::future<Result<std::pmr::string>*>;
+      if (track->is_tombstoned) {
+        ESP_LOGW(kTag, "skipping tombstoned %lx", track->id);
+        continue;
+      }
+
+      FRESULT res;
+      FILINFO info;
+      {
+        auto lock = drivers::acquire_spi();
+        res = f_stat(track->filepath.c_str(), &info);
+      }
+
+      std::pair<uint16_t, uint16_t> modified_at{0, 0};
+      if (res == FR_OK) {
+        modified_at = {info.fdate, info.ftime};
+      }
+      if (modified_at == track->modified_at) {
+        newest_track = std::max(modified_at, newest_track);
+        continue;
+      } else {
+        track->modified_at = modified_at;
+      }
+
+      std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(
+          {track->filepath.data(), track->filepath.size()});
+      if (!tags || tags->encoding() == Container::kUnsupported) {
+        // We couldn't read the tags for this track. Either they were
+        // malformed, or perhaps the file is missing. Either way, tombstone
+        // this record.
+        ESP_LOGW(kTag, "entombing missing #%lx", track->id);
+        dbRemoveIndexes(track);
+        track->is_tombstoned = true;
+        dbPutTrackData(*track);
+        continue;
+      }
+
+      // At this point, we know that the track still exists in its original
+      // location. All that's left to do is update any metadata about it.
+
+      uint64_t new_hash = tags->Hash();
+      if (new_hash != track->tags_hash) {
+        // This track's tags have changed. Since the filepath is exactly the
+        // same, we assume this is a legitimate correction. Update the
+        // database.
+        ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash,
+                 new_hash);
+        dbRemoveIndexes(track);
+
+        track->tags_hash = new_hash;
+        dbIngestTagHashes(*tags, track->individual_tag_hashes);
+        dbPutTrackData(*track);
+        dbPutHash(new_hash, track->id);
+      }
+    }
+  }
+
+  ESP_LOGI(kTag, "newest unmodified was at %u,%u", newest_track.first,
+           newest_track.second);
+
+  // Stage 2: search for newly added files.
+  ESP_LOGI(kTag, "scanning for new tracks");
+  uint64_t num_processed = 0;
+  file_gatherer_.FindFiles("", [&](const std::string& path,
+                                   const FILINFO& info) {
+    num_processed++;
+    events::Ui().Dispatch(event::UpdateProgress{
+        .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
+        .val = num_processed,
+    });
+
+    std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
+    if (modified < newest_track) {
+      return;
+    }
+
+    std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
+    if (!tags || tags->encoding() == Container::kUnsupported) {
+      // No parseable tags; skip this fiile.
+      return;
+    }
+
+    // Check for any existing record with the same hash.
+    uint64_t hash = tags->Hash();
+    std::string key = EncodeHashKey(hash);
+    std::optional<TrackId> existing_hash;
+    std::string raw_entry;
+    if (db_->Get(leveldb::ReadOptions(), key, &raw_entry).ok()) {
+      existing_hash = ParseHashValue(raw_entry);
+    }
+
+    if (!existing_hash) {
+      // We've never met this track before! Or we have, but the entry is
+      // malformed. Either way, record this as a new track.
+      TrackId id = dbMintNewTrackId();
+      ESP_LOGI(kTag, "recording new 0x%lx", id);
+
+      auto data = std::make_shared<TrackData>();
+      data->id = id;
+      data->filepath = path;
+      data->tags_hash = hash;
+      data->modified_at = modified;
+      dbIngestTagHashes(*tags, data->individual_tag_hashes);
+
+      dbPutTrackData(*data);
+      dbPutHash(hash, id);
+      auto t = std::make_shared<Track>(data, tags);
+      dbCreateIndexesForTrack(*t);
+      return;
+    }
+
+    std::shared_ptr<TrackData> existing_data = dbGetTrackData(*existing_hash);
+    if (!existing_data) {
+      // We found a hash that matches, but there's no data record? Weird.
+      auto new_data = std::make_shared<TrackData>();
+      new_data->id = dbMintNewTrackId();
+      new_data->filepath = path;
+      new_data->tags_hash = hash;
+      new_data->modified_at = modified;
+      dbIngestTagHashes(*tags, new_data->individual_tag_hashes);
+      dbPutTrackData(*new_data);
+      auto t = std::make_shared<Track>(new_data, tags);
+      dbCreateIndexesForTrack(*t);
+      return;
+    }
+
+    if (existing_data->is_tombstoned) {
+      ESP_LOGI(kTag, "exhuming track %lu", existing_data->id);
+      existing_data->is_tombstoned = false;
+      existing_data->modified_at = modified;
+      dbPutTrackData(*existing_data);
+      auto t = std::make_shared<Track>(existing_data, tags);
+      dbCreateIndexesForTrack(*t);
+    } else if (existing_data->filepath !=
+               std::pmr::string{path.data(), path.size()}) {
+      ESP_LOGW(kTag, "tag hash collision for %s and %s",
+               existing_data->filepath.c_str(), path.c_str());
+      ESP_LOGI(kTag, "hash components: %s, %s, %s",
+               tags->at(Tag::kTitle).value_or("no title").c_str(),
+               tags->at(Tag::kArtist).value_or("no artist").c_str(),
+               tags->at(Tag::kAlbum).value_or("no album").c_str());
+    }
+  });
+  events::Ui().Dispatch(event::UpdateFinished{});
+}
 
 auto Database::dbMintNewTrackId() -> TrackId {
   TrackId next_id = 1;
@@ -592,7 +485,7 @@ auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
 }
 
 auto Database::dbCreateIndexesForTrack(const Track& track) -> void {
-  for (const IndexInfo& index : GetIndexes()) {
+  for (const IndexInfo& index : getIndexes()) {
     leveldb::WriteBatch writes;
     auto entries = Index(collator_, index, track);
     for (const auto& it : entries) {
@@ -609,7 +502,7 @@ auto Database::dbRemoveIndexes(std::shared_ptr<TrackData> data) -> void {
     return;
   }
   Track track{data, tags};
-  for (const IndexInfo& index : GetIndexes()) {
+  for (const IndexInfo& index : getIndexes()) {
     auto entries = Index(collator_, index, track);
     for (auto it = entries.rbegin(); it != entries.rend(); it++) {
       auto key = EncodeIndexKey(it->first);
@@ -666,512 +559,209 @@ auto Database::dbRecoverTagsFromHashes(
   return out;
 }
 
-template <typename T>
-auto Database::dbGetPage(const Continuation& c) -> Result<T>* {
-  // Work out our starting point. Sometimes this will already done.
-  std::unique_ptr<leveldb::Iterator> it{
-      db_->NewIterator(leveldb::ReadOptions{})};
-  it->Seek({c.start_key.data(), c.start_key.size()});
-
-  // Fix off-by-one if we just changed direction.
-  if (c.forward != c.was_prev_forward) {
-    if (c.forward) {
-      it->Next();
-    } else {
+auto seekToOffset(leveldb::Iterator* it, int offset) {
+  while (it->Valid() && offset != 0) {
+    if (offset < 0) {
       it->Prev();
-    }
-  }
-
-  // Grab results.
-  std::optional<std::pmr::string> first_key;
-  std::vector<std::shared_ptr<T>> records;
-  while (records.size() < c.page_size && it->Valid()) {
-    if (!it->key().starts_with({c.prefix.data(), c.prefix.size()})) {
-      break;
-    }
-    if (!first_key) {
-      first_key = it->key().ToString();
-    }
-    std::shared_ptr<T> parsed = ParseRecord<T>(it->key(), it->value());
-    if (parsed) {
-      records.push_back(parsed);
-    }
-    if (c.forward) {
-      it->Next();
+      offset++;
     } else {
-      it->Prev();
+      it->Next();
+      offset--;
     }
   }
-
-  if (!it->Valid() ||
-      !it->key().starts_with({c.prefix.data(), c.prefix.size()})) {
-    it.reset();
-  }
-
-  // Put results into canonical order if we were iterating backwards.
-  if (!c.forward) {
-    std::reverse(records.begin(), records.end());
-  }
-
-  // Work out the new continuations.
-  std::optional<Continuation> next_page;
-  if (c.forward) {
-    if (it != nullptr) {
-      // We were going forward, and now we want the next page.
-      std::pmr::string key{it->key().data(), it->key().size(),
-                           &memory::kSpiRamResource};
-      next_page = Continuation{
-          .prefix = c.prefix,
-          .start_key = key,
-          .forward = true,
-          .was_prev_forward = true,
-          .page_size = c.page_size,
-      };
-    }
-    // No iterator means we ran out of results in this direction.
-  } else {
-    // We were going backwards, and now we want the next page. This is a
-    // reversal, to set the start key to the first record we saw and mark that
-    // it's off by one.
-    next_page = Continuation{
-        .prefix = c.prefix,
-        .start_key = *first_key,
-        .forward = true,
-        .was_prev_forward = false,
-        .page_size = c.page_size,
-    };
-  }
-
-  std::optional<Continuation> prev_page;
-  if (c.forward) {
-    // We were going forwards, and now we want the previous page. Set the
-    // search key to the first result we saw, and mark that it's off by one.
-    prev_page = Continuation{
-        .prefix = c.prefix,
-        .start_key = *first_key,
-        .forward = false,
-        .was_prev_forward = true,
-        .page_size = c.page_size,
-    };
-  } else {
-    if (it != nullptr) {
-      // We were going backwards, and we still want to go backwards.
-      std::pmr::string key{it->key().data(), it->key().size(),
-                           &memory::kSpiRamResource};
-      prev_page = Continuation{
-          .prefix = c.prefix,
-          .start_key = key,
-          .forward = false,
-          .was_prev_forward = false,
-          .page_size = c.page_size,
-      };
-    }
-    // No iterator means we ran out of results in this direction.
-  }
-
-  return new Result<T>(std::move(records), next_page, prev_page);
 }
 
-auto Database::dbCount(const Continuation& c) -> size_t {
+auto Database::getRecord(const SearchKey& c)
+    -> std::optional<std::pair<std::pmr::string, Record>> {
   std::unique_ptr<leveldb::Iterator> it{
       db_->NewIterator(leveldb::ReadOptions{})};
+
+  it->Seek(c.startKey());
+  seekToOffset(it.get(), c.offset);
+  if (!it->Valid() || !it->key().starts_with(std::string_view{c.prefix})) {
+    return {};
+  }
+
+  std::optional<IndexKey> key = ParseIndexKey(it->key());
+  if (!key) {
+    ESP_LOGW(kTag, "parsing index key failed");
+    return {};
+  }
+
+  return std::make_pair(std::pmr::string{it->key().data(), it->key().size(),
+                                         &memory::kSpiRamResource},
+                        Record{*key, it->value()});
+}
+
+auto Database::countRecords(const SearchKey& c) -> size_t {
+  std::unique_ptr<leveldb::Iterator> it{
+      db_->NewIterator(leveldb::ReadOptions{})};
+
+  it->Seek(c.startKey());
+  seekToOffset(it.get(), c.offset);
+  if (!it->Valid() || !it->key().starts_with(std::string_view{c.prefix})) {
+    return {};
+  }
+
   size_t count = 0;
-  for (it->Seek({c.start_key.data(), c.start_key.size()});
-       it->Valid() && it->key().starts_with({c.prefix.data(), c.prefix.size()});
-       it->Next()) {
+  while (it->Valid() && it->key().starts_with(std::string_view{c.prefix})) {
+    it->Next();
     count++;
   }
+
   return count;
 }
 
-template auto Database::dbGetPage<Track>(const Continuation& c)
-    -> Result<Track>*;
-template auto Database::dbGetPage<std::pmr::string>(const Continuation& c)
-    -> Result<std::pmr::string>*;
-
-template <>
-auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
-                                        const leveldb::Slice& val)
-    -> std::shared_ptr<IndexRecord> {
-  std::optional<IndexKey> data = ParseIndexKey(key);
-  if (!data) {
-    return {};
+auto SearchKey::startKey() const -> std::string_view {
+  if (key) {
+    return *key;
   }
-
-  std::optional<std::pmr::string> title;
-  if (!val.empty()) {
-    title = val.ToString();
-  }
-
-  return std::make_shared<IndexRecord>(*data, title, data->track);
+  return prefix;
 }
 
-template <>
-auto Database::ParseRecord<Track>(const leveldb::Slice& key,
-                                  const leveldb::Slice& val)
-    -> std::shared_ptr<Track> {
-  std::shared_ptr<TrackData> data = ParseDataValue(val);
-  if (!data || data->is_tombstoned) {
-    return {};
-  }
-  std::shared_ptr<TrackTags> tags =
-      tag_parser_.ReadAndParseTags(data->filepath);
-  if (!tags) {
-    return {};
-  }
-  return std::make_shared<Track>(data, tags);
-}
-
-template <>
-auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
-                                             const leveldb::Slice& val)
-    -> std::shared_ptr<std::pmr::string> {
-  std::ostringstream stream;
-  stream << "key: ";
-  if (key.size() < 3 || key.data()[1] != '\0') {
-    stream << key.ToString().c_str();
+Record::Record(const IndexKey& key, const leveldb::Slice& t)
+    : text_(t.data(), t.size(), &memory::kSpiRamResource) {
+  if (key.track) {
+    contents_ = *key.track;
   } else {
-    for (size_t i = 0; i < key.size(); i++) {
-      if (i == 0) {
-        stream << key.data()[i];
-      } else if (i == 1) {
-        stream << " / 0x";
-      } else {
-        stream << std::hex << std::setfill('0') << std::setw(2)
-               << static_cast<int>(key.data()[i]);
-      }
-    }
+    contents_ = ExpandHeader(key.header, key.item);
   }
-  if (!val.empty()) {
-    stream << "\tval: 0x";
-    for (int i = 0; i < val.size(); i++) {
-      stream << std::hex << std::setfill('0') << std::setw(2)
-             << static_cast<int>(val.data()[i]);
-    }
-  }
-  std::pmr::string res{stream.str(), &memory::kSpiRamResource};
-  return std::make_shared<std::pmr::string>(res);
 }
 
-IndexRecord::IndexRecord(const IndexKey& key,
-                         std::optional<std::pmr::string> title,
-                         std::optional<TrackId> track)
-    : key_(key), override_text_(title), track_(track) {}
-
-auto IndexRecord::text() const -> std::optional<std::pmr::string> {
-  if (override_text_) {
-    return override_text_;
-  }
-  return key_.item;
+auto Record::text() const -> std::string_view {
+  return text_;
 }
 
-auto IndexRecord::track() const -> std::optional<TrackId> {
-  return track_;
+auto Record::contents() const
+    -> const std::variant<TrackId, IndexKey::Header>& {
+  return contents_;
 }
 
-auto IndexRecord::Expand(std::size_t page_size) const
-    -> std::optional<Continuation> {
-  if (track_) {
-    return {};
-  }
-  std::string new_prefix = EncodeIndexPrefix(ExpandHeader());
-  return Continuation{
-      .prefix = {new_prefix.data(), new_prefix.size()},
-      .start_key = {new_prefix.data(), new_prefix.size()},
-      .forward = true,
-      .was_prev_forward = true,
-      .page_size = page_size,
+Iterator::Iterator(std::shared_ptr<Database> db, IndexId idx)
+    : Iterator(db,
+               IndexKey::Header{
+                   .id = idx,
+                   .depth = 0,
+                   .components_hash = 0,
+               }) {}
+
+Iterator::Iterator(std::shared_ptr<Database> db, const IndexKey::Header& header)
+    : db_(db), key_{}, current_() {
+  std::string prefix = EncodeIndexPrefix(header);
+  key_ = {
+      .prefix = {prefix.data(), prefix.size(), &memory::kSpiRamResource},
+      .key = {},
+      .offset = 0,
   };
+  iterate(key_);
 }
 
-auto IndexRecord::ExpandHeader() const -> IndexKey::Header {
-  return ::database::ExpandHeader(key_.header, key_.item);
+auto Iterator::value() const -> const std::optional<Record>& {
+  return current_;
 }
 
-Iterator::Iterator(std::weak_ptr<Database> db, const IndexInfo& idx)
-    : db_(db), pos_mutex_(), current_pos_(), prev_pos_() {
-  std::string prefix = EncodeIndexPrefix(
-      IndexKey::Header{.id = idx.id, .depth = 0, .components_hash = 0});
-  current_pos_ = Continuation{.prefix = {prefix.data(), prefix.size()},
-                              .start_key = {prefix.data(), prefix.size()},
-                              .forward = true,
-                              .was_prev_forward = true,
-                              .page_size = 1};
+auto Iterator::next() -> void {
+  SearchKey new_key = key_;
+  new_key.offset = 1;
+  iterate(new_key);
 }
 
-auto Iterator::Parse(std::weak_ptr<Database> db, const cppbor::Array& encoded)
-    -> std::optional<Iterator> {
-  // Ensure the input looks reasonable.
-  if (encoded.size() != 3) {
-    return {};
-  }
-
-  if (encoded[0]->type() != cppbor::TSTR) {
-    return {};
-  }
-  const std::string& prefix = encoded[0]->asTstr()->value();
-
-  std::optional<Continuation> current_pos{};
-  if (encoded[1]->type() == cppbor::TSTR) {
-    const std::string& key = encoded[1]->asTstr()->value();
-    current_pos = Continuation{
-        .prefix = {prefix.data(), prefix.size()},
-        .start_key = {key.data(), key.size()},
-        .forward = true,
-        .was_prev_forward = true,
-        .page_size = 1,
-    };
-  }
-
-  std::optional<Continuation> prev_pos{};
-  if (encoded[2]->type() == cppbor::TSTR) {
-    const std::string& key = encoded[2]->asTstr()->value();
-    current_pos = Continuation{
-        .prefix = {prefix.data(), prefix.size()},
-        .start_key = {key.data(), key.size()},
-        .forward = false,
-        .was_prev_forward = false,
-        .page_size = 1,
-    };
-  }
-
-  return Iterator{db, std::move(current_pos), std::move(prev_pos)};
+auto Iterator::prev() -> void {
+  SearchKey new_key = key_;
+  new_key.offset = -1;
+  iterate(new_key);
 }
 
-Iterator::Iterator(std::weak_ptr<Database> db, const Continuation& c)
-    : db_(db), pos_mutex_(), current_pos_(c), prev_pos_() {}
-
-Iterator::Iterator(const Iterator& other)
-    : db_(other.db_),
-      pos_mutex_(),
-      current_pos_(other.current_pos_),
-      prev_pos_(other.prev_pos_) {}
-
-Iterator::Iterator(std::weak_ptr<Database> db,
-                   std::optional<Continuation>&& cur,
-                   std::optional<Continuation>&& prev)
-    : db_(db), current_pos_(cur), prev_pos_(prev) {}
-
-Iterator& Iterator::operator=(const Iterator& other) {
-  current_pos_ = other.current_pos_;
-  prev_pos_ = other.prev_pos_;
-  return *this;
-}
-
-auto Iterator::Next(Callback cb) -> void {
+auto Iterator::iterate(const SearchKey& key) -> void {
   auto db = db_.lock();
   if (!db) {
-    InvokeNull(cb);
+    ESP_LOGW(kTag, "iterate with dead db");
     return;
   }
-  db->worker_task_->Dispatch<void>([=]() {
-    std::lock_guard lock{pos_mutex_};
-    if (!current_pos_) {
-      InvokeNull(cb);
-      return;
-    }
-    std::unique_ptr<Result<IndexRecord>> res{
-        db->dbGetPage<IndexRecord>(*current_pos_)};
-    prev_pos_ = current_pos_;
-    current_pos_ = res->next_page();
-    if (!res || res->values().empty() || !res->values()[0]) {
-      ESP_LOGI(kTag, "dropping empty result");
-      InvokeNull(cb);
-      return;
-    }
-    std::invoke(cb, *res->values()[0]);
-  });
+  auto res = db->getRecord(key);
+  if (res) {
+    key_ = {
+        .prefix = key_.prefix,
+        .key = res->first,
+        .offset = 0,
+    };
+    current_ = res->second;
+  } else {
+    key_ = key;
+    current_.reset();
+  }
 }
 
-auto Iterator::NextSync() -> std::optional<IndexRecord> {
+auto Iterator::count() const -> size_t {
   auto db = db_.lock();
   if (!db) {
-    return {};
-  }
-  std::lock_guard lock{pos_mutex_};
-  if (!current_pos_) {
-    return {};
-  }
-  std::unique_ptr<Result<IndexRecord>> res{
-      db->dbGetPage<IndexRecord>(*current_pos_)};
-  prev_pos_ = current_pos_;
-  current_pos_ = res->next_page();
-  if (!res || res->values().empty() || !res->values()[0]) {
-    ESP_LOGI(kTag, "dropping empty result");
-    return {};
-  }
-  return *res->values()[0];
-}
-
-auto Iterator::PeekSync() -> std::optional<IndexRecord> {
-  auto db = db_.lock();
-  if (!db) {
-    return {};
-  }
-  auto pos = current_pos_;
-  if (!pos) {
-    return {};
-  }
-  std::unique_ptr<Result<IndexRecord>> res{db->dbGetPage<IndexRecord>(*pos)};
-  if (!res || res->values().empty() || !res->values()[0]) {
-    return {};
-  }
-  return *res->values()[0];
-}
-
-auto Iterator::Prev(Callback cb) -> void {
-  auto db = db_.lock();
-  if (!db) {
-    InvokeNull(cb);
-    return;
-  }
-  db->worker_task_->Dispatch<void>([=]() {
-    std::lock_guard lock{pos_mutex_};
-    if (!prev_pos_) {
-      InvokeNull(cb);
-      return;
-    }
-    std::unique_ptr<Result<IndexRecord>> res{
-        db->dbGetPage<IndexRecord>(*current_pos_)};
-    current_pos_ = prev_pos_;
-    prev_pos_ = res->prev_page();
-    std::invoke(cb, *res->values()[0]);
-  });
-}
-
-auto Iterator::Size() const -> size_t {
-  auto db = db_.lock();
-  if (!db) {
-    return {};
-  }
-  std::optional<Continuation> pos = current_pos_;
-  if (!pos) {
+    ESP_LOGW(kTag, "count with dead db");
     return 0;
   }
-  return db->dbCount(*pos);
-}
-
-auto Iterator::InvokeNull(Callback cb) -> void {
-  std::invoke(cb, std::optional<IndexRecord>{});
-}
-
-auto Iterator::cbor() const -> cppbor::Array&& {
-  cppbor::Array res;
-
-  std::pmr::string prefix;
-  if (current_pos_) {
-    prefix = current_pos_->prefix;
-  } else if (prev_pos_) {
-    prefix = prev_pos_->prefix;
-  } else {
-    ESP_LOGW(kTag, "iterator has no prefix");
-    return std::move(res);
-  }
-
-  if (current_pos_) {
-    res.add(cppbor::Tstr(current_pos_->start_key));
-  } else {
-    res.add(cppbor::Null());
-  }
-
-  if (prev_pos_) {
-    res.add(cppbor::Tstr(prev_pos_->start_key));
-  } else {
-    res.add(cppbor::Null());
-  }
-
-  return std::move(res);
-}
-
-auto TrackIterator::Parse(std::weak_ptr<Database> db,
-                          const cppbor::Array& encoded)
-    -> std::optional<TrackIterator> {
-  TrackIterator ret{db};
-
-  for (const auto& item : encoded) {
-    if (item->type() == cppbor::ARRAY) {
-      auto it = Iterator::Parse(db, *item->asArray());
-      if (it) {
-        ret.levels_.push_back(std::move(*it));
-      } else {
-        return {};
-      }
-    }
-  }
-
-  return ret;
+  return db->countRecords(key_);
 }
 
 TrackIterator::TrackIterator(const Iterator& it) : db_(it.db_), levels_() {
-  if (it.current_pos_) {
-    levels_.push_back(it);
-  }
-  NextLeaf();
+  levels_.push_back(it);
+  next(false);
 }
 
-TrackIterator::TrackIterator(const TrackIterator& other)
-    : db_(other.db_), levels_(other.levels_) {}
-
-TrackIterator::TrackIterator(std::weak_ptr<Database> db) : db_(db), levels_() {}
-
-TrackIterator& TrackIterator::operator=(TrackIterator&& other) {
-  levels_ = std::move(other.levels_);
-  return *this;
+auto TrackIterator::next() -> void {
+  next(true);
 }
 
-auto TrackIterator::Next() -> std::optional<TrackId> {
-  std::optional<TrackId> next{};
-  while (!next && !levels_.empty()) {
-    auto next_record = levels_.back().NextSync();
-    if (!next_record) {
-      levels_.pop_back();
-      NextLeaf();
-      continue;
+auto TrackIterator::next(bool advance) -> void {
+  while (!levels_.empty()) {
+    if (advance) {
+      levels_.back().next();
     }
-    // May still be nullopt_t; hence the loop.
-    next = next_record->track();
+
+    auto& cur = levels_.back().value();
+    if (!cur) {
+      // The current top iterator is out of tracks. Pop it, and move the parent
+      // to the next item.
+      levels_.pop_back();
+      advance = true;
+    } else if (std::holds_alternative<IndexKey::Header>(cur->contents())) {
+      // This record is a branch. Push a new iterator.
+      auto key = std::get<IndexKey::Header>(cur->contents());
+      auto db = db_.lock();
+      if (!db) {
+        return;
+      }
+      levels_.emplace_back(db, key);
+      // Don't skip the first value of the new level.
+      advance = false;
+    } else if (std::holds_alternative<TrackId>(cur->contents())) {
+      // New record is a leaf.
+      break;
+    }
   }
-  return next;
 }
 
-auto TrackIterator::Size() const -> size_t {
+auto TrackIterator::value() const -> std::optional<TrackId> {
+  if (levels_.empty()) {
+    return {};
+  }
+  auto cur = levels_.back().value();
+  if (!cur) {
+    return {};
+  }
+  if (std::holds_alternative<TrackId>(cur->contents())) {
+    return std::get<TrackId>(cur->contents());
+  }
+  return {};
+}
+
+auto TrackIterator::count() const -> size_t {
   size_t size = 0;
   TrackIterator copy{*this};
   while (!copy.levels_.empty()) {
-    size += copy.levels_.back().Size();
+    size += copy.levels_.back().count();
     copy.levels_.pop_back();
-    copy.NextLeaf();
+    copy.next();
   }
   return size;
-}
-
-auto TrackIterator::NextLeaf() -> void {
-  while (!levels_.empty()) {
-    ESP_LOGI(kTag, "check next candidate");
-    Iterator& candidate = levels_.back();
-    auto next = candidate.PeekSync();
-    if (!next) {
-      ESP_LOGI(kTag, "candidate is empty");
-      levels_.pop_back();
-      continue;
-    }
-    if (!next->track()) {
-      ESP_LOGI(kTag, "candidate is a branch");
-      candidate.NextSync();
-      levels_.push_back(Iterator{db_, next->Expand(1).value()});
-      continue;
-    }
-    ESP_LOGI(kTag, "candidate is a leaf");
-    break;
-  }
-}
-
-auto TrackIterator::cbor() const -> cppbor::Array&& {
-  cppbor::Array res;
-  for (const auto& i : levels_) {
-    res.add(i.cbor());
-  }
-  return std::move(res);
 }
 
 }  // namespace database

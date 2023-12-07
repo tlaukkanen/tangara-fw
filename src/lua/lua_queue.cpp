@@ -21,7 +21,6 @@
 #include "index.hpp"
 #include "property.hpp"
 #include "service_locator.hpp"
-#include "source.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
@@ -37,15 +36,13 @@ static auto queue_add(lua_State* state) -> int {
     database::TrackId id = luaL_checkinteger(state, 1);
     instance->services().bg_worker().Dispatch<void>([=]() {
       audio::TrackQueue& queue = instance->services().track_queue();
-      auto editor = queue.Edit();
-      queue.Append(editor, id);
+      queue.append(id);
     });
   } else {
-    database::Iterator it = *db_check_iterator(state, 1);
+    database::Iterator* it = db_check_iterator(state, 1);
     instance->services().bg_worker().Dispatch<void>([=]() {
       audio::TrackQueue& queue = instance->services().track_queue();
-      auto editor = queue.Edit();
-      queue.Append(editor, database::TrackIterator{it});
+      queue.append(database::TrackIterator{*it});
     });
   }
 
@@ -55,8 +52,7 @@ static auto queue_add(lua_State* state) -> int {
 static auto queue_clear(lua_State* state) -> int {
   Bridge* instance = Bridge::Get(state);
   audio::TrackQueue& queue = instance->services().track_queue();
-  auto editor = queue.Edit();
-  queue.Clear(editor);
+  queue.clear();
   return 0;
 }
 

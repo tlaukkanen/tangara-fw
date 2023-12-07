@@ -9,10 +9,11 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <vector>
 
 #include "database.hpp"
-#include "source.hpp"
+#include "tasks.hpp"
 #include "track.hpp"
 
 namespace audio {
@@ -32,77 +33,52 @@ namespace audio {
  */
 class TrackQueue {
  public:
-  TrackQueue();
-
-  class Editor {
-   public:
-    ~Editor();
-
-    // Cannot be copied or moved.
-    Editor(const Editor&) = delete;
-    Editor& operator=(const Editor&) = delete;
-
-   private:
-    friend TrackQueue;
-
-    Editor(TrackQueue&);
-
-    std::lock_guard<std::recursive_mutex> lock_;
-    bool has_current_changed_;
-  };
-
-  auto Edit() -> Editor;
+  TrackQueue(tasks::Worker& bg_worker);
 
   /* Returns the currently playing track. */
-  auto Current() const -> std::optional<database::TrackId>;
+  auto current() const -> std::optional<database::TrackId>;
 
   /* Returns, in order, tracks that have been queued to be played next. */
-  auto PeekNext(std::size_t limit) const -> std::vector<database::TrackId>;
+  auto peekNext(std::size_t limit) const -> std::vector<database::TrackId>;
 
   /*
    * Returns the tracks in the queue that have already been played, ordered
    * most recently played first.
    */
-  auto PeekPrevious(std::size_t limit) const -> std::vector<database::TrackId>;
+  auto peekPrevious(std::size_t limit) const -> std::vector<database::TrackId>;
 
-  auto GetCurrentPosition() const -> size_t;
-  auto GetTotalSize() const -> size_t;
+  auto currentPosition() const -> size_t;
+  auto totalSize() const -> size_t;
 
   using Item = std::variant<database::TrackId, database::TrackIterator>;
-  auto Insert(Editor&, Item, size_t) -> void;
-  auto Append(Editor&, Item i) -> void;
+  auto insert(Item) -> void;
+  auto append(Item i) -> void;
 
   /*
    * Advances to the next track in the queue, placing the current track at the
    * front of the 'played' queue.
    */
-  auto Next(Editor&) -> std::optional<database::TrackId>;
-  auto Previous(Editor&) -> std::optional<database::TrackId>;
+  auto next() -> void;
+  auto previous() -> void;
 
-  auto SkipTo(Editor&, database::TrackId) -> void;
+  auto skipTo(database::TrackId) -> void;
 
   /*
    * Removes all tracks from all queues, and stops any currently playing track.
    */
-  auto Clear(Editor&) -> void;
-
-  auto Save(std::weak_ptr<database::Database>) -> void;
-  auto Load(std::weak_ptr<database::Database>) -> void;
+  auto clear() -> void;
 
   // Cannot be copied or moved.
   TrackQueue(const TrackQueue&) = delete;
   TrackQueue& operator=(const TrackQueue&) = delete;
 
  private:
-  // FIXME: Make this a shared_mutex so that multithread reads don't block.
-  mutable std::recursive_mutex mutex_;
+  mutable std::shared_mutex mutex_;
 
-  std::optional<database::TrackId> current_;
+  tasks::Worker& bg_worker_;
 
-  // Note: stored in reverse order, i.e. most recent played it at the *back* of
-  // this vector.
-  std::pmr::vector<database::TrackId> played_;
-  std::pmr::vector<Item> enqueued_;
+  size_t pos_;
+  std::pmr::vector<database::TrackId> tracks_;
 };
 
 }  // namespace audio

@@ -60,6 +60,8 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const internal::AudioPipelineIdle&) {}
 
  protected:
+  auto playTrack(database::TrackId id) -> void;
+
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
   static std::shared_ptr<FatfsAudioInput> sFileSource;

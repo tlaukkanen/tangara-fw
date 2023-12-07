@@ -37,23 +37,8 @@ static auto open_settings_fn(lua_State* state) -> int {
   return 0;
 }
 
-static auto open_now_playing_fn(lua_State* state) -> int {
-  events::Ui().Dispatch(ui::internal::ShowNowPlaying{});
-  return 0;
-}
-
-static auto open_browse_fn(lua_State* state) -> int {
-  int index = luaL_checkinteger(state, 1);
-  events::Ui().Dispatch(ui::internal::IndexSelected{
-      .id = static_cast<uint8_t>(index),
-  });
-  return 0;
-}
-
 static const struct luaL_Reg kLegacyUiFuncs[] = {
     {"open_settings", open_settings_fn},
-    {"open_now_playing", open_now_playing_fn},
-    {"open_browse", open_browse_fn},
     {NULL, NULL}};
 
 static auto lua_legacy_ui(lua_State* state) -> int {

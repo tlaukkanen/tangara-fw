@@ -64,7 +64,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const system_fsm::KeyLockChanged&);
   virtual void react(const OnLuaError&) {}
 
-  virtual void react(const internal::RecordSelected&) {}
   virtual void react(const internal::BackPressed&) {}
   virtual void react(const internal::ShowSettingsPage&){};
   virtual void react(const internal::ModalCancelPressed&) {

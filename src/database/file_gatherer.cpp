@@ -21,13 +21,13 @@ namespace database {
 static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
 
 auto FileGathererImpl::FindFiles(
-    const std::pmr::string& root,
-    std::function<void(const std::pmr::string&, const FILINFO&)> cb) -> void {
-  std::pmr::deque<std::pmr::string> to_explore(&memory::kSpiRamResource);
+    const std::string& root,
+    std::function<void(const std::string&, const FILINFO&)> cb) -> void {
+  std::deque<std::string> to_explore;
   to_explore.push_back(root);
 
   while (!to_explore.empty()) {
-    std::pmr::string next_path_str = to_explore.front();
+    std::string next_path_str = to_explore.front();
     const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
 
     FF_DIR dir;
@@ -54,7 +54,7 @@ auto FileGathererImpl::FindFiles(
         // System or hidden file. Ignore it and move on.
         continue;
       } else {
-        std::pmr::string full_path{&memory::kSpiRamResource};
+        std::string full_path;
         full_path += next_path_str;
         full_path += "/";
         full_path += info.fname;

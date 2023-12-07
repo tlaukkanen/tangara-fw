@@ -8,7 +8,10 @@
 
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <variant>
 
+#include "bridge.hpp"
 #include "lua.hpp"
 
 #include "esp_log.h"
@@ -34,6 +37,17 @@ static constexpr char kDbIndexMetatable[] = "db_index";
 static constexpr char kDbRecordMetatable[] = "db_record";
 static constexpr char kDbIteratorMetatable[] = "db_iterator";
 
+struct LuaIndexInfo {
+  database::IndexId id;
+  size_t name_size;
+  char name_data[];
+
+  auto name() -> std::string_view { return {name_data, name_size}; }
+};
+
+static_assert(std::is_trivially_destructible<LuaIndexInfo>());
+static_assert(std::is_trivially_copy_assignable<LuaIndexInfo>());
+
 static auto indexes(lua_State* state) -> int {
   Bridge* instance = Bridge::Get(state);
 
@@ -44,11 +58,15 @@ static auto indexes(lua_State* state) -> int {
     return 1;
   }
 
-  for (const auto& i : db->GetIndexes()) {
-    database::IndexInfo** data = reinterpret_cast<database::IndexInfo**>(
-        lua_newuserdata(state, sizeof(uintptr_t)));
+  for (const auto& i : db->getIndexes()) {
+    LuaIndexInfo* data = reinterpret_cast<LuaIndexInfo*>(
+        lua_newuserdata(state, sizeof(LuaIndexInfo) + i.name.size()));
     luaL_setmetatable(state, kDbIndexMetatable);
-    *data = new database::IndexInfo{i};
+    *data = LuaIndexInfo{
+        .id = i.id,
+        .name_size = i.name.size(),
+    };
+    std::memcpy(data->name_data, i.name.data(), i.name.size());
     lua_rawseti(state, -2, i.id);
   }
 
@@ -65,33 +83,28 @@ static const struct luaL_Reg kDatabaseFuncs[] = {{"indexes", indexes},
  * trivially copyable.
  */
 struct LuaRecord {
-  database::TrackId id_or_zero;
-  database::IndexKey::Header header_at_next_depth;
+  std::variant<database::TrackId, database::IndexKey::Header> contents;
   size_t text_size;
   char text[];
 };
 
-static_assert(std::is_trivially_copyable_v<LuaRecord> == true);
+static_assert(std::is_trivially_destructible<LuaRecord>());
+static_assert(std::is_trivially_copy_assignable<LuaRecord>());
 
-static auto push_lua_record(lua_State* L, const database::IndexRecord& r)
-    -> void {
-  // Bake out the text into something concrete.
-  auto text = r.text().value_or("");
-
+static auto push_lua_record(lua_State* L, const database::Record& r) -> void {
   // Create and init the userdata.
   LuaRecord* record = reinterpret_cast<LuaRecord*>(
-      lua_newuserdata(L, sizeof(LuaRecord) + text.size()));
+      lua_newuserdata(L, sizeof(LuaRecord) + r.text().size()));
   luaL_setmetatable(L, kDbRecordMetatable);
 
   // Init all the fields
   *record = {
-      .id_or_zero = r.track().value_or(0),
-      .header_at_next_depth = r.ExpandHeader(),
-      .text_size = text.size(),
+      .contents = r.contents(),
+      .text_size = r.text().size(),
   };
 
   // Copy the string data across.
-  std::memcpy(record->text, text.data(), text.size());
+  std::memcpy(record->text, r.text().data(), r.text().size());
 }
 
 auto db_check_iterator(lua_State* L, int stack_pos) -> database::Iterator* {
@@ -100,49 +113,30 @@ auto db_check_iterator(lua_State* L, int stack_pos) -> database::Iterator* {
   return it;
 }
 
-static auto push_iterator(lua_State* state,
-                          std::variant<database::Iterator*,
-                                       database::Continuation,
-                                       database::IndexInfo> val) -> void {
-  Bridge* instance = Bridge::Get(state);
+static auto push_iterator(lua_State* state, const database::Iterator& it)
+    -> void {
   database::Iterator** data = reinterpret_cast<database::Iterator**>(
       lua_newuserdata(state, sizeof(uintptr_t)));
-  std::visit(
-      [&](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, database::Iterator*>) {
-          *data = new database::Iterator(*arg);
-        } else {
-          *data = new database::Iterator(instance->services().database(), arg);
-        }
-      },
-      val);
+  *data = new database::Iterator(it);
   luaL_setmetatable(state, kDbIteratorMetatable);
 }
 
 static auto db_iterate(lua_State* state) -> int {
   database::Iterator* it = db_check_iterator(state, 1);
-  luaL_checktype(state, 2, LUA_TFUNCTION);
-  int callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
+  std::optional<database::Record> res = (*it)++;
 
-  it->Next([=](std::optional<database::IndexRecord> res) {
-    events::Ui().RunOnTask([=]() {
-      lua_rawgeti(state, LUA_REGISTRYINDEX, callback_ref);
-      if (res) {
-        push_lua_record(state, *res);
-      } else {
-        lua_pushnil(state);
-      }
-      CallProtected(state, 1, 0);
-      luaL_unref(state, LUA_REGISTRYINDEX, callback_ref);
-    });
-  });
-  return 0;
+  if (res) {
+    push_lua_record(state, *res);
+  } else {
+    lua_pushnil(state);
+  }
+
+  return 1;
 }
 
 static auto db_iterator_clone(lua_State* state) -> int {
   database::Iterator* it = db_check_iterator(state, 1);
-  push_iterator(state, it);
+  push_iterator(state, *it);
   return 1;
 }
 
@@ -154,6 +148,7 @@ static auto db_iterator_gc(lua_State* state) -> int {
 
 static const struct luaL_Reg kDbIteratorFuncs[] = {{"next", db_iterate},
                                                    {"clone", db_iterator_clone},
+                                                   {"__call", db_iterate},
                                                    {"__gc", db_iterator_gc},
                                                    {NULL, NULL}};
 
@@ -168,18 +163,22 @@ static auto record_contents(lua_State* state) -> int {
   LuaRecord* data = reinterpret_cast<LuaRecord*>(
       luaL_checkudata(state, 1, kDbRecordMetatable));
 
-  if (data->id_or_zero) {
-    lua_pushinteger(state, data->id_or_zero);
-  } else {
-    std::string p = database::EncodeIndexPrefix(data->header_at_next_depth);
-    push_iterator(state, database::Continuation{
-                             .prefix = {p.data(), p.size()},
-                             .start_key = {p.data(), p.size()},
-                             .forward = true,
-                             .was_prev_forward = true,
-                             .page_size = 1,
-                         });
-  }
+  std::visit(
+      [&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, database::TrackId>) {
+          lua_pushinteger(state, arg);
+        } else if constexpr (std::is_same_v<T, database::IndexKey::Header>) {
+          Bridge* bridge = Bridge::Get(state);
+          auto db = bridge->services().database().lock();
+          if (!db) {
+            lua_pushnil(state);
+          } else {
+            push_iterator(state, database::Iterator{db, arg});
+          }
+        }
+      },
+      data->contents);
 
   return 1;
 }
@@ -190,38 +189,33 @@ static const struct luaL_Reg kDbRecordFuncs[] = {{"title", record_text},
                                                  {NULL, NULL}};
 
 static auto index_name(lua_State* state) -> int {
-  database::IndexInfo** data = reinterpret_cast<database::IndexInfo**>(
+  LuaIndexInfo* data = reinterpret_cast<LuaIndexInfo*>(
       luaL_checkudata(state, 1, kDbIndexMetatable));
   if (data == NULL) {
     return 0;
   }
-  lua_pushstring(state, (*data)->name.c_str());
+  lua_pushlstring(state, data->name_data, data->name_size);
   return 1;
 }
 
 static auto index_iter(lua_State* state) -> int {
-  database::IndexInfo** data = reinterpret_cast<database::IndexInfo**>(
+  LuaIndexInfo* data = reinterpret_cast<LuaIndexInfo*>(
       luaL_checkudata(state, 1, kDbIndexMetatable));
   if (data == NULL) {
     return 0;
   }
-  push_iterator(state, **data);
-  return 1;
-}
-
-static auto index_gc(lua_State* state) -> int {
-  database::IndexInfo** data = reinterpret_cast<database::IndexInfo**>(
-      luaL_checkudata(state, 1, kDbIndexMetatable));
-  if (data != NULL) {
-    delete *data;
+  Bridge* bridge = Bridge::Get(state);
+  auto db = bridge->services().database().lock();
+  if (!db) {
+    lua_pushnil(state);
   }
-  return 0;
+  push_iterator(state, database::Iterator{db, data->id});
+  return 1;
 }
 
 static const struct luaL_Reg kDbIndexFuncs[] = {{"name", index_name},
                                                 {"iter", index_iter},
                                                 {"__tostring", index_name},
-                                                {"__gc", index_gc},
                                                 {NULL, NULL}};
 
 static auto lua_database(lua_State* state) -> int {

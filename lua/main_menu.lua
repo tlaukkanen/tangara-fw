@@ -34,7 +34,7 @@ return function()
   end)
 
   local indexes = database.indexes()
-  for id, idx in ipairs(indexes) do
+  for _, idx in ipairs(indexes) do
     local btn = menu.list:add_btn(nil, tostring(idx))
     btn:onClicked(function()
       backstack.push(function()

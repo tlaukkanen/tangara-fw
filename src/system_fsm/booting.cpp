@@ -86,7 +86,8 @@ auto Booting::entry() -> void {
   sServices->battery(std::make_unique<battery::Battery>(
       sServices->samd(), std::unique_ptr<drivers::AdcBattery>(adc)));
 
-  sServices->track_queue(std::make_unique<audio::TrackQueue>());
+  sServices->track_queue(
+      std::make_unique<audio::TrackQueue>(sServices->bg_worker()));
   sServices->tag_parser(std::make_unique<database::TagParserImpl>());
   sServices->collator(locale::CreateCollator());
 

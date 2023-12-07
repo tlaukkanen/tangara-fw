@@ -50,23 +50,19 @@ FatfsAudioInput::FatfsAudioInput(database::ITagParser& tag_parser,
       bg_worker_(bg_worker),
       new_stream_mutex_(),
       new_stream_(),
-      has_new_stream_(false),
-      pending_path_() {}
+      has_new_stream_(false) {}
 
 FatfsAudioInput::~FatfsAudioInput() {}
 
-auto FatfsAudioInput::SetPath(std::future<std::optional<std::pmr::string>> fut)
-    -> void {
-  std::lock_guard<std::mutex> guard{new_stream_mutex_};
-  pending_path_.reset(
-      new database::FutureFetcher<std::optional<std::pmr::string>>(
-          std::move(fut)));
-
-  has_new_stream_ = true;
-  has_new_stream_.notify_one();
+auto FatfsAudioInput::SetPath(std::optional<std::string> path) -> void {
+  if (path) {
+    SetPath(*path);
+  } else {
+    SetPath();
+  }
 }
 
-auto FatfsAudioInput::SetPath(const std::pmr::string& path) -> void {
+auto FatfsAudioInput::SetPath(const std::string& path) -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   if (OpenFile(path)) {
     has_new_stream_ = true;
@@ -96,16 +92,6 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<TaggedStream> {
         continue;
       }
 
-      // If the path is a future, then wait for it to complete.
-      if (pending_path_) {
-        auto res = pending_path_->Result();
-        pending_path_.reset();
-
-        if (res && *res) {
-          OpenFile(**res);
-        }
-      }
-
       if (new_stream_ == nullptr) {
         continue;
       }
@@ -117,7 +103,7 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<TaggedStream> {
   }
 }
 
-auto FatfsAudioInput::OpenFile(const std::pmr::string& path) -> bool {
+auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   auto tags = tag_parser_.ReadAndParseTags(path);

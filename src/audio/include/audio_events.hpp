@@ -42,7 +42,7 @@ struct QueueUpdate : tinyfsm::Event {
 };
 
 struct PlayFile : tinyfsm::Event {
-  std::pmr::string filename;
+  std::string filename;
 };
 
 struct StepUpVolume : tinyfsm::Event {};

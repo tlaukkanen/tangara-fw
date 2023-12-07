@@ -41,7 +41,6 @@
 #include "screen_lua.hpp"
 #include "screen_settings.hpp"
 #include "screen_splash.hpp"
-#include "source.hpp"
 #include "spiffs.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
@@ -118,7 +117,7 @@ void UiState::react(const audio::PlaybackUpdate& ev) {}
 
 void UiState::react(const audio::QueueUpdate&) {
   auto& queue = sServices->track_queue();
-  sPlaybackModel.current_track.set(queue.Current());
+  sPlaybackModel.current_track.set(queue.current());
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -281,15 +280,14 @@ void Lua::react(const system_fsm::BatteryStateChanged& ev) {
 }
 
 void Lua::react(const audio::QueueUpdate&) {
-  sServices->bg_worker().Dispatch<void>([=]() {
-    auto& queue = sServices->track_queue();
-    size_t total_size = queue.GetTotalSize();
-    size_t current_pos = queue.GetCurrentPosition();
-    events::Ui().RunOnTask([=]() {
-      queue_size_->Update(static_cast<int>(total_size));
-      queue_position_->Update(static_cast<int>(current_pos));
-    });
-  });
+  auto& queue = sServices->track_queue();
+  queue_size_->Update(static_cast<int>(queue.totalSize()));
+
+  int current_pos = queue.currentPosition();
+  if (queue.current()) {
+    current_pos++;
+  }
+  queue_position_->Update(current_pos);
 }
 
 void Lua::react(const audio::PlaybackStarted& ev) {
@@ -373,7 +371,7 @@ void Indexing::entry() {
     // TODO: Hmm.
     return;
   }
-  db->Update();
+  db->updateIndexes();
 }
 
 void Indexing::exit() {

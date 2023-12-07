@@ -9,6 +9,6 @@ idf_component_register(
   "audio_source.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory" "tinyfsm"
-  "database" "system_fsm" "playlist" "speexdsp")
+  "database" "system_fsm" "speexdsp")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

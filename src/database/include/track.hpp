@@ -123,7 +123,7 @@ struct TrackData {
  public:
   TrackData()
       : id(0),
-        filepath(&memory::kSpiRamResource),
+        filepath(),
         tags_hash(0),
         individual_tag_hashes(&memory::kSpiRamResource),
         is_tombstoned(false),

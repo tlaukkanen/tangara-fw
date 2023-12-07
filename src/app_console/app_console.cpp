@@ -123,8 +123,7 @@ int CmdPlayFile(int argc, char** argv) {
 
   if (is_id) {
     database::TrackId id = std::atoi(argv[1]);
-    auto editor = AppConsole::sServices->track_queue().Edit();
-    AppConsole::sServices->track_queue().Append(editor, id);
+    AppConsole::sServices->track_queue().append(id);
   } else {
     std::pmr::string path{&memory::kSpiRamResource};
     path += '/';
@@ -134,7 +133,8 @@ int CmdPlayFile(int argc, char** argv) {
       path += argv[i];
     }
 
-    events::Audio().Dispatch(audio::PlayFile{.filename = path});
+    events::Audio().Dispatch(
+        audio::PlayFile{.filename = {path.data(), path.size()}});
   }
 
   return 0;
@@ -161,7 +161,7 @@ int CmdDbInit(int argc, char** argv) {
     std::cout << "no database open" << std::endl;
     return 1;
   }
-  db->Update();
+  db->updateIndexes();
 
   return 0;
 }
@@ -173,87 +173,6 @@ void RegisterDbInit() {
       .hint = NULL,
       .func = &CmdDbInit,
       .argtable = NULL};
-  esp_console_cmd_register(&cmd);
-}
-
-int CmdDbTracks(int argc, char** argv) {
-  static const std::pmr::string usage = "usage: db_tracks";
-  if (argc != 1) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
-  auto db = AppConsole::sServices->database().lock();
-  if (!db) {
-    std::cout << "no database open" << std::endl;
-    return 1;
-  }
-  std::unique_ptr<database::Result<database::Track>> res(
-      db->GetTracks(20).get());
-  while (true) {
-    for (const auto& s : res->values()) {
-      std::cout << s->tags()[database::Tag::kTitle].value_or("[BLANK]")
-                << std::endl;
-    }
-    if (res->next_page()) {
-      auto continuation = res->next_page().value();
-      res.reset(db->GetPage<database::Track>(&continuation).get());
-    } else {
-      break;
-    }
-  }
-
-  return 0;
-}
-
-void RegisterDbTracks() {
-  esp_console_cmd_t cmd{.command = "db_tracks",
-                        .help = "lists titles of ALL tracks in the database",
-                        .hint = NULL,
-                        .func = &CmdDbTracks,
-                        .argtable = NULL};
-  esp_console_cmd_register(&cmd);
-}
-
-int CmdDbDump(int argc, char** argv) {
-  static const std::pmr::string usage = "usage: db_dump";
-  if (argc != 1) {
-    std::cout << usage << std::endl;
-    return 1;
-  }
-
-  auto db = AppConsole::sServices->database().lock();
-  if (!db) {
-    std::cout << "no database open" << std::endl;
-    return 1;
-  }
-
-  std::cout << "=== BEGIN DUMP ===" << std::endl;
-
-  std::unique_ptr<database::Result<std::pmr::string>> res(db->GetDump(5).get());
-  while (true) {
-    for (const auto& s : res->values()) {
-      std::cout << *s << std::endl;
-    }
-    if (res->next_page()) {
-      auto continuation = res->next_page().value();
-      res.reset(db->GetPage<std::pmr::string>(&continuation).get());
-    } else {
-      break;
-    }
-  }
-
-  std::cout << "=== END DUMP ===" << std::endl;
-
-  return 0;
-}
-
-void RegisterDbDump() {
-  esp_console_cmd_t cmd{.command = "db_dump",
-                        .help = "prints every key/value pair in the db",
-                        .hint = NULL,
-                        .func = &CmdDbDump,
-                        .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
 
@@ -270,8 +189,8 @@ int CmdTasks(int argc, char** argv) {
     return 1;
   }
 
-  // Pad the number of tasks so that uxTaskGetSystemState still returns info if
-  // new tasks are started during measurement.
+  // Pad the number of tasks so that uxTaskGetSystemState still returns info
+  // if new tasks are started during measurement.
   size_t num_tasks = uxTaskGetNumberOfTasks() + 4;
   TaskStatus_t* start_status = new TaskStatus_t[num_tasks];
   TaskStatus_t* end_status = new TaskStatus_t[num_tasks];
@@ -576,9 +495,11 @@ int CmdHaptics(int argc, char** argv) {
       "  haptic_effect from-effect to-effect\n"
       "  haptic_effect from-effect to-effect library\n"
       "eg.\n"
-      "  haptic_effect        (plays from 1 to 123 with the default library)\n"
+      "  haptic_effect        (plays from 1 to 123 with the default "
+      "library)\n"
       "  haptic_effect 3      (plays from 1 to 123 with library 3\n"
-      "  haptic_effect 1 100  (plays from 1 to 100 with the default library)\n"
+      "  haptic_effect 1 100  (plays from 1 to 100 with the default "
+      "library)\n"
       "  haptic_effect 1 10 4 (plays from 1 to 10 with library 4)";
 
   auto& haptics = AppConsole::sServices->haptics();
@@ -643,8 +564,6 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterAudioStatus();
   */
   RegisterDbInit();
-  RegisterDbTracks();
-  RegisterDbDump();
   RegisterTasks();
 
   RegisterHeaps();

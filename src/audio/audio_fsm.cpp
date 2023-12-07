@@ -93,6 +93,17 @@ void AudioState::react(const OutputModeChanged& ev) {
   sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
 }
 
+auto AudioState::playTrack(database::TrackId id) -> void {
+  sCurrentTrack = id;
+  sServices->bg_worker().Dispatch<void>([=]() {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    sFileSource->SetPath(db->getTrackPath(id));
+  });
+}
+
 namespace states {
 
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
@@ -143,19 +154,11 @@ void Standby::react(const internal::InputFileOpened& ev) {
 }
 
 void Standby::react(const QueueUpdate& ev) {
-  auto current_track = sServices->track_queue().Current();
+  auto current_track = sServices->track_queue().current();
   if (!current_track || (sCurrentTrack && *sCurrentTrack == *current_track)) {
     return;
   }
-
-  sCurrentTrack = current_track;
-
-  auto db = sServices->database().lock();
-  if (!db) {
-    ESP_LOGW(kTag, "database not open; ignoring play request");
-    return;
-  }
-  sFileSource->SetPath(db->GetTrackPath(*current_track));
+  playTrack(*current_track);
 }
 
 void Standby::react(const TogglePlayPause& ev) {
@@ -187,22 +190,14 @@ void Playback::react(const QueueUpdate& ev) {
   if (!ev.current_changed) {
     return;
   }
-  auto current_track = sServices->track_queue().Current();
+  auto current_track = sServices->track_queue().current();
   if (!current_track) {
     sFileSource->SetPath();
     sCurrentTrack.reset();
     transit<Standby>();
     return;
   }
-
-  sCurrentTrack = current_track;
-
-  auto db = sServices->database().lock();
-  if (!db) {
-    return;
-  }
-
-  sFileSource->SetPath(db->GetTrackPath(*current_track));
+  playTrack(*current_track);
 }
 
 void Playback::react(const TogglePlayPause& ev) {
@@ -220,9 +215,8 @@ void Playback::react(const internal::InputFileClosed& ev) {}
 
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
-  auto editor = sServices->track_queue().Edit();
-  sServices->track_queue().Next(editor);
-  if (!sServices->track_queue().Current()) {
+  sServices->track_queue().next();
+  if (!sServices->track_queue().current()) {
     transit<Standby>();
   }
 }

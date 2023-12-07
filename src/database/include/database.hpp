@@ -35,61 +35,18 @@
 
 namespace database {
 
-struct Continuation {
-  std::pmr::string prefix;
-  std::pmr::string start_key;
-  bool forward;
-  bool was_prev_forward;
-  size_t page_size;
-};
+struct SearchKey;
+class Record;
+class Iterator;
 
 /*
- * Wrapper for a set of results from the database. Owns the list of results, as
- * well as a continuation token that can be used to continue fetching more
- * results if they were paginated.
+ * Handle to an open database. This can be used to store large amounts of
+ * persistent data on the SD card, in a manner that can be retrieved later very
+ * quickly.
+ *
+ * A database includes a number of 'indexes'. Each index is a sorted,
+ * hierarchical view of all the playable tracks on the device.
  */
-template <typename T>
-class Result {
- public:
-  auto values() const -> const std::vector<std::shared_ptr<T>>& {
-    return values_;
-  }
-
-  auto next_page() -> std::optional<Continuation>& { return next_page_; }
-  auto prev_page() -> std::optional<Continuation>& { return prev_page_; }
-
-  Result(const std::vector<std::shared_ptr<T>>&& values,
-         std::optional<Continuation> next,
-         std::optional<Continuation> prev)
-      : values_(values), next_page_(next), prev_page_(prev) {}
-
-  Result(const Result&) = delete;
-  Result& operator=(const Result&) = delete;
-
- private:
-  std::vector<std::shared_ptr<T>> values_;
-  std::optional<Continuation> next_page_;
-  std::optional<Continuation> prev_page_;
-};
-
-class IndexRecord {
- public:
-  explicit IndexRecord(const IndexKey&,
-                       std::optional<std::pmr::string>,
-                       std::optional<TrackId>);
-
-  auto text() const -> std::optional<std::pmr::string>;
-  auto track() const -> std::optional<TrackId>;
-
-  auto Expand(std::size_t) const -> std::optional<Continuation>;
-  auto ExpandHeader() const -> IndexKey::Header;
-
- private:
-  IndexKey key_;
-  std::optional<std::pmr::string> override_text_;
-  std::optional<TrackId> track_;
-};
-
 class Database {
  public:
   enum DatabaseError {
@@ -106,31 +63,19 @@ class Database {
 
   ~Database();
 
-  auto Put(const std::string& key, const std::string& val) -> void;
-  auto Get(const std::string& key) -> std::optional<std::string>;
+  /* Adds an arbitrary record to the database. */
+  auto put(const std::string& key, const std::string& val) -> void;
 
-  auto Update() -> std::future<void>;
+  /* Retrives a value previously stored with `put`. */
+  auto get(const std::string& key) -> std::optional<std::string>;
 
-  auto GetTrackPath(TrackId id) -> std::future<std::optional<std::pmr::string>>;
+  auto getTrackPath(TrackId id) -> std::optional<std::string>;
+  auto getTrack(TrackId id) -> std::shared_ptr<Track>;
 
-  auto GetTrack(TrackId id) -> std::future<std::shared_ptr<Track>>;
+  auto getIndexes() -> std::vector<IndexInfo>;
+  auto updateIndexes() -> void;
 
-  /*
-   * Fetches data for multiple tracks more efficiently than multiple calls to
-   * GetTrack.
-   */
-  auto GetBulkTracks(std::vector<TrackId> id)
-      -> std::future<std::vector<std::shared_ptr<Track>>>;
-
-  auto GetIndexes() -> std::vector<IndexInfo>;
-  auto GetTracksByIndex(IndexId index, std::size_t page_size)
-      -> std::future<Result<IndexRecord>*>;
-  auto GetTracks(std::size_t page_size) -> std::future<Result<Track>*>;
-  auto GetDump(std::size_t page_size) -> std::future<Result<std::pmr::string>*>;
-
-  template <typename T>
-  auto GetPage(Continuation* c) -> std::future<Result<T>*>;
-
+  // Cannot be copied or moved.
   Database(const Database&) = delete;
   Database& operator=(const Database&) = delete;
 
@@ -157,106 +102,134 @@ class Database {
            std::shared_ptr<tasks::Worker> worker);
 
   auto dbMintNewTrackId() -> TrackId;
-  auto dbEntomb(TrackId track, uint64_t hash) -> void;
 
+  auto dbEntomb(TrackId track, uint64_t hash) -> void;
   auto dbPutTrackData(const TrackData& s) -> void;
   auto dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData>;
   auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
   auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
+
   auto dbCreateIndexesForTrack(const Track& track) -> void;
   auto dbRemoveIndexes(std::shared_ptr<TrackData>) -> void;
+
   auto dbIngestTagHashes(const TrackTags&,
                          std::pmr::unordered_map<Tag, uint64_t>&) -> void;
   auto dbRecoverTagsFromHashes(const std::pmr::unordered_map<Tag, uint64_t>&)
       -> std::shared_ptr<TrackTags>;
 
-  template <typename T>
-  auto dbGetPage(const Continuation& c) -> Result<T>*;
-
-  auto dbCount(const Continuation& c) -> size_t;
-
-  template <typename T>
-  auto ParseRecord(const leveldb::Slice& key, const leveldb::Slice& val)
-      -> std::shared_ptr<T>;
+  auto getRecord(const SearchKey& c)
+      -> std::optional<std::pair<std::pmr::string, Record>>;
+  auto countRecords(const SearchKey& c) -> size_t;
 };
 
-template <>
-auto Database::ParseRecord<IndexRecord>(const leveldb::Slice& key,
-                                        const leveldb::Slice& val)
-    -> std::shared_ptr<IndexRecord>;
-template <>
-auto Database::ParseRecord<Track>(const leveldb::Slice& key,
-                                  const leveldb::Slice& val)
-    -> std::shared_ptr<Track>;
-template <>
-auto Database::ParseRecord<std::pmr::string>(const leveldb::Slice& key,
-                                             const leveldb::Slice& val)
-    -> std::shared_ptr<std::pmr::string>;
+/*
+ * Container for the data needed to iterate through database records. This is a
+ * lower-level type that the higher-level iterators are built from; most users
+ * outside this namespace shouldn't need to work with continuations.
+ */
+struct SearchKey {
+  std::pmr::string prefix;
+  /* If not given, then iteration starts from `prefix`. */
+  std::optional<std::pmr::string> key;
+  int offset;
+
+  auto startKey() const -> std::string_view;
+};
+
+/*
+ * A record belonging to one of the database's indexes. This may either be a
+ * leaf record, containing a track id, or a branch record, containing a new
+ * Header to retrieve results at the next level of the index.
+ */
+class Record {
+ public:
+  Record(const IndexKey&, const leveldb::Slice&);
+
+  Record(const Record&) = default;
+  Record& operator=(const Record& other) = default;
+
+  auto text() const -> std::string_view;
+  auto contents() const -> const std::variant<TrackId, IndexKey::Header>&;
+
+ private:
+  std::pmr::string text_;
+  std::variant<TrackId, IndexKey::Header> contents_;
+};
 
 /*
  * Utility for accessing a large set of database records, one record at a time.
  */
 class Iterator {
  public:
-  static auto Parse(std::weak_ptr<Database>, const cppbor::Array&)
-      -> std::optional<Iterator>;
+  Iterator(std::shared_ptr<Database>, IndexId);
+  Iterator(std::shared_ptr<Database>, const IndexKey::Header&);
 
-  Iterator(std::weak_ptr<Database>, const IndexInfo&);
-  Iterator(std::weak_ptr<Database>, const Continuation&);
-  Iterator(const Iterator&);
+  Iterator(const Iterator&) = default;
+  Iterator& operator=(const Iterator& other) = default;
 
-  Iterator& operator=(const Iterator& other);
+  auto value() const -> const std::optional<Record>&;
+  std::optional<Record> operator*() const { return value(); }
 
-  auto database() const { return db_; }
+  auto next() -> void;
+  std::optional<Record> operator++() {
+    next();
+    return value();
+  }
+  std::optional<Record> operator++(int) {
+    auto val = value();
+    next();
+    return val;
+  }
 
-  using Callback = std::function<void(std::optional<IndexRecord>)>;
+  auto prev() -> void;
+  std::optional<Record> operator--() {
+    prev();
+    return value();
+  }
+  std::optional<Record> operator--(int) {
+    auto val = value();
+    prev();
+    return val;
+  }
 
-  auto Next(Callback) -> void;
-  auto NextSync() -> std::optional<IndexRecord>;
-
-  auto Prev(Callback) -> void;
-
-  auto PeekSync() -> std::optional<IndexRecord>;
-
-  auto Size() const -> size_t;
-
-  auto cbor() const -> cppbor::Array&&;
+  auto count() const -> size_t;
 
  private:
-  Iterator(std::weak_ptr<Database>,
-           std::optional<Continuation>&&,
-           std::optional<Continuation>&&);
+  auto iterate(const SearchKey& key) -> void;
 
   friend class TrackIterator;
 
-  auto InvokeNull(Callback) -> void;
-
   std::weak_ptr<Database> db_;
-
-  std::mutex pos_mutex_;
-  std::optional<Continuation> current_pos_;
-  std::optional<Continuation> prev_pos_;
+  SearchKey key_;
+  std::optional<Record> current_;
 };
 
 class TrackIterator {
  public:
-  static auto Parse(std::weak_ptr<Database>, const cppbor::Array&)
-      -> std::optional<TrackIterator>;
-
   TrackIterator(const Iterator&);
-  TrackIterator(const TrackIterator&);
 
-  TrackIterator& operator=(TrackIterator&& other);
+  TrackIterator(const TrackIterator&) = default;
+  TrackIterator& operator=(TrackIterator&& other) = default;
 
-  auto Next() -> std::optional<TrackId>;
-  auto Size() const -> size_t;
+  auto value() const -> std::optional<TrackId>;
+  std::optional<TrackId> operator*() const { return value(); }
 
-  auto cbor() const -> cppbor::Array&&;
+  auto next() -> void;
+  std::optional<TrackId> operator++() {
+    next();
+    return value();
+  }
+  std::optional<TrackId> operator++(int) {
+    auto val = value();
+    next();
+    return val;
+  }
+
+  auto count() const -> size_t;
 
  private:
   TrackIterator(std::weak_ptr<Database>);
-
-  auto NextLeaf() -> void;
+  auto next(bool advance) -> void;
 
   std::weak_ptr<Database> db_;
   std::vector<Iterator> levels_;

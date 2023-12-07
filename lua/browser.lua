@@ -115,13 +115,15 @@ function browser.create(opts)
     btn:onevent(lvgl.EVENT.FOCUSED, function()
       screen.focused_item = this_item
       if screen.last_item - 5 < this_item then
-        opts.iterator:next(screen.add_item)
+        screen.add_item(opts.iterator())
       end
     end)
   end
 
   for _ = 1, 8 do
-    opts.iterator:next(screen.add_item)
+    local val = opts.iterator()
+    if not val then break end
+    screen.add_item(val)
   end
 
   return screen
