@@ -264,6 +264,26 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
           break;
       }
 
+      // Only trigger the directional long-press gestures if they trigger at the
+      // same time as a trigger on the overall touchwheel. This means the
+      // gestures only trigger if it's your only interaction with the wheel this
+      // press; scrolling and then resting on a direction should not trigger
+      // them.
+      trigger = TriggerKey(Keys::kTouchWheel, KeyStyle::kLongPress, now_ms);
+      if (trigger == Trigger::kLongPress) {
+        trigger =
+            TriggerKey(Keys::kDirectionalLeft, KeyStyle::kLongPress, now_ms);
+        switch (trigger) {
+          case Trigger::kNone:
+            break;
+          case Trigger::kClick:
+            break;
+          case Trigger::kLongPress:
+            events::Ui().Dispatch(internal::BackPressed{});
+            break;
+        }
+      }
+
       break;
   }
 }

@@ -242,7 +242,7 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   return 0;
 }
 
-auto Lua::PopLuaScreen(lua_State* s) -> int {
+auto Lua::PopLuaScreen(lua_State *s) -> int {
   PopScreen();
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
@@ -301,6 +301,10 @@ void Lua::react(const audio::PlaybackUpdate& ev) {
 
 void Lua::react(const audio::PlaybackFinished&) {
   playback_playing_->Update(false);
+}
+
+void Lua::react(const internal::BackPressed& ev) {
+  PopLuaScreen(sLua->state());
 }
 
 void Browse::entry() {}
