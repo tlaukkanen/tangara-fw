@@ -5,13 +5,17 @@
  */
 
 #include "track_queue.hpp"
-#include <stdint.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <variant>
+
+#include "MillerShuffle.h"
+#include "esp_random.h"
 
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
@@ -28,6 +32,42 @@ namespace audio {
 
 [[maybe_unused]] static constexpr char kTag[] = "tracks";
 
+RandomIterator::RandomIterator(size_t size)
+    : seed_(), pos_(0), size_(size), repeat_(false) {
+  esp_fill_random(&seed_, sizeof(seed_));
+}
+
+auto RandomIterator::current() const -> size_t {
+  if (pos_ < size_ || repeat_) {
+    return MillerShuffle(pos_, seed_, size_);
+  }
+  return size_;
+}
+
+auto RandomIterator::next() -> void {
+  // MillerShuffle behaves well with pos > size, returning different
+  // permutations each 'cycle'. We therefore don't need to worry about wrapping
+  // this value.
+  pos_++;
+}
+
+auto RandomIterator::prev() -> void {
+  if (pos_ > 0) {
+    pos_--;
+  }
+}
+
+auto RandomIterator::resize(size_t s) -> void {
+  size_ = s;
+  // Changing size will yield a different current position anyway, so reset pos
+  // to ensure we yield a full sweep of both new and old indexes.
+  pos_ = 0;
+}
+
+auto RandomIterator::repeat(bool r) -> void {
+  repeat_ = r;
+}
+
 auto notifyChanged(bool current_changed) -> void {
   QueueUpdate ev{.current_changed = current_changed};
   events::Ui().Dispatch(ev);
@@ -38,7 +78,9 @@ TrackQueue::TrackQueue(tasks::Worker& bg_worker)
     : mutex_(),
       bg_worker_(bg_worker),
       pos_(0),
-      tracks_(&memory::kSpiRamResource) {}
+      tracks_(&memory::kSpiRamResource),
+      shuffle_(),
+      repeat_(false) {}
 
 auto TrackQueue::current() const -> std::optional<database::TrackId> {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
@@ -78,25 +120,65 @@ auto TrackQueue::totalSize() const -> size_t {
   return tracks_.size();
 }
 
-auto TrackQueue::insert(Item i) -> void {
-  bool current_changed = pos_ == tracks_.size();
+auto TrackQueue::insert(Item i, size_t index) -> void {
+  bool was_queue_empty;
+  bool current_changed;
+  {
+    const std::shared_lock<std::shared_mutex> lock(mutex_);
+    was_queue_empty = pos_ == tracks_.size();
+    current_changed = pos_ == was_queue_empty || index == pos_;
+  }
+
+  auto update_shuffler = [=, this]() {
+    if (shuffle_) {
+      shuffle_->resize(tracks_.size());
+      // If there wasn't anything already playing, then we should make sure we
+      // begin playback at a random point, instead of always starting with
+      // whatever was inserted first and *then* shuffling.
+      // We don't base this purely off of current_changed because we would like
+      // 'play this track now' (by inserting at the current pos) to work even
+      // when shuffling is enabled.
+      if (was_queue_empty) {
+        pos_ = shuffle_->current();
+      }
+    }
+  };
+
   if (std::holds_alternative<database::TrackId>(i)) {
-    const std::unique_lock<std::shared_mutex> lock(mutex_);
-    tracks_.push_back(std::get<database::TrackId>(i));
+    {
+      const std::unique_lock<std::shared_mutex> lock(mutex_);
+      if (index <= tracks_.size()) {
+        tracks_.insert(tracks_.begin() + index, std::get<database::TrackId>(i));
+        update_shuffler();
+      }
+    }
     notifyChanged(current_changed);
   } else if (std::holds_alternative<database::TrackIterator>(i)) {
+    // Iterators can be very large, and retrieving items from them often
+    // requires disk i/o. Handle them asynchronously so that inserting them
+    // doesn't block.
     bg_worker_.Dispatch<void>([=, this]() {
       database::TrackIterator it = std::get<database::TrackIterator>(i);
-      size_t working_pos = pos_;
+      size_t working_pos = index;
       while (true) {
         auto next = *it;
         if (!next) {
           break;
         }
-        const std::unique_lock<std::shared_mutex> lock(mutex_);
-        tracks_.insert(tracks_.begin() + working_pos, *next);
+        // Keep this critical section small so that we're not blocking methods
+        // like current().
+        {
+          const std::unique_lock<std::shared_mutex> lock(mutex_);
+          if (working_pos <= tracks_.size()) {
+            tracks_.insert(tracks_.begin() + working_pos, *next);
+          }
+        }
         working_pos++;
         it++;
+      }
+      {
+        const std::unique_lock<std::shared_mutex> lock(mutex_);
+        update_shuffler();
       }
       notifyChanged(current_changed);
     });
@@ -104,61 +186,125 @@ auto TrackQueue::insert(Item i) -> void {
 }
 
 auto TrackQueue::append(Item i) -> void {
-  bool current_changed = pos_ == tracks_.size();
-  if (std::holds_alternative<database::TrackId>(i)) {
-    const std::unique_lock<std::shared_mutex> lock(mutex_);
-    tracks_.push_back(std::get<database::TrackId>(i));
-    notifyChanged(current_changed);
-  } else if (std::holds_alternative<database::TrackIterator>(i)) {
-    bg_worker_.Dispatch<void>([=, this]() {
-      database::TrackIterator it = std::get<database::TrackIterator>(i);
-      while (true) {
-        auto next = *it;
-        if (!next) {
-          break;
-        }
-        const std::unique_lock<std::shared_mutex> lock(mutex_);
-        tracks_.push_back(*next);
-        it++;
-      }
-      notifyChanged(current_changed);
-    });
+  size_t end;
+  {
+    const std::shared_lock<std::shared_mutex> lock(mutex_);
+    end = tracks_.size();
   }
+  insert(i, end);
 }
 
 auto TrackQueue::next() -> void {
   const std::unique_lock<std::shared_mutex> lock(mutex_);
-  pos_ = std::min<size_t>(pos_ + 1, tracks_.size());
-
-  notifyChanged(true);
-}
-
-auto TrackQueue::previous() -> void {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);
-  if (pos_ > 0) {
-    pos_--;
-  }
-
-  notifyChanged(true);
-}
-
-auto TrackQueue::skipTo(database::TrackId id) -> void {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);
-  for (size_t i = pos_; i < tracks_.size(); i++) {
-    if (tracks_[i] == id) {
-      pos_ = i;
+  if (shuffle_) {
+    shuffle_->next();
+    pos_ = shuffle_->current();
+  } else {
+    pos_++;
+    if (pos_ >= tracks_.size() && repeat_) {
+      pos_ = 0;
     }
   }
 
   notifyChanged(true);
 }
 
-auto TrackQueue::clear() -> void {
+auto TrackQueue::previous() -> void {
   const std::unique_lock<std::shared_mutex> lock(mutex_);
-  pos_ = 0;
-  tracks_.clear();
+  if (shuffle_) {
+    shuffle_->prev();
+    pos_ = shuffle_->current();
+  } else {
+    if (pos_ == 0) {
+      if (repeat_) {
+        pos_ = tracks_.size() - 1;
+      }
+    } else {
+      pos_--;
+    }
+  }
 
   notifyChanged(true);
+}
+
+auto TrackQueue::skipTo(database::TrackId id) -> void {
+  // Defer this work to the background not because it's particularly
+  // long-running (although it could be), but because we want to ensure we only
+  // search for the given id after any previously pending iterator insertions
+  // have finished.
+  bg_worker_.Dispatch<void>([=, this]() {
+    bool found = false;
+    {
+      const std::unique_lock<std::shared_mutex> lock(mutex_);
+      for (size_t i = 0; i < tracks_.size(); i++) {
+        if (tracks_[i] == id) {
+          pos_ = i;
+          found = true;
+          break;
+        }
+      }
+    }
+    if (found) {
+      notifyChanged(true);
+    }
+  });
+}
+
+auto TrackQueue::clear() -> void {
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    if (tracks_.empty()) {
+      return;
+    }
+
+    pos_ = 0;
+    tracks_.clear();
+
+    if (shuffle_) {
+      shuffle_->resize(0);
+    }
+  }
+
+  notifyChanged(true);
+}
+
+auto TrackQueue::random(bool en) -> void {
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    // Don't check for en == true already; this has the side effect that
+    // repeated calls with en == true will re-shuffle.
+    if (en) {
+      shuffle_.emplace(tracks_.size());
+      shuffle_->repeat(repeat_);
+    } else {
+      shuffle_.reset();
+    }
+  }
+
+  // Current track doesn't get randomised until next().
+  notifyChanged(false);
+}
+
+auto TrackQueue::random() const -> bool {
+  const std::shared_lock<std::shared_mutex> lock(mutex_);
+  return shuffle_.has_value();
+}
+
+auto TrackQueue::repeat(bool en) -> void {
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    repeat_ = en;
+    if (shuffle_) {
+      shuffle_->repeat(en);
+    }
+  }
+
+  notifyChanged(false);
+}
+
+auto TrackQueue::repeat() const -> bool {
+  const std::shared_lock<std::shared_mutex> lock(mutex_);
+  return repeat_;
 }
 
 }  // namespace audio

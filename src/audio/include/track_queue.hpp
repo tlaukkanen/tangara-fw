@@ -19,6 +19,30 @@
 namespace audio {
 
 /*
+ * Utility that uses a Miller shuffle to yield well-distributed random indexes
+ * from within a range.
+ */
+class RandomIterator {
+ public:
+  RandomIterator(size_t size);
+
+  auto current() const -> size_t;
+
+  auto next() -> void;
+  auto prev() -> void;
+
+  // Note resizing has the side-effect of restarting iteration.
+  auto resize(size_t) -> void;
+  auto repeat(bool) -> void;
+
+ private:
+  size_t seed_;
+  size_t pos_;
+  size_t size_;
+  bool repeat_;
+};
+
+/*
  * Owns and manages a complete view of the playback queue. Includes the
  * currently playing track, a truncated list of previously played tracks, and
  * all future tracks that have been queued.
@@ -51,7 +75,7 @@ class TrackQueue {
   auto totalSize() const -> size_t;
 
   using Item = std::variant<database::TrackId, database::TrackIterator>;
-  auto insert(Item) -> void;
+  auto insert(Item, size_t index = 0) -> void;
   auto append(Item i) -> void;
 
   /*
@@ -68,6 +92,12 @@ class TrackQueue {
    */
   auto clear() -> void;
 
+  auto random(bool) -> void;
+  auto random() const -> bool;
+
+  auto repeat(bool) -> void;
+  auto repeat() const -> bool;
+
   // Cannot be copied or moved.
   TrackQueue(const TrackQueue&) = delete;
   TrackQueue& operator=(const TrackQueue&) = delete;
@@ -79,6 +109,9 @@ class TrackQueue {
 
   size_t pos_;
   std::pmr::vector<database::TrackId> tracks_;
+
+  std::optional<RandomIterator> shuffle_;
+  bool repeat_;
 };
 
 }  // namespace audio

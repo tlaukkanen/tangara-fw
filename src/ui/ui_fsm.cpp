@@ -176,6 +176,8 @@ void Lua::entry() {
 
     queue_position_ = std::make_shared<lua::Property>(0);
     queue_size_ = std::make_shared<lua::Property>(0);
+    queue_repeat_ = std::make_shared<lua::Property>(false);
+    queue_random_ = std::make_shared<lua::Property>(false);
 
     playback_playing_ = std::make_shared<lua::Property>(
         false, [&](const lua::LuaValue& val) { return SetPlaying(val); });
@@ -203,6 +205,8 @@ void Lua::entry() {
     sLua->bridge().AddPropertyModule("queue", {
                                                   {"position", queue_position_},
                                                   {"size", queue_size_},
+                                                  {"replay", queue_repeat_},
+                                                  {"random", queue_random_},
                                               });
     sLua->bridge().AddPropertyModule(
         "backstack",
@@ -242,7 +246,7 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   return 0;
 }
 
-auto Lua::PopLuaScreen(lua_State *s) -> int {
+auto Lua::PopLuaScreen(lua_State* s) -> int {
   PopScreen();
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
@@ -258,6 +262,24 @@ auto Lua::SetPlaying(const lua::LuaValue& val) -> bool {
   if (current_val != new_val) {
     events::Audio().Dispatch(audio::TogglePlayPause{});
   }
+  return true;
+}
+
+auto Lua::SetRandom(const lua::LuaValue& val) -> bool {
+  if (!std::holds_alternative<bool>(val)) {
+    return false;
+  }
+  bool b = std::get<bool>(val);
+  sServices->track_queue().random(b);
+  return true;
+}
+
+auto Lua::SetRepeat(const lua::LuaValue& val) -> bool {
+  if (!std::holds_alternative<bool>(val)) {
+    return false;
+  }
+  bool b = std::get<bool>(val);
+  sServices->track_queue().repeat(b);
   return true;
 }
 
@@ -288,6 +310,8 @@ void Lua::react(const audio::QueueUpdate&) {
     current_pos++;
   }
   queue_position_->Update(current_pos);
+  queue_random_->Update(queue.random());
+  queue_repeat_->Update(queue.repeat());
 }
 
 void Lua::react(const audio::PlaybackStarted& ev) {

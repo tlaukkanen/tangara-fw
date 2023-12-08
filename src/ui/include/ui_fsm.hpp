@@ -137,6 +137,8 @@ class Lua : public UiState {
   auto PushLuaScreen(lua_State*) -> int;
   auto PopLuaScreen(lua_State*) -> int;
   auto SetPlaying(const lua::LuaValue&) -> bool;
+  auto SetRandom(const lua::LuaValue&) -> bool;
+  auto SetRepeat(const lua::LuaValue&) -> bool;
 
   std::shared_ptr<lua::Property> battery_pct_;
   std::shared_ptr<lua::Property> battery_mv_;
@@ -150,6 +152,8 @@ class Lua : public UiState {
 
   std::shared_ptr<lua::Property> queue_position_;
   std::shared_ptr<lua::Property> queue_size_;
+  std::shared_ptr<lua::Property> queue_repeat_;
+  std::shared_ptr<lua::Property> queue_random_;
 };
 
 class Browse : public UiState {
