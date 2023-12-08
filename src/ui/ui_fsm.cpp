@@ -399,7 +399,7 @@ void Indexing::entry() {
     // TODO: Hmm.
     return;
   }
-  db->updateIndexes();
+  sServices->bg_worker().Dispatch<void>([=]() { db->updateIndexes(); });
 }
 
 void Indexing::exit() {

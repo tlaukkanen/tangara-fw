@@ -161,7 +161,9 @@ int CmdDbInit(int argc, char** argv) {
     std::cout << "no database open" << std::endl;
     return 1;
   }
-  db->updateIndexes();
+
+  AppConsole::sServices->bg_worker().Dispatch<void>(
+      [=]() { db->updateIndexes(); });
 
   return 0;
 }
