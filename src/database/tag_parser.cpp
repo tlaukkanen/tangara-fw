@@ -21,25 +21,15 @@
 
 namespace database {
 
-const static std::array<std::pair<const char*, Tag>, 5> kVorbisIdToTag = {{
+const static std::array<std::pair<const char*, Tag>, 7> kVorbisIdToTag = {{
     {"TITLE", Tag::kTitle},
     {"ARTIST", Tag::kArtist},
     {"ALBUM", Tag::kAlbum},
-    {"TRACKNUMBER", Tag::kAlbumTrack},
-    {"GENRE", Tag::kGenre},
+    {"ALBUMARTIST", Tag::kAlbumArtist},
+    {"DISCNUMBER", Tag::kDisc},
+    {"TRACKNUMBER", Tag::kTrack},
+    {"GENRE", Tag::kGenres},
 }};
-
-static auto convert_track_number(int number) -> std::pmr::string {
-  std::ostringstream oss;
-  oss << std::setw(4) << std::setfill('0') << number;
-  return std::pmr::string(oss.str(), &memory::kSpiRamResource);
-}
-
-static auto convert_track_number(const std::pmr::string& raw)
-    -> std::pmr::string {
-  uint32_t as_int = std::atoi(raw.c_str());
-  return convert_track_number(as_int);
-}
 
 static auto convert_tag(int tag) -> std::optional<Tag> {
   switch (tag) {
@@ -50,9 +40,9 @@ static auto convert_tag(int tag) -> std::optional<Tag> {
     case Talbum:
       return Tag::kAlbum;
     case Ttrack:
-      return Tag::kAlbumTrack;
+      return Tag::kTrack;
     case Tgenre:
-      return Tag::kGenre;
+      return Tag::kGenres;
     default:
       return {};
   }
@@ -115,8 +105,6 @@ static void tag(Tagctx* ctx,
   if (value.empty()) {
     return;
   }
-  if (*tag == Tag::kAlbumTrack) {
-  }
   aux->tags->set(*tag, value);
 }
 
@@ -161,18 +149,13 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path)
   // There wasn't a track number found in the track's tags. Try to synthesize
   // one from the filename, which will sometimes have a track number at the
   // start.
-  if (!tags->at(Tag::kAlbumTrack)) {
+  if (!tags->track()) {
     auto slash_pos = path.find_last_of("/");
     if (slash_pos != std::string::npos && path.size() - slash_pos > 1) {
       std::string trunc = path.substr(slash_pos + 1);
-      tags->set(Tag::kAlbumTrack, {trunc.data(), trunc.size()});
+      tags->track({trunc.data(), trunc.size()});
     }
   }
-
-  // Normalise track numbers; they're usually treated as strings, but we would
-  // like to sort them lexicographically.
-  tags->set(Tag::kAlbumTrack,
-            convert_track_number(tags->at(Tag::kAlbumTrack).value_or("0")));
 
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
@@ -241,18 +224,6 @@ auto GenericTagParser::ReadAndParseTags(const std::string& path)
       out->encoding(Container::kUnsupported);
   }
 
-  if (ctx.channels > 0) {
-    out->channels = ctx.channels;
-  }
-  if (ctx.samplerate > 0) {
-    out->sample_rate = ctx.samplerate;
-  }
-  if (ctx.bitrate > 0) {
-    out->bits_per_sample = ctx.bitrate;
-  }
-  if (ctx.duration > 0) {
-    out->duration = ctx.duration;
-  }
   return out;
 }
 

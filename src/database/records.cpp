@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <iomanip>
+#include <iostream>
 #include <memory_resource>
 #include <sstream>
 #include <string>

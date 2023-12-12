@@ -87,8 +87,6 @@ class Database {
   leveldb::DB* db_;
   leveldb::Cache* cache_;
 
-  std::shared_ptr<tasks::Worker> worker_task_;
-
   // Not owned.
   IFileGatherer& file_gatherer_;
   ITagParser& tag_parser_;
@@ -98,8 +96,7 @@ class Database {
            leveldb::Cache* cache,
            IFileGatherer& file_gatherer,
            ITagParser& tag_parser,
-           locale::ICollator& collator,
-           std::shared_ptr<tasks::Worker> worker);
+           locale::ICollator& collator);
 
   auto dbMintNewTrackId() -> TrackId;
 

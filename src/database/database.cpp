@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <functional>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -53,7 +54,7 @@ static SingletonEnv<leveldb::EspEnv> sEnv;
 static const char kDbPath[] = "/.tangara-db";
 
 static const char kKeyDbVersion[] = "schema_version";
-static const uint8_t kCurrentDbVersion = 3;
+static const uint8_t kCurrentDbVersion = 4;
 
 static const char kKeyCustom[] = "U\0";
 static const char kKeyCollator[] = "collator";
@@ -129,13 +130,11 @@ auto Database::Open(IFileGatherer& gatherer,
   }
 
   if (!leveldb::sBackgroundThread) {
-    leveldb::sBackgroundThread = &bg_worker;
+    leveldb::sBackgroundThread = tasks::Worker::Start<tasks::Type::kDatabase>();
   }
 
-  std::shared_ptr<tasks::Worker> worker(
-      tasks::Worker::Start<tasks::Type::kDatabase>());
-  return worker
-      ->Dispatch<cpp::result<Database*, DatabaseError>>(
+  return bg_worker
+      .Dispatch<cpp::result<Database*, DatabaseError>>(
           [&]() -> cpp::result<Database*, DatabaseError> {
             leveldb::DB* db;
             std::unique_ptr<leveldb::Cache> cache{
@@ -167,8 +166,8 @@ auto Database::Open(IFileGatherer& gatherer,
             }
 
             ESP_LOGI(kTag, "Database opened successfully");
-            return new Database(db, cache.release(), gatherer, parser, collator,
-                                worker);
+            return new Database(db, cache.release(), gatherer, parser,
+                                collator);
           })
       .get();
 }
@@ -183,11 +182,9 @@ Database::Database(leveldb::DB* db,
                    leveldb::Cache* cache,
                    IFileGatherer& file_gatherer,
                    ITagParser& tag_parser,
-                   locale::ICollator& collator,
-                   std::shared_ptr<tasks::Worker> worker)
+                   locale::ICollator& collator)
     : db_(db),
       cache_(cache),
-      worker_task_(worker),
       file_gatherer_(file_gatherer),
       tag_parser_(tag_parser),
       collator_(collator) {}
@@ -412,9 +409,9 @@ auto Database::updateIndexes() -> void {
       ESP_LOGW(kTag, "tag hash collision for %s and %s",
                existing_data->filepath.c_str(), path.c_str());
       ESP_LOGI(kTag, "hash components: %s, %s, %s",
-               tags->at(Tag::kTitle).value_or("no title").c_str(),
-               tags->at(Tag::kArtist).value_or("no artist").c_str(),
-               tags->at(Tag::kAlbum).value_or("no album").c_str());
+               tags->title().value_or("no title").c_str(),
+               tags->artist().value_or("no artist").c_str(),
+               tags->album().value_or("no album").c_str());
     }
   });
   events::Ui().Dispatch(event::UpdateFinished{});
@@ -533,11 +530,11 @@ auto Database::dbIngestTagHashes(const TrackTags& tags,
                                  std::pmr::unordered_map<Tag, uint64_t>& out)
     -> void {
   leveldb::WriteBatch batch{};
-  for (auto& entry : tags.tags()) {
-    auto hash =
-        komihash_stream_oneshot(entry.second.data(), entry.second.size(), 0);
-    batch.Put(EncodeTagHashKey(hash), entry.second.c_str());
-    out[entry.first] = hash;
+  for (const auto& tag : tags.allPresent()) {
+    auto val = tags.get(tag);
+    auto hash = tagHash(val);
+    batch.Put(EncodeTagHashKey(hash), tagToString(val));
+    out[tag] = hash;
   }
   db_->Write(leveldb::WriteOptions{}, &batch);
 }

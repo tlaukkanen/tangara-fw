@@ -62,7 +62,7 @@ struct IndexKey {
 };
 
 auto Index(locale::ICollator&, const IndexInfo&, const Track&)
-    -> std::vector<std::pair<IndexKey, std::pmr::string>>;
+    -> std::vector<std::pair<IndexKey, std::string>>;
 
 auto ExpandHeader(const IndexKey::Header&,
                   const std::optional<std::pmr::string>&) -> IndexKey::Header;

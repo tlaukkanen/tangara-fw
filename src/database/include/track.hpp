@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 
 #include "leveldb/db.h"
 #include "memory_resource.hpp"
@@ -51,12 +52,21 @@ enum class Tag {
   kTitle = 0,
   kArtist = 1,
   kAlbum = 2,
-  kAlbumTrack = 3,
-  kGenre = 4,
-  kDuration = 5,
+  kAlbumArtist = 3,
+  kDisc = 4,
+  kTrack = 5,
+  kAlbumOrder = 6,
+  kGenres = 7,
 };
 
-auto TagToString(Tag t) -> std::string;
+using TagValue = std::variant<std::monostate,
+                              std::pmr::string,
+                              uint32_t,
+                              cpp::span<const std::pmr::string>>;
+
+auto tagName(Tag) -> std::string;
+auto tagHash(const TagValue&) -> uint64_t;
+auto tagToString(const TagValue&) -> std::string;
 
 /*
  * Owning container for tag-related track metadata that was extracted from a
@@ -65,29 +75,43 @@ auto TagToString(Tag t) -> std::string;
 class TrackTags {
  public:
   TrackTags()
-      : encoding_(Container::kUnsupported), tags_(&memory::kSpiRamResource) {}
+      : encoding_(Container::kUnsupported), genres_(&memory::kSpiRamResource) {}
 
   TrackTags(const TrackTags& other) = delete;
   TrackTags& operator=(TrackTags& other) = delete;
 
   bool operator==(const TrackTags&) const = default;
 
+  auto get(Tag) const -> TagValue;
+  auto set(Tag, std::string_view) -> void;
+
+  auto allPresent() const -> std::vector<Tag>;
+
   auto encoding() const -> Container { return encoding_; };
   auto encoding(Container e) -> void { encoding_ = e; };
 
-  std::optional<int> channels;
-  std::optional<int> sample_rate;
-  std::optional<int> bits_per_sample;
+  auto title() const -> const std::optional<std::pmr::string>&;
+  auto title(std::string_view) -> void;
 
-  std::optional<int> duration;
+  auto artist() const -> const std::optional<std::pmr::string>&;
+  auto artist(std::string_view) -> void;
 
-  auto set(const Tag& key, const std::pmr::string& val) -> void;
-  auto at(const Tag& key) const -> std::optional<std::pmr::string>;
-  auto operator[](const Tag& key) const -> std::optional<std::pmr::string>;
+  auto album() const -> const std::optional<std::pmr::string>&;
+  auto album(std::string_view) -> void;
 
-  auto tags() const -> const std::pmr::unordered_map<Tag, std::pmr::string>& {
-    return tags_;
-  }
+  auto albumArtist() const -> const std::optional<std::pmr::string>&;
+  auto albumArtist(std::string_view) -> void;
+
+  auto disc() const -> const std::optional<uint8_t>&;
+  auto disc(const std::string_view) -> void;
+
+  auto track() const -> const std::optional<uint16_t>&;
+  auto track(const std::string_view) -> void;
+
+  auto albumOrder() const -> uint32_t;
+
+  auto genres() const -> cpp::span<const std::pmr::string>;
+  auto genres(const std::string_view) -> void;
 
   /*
    * Returns a hash of the 'identifying' tags of this track. That is, a hash
@@ -99,7 +123,14 @@ class TrackTags {
 
  private:
   Container encoding_;
-  std::pmr::unordered_map<Tag, std::pmr::string> tags_;
+
+  std::optional<std::pmr::string> title_;
+  std::optional<std::pmr::string> artist_;
+  std::optional<std::pmr::string> album_;
+  std::optional<std::pmr::string> album_artist_;
+  std::optional<uint8_t> disc_;
+  std::optional<uint16_t> track_;
+  std::pmr::vector<std::pmr::string> genres_;
 };
 
 /*

@@ -5,30 +5,39 @@
  */
 
 #include "index.hpp"
+#include <sys/_stdint.h>
 
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
+#include <string>
 #include <variant>
+#include <vector>
 
 #include "collation.hpp"
+#include "cppbor.h"
 #include "esp_log.h"
 #include "komihash.h"
 #include "leveldb/write_batch.h"
 
 #include "records.hpp"
+#include "track.hpp"
 
 namespace database {
+
+[[maybe_unused]] static const char* kTag = "index";
 
 const IndexInfo kAlbumsByArtist{
     .id = 1,
     .name = "Albums by Artist",
-    .components = {Tag::kArtist, Tag::kAlbum, Tag::kAlbumTrack},
+    .components = {Tag::kAlbumArtist, Tag::kAlbum, Tag::kAlbumOrder},
 };
 
 const IndexInfo kTracksByGenre{
     .id = 2,
     .name = "Tracks by Genre",
-    .components = {Tag::kGenre, Tag::kTitle},
+    .components = {Tag::kGenres, Tag::kTitle},
 };
 
 const IndexInfo kAllTracks{
@@ -40,71 +49,144 @@ const IndexInfo kAllTracks{
 const IndexInfo kAllAlbums{
     .id = 4,
     .name = "All Albums",
-    .components = {Tag::kAlbum, Tag::kAlbumTrack},
+    .components = {Tag::kAlbum, Tag::kAlbumOrder},
 };
 
-static auto missing_component_text(const Track& track, Tag tag)
-    -> std::optional<std::pmr::string> {
-  switch (tag) {
-    case Tag::kArtist:
-      return "Unknown Artist";
-    case Tag::kAlbum:
-      return "Unknown Album";
-    case Tag::kGenre:
-      return "Unknown Genre";
-    case Tag::kTitle:
-      return track.TitleOrFilename();
-    case Tag::kAlbumTrack:
-      return "0000";
-    case Tag::kDuration:
-    default:
-      return {};
+class Indexer {
+ public:
+  Indexer(locale::ICollator& collator, const Track& t, const IndexInfo& idx)
+      : collator_(collator), track_(t), index_(idx) {}
+
+  auto index() -> std::vector<std::pair<IndexKey, std::string>>;
+
+ private:
+  auto handleLevel(const IndexKey::Header& header,
+                   cpp::span<const Tag> components) -> void;
+
+  auto handleItem(const IndexKey::Header& header,
+                  std::variant<std::pmr::string, uint32_t> item,
+                  cpp::span<const Tag> components) -> void;
+
+  auto missing_value(Tag tag) -> TagValue {
+    switch (tag) {
+      case Tag::kTitle:
+        return track_.TitleOrFilename();
+      case Tag::kArtist:
+        return "Unknown Artist";
+      case Tag::kAlbum:
+        return "Unknown Album";
+      case Tag::kAlbumArtist:
+        return track_.tags().artist().value_or("Unknown Artist");
+        return "Unknown Album";
+      case Tag::kGenres:
+        return std::pmr::vector<std::pmr::string>{};
+      case Tag::kDisc:
+        return 0u;
+      case Tag::kTrack:
+        return 0u;
+      case Tag::kAlbumOrder:
+        return 0u;
+    }
+    return std::monostate{};
   }
+
+  locale::ICollator& collator_;
+  const Track& track_;
+  const IndexInfo index_;
+
+  std::vector<std::pair<IndexKey, std::string>> out_;
+};
+
+auto Indexer::index() -> std::vector<std::pair<IndexKey, std::string>> {
+  out_.clear();
+
+  IndexKey::Header root_header{
+      .id = index_.id,
+      .depth = 0,
+      .components_hash = 0,
+  };
+  handleLevel(root_header, index_.components);
+
+  return out_;
 }
 
-auto Index(locale::ICollator& collator, const IndexInfo& info, const Track& t)
-    -> std::vector<std::pair<IndexKey, std::pmr::string>> {
-  std::vector<std::pair<IndexKey, std::pmr::string>> out;
-  IndexKey key{
-      .header{
-          .id = info.id,
-          .depth = 0,
-          .components_hash = 0,
+auto Indexer::handleLevel(const IndexKey::Header& header,
+                          cpp::span<const Tag> components) -> void {
+  Tag component = components.front();
+  TagValue value = track_.tags().get(component);
+  if (std::holds_alternative<std::monostate>(value)) {
+    value = missing_value(component);
+  }
+
+  std::visit(
+      [&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          ESP_LOGW(kTag, "dropping component without value: %s",
+                   tagName(components.front()).c_str());
+        } else if constexpr (std::is_same_v<T, std::pmr::string>) {
+          handleItem(header, arg, components);
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+          handleItem(header, arg, components);
+        } else if constexpr (std::is_same_v<
+                                 T, cpp::span<const std::pmr::string>>) {
+          for (const auto& i : arg) {
+            handleItem(header, i, components);
+          }
+        }
       },
+      value);
+}
+
+auto Indexer::handleItem(const IndexKey::Header& header,
+                         std::variant<std::pmr::string, uint32_t> item,
+                         cpp::span<const Tag> components) -> void {
+  IndexKey key{
+      .header = header,
       .item = {},
       .track = {},
   };
+  std::string value;
 
-  for (std::uint8_t i = 0; i < info.components.size(); i++) {
-    // Fill in the text for this depth.
-    auto text = t.tags().at(info.components.at(i));
-    std::pmr::string value;
-    if (text) {
-      std::pmr::string orig = *text;
-      auto xfrm = collator.Transform({orig.data(), orig.size()});
-      key.item = {xfrm.data(), xfrm.size()};
-      value = *text;
-    } else {
-      key.item = {};
-      value = missing_component_text(t, info.components.at(i)).value_or("");
-    }
+  std::string item_text;
+  std::visit(
+      [&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::pmr::string>) {
+          value = {arg.data(), arg.size()};
+          auto xfrm = collator_.Transform(value);
+          key.item = {xfrm.data(), xfrm.size()};
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+          value = std::to_string(arg);
+          // FIXME: this sucks lol. we should just write the number directly,
+          // LSB-first, but then we need to be able to parse it back properly.
+          std::ostringstream str;
+          str << std::setw(8) << std::setfill('0') << arg;
+          std::string encoded = str.str();
+          key.item = {encoded.data(), encoded.size()};
+        }
+      },
+      item);
 
-    // If this is the last component, then we should also fill in the track id
-    // and title.
-    if (i == info.components.size() - 1) {
-      key.track = t.data().id;
-      value = t.TitleOrFilename();
-    }
-
-    out.push_back(std::make_pair(key, value));
-
-    // If there are more components after this, then we need to finish by
-    // narrowing the header with the current title.
-    if (i < info.components.size() - 1) {
-      key.header = ExpandHeader(key.header, key.item);
-    }
+  std::optional<IndexKey::Header> next_level;
+  if (components.size() == 1) {
+    value = track_.TitleOrFilename();
+    key.track = track_.data().id;
+  } else {
+    next_level = ExpandHeader(key.header, key.item);
   }
-  return out;
+
+  out_.emplace_back(key, value);
+
+  if (next_level) {
+    handleLevel(*next_level, components.subspan(1));
+  }
+}
+
+auto Index(locale::ICollator& c, const IndexInfo& i, const Track& t)
+    -> std::vector<std::pair<IndexKey, std::string>> {
+  Indexer indexer{c, t, i};
+  return indexer.index();
 }
 
 auto ExpandHeader(const IndexKey::Header& header,

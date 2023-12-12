@@ -5,6 +5,7 @@
  */
 
 #include "property.hpp"
+#include <sys/_stdint.h>
 
 #include <memory>
 #include <string>
@@ -160,6 +161,29 @@ Property::Property(const LuaValue& val,
                    std::function<bool(const LuaValue& val)> cb)
     : value_(val), cb_(cb) {}
 
+static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
+  std::visit(
+      [&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::pmr::string>) {
+          lua_pushlstring(L, arg.data(), arg.size());
+        } else if constexpr (std::is_same_v<
+                                 T, cpp::span<const std::pmr::string>>) {
+          lua_createtable(L, 0, arg.size());
+          for (const auto& i : arg) {
+            lua_pushlstring(L, i.data(), i.size());
+            lua_pushboolean(L, true);
+            lua_rawset(L, -2);
+          }
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+          lua_pushinteger(L, arg);
+        } else {
+          lua_pushnil(L);
+        }
+      },
+      val);
+}
+
 auto Property::PushValue(lua_State& s) -> int {
   std::visit(
       [&](auto&& arg) {
@@ -177,9 +201,9 @@ auto Property::PushValue(lua_State& s) -> int {
         } else if constexpr (std::is_same_v<T, audio::Track>) {
           lua_newtable(&s);
           int table = lua_gettop(&s);
-          for (const auto& [key, val] : arg.tags->tags()) {
-            lua_pushstring(&s, database::TagToString(key).c_str());
-            lua_pushstring(&s, val.c_str());
+          for (const auto& tag : arg.tags->allPresent()) {
+            lua_pushstring(&s, database::tagName(tag).c_str());
+            pushTagValue(&s, arg.tags->get(tag));
             lua_settable(&s, table);
           }
           if (arg.db_info) {
