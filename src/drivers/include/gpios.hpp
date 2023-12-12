@@ -77,6 +77,8 @@ class IGpios {
    * Returns the most recently cached value of the given pin.
    */
   virtual auto Get(Pin) const -> bool = 0;
+
+  virtual auto IsLocked() const -> bool { return Get(Pin::kKeyLock); }
 };
 
 class Gpios : public IGpios {

@@ -80,7 +80,7 @@ auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
 
   sCurrentScreen.reset(new screens::Splash());
   sTask.reset(UiTask::Start());
-  sDisplay->SetDisplayOn(!gpios.Get(drivers::IGpios::Pin::kKeyLock));
+  sDisplay->SetDisplayOn(!gpios.IsLocked());
   return true;
 }
 

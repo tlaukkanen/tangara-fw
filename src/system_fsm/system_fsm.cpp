@@ -46,12 +46,12 @@ void SystemState::react(const HapticTrigger& trigger) {
 
 void SystemState::react(const internal::GpioInterrupt&) {
   auto& gpios = sServices->gpios();
-  bool prev_key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
+  bool prev_key_lock = gpios.IsLocked();
   bool prev_has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
   gpios.Read();
 
-  bool key_lock = gpios.Get(drivers::Gpios::Pin::kKeyLock);
+  bool key_lock = gpios.IsLocked();
   bool has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
 
   if (key_lock != prev_key_lock) {
@@ -87,7 +87,7 @@ void SystemState::react(const internal::SamdInterrupt&) {
 }
 
 auto SystemState::IdleCondition() -> bool {
-  return sServices->gpios().Get(drivers::IGpios::Pin::kKeyLock) &&
+  return sServices->gpios().IsLocked() &&
          audio::AudioState::is_in_state<audio::states::Standby>();
 }
 
