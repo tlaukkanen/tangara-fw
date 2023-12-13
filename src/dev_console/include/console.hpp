@@ -18,7 +18,7 @@ class Console {
   auto Launch() -> void;
 
  protected:
-  virtual auto GetStackSizeKiB() -> uint16_t { return 8; }
+  virtual auto GetStackSizeKiB() -> uint16_t { return 16; }
   virtual auto RegisterExtraComponents() -> void {}
 
  private:

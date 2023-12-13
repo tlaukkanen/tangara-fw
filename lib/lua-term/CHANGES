@@ -1,0 +1,25 @@
+0.07 2016-04-05 22:00:00
+    - Fix compilation errors for Lua 5.3 on GCC < 5.0
+
+0.06 2016-04-04 20:00:00
+    - Fix compilation flags for Lua 5.3
+
+0.05 2016-04-03 15:50:00
+    - Don't include unistd.h on Windows
+
+0.04 2016-03-06 16:25:47
+    - Include missing unistd.h header file
+
+0.03 2014-04-02 08:00:00
+    - Fix syntax error for term.cursor.goto for Lua 5.2
+    - Add jump as an alias for goto
+
+0.02 2013-02-21 21:15:00
+     - Add cursor functions.
+     - Add clear functions.
+     - Deprecate term.isatty.  Use luaposix instead.
+     - Add colors.default as a synonym for colors.reset.
+     - The metatable for colors is no longer hidden.
+
+0.01 2012-06-25 23:30:00
+     - Initial release.  Includes colors and isatty.

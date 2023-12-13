@@ -1,0 +1,13 @@
+*.o
+*.so
+*.dylib
+*.rock
+*.dll
+*.def
+*.exp
+*.lib
+*.obj
+history.txt
+
+VSProj/Release/*.*
+VSProj/Debug/*.*

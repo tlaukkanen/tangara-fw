@@ -37,6 +37,7 @@
 #include "freertos/projdefs.h"
 #include "haptics.hpp"
 #include "index.hpp"
+#include "lua_thread.hpp"
 #include "memory_resource.hpp"
 #include "service_locator.hpp"
 #include "system_events.hpp"
@@ -557,6 +558,60 @@ void RegisterHapticEffect() {
   esp_console_cmd_register(&cmd);
 }
 
+static const char kReplMain[] =
+    "package.path = '/repl/?.lua;/repl/?/init.lua;' .. package.path\n"
+    "local repl = require 'repl.console'\n"
+    "local col = require('term').colors\n"
+    "function repl:getprompt(level)\n"
+    "if level == 1 then\n"
+    "return col.blue .. '>>' .. col.reset\n"
+    "else\n"
+    "return '..'\n"
+    "end\n"
+    "end\n"
+    "repl:loadplugin 'linenoise'\n"
+    "repl:loadplugin 'history'\n"
+    "repl:loadplugin 'completion'\n"
+    "repl:loadplugin 'autoreturn'\n"
+    "repl:loadplugin 'pretty_print'\n"
+    "print 'Lua 5.4.4  Copyright (C) 1994-2023 Lua.org, PUC-Rio'\n"
+    "print 'luarepl 0.10 Copyright (C) 2011-2015 Rob Hoelz'\n"
+    "repl:run()\n";
+
+int CmdLua(int argc, char** argv) {
+  std::unique_ptr<lua::LuaThread> context{
+      lua::LuaThread::Start(*AppConsole::sServices)};
+  if (!context) {
+    return 1;
+  }
+
+  if (argc == 1) {
+    return context->RunString(kReplMain);
+  } else {
+    std::ostringstream path;
+    path << argv[0];
+    for (size_t i = 1; i < argc; i++) {
+      path << " " << argv[i];
+    }
+    FILINFO info;
+    if (f_stat(path.str().c_str(), &info) != FR_OK) {
+      std::cout << "file not found: " << path.str() << std::endl;
+    }
+    return context->RunScript(path.str());
+  }
+  return 0;
+}
+
+void RegisterLua() {
+  esp_console_cmd_t cmd{
+      .command = "lua",
+      .help = "Executes a lua script. With no args, begins a lua repl session",
+      .hint = NULL,
+      .func = &CmdLua,
+      .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterListDir();
   RegisterPlayFile();
@@ -579,6 +634,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterCoreDump();
 
   RegisterHapticEffect();
+  RegisterLua();
 }
 
 }  // namespace console

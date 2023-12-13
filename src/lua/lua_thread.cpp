@@ -114,6 +114,15 @@ auto LuaThread::RunScript(const std::string& path) -> bool {
   return true;
 }
 
+auto LuaThread::RunString(const std::string& script) -> bool {
+  int res = luaL_loadstring(state_, script.c_str());
+  if (res != LUA_OK) {
+    return false;
+  }
+  CallProtected(state_, 0, 0);
+  return true;
+}
+
 static int msg_handler(lua_State* L) {
   if (!lua_isstring(L, 1)) {
     return 1;

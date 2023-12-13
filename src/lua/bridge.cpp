@@ -25,6 +25,11 @@
 #include "service_locator.hpp"
 #include "ui_events.hpp"
 
+extern "C" {
+int luaopen_linenoise(lua_State* L);
+int luaopen_term_core(lua_State* L);
+}
+
 namespace lua {
 
 [[maybe_unused]] static constexpr char kTag[] = "lua_bridge";
@@ -59,6 +64,12 @@ Bridge::Bridge(system_fsm::ServiceLocator& services, lua_State& s)
   lua_settable(&s, LUA_REGISTRYINDEX);
 
   luaL_requiref(&s, "legacy_ui", lua_legacy_ui, true);
+  lua_pop(&s, 1);
+
+  luaL_requiref(&s, "linenoise", luaopen_linenoise, true);
+  lua_pop(&s, 1);
+
+  luaL_requiref(&s, "term.core", luaopen_term_core, true);
   lua_pop(&s, 1);
 
   RegisterDatabaseModule(&s);

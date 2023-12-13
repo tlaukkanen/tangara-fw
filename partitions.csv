@@ -7,4 +7,5 @@ ota_0,     app,  ota_0, 	0x10000,   4M,
 ota_1,     app,  ota_1, 	0x410000,  4M,
 collate,   0x40, 0x00,		0x810000,  3M,
 lua,	   data, spiffs,	0xb10000,  4M,
+repl,	   data, spiffs,	0xf10000,  128K,
 

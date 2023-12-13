@@ -28,6 +28,7 @@ class LuaThread {
   ~LuaThread();
 
   auto RunScript(const std::string& path) -> bool;
+  auto RunString(const std::string& path) -> bool;
 
   auto bridge() -> Bridge& { return *bridge_; }
   auto state() -> lua_State* { return state_; }

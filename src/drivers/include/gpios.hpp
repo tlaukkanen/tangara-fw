@@ -78,7 +78,7 @@ class IGpios {
    */
   virtual auto Get(Pin) const -> bool = 0;
 
-  virtual auto IsLocked() const -> bool { return Get(Pin::kKeyLock); }
+  virtual auto IsLocked() const -> bool { return !Get(Pin::kKeyLock); }
 };
 
 class Gpios : public IGpios {

@@ -1,0 +1,71 @@
+NEXT
+
+0.10  Jan 14 2022
+      --- Bug Fixes ---
+        - Fixed issue where current buffer is stuck after certain syntax errors (GH #61, thanks Justin Blanchard!)
+
+0.9   Oct 30 2018
+      --- Bug Fixes ---
+        - Fixed rlwrap plugin under Lua 5.2 and greater (GH #57)
+
+      --- Features/Enhancements ---
+        - Improve support for Lua 5.3 (thanks, Iqbal Ansari!)
+
+0.8
+      Aug 23 2015
+      --- Bug Fixes ---
+        - Use package.searchers if package.loaders is not available (thanks, Simon Cozens!)
+
+      --- Backwards Incompatible Changes ---
+        - The default plugin bundle is no longer loaded if an rcfile is present.  See
+          https://github.com/hoelzro/lua-repl/blob/0.8/README.md#removal-of-default-plugins-in-08
+          for details.
+
+0.7   May 22 2015
+      --- Features/Enhancements ---
+        - iffeature is implemented, thanks to Henry Kielmann!
+        - loadplugin now returns any values returned by the plugin function.
+
+      --- Deprecations ---
+        - 0.8 will break backwards compatability due a change in rcfile handling;
+          please consult the README for details.
+
+      --- Plugins ---
+        - we now have a filename completion plugin, thanks to Henry Kielmann!
+        - rlwrap functionality has been moved into a plugin.
+
+0.6   Oct 18 2014
+      --- Bug Fixes ---
+        - Fix rcfile plugin for Lua 5.2
+
+0.5   Oct 17 2014
+      --- Features/Enhancements ---
+        - Lua 5.2 support (Thanks to Simon Cozens!)
+
+0.4   Mar 29 2013
+      --- API Additions ---
+        - The repl object now has a VERSION property.
+
+      --- Bug Fixes ---
+        - Overriding/augmenting getcontext will actually have an effect.
+        - Fix pretty_print with 'unsupported' types
+
+      --- Features/Enhancements ---
+        - Change the example REPL's prompt to resemble the standalone interpreter's
+        - The example REPL now prints a welcome message
+        - If linenoise is not available and rlwrap is, the example REPL falls back to rlwrap
+
+      --- Plugins ---
+        - Added some new plugins
+          - semicolon_suppress_output
+
+0.3   Oct 17 2012
+      - Add plugins API.
+      - Add a bunch of plugins.
+
+0.2   Sep 28 2012
+      - Add linenoise REPL.
+      - Add completion support.
+
+0.1   Oct 20 2011
+      Initial release.  Basic REPL functionality.
