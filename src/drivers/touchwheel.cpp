@@ -49,8 +49,8 @@ TouchWheel::TouchWheel() {
   WriteRegister(Register::KEY_CONTROL_BASE + 0, 0b100);
   WriteRegister(Register::KEY_CONTROL_BASE + 1, 0b100);
   WriteRegister(Register::KEY_CONTROL_BASE + 2, 0b100);
-  // Centre button. AKS disabled.
-  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b000);
+  // Centre button. Also channel 1.
+  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b100);
   // Touch guard. Set as a guard, in channel 1.
   WriteRegister(Register::KEY_CONTROL_BASE + 4, 0b10100);
 
