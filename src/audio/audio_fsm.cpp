@@ -50,6 +50,12 @@ std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 std::optional<database::TrackId> AudioState::sCurrentTrack;
 
+void AudioState::react(const system_fsm::KeyLockChanged& ev) {
+  if (ev.locking && sServices) {
+    sServices->nvs().AmpCurrentVolume(sOutput->GetVolume());
+  }
+}
+
 void AudioState::react(const StepUpVolume& ev) {
   if (sOutput->AdjustVolumeUp()) {
     events::Ui().Dispatch(VolumeChanged{});
@@ -63,10 +69,10 @@ void AudioState::react(const StepDownVolume& ev) {
 }
 
 void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
-  if (ev.falling) {
-    // ESP_LOGI(kTag, "headphones in!");
+  if (ev.has_headphones) {
+    ESP_LOGI(kTag, "headphones in!");
   } else {
-    // ESP_LOGI(kTag, "headphones out!");
+    ESP_LOGI(kTag, "headphones out!");
   }
 }
 
@@ -184,6 +190,12 @@ void Playback::exit() {
 
   events::System().Dispatch(PlaybackFinished{});
   events::Ui().Dispatch(PlaybackFinished{});
+}
+
+void Playback::react(const system_fsm::HasPhonesChanged& ev) {
+  if (!ev.has_headphones) {
+    transit<Standby>();
+  }
 }
 
 void Playback::react(const QueueUpdate& ev) {

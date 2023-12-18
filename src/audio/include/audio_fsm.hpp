@@ -43,11 +43,12 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   void react(const StepUpVolume&);
   void react(const StepDownVolume&);
-  void react(const system_fsm::HasPhonesChanged&);
+  virtual void react(const system_fsm::HasPhonesChanged&);
   void react(const ChangeMaxVolume&);
   void react(const OutputModeChanged&);
 
   virtual void react(const system_fsm::BootComplete&) {}
+  void react(const system_fsm::KeyLockChanged&);
 
   virtual void react(const PlayFile&) {}
   virtual void react(const QueueUpdate&) {}
@@ -96,6 +97,8 @@ class Playback : public AudioState {
  public:
   void entry() override;
   void exit() override;
+
+  void react(const system_fsm::HasPhonesChanged&) override;
 
   void react(const PlayFile&) override;
   void react(const QueueUpdate&) override;

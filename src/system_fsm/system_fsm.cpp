@@ -57,10 +57,11 @@ void SystemState::react(const internal::GpioInterrupt&) {
   if (key_lock != prev_key_lock) {
     KeyLockChanged ev{.locking = key_lock};
     events::System().Dispatch(ev);
+    events::Audio().Dispatch(ev);
     events::Ui().Dispatch(ev);
   }
   if (has_headphones != prev_has_headphones) {
-    HasPhonesChanged ev{.falling = prev_has_headphones};
+    HasPhonesChanged ev{.has_headphones = has_headphones};
     events::Audio().Dispatch(ev);
   }
 }

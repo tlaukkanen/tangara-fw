@@ -46,7 +46,7 @@ struct KeyLockChanged : tinyfsm::Event {
   bool locking;
 };
 struct HasPhonesChanged : tinyfsm::Event {
-  bool falling;
+  bool has_headphones;
 };
 
 struct ChargingStatusChanged : tinyfsm::Event {};
