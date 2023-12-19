@@ -28,12 +28,11 @@ constexpr auto Clip(int64_t v) -> Sample {
   return std::clamp<int64_t>(v, INT16_MIN, INT16_MAX);
 }
 
-auto applyDither(int64_t src, uint_fast8_t bits) -> int32_t;
+auto shiftWithDither(int64_t src, uint_fast8_t bits) -> Sample;
 
 constexpr auto FromSigned(int32_t src, uint_fast8_t bits) -> Sample {
   if (bits > 16) {
-    src = applyDither(src, bits - 16);
-    return src >> (bits - sizeof(Sample) * 8);
+    return shiftWithDither(src, bits - 16);
   } else if (bits < 16) {
     return src << (sizeof(Sample) * 8 - bits);
   }
