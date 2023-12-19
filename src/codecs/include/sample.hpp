@@ -25,15 +25,14 @@ namespace sample {
 typedef int16_t Sample;
 
 constexpr auto Clip(int64_t v) -> Sample {
-  if (v > INT16_MAX)
-    return INT16_MAX;
-  if (v < INT16_MIN)
-    return INT16_MIN;
-  return v;
+  return std::clamp<int64_t>(v, INT16_MIN, INT16_MAX);
 }
+
+auto applyDither(int64_t src, uint_fast8_t bits) -> int32_t;
 
 constexpr auto FromSigned(int32_t src, uint_fast8_t bits) -> Sample {
   if (bits > 16) {
+    src = applyDither(src, bits - 16);
     return src >> (bits - sizeof(Sample) * 8);
   } else if (bits < 16) {
     return src << (sizeof(Sample) * 8 - bits);
@@ -48,16 +47,20 @@ constexpr auto FromUnsigned(uint32_t src, uint_fast8_t bits) -> Sample {
 }
 
 constexpr auto FromFloat(float src) -> Sample {
-  return std::clamp<float>(src, -1.0f, 1.0f) * static_cast<float>(INT16_MAX);
+  int32_t quantised =
+      std::clamp<float>(src, -1.0f, 1.0f) * static_cast<float>(INT32_MAX);
+  return FromSigned(quantised, 32);
 }
 
 constexpr auto FromDouble(double src) -> Sample {
-  return std::clamp<double>(src, -1.0, 1.0) * static_cast<double>(INT16_MAX);
+  int32_t quantised =
+      std::clamp<double>(src, -1.0, 1.0) * static_cast<double>(INT32_MAX);
+  return FromSigned(quantised, 32);
 }
 
 constexpr auto FromMad(mad_fixed_t src) -> Sample {
   // Round the bottom bits.
-  src += (1L << (MAD_F_FRACBITS - 16));
+  src += (1L << (MAD_F_FRACBITS - 24));
 
   // Clip the leftover bits to within range.
   if (src >= MAD_F_ONE)
@@ -66,7 +69,7 @@ constexpr auto FromMad(mad_fixed_t src) -> Sample {
     src = -MAD_F_ONE;
 
   // Quantize.
-  return FromSigned(src >> (MAD_F_FRACBITS + 1 - 16), 16);
+  return FromSigned(src >> (MAD_F_FRACBITS + 1 - 24), 24);
 }
 
 static constexpr float kFactor = 1.0f / static_cast<float>(INT16_MAX);

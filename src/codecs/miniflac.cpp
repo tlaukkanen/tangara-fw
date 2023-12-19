@@ -5,9 +5,8 @@
  */
 
 #include "miniflac.hpp"
-#include <stdint.h>
-#include <sys/_stdint.h>
 
+#include <cstdint>
 #include <cstdlib>
 
 #include "esp_heap_caps.h"
