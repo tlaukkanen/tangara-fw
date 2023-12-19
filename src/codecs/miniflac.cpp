@@ -147,8 +147,6 @@ auto MiniFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
 
   size_t samples_written = 0;
   if (current_sample_) {
-    const uint8_t shift = flac_->frame.header.bps - 16;
-
     while (*current_sample_ < flac_->frame.header.block_size) {
       if (samples_written + flac_->frame.header.channels >= output.size()) {
         // We can't fit the next full PCM frame into the buffer.
@@ -157,8 +155,9 @@ auto MiniFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
       }
 
       for (int channel = 0; channel < flac_->frame.header.channels; channel++) {
-        output[samples_written++] = sample::FromSigned(
-            samples_by_channel_[channel][*current_sample_] >> shift, 16);
+        output[samples_written++] =
+            sample::FromSigned(samples_by_channel_[channel][*current_sample_],
+                               flac_->frame.header.bps);
       }
       (*current_sample_)++;
     }

@@ -34,9 +34,9 @@ constexpr auto Clip(int64_t v) -> Sample {
 
 constexpr auto FromSigned(int32_t src, uint_fast8_t bits) -> Sample {
   if (bits > 16) {
-    return src << (sizeof(Sample) * 8 - bits);
+    return src >> (bits - sizeof(Sample) * 8);
   } else if (bits < 16) {
-    return src << (bits - (sizeof(Sample) * 8));
+    return src << (sizeof(Sample) * 8 - bits);
   }
   return src;
 }
