@@ -203,7 +203,7 @@ auto TrackTags::disc() const -> const std::optional<uint8_t>& {
 }
 
 auto TrackTags::disc(const std::string_view s) -> void {
-  disc_ = std::stoi({s.data(), s.size()});
+  disc_ = std::strtol(s.data(), nullptr, 10);
 }
 
 auto TrackTags::track() const -> const std::optional<uint16_t>& {
@@ -211,7 +211,7 @@ auto TrackTags::track() const -> const std::optional<uint16_t>& {
 }
 
 auto TrackTags::track(const std::string_view s) -> void {
-  track_ = std::stoi({s.data(), s.size()});
+  track_ = std::strtol(s.data(), nullptr, 10);
 }
 
 auto TrackTags::albumOrder() const -> uint32_t {

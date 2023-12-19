@@ -9,8 +9,8 @@
 #include <memory>
 #include <optional>
 
-#include "foxenflac.hpp"
 #include "mad.hpp"
+#include "miniflac.hpp"
 #include "opus.hpp"
 #include "types.hpp"
 #include "vorbis.hpp"
@@ -41,7 +41,7 @@ auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
     case StreamType::kVorbis:
       return new TremorVorbisDecoder();
     case StreamType::kFlac:
-      return new FoxenFlacDecoder();
+      return new MiniFlacDecoder();
     case StreamType::kOpus:
       return new XiphOpusDecoder();
     default:

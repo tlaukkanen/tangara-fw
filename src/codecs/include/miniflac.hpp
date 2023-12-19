@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <sys/_stdint.h>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -13,7 +14,7 @@
 #include <string>
 #include <utility>
 
-#include "foxen/flac.h"
+#include "miniflac.h"
 #include "sample.hpp"
 #include "source_buffer.hpp"
 #include "span.hpp"
@@ -22,10 +23,10 @@
 
 namespace codecs {
 
-class FoxenFlacDecoder : public ICodec {
+class MiniFlacDecoder : public ICodec {
  public:
-  FoxenFlacDecoder();
-  ~FoxenFlacDecoder();
+  MiniFlacDecoder();
+  ~MiniFlacDecoder();
 
   auto OpenStream(std::shared_ptr<IStream> input)
       -> cpp::result<OutputFormat, Error> override;
@@ -35,14 +36,16 @@ class FoxenFlacDecoder : public ICodec {
 
   auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
 
-  FoxenFlacDecoder(const FoxenFlacDecoder&) = delete;
-  FoxenFlacDecoder& operator=(const FoxenFlacDecoder&) = delete;
+  MiniFlacDecoder(const MiniFlacDecoder&) = delete;
+  MiniFlacDecoder& operator=(const MiniFlacDecoder&) = delete;
 
  private:
   std::shared_ptr<IStream> input_;
   SourceBuffer buffer_;
 
-  fx_flac_t* flac_;
+  std::unique_ptr<miniflac_t> flac_;
+  std::array<int32_t*, 2> samples_by_channel_;
+  std::optional<size_t> current_sample_;
 };
 
 }  // namespace codecs
