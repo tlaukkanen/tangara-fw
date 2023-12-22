@@ -54,6 +54,9 @@ class Samd {
   auto ResetToFlashSamd() -> void;
   auto PowerDown() -> void;
 
+  auto UsbMassStorage(bool en) -> void;
+  auto UsbMassStorage() -> bool;
+
   // Not copyable or movable. There should usually only ever be once instance
   // of this class, and that instance will likely have a static lifetime.
   Samd(const Samd&) = delete;

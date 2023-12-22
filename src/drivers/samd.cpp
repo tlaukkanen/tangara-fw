@@ -143,4 +143,30 @@ auto Samd::PowerDown() -> void {
   ESP_ERROR_CHECK(transaction.Execute(3));
 }
 
+auto Samd::UsbMassStorage(bool en) -> void {
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kAddress, I2C_MASTER_WRITE)
+      .write_ack(Registers::kUsbControl, en)
+      .stop();
+  ESP_ERROR_CHECK(transaction.Execute(3));
+}
+
+auto Samd::UsbMassStorage() -> bool {
+  uint8_t raw_res;
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kAddress, I2C_MASTER_WRITE)
+      .write_ack(Registers::kUsbControl)
+      .start()
+      .write_addr(kAddress, I2C_MASTER_READ)
+      .read(&raw_res, I2C_MASTER_NACK)
+      .stop();
+  esp_err_t res = transaction.Execute(1);
+  if (res != ESP_OK) {
+    return false;
+  }
+  return raw_res & 1;
+}
+
 }  // namespace drivers

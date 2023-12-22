@@ -39,6 +39,7 @@
 #include "index.hpp"
 #include "lua_thread.hpp"
 #include "memory_resource.hpp"
+#include "samd.hpp"
 #include "service_locator.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
@@ -414,14 +415,15 @@ int CmdSamd(int argc, char** argv) {
     std::cout << usage << std::endl;
     return 1;
   }
+  drivers::Samd& samd = AppConsole::sServices->samd();
 
   std::pmr::string cmd{argv[1]};
   if (cmd == "flash") {
     std::cout << "resetting samd..." << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));
-    AppConsole::sServices->samd().ResetToFlashSamd();
+    samd.ResetToFlashSamd();
   } else if (cmd == "charge") {
-    auto res = AppConsole::sServices->samd().GetChargeStatus();
+    auto res = samd.GetChargeStatus();
     if (res) {
       switch (res.value()) {
         case drivers::Samd::ChargeStatus::kNoBattery:
@@ -446,6 +448,10 @@ int CmdSamd(int argc, char** argv) {
     } else {
       std::cout << "unknown" << std::endl;
     }
+  } else if (cmd == "msc") {
+    bool current = samd.UsbMassStorage();
+    std::cout << "toggling to: " << !current << std::endl;
+    samd.UsbMassStorage(!current);
   } else if (cmd == "off") {
     std::cout << "bye !!!" << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));
