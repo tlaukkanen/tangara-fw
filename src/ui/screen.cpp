@@ -32,6 +32,10 @@ Screen::Screen()
 
   lv_obj_set_style_bg_opa(modal_content_, LV_OPA_TRANSP, 0);
   lv_obj_set_style_bg_color(modal_content_, lv_color_black(), 0);
+
+  // Disable wrapping by default, since it's confusing and generally makes it
+  // harder to navigate quickly.
+  lv_group_set_wrap(group_, false);
 }
 
 Screen::~Screen() {
