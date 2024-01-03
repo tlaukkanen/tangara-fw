@@ -59,7 +59,6 @@ class SampleConverter {
   IAudioOutput::Format source_format_;
   IAudioOutput::Format target_format_;
   size_t leftover_bytes_;
-  size_t leftover_offset_;
 };
 
 }  // namespace audio

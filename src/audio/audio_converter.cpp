@@ -92,7 +92,6 @@ auto SampleConverter::Main() -> void {
       resampler_.reset();
       source_format_ = args.format;
       leftover_bytes_ = 0;
-      leftover_offset_ = 0;
 
       auto new_target = sink_->PrepareFormat(args.format);
       if (new_target != target_format_) {
@@ -119,11 +118,8 @@ auto SampleConverter::Main() -> void {
       // First top up the input buffer, taking care not to overwrite anything
       // remaining from a previous iteration.
       size_t bytes_read_this_it = xStreamBufferReceive(
-          source_,
-          input_buffer_as_bytes_.subspan(leftover_offset_ + leftover_bytes_)
-              .data(),
-          std::min(input_buffer_as_bytes_.size() - leftover_offset_ -
-                       leftover_bytes_,
+          source_, input_buffer_as_bytes_.subspan(leftover_bytes_).data(),
+          std::min(input_buffer_as_bytes_.size() - leftover_bytes_,
                    bytes_to_read - bytes_read),
           portMAX_DELAY);
       bytes_read += bytes_read_this_it;
@@ -132,20 +128,22 @@ auto SampleConverter::Main() -> void {
       size_t bytes_in_buffer = bytes_read_this_it + leftover_bytes_;
       size_t samples_in_buffer = bytes_in_buffer / sizeof(sample::Sample);
 
-      size_t samples_used = HandleSamples(
-          input_buffer_.subspan(leftover_offset_).first(samples_in_buffer),
-          args.is_end_of_stream && bytes_read == bytes_to_read);
+      size_t samples_used =
+          HandleSamples(input_buffer_.first(samples_in_buffer),
+                        args.is_end_of_stream && bytes_read == bytes_to_read);
 
       // Maybe the resampler didn't consume everything. Maybe the last few
       // bytes we read were half a frame. Either way, we need to calculate the
-      // size of the remainder in bytes.
+      // size of the remainder in bytes, then move it to the front of our
+      // buffer.
       size_t bytes_used = samples_used * sizeof(sample::Sample);
       assert(bytes_used <= bytes_in_buffer);
+
       leftover_bytes_ = bytes_in_buffer - bytes_used;
-      if (leftover_bytes_ == 0) {
-        leftover_offset_ = 0;
-      } else {
-        leftover_offset_ += bytes_used;
+      if (leftover_bytes_ > 0) {
+        std::memmove(input_buffer_as_bytes_.data(),
+                     input_buffer_as_bytes_.data() + bytes_used,
+                     leftover_bytes_);
       }
     }
   }
