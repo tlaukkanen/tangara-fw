@@ -6,9 +6,6 @@
 
 #include "i2s_dac.hpp"
 
-#include <stdint.h>
-#include <sys/_stdint.h>
-
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -50,7 +47,7 @@ auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
   };
 
   ESP_ERROR_CHECK(i2s_new_channel(&channel_config, &i2s_handle, NULL));
-  //
+
   // First, instantiate the instance so it can do all of its power on
   // configuration.
   std::unique_ptr<I2SDac> dac = std::make_unique<I2SDac>(expander, i2s_handle);
@@ -130,6 +127,8 @@ auto I2SDac::SetPaused(bool paused) -> void {
   }
 }
 
+static volatile bool sSwapWords = false;
+
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
   std::lock_guard<std::mutex> lock(configure_mutex_);
@@ -146,9 +145,11 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
 
   switch (ch) {
     case CHANNELS_MONO:
+      sSwapWords = true;
       slot_config_.slot_mode = I2S_SLOT_MODE_MONO;
       break;
     case CHANNELS_STEREO:
+      sSwapWords = false;
       slot_config_.slot_mode = I2S_SLOT_MODE_STEREO;
       break;
   }
@@ -211,17 +212,32 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
   if (event->data == nullptr || event->size == 0) {
     return false;
   }
-  uint8_t** buf = reinterpret_cast<uint8_t**>(event->data);
+  assert(event->size % 4 == 0);
+
+  uint8_t* buf = *reinterpret_cast<uint8_t**>(event->data);
   auto src = reinterpret_cast<StreamBufferHandle_t>(user_ctx);
 
   BaseType_t ret = false;
   size_t bytes_written =
-      xStreamBufferReceiveFromISR(src, *buf, event->size, &ret);
+      xStreamBufferReceiveFromISR(src, buf, event->size, &ret);
+
+  // The ESP32's I2S peripheral has a different endianness to its processors.
+  // ESP-IDF handles this difference for stereo channels, but not for mono
+  // channels. We therefore sometimes need to swap each pair of words as they're
+  // written to the DMA buffer.
+  if (sSwapWords) {
+    uint16_t* buf_as_words = reinterpret_cast<uint16_t*>(buf);
+    for (size_t i = 0; i + 1 < bytes_written / 2; i += 2) {
+      uint16_t temp = buf_as_words[i];
+      buf_as_words[i] = buf_as_words[i + 1];
+      buf_as_words[i + 1] = temp;
+    }
+  }
 
   // If we ran out of data, then make sure we clear out the DMA buffers rather
   // than continuing to repreat the last few samples.
   if (bytes_written < event->size) {
-    std::memset((*buf) + bytes_written, 0, event->size - bytes_written);
+    std::memset(buf + bytes_written, 0, event->size - bytes_written);
   }
 
   return ret;

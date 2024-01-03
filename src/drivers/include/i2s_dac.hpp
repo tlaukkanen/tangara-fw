@@ -32,7 +32,7 @@ namespace drivers {
 // means that at 48kHz, we have about 21ms of budget to fill each buffer.
 // We base this off of the maximum DMA size in order to minimise the amount of
 // work the CPU has to do to service the DMA callbacks.
-constexpr size_t kI2SBufferLengthFrames = 1023;
+constexpr size_t kI2SBufferLengthFrames = 1024;
 
 /**
  * Interface for a DAC that receives PCM samples over I2S.
