@@ -93,7 +93,6 @@ auto I2SAudioOutput::SetMaxVolume(uint16_t max) -> void {
 
 auto I2SAudioOutput::SetVolume(uint16_t vol) -> void {
   current_volume_ = std::clamp(vol, kMinVolume, max_volume_);
-  ESP_LOGI(kTag, "set volume to %u%% = %idB", GetVolumePct(), GetVolumeDb());
 
   int32_t left_unclamped = current_volume_ + left_difference_;
   uint16_t left = std::clamp<int32_t>(left_unclamped, kMinVolume, max_volume_);

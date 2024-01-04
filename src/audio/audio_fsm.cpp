@@ -58,13 +58,19 @@ void AudioState::react(const system_fsm::KeyLockChanged& ev) {
 
 void AudioState::react(const StepUpVolume& ev) {
   if (sOutput->AdjustVolumeUp()) {
-    events::Ui().Dispatch(VolumeChanged{});
+    events::Ui().Dispatch(VolumeChanged{
+        .percent = sOutput->GetVolumePct(),
+        .db = sOutput->GetVolumeDb(),
+    });
   }
 }
 
 void AudioState::react(const StepDownVolume& ev) {
   if (sOutput->AdjustVolumeDown()) {
-    events::Ui().Dispatch(VolumeChanged{});
+    events::Ui().Dispatch(VolumeChanged{
+        .percent = sOutput->GetVolumePct(),
+        .db = sOutput->GetVolumeDb(),
+    });
   }
 }
 
@@ -77,7 +83,7 @@ void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
 }
 
 void AudioState::react(const ChangeMaxVolume& ev) {
-  ESP_LOGI(kTag, "new max volume %u db",
+  ESP_LOGI(kTag, "new max volume %i db",
            (ev.new_max - drivers::wm8523::kLineLevelReferenceVolume) / 4);
   sI2SOutput->SetMaxVolume(ev.new_max);
   sServices->nvs().AmpMaxVolume(ev.new_max);

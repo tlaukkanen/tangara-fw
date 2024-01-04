@@ -9,6 +9,8 @@
 #include <memory>
 #include <variant>
 
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
 #include "lua.h"
 #include "lua.hpp"
 
@@ -44,6 +46,7 @@
 #include "spiffs.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
+#include "tinyfsm.hpp"
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
@@ -70,6 +73,13 @@ models::TopBar UiState::sTopBarModel{{},
                                      UiState::sPlaybackModel.is_playing,
                                      UiState::sPlaybackModel.current_track};
 
+static TimerHandle_t sAlertTimer;
+static lv_obj_t* sAlertContainer;
+
+static void alert_timer_callback(TimerHandle_t timer) {
+  events::Ui().Dispatch(internal::DismissAlerts{});
+}
+
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
@@ -89,6 +99,7 @@ void UiState::PushScreen(std::shared_ptr<Screen> screen) {
     sScreens.push(sCurrentScreen);
   }
   sCurrentScreen = screen;
+  lv_obj_set_parent(sAlertContainer, sCurrentScreen->alert());
 }
 
 int UiState::PopScreen() {
@@ -96,6 +107,8 @@ int UiState::PopScreen() {
     return 0;
   }
   sCurrentScreen = sScreens.top();
+  lv_obj_set_parent(sAlertContainer, sCurrentScreen->alert());
+
   sScreens.pop();
   return sScreens.size();
 }
@@ -125,6 +138,10 @@ void UiState::react(const internal::ControlSchemeChanged&) {
     return;
   }
   sInput->mode(sServices->nvs().PrimaryInput());
+}
+
+void UiState::react(const internal::DismissAlerts&) {
+  lv_obj_clean(sAlertContainer);
 }
 
 namespace states {
@@ -164,6 +181,10 @@ void Splash::react(const system_fsm::StorageMounted&) {
 
 void Lua::entry() {
   if (!sLua) {
+    sAlertTimer = xTimerCreate("ui_alerts", pdMS_TO_TICKS(1000), false, NULL,
+                               alert_timer_callback);
+    sAlertContainer = lv_obj_create(sCurrentScreen->alert());
+
     auto bat =
         sServices->battery().State().value_or(battery::Battery::BatteryState{});
     battery_pct_ =
@@ -183,6 +204,9 @@ void Lua::entry() {
         false, [&](const lua::LuaValue& val) { return SetPlaying(val); });
     playback_track_ = std::make_shared<lua::Property>();
     playback_position_ = std::make_shared<lua::Property>();
+
+    volume_current_pct_ = std::make_shared<lua::Property>(0);
+    volume_current_db_ = std::make_shared<lua::Property>(0);
 
     sLua.reset(lua::LuaThread::Start(*sServices, sCurrentScreen->content()));
     sLua->bridge().AddPropertyModule("power",
@@ -208,12 +232,23 @@ void Lua::entry() {
                                                   {"replay", queue_repeat_},
                                                   {"random", queue_random_},
                                               });
+    sLua->bridge().AddPropertyModule("volume",
+                                     {
+                                         {"current_pct", volume_current_pct_},
+                                         {"current_db", volume_current_db_},
+                                     });
+
     sLua->bridge().AddPropertyModule(
         "backstack",
         {
             {"push", [&](lua_State* s) { return PushLuaScreen(s); }},
             {"pop", [&](lua_State* s) { return PopLuaScreen(s); }},
         });
+    sLua->bridge().AddPropertyModule(
+        "alerts", {
+                      {"show", [&](lua_State* s) { return ShowAlert(s); }},
+                      {"hide", [&](lua_State* s) { return HideAlert(s); }},
+                  });
 
     sCurrentScreen.reset();
     sLua->RunScript("/lua/main.lua");
@@ -263,6 +298,38 @@ auto Lua::SetPlaying(const lua::LuaValue& val) -> bool {
     events::Audio().Dispatch(audio::TogglePlayPause{});
   }
   return true;
+}
+
+auto Lua::ShowAlert(lua_State* s) -> int {
+  if (!sCurrentScreen) {
+    return 0;
+  }
+  xTimerReset(sAlertTimer, portMAX_DELAY);
+  tinyfsm::FsmList<UiState>::dispatch(internal::DismissAlerts{});
+
+  lv_group_t* prev_group = lv_group_get_default();
+
+  luavgl_set_root(s, sAlertContainer);
+  lv_group_t* catchall = lv_group_create();
+  lv_group_set_default(catchall);
+
+  // Call the constructor for the alert.
+  lua_settop(s, 1);  // Make sure the function is actually at top of stack
+  lua::CallProtected(s, 0, 1);
+
+  // Restore the previous group and default object.
+  luavgl_set_root(s, sCurrentScreen->content());
+  lv_group_set_default(prev_group);
+
+  lv_group_del(catchall);
+
+  return 0;
+}
+
+auto Lua::HideAlert(lua_State* s) -> int {
+  xTimerStop(sAlertTimer, portMAX_DELAY);
+  tinyfsm::FsmList<UiState>::dispatch(internal::DismissAlerts{});
+  return 0;
 }
 
 auto Lua::SetRandom(const lua::LuaValue& val) -> bool {
@@ -325,6 +392,11 @@ void Lua::react(const audio::PlaybackUpdate& ev) {
 
 void Lua::react(const audio::PlaybackFinished&) {
   playback_playing_->Update(false);
+}
+
+void Lua::react(const audio::VolumeChanged& ev) {
+  volume_current_pct_->Update(static_cast<int>(ev.percent));
+  volume_current_db_->Update(static_cast<int>(ev.db));
 }
 
 void Lua::react(const internal::BackPressed& ev) {

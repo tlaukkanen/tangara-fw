@@ -24,9 +24,9 @@ struct OnStorageChange : tinyfsm::Event {
 
 struct OnSystemError : tinyfsm::Event {};
 
-  struct OnLuaError : tinyfsm::Event {
-    std::string message;
-  };
+struct OnLuaError : tinyfsm::Event {
+  std::string message;
+};
 
 namespace internal {
 
@@ -53,6 +53,8 @@ struct OnboardingNavigate : tinyfsm::Event {
 
 struct ModalConfirmPressed : tinyfsm::Event {};
 struct ModalCancelPressed : tinyfsm::Event {};
+
+struct DismissAlerts : tinyfsm::Event {};
 
 }  // namespace internal
 

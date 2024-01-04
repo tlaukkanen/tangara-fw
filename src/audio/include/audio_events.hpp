@@ -47,7 +47,10 @@ struct PlayFile : tinyfsm::Event {
 
 struct StepUpVolume : tinyfsm::Event {};
 struct StepDownVolume : tinyfsm::Event {};
-struct VolumeChanged : tinyfsm::Event {};
+struct VolumeChanged : tinyfsm::Event {
+  uint_fast8_t percent;
+  int db;
+};
 struct ChangeMaxVolume : tinyfsm::Event {
   uint16_t new_max;
 };

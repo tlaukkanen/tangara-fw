@@ -60,6 +60,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const audio::PlaybackFinished&);
   virtual void react(const audio::PlaybackUpdate&);
   virtual void react(const audio::QueueUpdate&);
+  virtual void react(const audio::VolumeChanged&){};
 
   virtual void react(const system_fsm::KeyLockChanged&);
   virtual void react(const OnLuaError&) {}
@@ -75,6 +76,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const internal::OnboardingNavigate&) {}
   void react(const internal::ControlSchemeChanged&);
   virtual void react(const internal::ReindexDatabase&){};
+
+  void react(const internal::DismissAlerts&);
 
   virtual void react(const database::event::UpdateStarted&){};
   virtual void react(const database::event::UpdateProgress&){};
@@ -129,6 +132,7 @@ class Lua : public UiState {
   void react(const audio::PlaybackStarted&) override;
   void react(const audio::PlaybackUpdate&) override;
   void react(const audio::PlaybackFinished&) override;
+  void react(const audio::VolumeChanged&) override;
   void react(const internal::BackPressed&) override;
 
   using UiState::react;
@@ -136,6 +140,10 @@ class Lua : public UiState {
  private:
   auto PushLuaScreen(lua_State*) -> int;
   auto PopLuaScreen(lua_State*) -> int;
+
+  auto ShowAlert(lua_State*) -> int;
+  auto HideAlert(lua_State*) -> int;
+
   auto SetPlaying(const lua::LuaValue&) -> bool;
   auto SetRandom(const lua::LuaValue&) -> bool;
   auto SetRepeat(const lua::LuaValue&) -> bool;
@@ -154,6 +162,9 @@ class Lua : public UiState {
   std::shared_ptr<lua::Property> queue_size_;
   std::shared_ptr<lua::Property> queue_repeat_;
   std::shared_ptr<lua::Property> queue_random_;
+
+  std::shared_ptr<lua::Property> volume_current_pct_;
+  std::shared_ptr<lua::Property> volume_current_db_;
 };
 
 class Browse : public UiState {

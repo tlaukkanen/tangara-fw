@@ -40,6 +40,7 @@ class Screen {
 
   auto root() -> lv_obj_t* { return root_; }
   auto content() -> lv_obj_t* { return content_; }
+  auto alert() -> lv_obj_t* { return alert_; }
 
   auto modal_content() -> lv_obj_t* { return modal_content_; }
   auto modal_group(lv_group_t* g) -> void { modal_group_ = g; }
@@ -68,6 +69,7 @@ class Screen {
   lv_obj_t* const root_;
   lv_obj_t* content_;
   lv_obj_t* modal_content_;
+  lv_obj_t* alert_;
 
   lv_group_t* const group_;
   lv_group_t* modal_group_;
