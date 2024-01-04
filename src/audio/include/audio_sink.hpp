@@ -44,8 +44,14 @@ class IAudioOutput {
   virtual auto SetMode(Modes) -> void = 0;
 
   virtual auto SetVolumeImbalance(int_fast8_t balance) -> void = 0;
-  virtual auto SetVolume(uint_fast8_t percent) -> void = 0;
-  virtual auto GetVolume() -> uint_fast8_t = 0;
+
+  virtual auto SetVolume(uint16_t) -> void = 0;
+
+  virtual auto GetVolume() -> uint16_t = 0;
+
+  virtual auto GetVolumePct() -> uint_fast8_t = 0;
+  virtual auto GetVolumeDb() -> int_fast16_t = 0;
+
   virtual auto AdjustVolumeUp() -> bool = 0;
   virtual auto AdjustVolumeDown() -> bool = 0;
 

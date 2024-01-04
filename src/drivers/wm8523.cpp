@@ -32,6 +32,8 @@ const uint16_t kDefaultVolume = kLineLevelReferenceVolume - 96;
 // Default to +6dB == 2Vrms == 'CD Player'
 const uint16_t kDefaultMaxVolume = kLineLevelReferenceVolume + 12;
 
+const uint16_t kZeroDbVolume = 0x190;
+
 static const uint8_t kAddress = 0b0011010;
 
 auto ReadRegister(Register reg) -> std::optional<uint16_t> {

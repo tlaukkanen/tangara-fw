@@ -194,7 +194,7 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
         data->enc_diff = scroller_->AddInput(now_ms, 0);
       }
 
-      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kLongPress, now_ms);
+      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
       switch (trigger) {
         case Trigger::kNone:
           break;
@@ -205,7 +205,7 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
           break;
       }
 
-      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kLongPress, now_ms);
+      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
       switch (trigger) {
         case Trigger::kNone:
           break;
@@ -242,7 +242,7 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
           break;
       }
 
-      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kLongPress, now_ms);
+      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
       switch (trigger) {
         case Trigger::kNone:
           break;
@@ -253,7 +253,7 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
           break;
       }
 
-      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kLongPress, now_ms);
+      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
       switch (trigger) {
         case Trigger::kNone:
           break;

@@ -91,17 +91,9 @@ auto I2SAudioOutput::SetMaxVolume(uint16_t max) -> void {
   SetVolume(GetVolume());
 }
 
-auto I2SAudioOutput::SetVolumeDb(uint16_t vol) -> void {
-  current_volume_ =
-      std::clamp(vol, drivers::wm8523::kAbsoluteMinVolume, max_volume_);
-  SetVolume(GetVolume());
-}
-
-auto I2SAudioOutput::SetVolume(uint_fast8_t percent) -> void {
-  percent = std::min<uint_fast8_t>(percent, 100);
-  float new_value = static_cast<float>(max_volume_) / 100 * percent;
-  current_volume_ = std::max<float>(new_value, kMinVolume);
-  ESP_LOGI(kTag, "set volume to %u%% = %u", percent, current_volume_);
+auto I2SAudioOutput::SetVolume(uint16_t vol) -> void {
+  current_volume_ = std::clamp(vol, kMinVolume, max_volume_);
+  ESP_LOGI(kTag, "set volume to %u%% = %idB", GetVolumePct(), GetVolumeDb());
 
   int32_t left_unclamped = current_volume_ + left_difference_;
   uint16_t left = std::clamp<int32_t>(left_unclamped, kMinVolume, max_volume_);
@@ -112,31 +104,37 @@ auto I2SAudioOutput::SetVolume(uint_fast8_t percent) -> void {
                                  current_volume_ | 0x200);
 }
 
-auto I2SAudioOutput::GetVolume() -> uint_fast8_t {
-  return static_cast<uint_fast8_t>(static_cast<float>(current_volume_) /
-                                   max_volume_ * 100.0f);
+auto I2SAudioOutput::GetVolume() -> uint16_t {
+  return current_volume_;
+}
+
+auto I2SAudioOutput::GetVolumePct() -> uint_fast8_t {
+  return (current_volume_ - kMinVolume) * 100 / (max_volume_ - kMinVolume);
+}
+
+auto I2SAudioOutput::GetVolumeDb() -> int_fast16_t {
+  // Add two before dividing in order to round correctly.
+  return (static_cast<int>(current_volume_) -
+          static_cast<int>(drivers::wm8523::kLineLevelReferenceVolume) + 2) /
+         4;
 }
 
 auto I2SAudioOutput::AdjustVolumeUp() -> bool {
-  if (GetVolume() >= 100) {
+  if (GetVolume() >= max_volume_) {
     return false;
   }
-  if (GetVolume() >= 95) {
-    SetVolume(100);
-  } else {
-    SetVolume(GetVolume() + 5);
-  }
+  SetVolume(GetVolume() + 1);
   return true;
 }
 
 auto I2SAudioOutput::AdjustVolumeDown() -> bool {
-  if (GetVolume() == 0) {
+  if (GetVolume() == kMinVolume) {
     return false;
   }
-  if (GetVolume() <= 5) {
+  if (GetVolume() <= kMinVolume + 1) {
     SetVolume(0);
   } else {
-    SetVolume(GetVolume() - 5);
+    SetVolume(GetVolume() - 1);
   }
   return true;
 }

@@ -20,8 +20,7 @@ namespace audio {
 
 class I2SAudioOutput : public IAudioOutput {
  public:
-  I2SAudioOutput(StreamBufferHandle_t,
-                 drivers::IGpios& expander);
+  I2SAudioOutput(StreamBufferHandle_t, drivers::IGpios& expander);
   ~I2SAudioOutput();
 
   auto SetMode(Modes) -> void override;
@@ -30,8 +29,14 @@ class I2SAudioOutput : public IAudioOutput {
   auto SetVolumeDb(uint16_t) -> void;
 
   auto SetVolumeImbalance(int_fast8_t balance) -> void override;
-  auto SetVolume(uint_fast8_t percent) -> void override;
-  auto GetVolume() -> uint_fast8_t override;
+
+  auto SetVolume(uint16_t) -> void override;
+
+  auto GetVolume() -> uint16_t override;
+
+  auto GetVolumePct() -> uint_fast8_t override;
+  auto GetVolumeDb() -> int_fast16_t override;
+
   auto AdjustVolumeUp() -> bool override;
   auto AdjustVolumeDown() -> bool override;
 

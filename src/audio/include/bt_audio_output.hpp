@@ -27,8 +27,14 @@ class BluetoothAudioOutput : public IAudioOutput {
   auto SetMode(Modes) -> void override;
 
   auto SetVolumeImbalance(int_fast8_t balance) -> void override;
-  auto SetVolume(uint_fast8_t percent) -> void override;
-  auto GetVolume() -> uint_fast8_t override;
+
+  auto SetVolume(uint16_t) -> void override;
+
+  auto GetVolume() -> uint16_t override;
+
+  auto GetVolumePct() -> uint_fast8_t override;
+  auto GetVolumeDb() -> int_fast16_t override;
+
   auto AdjustVolumeUp() -> bool override;
   auto AdjustVolumeDown() -> bool override;
 

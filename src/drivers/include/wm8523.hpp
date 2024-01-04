@@ -23,6 +23,8 @@ extern const uint16_t kLineLevelReferenceVolume;
 extern const uint16_t kDefaultVolume;
 extern const uint16_t kDefaultMaxVolume;
 
+extern const uint16_t kZeroDbVolume;
+
 constexpr auto VolumeToDb(uint16_t vol) -> int_fast8_t {
   return (vol - kLineLevelReferenceVolume) / 4;
 }

@@ -129,7 +129,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
-  sI2SOutput->SetVolumeDb(nvs.AmpCurrentVolume());
+  sI2SOutput->SetVolume(nvs.AmpCurrentVolume());
 
   if (sServices->nvs().OutputMode() ==
       drivers::NvsStorage::Output::kHeadphones) {
@@ -187,6 +187,10 @@ void Playback::exit() {
   // to drain.
   vTaskDelay(pdMS_TO_TICKS(10));
   sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
+
+  // Stash the current volume now, in case it changed during playback, since we
+  // might be powering off soon.
+  sServices->nvs().AmpCurrentVolume(sOutput->GetVolume());
 
   events::System().Dispatch(PlaybackFinished{});
   events::Ui().Dispatch(PlaybackFinished{});

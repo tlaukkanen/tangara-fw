@@ -43,10 +43,18 @@ auto BluetoothAudioOutput::SetMode(Modes mode) -> void {
 
 auto BluetoothAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {}
 
-auto BluetoothAudioOutput::SetVolume(uint_fast8_t percent) -> void {}
+auto BluetoothAudioOutput::SetVolume(uint16_t) -> void {}
 
-auto BluetoothAudioOutput::GetVolume() -> uint_fast8_t {
-  return 50;
+auto BluetoothAudioOutput::GetVolume() -> uint16_t {
+  return 0;
+}
+
+auto BluetoothAudioOutput::GetVolumePct() -> uint_fast8_t {
+  return 0;
+}
+
+auto BluetoothAudioOutput::GetVolumeDb() -> int_fast16_t {
+  return 0;
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {

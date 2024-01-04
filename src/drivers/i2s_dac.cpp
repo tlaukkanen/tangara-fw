@@ -95,8 +95,8 @@ I2SDac::I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle)
   vTaskDelay(pdMS_TO_TICKS(10));
   wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
 
-  // Ramp volume changes
-  wm8523::WriteRegister(wm8523::Register::kDacCtrl, 0b11);
+  // Use zero-cross detection for volume changes.
+  wm8523::WriteRegister(wm8523::Register::kDacCtrl, 0b10000);
 }
 
 I2SDac::~I2SDac() {
