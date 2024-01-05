@@ -337,7 +337,7 @@ end
 
 --- Create Bar widget on parent
 --- @param parent? Object | nil
---- @param property? BarProp
+--- @param property? BarStyle
 --- @return Bar
 function lvgl.Bar(parent, property)
 end
@@ -1277,98 +1277,98 @@ end
 
 --- Style properties
 --- @class StyleProp
---- @field w integer
---- @field width integer
---- @field min_width integer
---- @field max_width integer
---- @field height integer
---- @field min_height integer
---- @field max_height integer
---- @field x integer
---- @field y integer
---- @field size integer set size is equilent to set w/h to same value
---- @field align Align | ObjAlignType
---- @field transform_width integer
---- @field transform_height integer
---- @field translate_x integer
---- @field translate_y integer
---- @field transform_zoom integer
---- @field transform_angle integer
---- @field transform_pivot_x integer
---- @field transform_pivot_y integer
---- @field pad_all integer
---- @field pad_top integer
---- @field pad_bottom integer
---- @field pad_ver integer
---- @field pad_left integer
---- @field pad_right integer
---- @field pad_hor integer
---- @field pad_row integer
---- @field pad_column integer
---- @field pad_gap integer
---- @field bg_color integer | string text color in hex integer or #RGB or #RRGGBB format
---- @field bg_opa integer
---- @field bg_grad_color integer
---- @field bg_grad_dir integer
---- @field bg_main_stop integer
---- @field bg_grad_stop integer
---- @field bg_dither_mode integer
---- @field bg_img_src integer
---- @field bg_img_opa integer
---- @field bg_img_recolor integer
---- @field bg_img_recolor_opa integer
---- @field bg_img_tiled integer
---- @field border_color integer | string
---- @field border_opa integer
---- @field border_width integer
---- @field border_side integer
---- @field border_post integer
---- @field outline_width integer
---- @field outline_color integer | string
---- @field outline_opa integer
---- @field outline_pad integer
---- @field shadow_width integer
---- @field shadow_ofs_x integer
---- @field shadow_ofs_y integer
---- @field shadow_spread integer
---- @field shadow_color integer | string
---- @field shadow_opa integer
---- @field img_opa integer
---- @field img_recolor integer
---- @field img_recolor_opa integer
---- @field line_width integer
---- @field line_dash_width integer
---- @field line_dash_gap integer
---- @field line_rounded integer
---- @field line_color integer | string
---- @field line_opa integer
---- @field arc_width integer
---- @field arc_rounded integer
---- @field arc_color integer | string
---- @field arc_opa integer
---- @field arc_img_src integer
---- @field text_color integer | string
---- @field text_opa integer
---- @field text_font Font | BuiltinFont
---- @field text_letter_space integer
---- @field text_line_space integer
---- @field text_decor integer
---- @field text_align integer
---- @field radius integer
---- @field clip_corner integer
---- @field opa integer
---- @field color_filter_opa integer
---- @field anim_time integer
---- @field anim_speed integer
---- @field blend_mode integer
---- @field layout integer
---- @field base_dir integer
---- @field flex_flow FlexFlow
---- @field flex_main_place FlexAlign
---- @field flex_cross_place FlexAlign
---- @field flex_track_place FlexAlign
---- @field flex_grow integer 0..255
---- @field flex FlexLayoutPara
+--- @field w? integer
+--- @field width? integer
+--- @field min_width? integer
+--- @field max_width? integer
+--- @field height? integer
+--- @field min_height? integer
+--- @field max_height? integer
+--- @field x? integer
+--- @field y? integer
+--- @field size? integer set size is equivalent to set w/h to same value
+--- @field align? Align | ObjAlignType
+--- @field transform_width? integer
+--- @field transform_height? integer
+--- @field translate_x? integer
+--- @field translate_y? integer
+--- @field transform_zoom? integer
+--- @field transform_angle? integer
+--- @field transform_pivot_x? integer
+--- @field transform_pivot_y? integer
+--- @field pad_all? integer
+--- @field pad_top? integer
+--- @field pad_bottom? integer
+--- @field pad_ver? integer
+--- @field pad_left? integer
+--- @field pad_right? integer
+--- @field pad_hor? integer
+--- @field pad_row? integer
+--- @field pad_column? integer
+--- @field pad_gap? integer
+--- @field bg_color? integer | string text color in hex integer or #RGB or #RRGGBB format
+--- @field bg_opa? integer
+--- @field bg_grad_color? integer
+--- @field bg_grad_dir? integer
+--- @field bg_main_stop? integer
+--- @field bg_grad_stop? integer
+--- @field bg_dither_mode? integer
+--- @field bg_img_src? integer
+--- @field bg_img_opa? integer
+--- @field bg_img_recolor? integer
+--- @field bg_img_recolor_opa? integer
+--- @field bg_img_tiled? integer
+--- @field border_color? integer | string
+--- @field border_opa? integer
+--- @field border_width? integer
+--- @field border_side? integer
+--- @field border_post? integer
+--- @field outline_width? integer
+--- @field outline_color? integer | string
+--- @field outline_opa? integer
+--- @field outline_pad? integer
+--- @field shadow_width? integer
+--- @field shadow_ofs_x? integer
+--- @field shadow_ofs_y? integer
+--- @field shadow_spread? integer
+--- @field shadow_color? integer | string
+--- @field shadow_opa? integer
+--- @field img_opa? integer
+--- @field img_recolor? integer
+--- @field img_recolor_opa? integer
+--- @field line_width? integer
+--- @field line_dash_width? integer
+--- @field line_dash_gap? integer
+--- @field line_rounded? integer
+--- @field line_color? integer | string
+--- @field line_opa? integer
+--- @field arc_width? integer
+--- @field arc_rounded? integer
+--- @field arc_color? integer | string
+--- @field arc_opa? integer
+--- @field arc_img_src? integer
+--- @field text_color? integer | string
+--- @field text_opa? integer
+--- @field text_font? Font | BuiltinFont
+--- @field text_letter_space? integer
+--- @field text_line_space/ integer
+--- @field text_decor? integer
+--- @field text_align? integer
+--- @field radius? integer
+--- @field clip_corner? integer
+--- @field opa? integer
+--- @field color_filter_opa? integer
+--- @field anim_time? integer
+--- @field anim_speed? integer
+--- @field blend_mode? integer
+--- @field layout? integer
+--- @field base_dir? integer
+--- @field flex_flow? FlexFlow
+--- @field flex_main_place? FlexAlign
+--- @field flex_cross_place? FlexAlign
+--- @field flex_track_place/ FlexAlign
+--- @field flex_grow? integer 0..255
+--- @field flex? FlexLayoutPara
 
 ---
 
@@ -1496,11 +1496,11 @@ end
 --- @alias flexAlignOptions "flex-start" | "flex-end" | "center" | "space-between" | "space-around" | "space-evenly"
 ---
 --- @class FlexLayoutPara
---- @field flex_direction "row" | "column" | "row-reverse" | "column-reverse"
---- @field flex_wrap "nowrap" | "wrap" | "wrap-reverse"
---- @field justify_content flexAlignOptions
---- @field align_items flexAlignOptions
---- @field align_content flexAlignOptions
+--- @field flex_direction? "row" | "column" | "row-reverse" | "column-reverse"
+--- @field flex_wrap? "nowrap" | "wrap" | "wrap-reverse"
+--- @field justify_content? flexAlignOptions
+--- @field align_items? flexAlignOptions
+--- @field align_content? flexAlignOptions
 
 
 ---
