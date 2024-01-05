@@ -1,10 +1,11 @@
 --- Userdata-based types used throughout the rest of the API. These types are
 --- not generally constructable within Lua code.
 -- @module types
+local types = {}
 
---- A value sourced from the C++ firmware.
+--- A observable value, owned by the C++ firmware.
 -- @type Property
-local Property = {}
+types.Property = {}
 
 --- Gets the current value
 -- @return The property's current value.
@@ -23,5 +24,12 @@ function Property:set(val) end
 -- @param fn callback function to apply property values. Must accept one argument; the updated value.
 -- @return fn, for more ergonmic use with anonymous closures.
 function Property:bind(fn) end
+
+--- Table containing information about a track. Most fields are optional.
+-- @type Track
+types.Track = {}
+
+--- The title of the track, or the filename if no title is available.
+types.Track.title = ""
 
 return Property
