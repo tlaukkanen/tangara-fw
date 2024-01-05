@@ -5,6 +5,7 @@ local database = require("database")
 local backstack = require("backstack")
 local browser = require("browser")
 local playing = require("playing")
+local theme = require("theme")
 
 return function()
   local menu = {}
@@ -21,7 +22,7 @@ return function()
   })
   menu.root:center()
 
-  menu.status_bar = widgets.StatusBar(menu.root, {transparent_bg = true})
+  menu.status_bar = widgets.StatusBar(menu.root, { transparent_bg = true })
 
   menu.list = lvgl.List(menu.root, {
     w = lvgl.PCT(100),
@@ -29,9 +30,11 @@ return function()
     flex_grow = 1,
   })
 
-  menu.list:add_btn(nil, "Now Playing"):onClicked(function()
+  local now_playing = menu.list:add_btn(nil, "Now Playing")
+  now_playing:onClicked(function()
     backstack.push(playing)
   end)
+  now_playing:add_style(theme.list_item)
 
   local indexes = database.indexes()
   for _, idx in ipairs(indexes) do
@@ -44,11 +47,14 @@ return function()
         }
       end)
     end)
+    btn:add_style(theme.list_item)
   end
 
-  menu.list:add_btn(nil, "Settings"):onClicked(function()
+  local settings = menu.list:add_btn(nil, "Settings")
+  settings:onClicked(function()
     legacy_ui.open_settings();
   end)
+  settings:add_style(theme.list_item)
 
   return menu
 end

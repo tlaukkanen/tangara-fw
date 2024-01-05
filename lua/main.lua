@@ -16,6 +16,8 @@ GLOBAL_BINDINGS = {
         },
         bg_opa = lvgl.OPA(100),
         bg_color = "#fafafa",
+        radius = 8,
+        pad_all = 2,
       })
       container:Label {
         text = string.format("Volume %i%%", pct),

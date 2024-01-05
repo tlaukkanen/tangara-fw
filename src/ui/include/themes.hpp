@@ -25,8 +25,23 @@ class Theme {
 
  private:
   Theme();
+
+  lv_style_t base_style_;
+  lv_style_t base_focused_style_;
+
   lv_style_t button_style_;
-  lv_style_t button_style_focused_;
+  lv_style_t bar_style_;
+  lv_style_t dropdown_style_;
+
+  lv_style_t slider_indicator_style_;
+  lv_style_t slider_knob_style_;
+  lv_style_t slider_knob_focused_style_;
+
+  lv_style_t switch_style_;
+  lv_style_t switch_indicator_style_;
+  lv_style_t switch_indicator_checked_style_;
+  lv_style_t switch_knob_style_;
+
   lv_theme_t theme_;
 };
 }  // namespace themes

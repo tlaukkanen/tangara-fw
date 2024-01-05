@@ -1,11 +1,10 @@
 local lvgl = require("lvgl")
 local widgets = require("widgets")
-local legacy_ui = require("legacy_ui")
-local database = require("database")
 local backstack = require("backstack")
 local font = require("font")
 local queue = require("queue")
 local playing = require("playing")
+local theme = require("theme")
 
 local browser = {}
 
@@ -88,6 +87,7 @@ function browser.create(opts)
 
   local back = screen.list:add_btn(nil, "< Back")
   back:onClicked(backstack.pop)
+  back:add_style(theme.list_item)
 
   screen.focused_item = 0
   screen.last_item = 0
@@ -118,6 +118,7 @@ function browser.create(opts)
         screen.add_item(opts.iterator())
       end
     end)
+    btn:add_style(theme.list_item)
   end
 
   for _ = 1, 8 do
