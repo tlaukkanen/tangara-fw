@@ -37,13 +37,13 @@ static const uint8_t kPortADefault = 0b00111110;
 // 0 - 3.5mm jack detect (active low)
 // 1 - headphone amp power enable
 // 2 - sd card detect
-// 3 - NC
-// 4 - NC
+// 3 - amplifier unmute (revisions < r8)
+// 4 - amplifier mute (revisions >= r8)
 // 5 - NC
 // 6 - NC
 // 7 - NC
 // Default inputs high, amp off.
-static const uint8_t kPortBDefault = 0b00000101;
+static const uint8_t kPortBDefault = 0b00001101;
 
 /*
  * Convenience mehod for packing the port a and b bytes into a single 16 bit
