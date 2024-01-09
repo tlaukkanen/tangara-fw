@@ -61,6 +61,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const audio::PlaybackUpdate&);
   virtual void react(const audio::QueueUpdate&);
   virtual void react(const audio::VolumeChanged&){};
+  virtual void react(const internal::Angle&){};
 
   virtual void react(const system_fsm::KeyLockChanged&);
   virtual void react(const OnLuaError&) {}
@@ -115,6 +116,7 @@ class Splash : public UiState {
   void exit() override;
   void react(const system_fsm::BootComplete&) override;
   void react(const system_fsm::StorageMounted&) override;
+  void react(const internal::Angle&) override;
   using UiState::react;
 };
 

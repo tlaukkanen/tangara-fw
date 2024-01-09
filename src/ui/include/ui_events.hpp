@@ -56,6 +56,8 @@ struct ModalCancelPressed : tinyfsm::Event {};
 
 struct DismissAlerts : tinyfsm::Event {};
 
+struct Angle : tinyfsm::Event {};
+
 }  // namespace internal
 
 }  // namespace ui

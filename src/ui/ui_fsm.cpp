@@ -5,10 +5,12 @@
  */
 
 #include "ui_fsm.hpp"
+#include <stdint.h>
 
 #include <memory>
 #include <variant>
 
+#include "core/lv_obj_pos.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "lua.h"
@@ -50,6 +52,7 @@
 #include "touchwheel.hpp"
 #include "track_queue.hpp"
 #include "ui_events.hpp"
+#include "widgets/lv_arc.h"
 #include "widgets/lv_label.h"
 
 namespace ui {
@@ -78,6 +81,12 @@ static lv_obj_t* sAlertContainer;
 
 static void alert_timer_callback(TimerHandle_t timer) {
   events::Ui().Dispatch(internal::DismissAlerts{});
+}
+
+static TimerHandle_t sAngleTimer;
+
+static void angle_timer_callback(TimerHandle_t timer) {
+  events::Ui().Dispatch(internal::Angle{});
 }
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
@@ -153,6 +162,9 @@ void Splash::exit() {
   });
 }
 
+static std::shared_ptr<Screen> s;
+static lv_obj_t* pointer;
+
 void Splash::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
@@ -173,11 +185,37 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   } else {
     ESP_LOGE(kTag, "no input devices initialised!");
   }
+
+  sAngleTimer = xTimerCreate("angle", pdMS_TO_TICKS(10), true, NULL,
+                             angle_timer_callback);
+  xTimerStart(sAngleTimer, portMAX_DELAY);
+
+  // transit<Lua>();
+  s = std::make_shared<Screen>();
+
+  sCurrentScreen = s;
+
+  pointer = lv_arc_create(s->content());
+  lv_obj_set_size(pointer, 100, 100);
+  lv_obj_center(pointer);
+  lv_arc_set_range(pointer, 0, 255);
+  lv_arc_set_bg_angles(pointer, 0, 360);
+  lv_arc_set_rotation(pointer, 270);
 }
 
-void Splash::react(const system_fsm::StorageMounted&) {
-  transit<Lua>();
+void Splash::react(const internal::Angle&) {
+  if (!s) {
+    return;
+  }
+  auto* wheel = *sServices->touchwheel();
+  wheel->Update();
+  lv_arc_set_value(
+      pointer,
+      (255 - static_cast<int>(wheel->GetTouchWheelData().wheel_position)) %
+          255);
 }
+
+void Splash::react(const system_fsm::StorageMounted&) {}
 
 void Lua::entry() {
   if (!sLua) {

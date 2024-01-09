@@ -101,10 +101,10 @@ uint8_t TouchWheel::ReadRegister(uint8_t reg) {
 
 void TouchWheel::Update() {
   // Read data from device into member struct
-  bool has_data = !gpio_get_level(kIntPin);
-  if (!has_data) {
-    return;
-  }
+  // bool has_data = !gpio_get_level(kIntPin);
+  // if (!has_data) {
+    // return;
+  // }
   uint8_t status = ReadRegister(Register::DETECTION_STATUS);
   if (status & 0b10000000) {
     // Still calibrating.
@@ -115,11 +115,11 @@ void TouchWheel::Update() {
     // Probably okay, but we should keep an eye on this for development.
     ESP_LOGW(kTag, "touchwheel acquisition >16ms");
   }
-  if (status & 0b10) {
+  // if (status & 0b10) {
     // Slider detect.
     uint8_t pos = ReadRegister(Register::SLIDER_POSITION);
     data_.wheel_position = pos;
-  }
+  // }
   if (status & 0b1) {
     // Key detect. Note that the touchwheel keys also trigger this.
     uint8_t reg = ReadRegister(Register::KEY_STATUS_A);
