@@ -72,6 +72,8 @@ class EncoderInput {
   // Set of keys that have had an event fired for them since being pressed.
   std::set<Keys> fired_;
 
+  bool is_scrolling_wheel_;
+
   enum class Trigger {
     kNone,
     // Regular short-click. Triggered on release for long-pressable keys,
@@ -85,7 +87,7 @@ class EncoderInput {
     kLongPress,
   };
 
-  auto HandleKeyState(Keys key, uint64_t ms, bool clicked) -> void;
+  auto UpdateKeyState(Keys key, uint64_t ms, bool clicked) -> void;
   auto TriggerKey(Keys key, KeyStyle t, uint64_t ms) -> Trigger;
 };
 

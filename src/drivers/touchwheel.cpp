@@ -49,14 +49,16 @@ TouchWheel::TouchWheel() {
   WriteRegister(Register::KEY_CONTROL_BASE + 0, 0b100);
   WriteRegister(Register::KEY_CONTROL_BASE + 1, 0b100);
   WriteRegister(Register::KEY_CONTROL_BASE + 2, 0b100);
-  // Centre button. Also channel 1.
-  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b100);
+  // Centre button. No AKS channel, since we handle it in software.
+  WriteRegister(Register::KEY_CONTROL_BASE + 3, 0b0);
   // Touch guard. Set as a guard, in channel 1.
   WriteRegister(Register::KEY_CONTROL_BASE + 4, 0b10100);
 
   // It's normal to press the wheel for a long time. Disable auto recalibration
   // so that the user's finger isn't calibrated away.
   WriteRegister(Register::RECALIBRATION_DELAY, 0);
+
+  WriteRegister(Register::CHARGE_TIME, 0x10);
 
   // Unused extra keys. All disabled.
   for (int i = 5; i < 12; i++) {

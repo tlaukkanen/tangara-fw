@@ -47,7 +47,7 @@ auto RelativeWheel::Update() -> void {
 
   int delta = 128 - last_angle_;
   uint8_t rotated_angle = new_angle + delta;
-  int threshold = 15;
+  int threshold = 10;
 
   if (rotated_angle < 128 - threshold) {
     ticks_ = 1;

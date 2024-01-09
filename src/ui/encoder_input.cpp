@@ -25,7 +25,7 @@
 
 [[maybe_unused]] static constexpr char kTag[] = "input";
 
-constexpr int kDPadAngleThreshold = 20;
+constexpr int kDPadAngleThreshold = 10;
 constexpr int kLongPressDelayMs = 500;
 constexpr int kRepeatDelayMs = 250;
 
@@ -49,7 +49,8 @@ EncoderInput::EncoderInput(drivers::IGpios& gpios, drivers::TouchWheel& wheel)
       relative_wheel_(std::make_unique<drivers::RelativeWheel>(wheel)),
       scroller_(std::make_unique<Scroller>()),
       mode_(drivers::NvsStorage::InputModes::kRotatingWheel),
-      is_locked_(false) {
+      is_locked_(false),
+      is_scrolling_wheel_(false) {
   lv_indev_drv_init(&driver_);
   driver_.type = LV_INDEV_TYPE_ENCODER;
   driver_.read_cb = encoder_read;
@@ -70,7 +71,7 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
 
   raw_wheel_.Update();
   relative_wheel_->Update();
-  // GPIOs updating is handled by system_fsm.
+  // GPIO (for volume buttons) updating is handled by system_fsm.
 
   uint64_t now_ms = esp_timer_get_time() / 1000;
 
@@ -83,215 +84,198 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
   }
 
   // Check each button.
-  HandleKeyState(Keys::kVolumeUp, now_ms,
+  UpdateKeyState(Keys::kVolumeUp, now_ms,
                  !gpios_.Get(drivers::IGpios::Pin::kKeyUp));
-  HandleKeyState(Keys::kVolumeDown, now_ms,
+  UpdateKeyState(Keys::kVolumeDown, now_ms,
                  !gpios_.Get(drivers::IGpios::Pin::kKeyDown));
 
   drivers::TouchWheelData wheel_data = raw_wheel_.GetTouchWheelData();
-  HandleKeyState(Keys::kTouchWheel, now_ms, wheel_data.is_wheel_touched);
-  HandleKeyState(Keys::kTouchWheelCenter, now_ms, wheel_data.is_button_touched);
+  UpdateKeyState(Keys::kTouchWheel, now_ms, wheel_data.is_wheel_touched);
+  UpdateKeyState(Keys::kTouchWheelCenter, now_ms, wheel_data.is_button_touched);
 
-  HandleKeyState(
+  UpdateKeyState(
       Keys::kDirectionalUp, now_ms,
       wheel_data.is_wheel_touched &&
           IsAngleWithin(wheel_data.wheel_position, 0, kDPadAngleThreshold));
-  HandleKeyState(
+  UpdateKeyState(
       Keys::kDirectionalLeft, now_ms,
       wheel_data.is_wheel_touched &&
           IsAngleWithin(wheel_data.wheel_position, 63, kDPadAngleThreshold));
-  HandleKeyState(
+  UpdateKeyState(
       Keys::kDirectionalDown, now_ms,
       wheel_data.is_wheel_touched &&
           IsAngleWithin(wheel_data.wheel_position, 127, kDPadAngleThreshold));
-  HandleKeyState(
+  UpdateKeyState(
       Keys::kDirectionalRight, now_ms,
       wheel_data.is_wheel_touched &&
           IsAngleWithin(wheel_data.wheel_position, 189, kDPadAngleThreshold));
 
-  // We now have enough information to give LVGL its update.
-  Trigger trigger;
-  switch (mode_) {
-    case drivers::NvsStorage::InputModes::kButtonsOnly:
-      data->state = LV_INDEV_STATE_RELEASED;
+  // When the wheel is being scrolled, we want to ensure that other inputs
+  // involving the touchwheel don't trigger. This guards again two main issues:
+  //  - hesitating when your thumb is on a cardinal direction, causing an
+  //    unintentional long-press,
+  //  - drifting from the outside of the wheel in a way that causes the centre
+  //    key to be triggered.
+  if (is_scrolling_wheel_) {
+    UpdateKeyState(Keys::kTouchWheelCenter, now_ms, false);
+    UpdateKeyState(Keys::kDirectionalUp, now_ms, false);
+    UpdateKeyState(Keys::kDirectionalLeft, now_ms, false);
+    UpdateKeyState(Keys::kDirectionalDown, now_ms, false);
+    UpdateKeyState(Keys::kDirectionalRight, now_ms, false);
+  }
 
-      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kLongPress, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          break;
-        case Trigger::kClick:
-          data->enc_diff = -1;
-          break;
-        case Trigger::kLongPress:
-          events::Ui().Dispatch(internal::BackPressed{});
-          break;
-      }
+  // Now that we've determined the correct state for all keys, we can start
+  // mapping key states into actions, depending on the current control scheme.
+  if (mode_ == drivers::NvsStorage::InputModes::kButtonsOnly) {
+    Trigger trigger;
+    data->state = LV_INDEV_STATE_RELEASED;
 
-      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kLongPress, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          break;
-        case Trigger::kClick:
-          data->enc_diff = 1;
-          break;
-        case Trigger::kLongPress:
-          data->state = LV_INDEV_STATE_PRESSED;
-          break;
-      }
-
-      break;
-    case drivers::NvsStorage::InputModes::kButtonsWithWheel:
-      trigger = TriggerKey(Keys::kTouchWheel, KeyStyle::kLongPress, now_ms);
-      data->state = trigger == Trigger::kClick ? LV_INDEV_STATE_PRESSED
-                                               : LV_INDEV_STATE_RELEASED;
-
-      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
-      if (trigger == Trigger::kClick) {
-        data->enc_diff = scroller_->AddInput(now_ms, -1);
-      }
-
-      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
-      if (trigger == Trigger::kClick) {
-        data->enc_diff = scroller_->AddInput(now_ms, 1);
-      }
-
-      // Cancel scrolling if the buttons are released.
-      if (!touch_time_ms_.contains(Keys::kVolumeDown) &&
-          !touch_time_ms_.contains(Keys::kVolumeUp)) {
-        data->enc_diff = scroller_->AddInput(now_ms, 0);
-      }
-
-      break;
-    case drivers::NvsStorage::InputModes::kDirectionalWheel:
-      trigger =
-          TriggerKey(Keys::kTouchWheelCenter, KeyStyle::kLongPress, now_ms);
-      data->state = trigger == Trigger::kClick ? LV_INDEV_STATE_PRESSED
-                                               : LV_INDEV_STATE_RELEASED;
-
-      trigger = TriggerKey(Keys::kDirectionalUp, KeyStyle::kRepeat, now_ms);
-      if (trigger == Trigger::kClick) {
-        data->enc_diff = scroller_->AddInput(now_ms, -1);
-      }
-
-      trigger = TriggerKey(Keys::kDirectionalDown, KeyStyle::kRepeat, now_ms);
-      if (trigger == Trigger::kClick) {
-        data->enc_diff = scroller_->AddInput(now_ms, 1);
-      }
-
-      trigger = TriggerKey(Keys::kDirectionalLeft, KeyStyle::kRepeat, now_ms);
-      if (trigger == Trigger::kClick) {
+    trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kLongPress, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        data->enc_diff = -1;
+        break;
+      case Trigger::kLongPress:
         events::Ui().Dispatch(internal::BackPressed{});
-      }
+        break;
+    }
 
-      trigger = TriggerKey(Keys::kDirectionalRight, KeyStyle::kRepeat, now_ms);
-      if (trigger == Trigger::kClick) {
-        // TODO: ???
-      }
+    trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kLongPress, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        data->enc_diff = 1;
+        break;
+      case Trigger::kLongPress:
+        data->state = LV_INDEV_STATE_PRESSED;
+        break;
+    }
+  } else if (mode_ == drivers::NvsStorage::InputModes::kDirectionalWheel) {
+    Trigger trigger;
+    trigger = TriggerKey(Keys::kTouchWheelCenter, KeyStyle::kLongPress, now_ms);
+    data->state = trigger == Trigger::kClick ? LV_INDEV_STATE_PRESSED
+                                             : LV_INDEV_STATE_RELEASED;
 
-      // Cancel scrolling if the touchpad is released.
-      if (!touch_time_ms_.contains(Keys::kDirectionalUp) &&
-          !touch_time_ms_.contains(Keys::kDirectionalDown)) {
-        data->enc_diff = scroller_->AddInput(now_ms, 0);
-      }
+    trigger = TriggerKey(Keys::kDirectionalUp, KeyStyle::kRepeat, now_ms);
+    if (trigger == Trigger::kClick) {
+      data->enc_diff = scroller_->AddInput(now_ms, -1);
+    }
 
-      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          break;
-        case Trigger::kClick:
-          events::Audio().Dispatch(audio::StepUpVolume{});
-          break;
-        case Trigger::kLongPress:
-          break;
-      }
+    trigger = TriggerKey(Keys::kDirectionalDown, KeyStyle::kRepeat, now_ms);
+    if (trigger == Trigger::kClick) {
+      data->enc_diff = scroller_->AddInput(now_ms, 1);
+    }
 
-      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          break;
-        case Trigger::kClick:
-          events::Audio().Dispatch(audio::StepDownVolume{});
-          break;
-        case Trigger::kLongPress:
-          break;
-      }
+    trigger = TriggerKey(Keys::kDirectionalLeft, KeyStyle::kRepeat, now_ms);
+    if (trigger == Trigger::kClick) {
+      events::Ui().Dispatch(internal::BackPressed{});
+    }
 
-      break;
-    case drivers::NvsStorage::InputModes::kRotatingWheel:
-      if (!raw_wheel_.GetTouchWheelData().is_wheel_touched) {
-        data->enc_diff = scroller_->AddInput(now_ms, 0);
-      } else if (relative_wheel_->ticks() != 0) {
-        data->enc_diff = scroller_->AddInput(now_ms, relative_wheel_->ticks());
-      } else {
-        data->enc_diff = 0;
-      }
+    trigger = TriggerKey(Keys::kDirectionalRight, KeyStyle::kRepeat, now_ms);
+    if (trigger == Trigger::kClick) {
+      // TODO: ???
+    }
 
-      trigger =
-          TriggerKey(Keys::kTouchWheelCenter, KeyStyle::kLongPress, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          data->state = LV_INDEV_STATE_RELEASED;
-          break;
-        case Trigger::kClick:
-          data->state = LV_INDEV_STATE_PRESSED;
-          break;
-        case Trigger::kLongPress:
-          if (active_object) {
-            lv_event_send(active_object, LV_EVENT_LONG_PRESSED, NULL);
-          }
-          break;
-      }
+    // Cancel scrolling if the touchpad is released.
+    if (!touch_time_ms_.contains(Keys::kDirectionalUp) &&
+        !touch_time_ms_.contains(Keys::kDirectionalDown)) {
+      data->enc_diff = scroller_->AddInput(now_ms, 0);
+    }
 
-      trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          break;
-        case Trigger::kClick:
-          events::Audio().Dispatch(audio::StepUpVolume{});
-          break;
-        case Trigger::kLongPress:
-          break;
-      }
+    trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        events::Audio().Dispatch(audio::StepUpVolume{});
+        break;
+      case Trigger::kLongPress:
+        break;
+    }
 
-      trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
-      switch (trigger) {
-        case Trigger::kNone:
-          break;
-        case Trigger::kClick:
-          events::Audio().Dispatch(audio::StepDownVolume{});
-          break;
-        case Trigger::kLongPress:
-          break;
-      }
+    trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        events::Audio().Dispatch(audio::StepDownVolume{});
+        break;
+      case Trigger::kLongPress:
+        break;
+    }
+  } else if (mode_ == drivers::NvsStorage::InputModes::kRotatingWheel) {
+    if (!raw_wheel_.GetTouchWheelData().is_wheel_touched) {
+      // User has released the wheel.
+      is_scrolling_wheel_ = false;
+      data->enc_diff = scroller_->AddInput(now_ms, 0);
+    } else if (relative_wheel_->ticks() != 0) {
+      // User is touching the wheel, and has just passed the sensitivity
+      // threshold for a scroll tick.
+      is_scrolling_wheel_ = true;
+      data->enc_diff = scroller_->AddInput(now_ms, relative_wheel_->ticks());
+    } else {
+      // User is touching the wheel, but hasn't moved.
+      data->enc_diff = 0;
+    }
 
-      // Only trigger the directional long-press gestures if they trigger at the
-      // same time as a trigger on the overall touchwheel. This means the
-      // gestures only trigger if it's your only interaction with the wheel this
-      // press; scrolling and then resting on a direction should not trigger
-      // them.
-      trigger = TriggerKey(Keys::kTouchWheel, KeyStyle::kLongPress, now_ms);
-      if (trigger == Trigger::kLongPress) {
-        trigger =
-            TriggerKey(Keys::kDirectionalLeft, KeyStyle::kLongPress, now_ms);
-        switch (trigger) {
-          case Trigger::kNone:
-            break;
-          case Trigger::kClick:
-            break;
-          case Trigger::kLongPress:
-            events::Ui().Dispatch(internal::BackPressed{});
-            break;
+    Trigger trigger =
+        TriggerKey(Keys::kTouchWheelCenter, KeyStyle::kLongPress, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        data->state = LV_INDEV_STATE_RELEASED;
+        break;
+      case Trigger::kClick:
+        data->state = LV_INDEV_STATE_PRESSED;
+        break;
+      case Trigger::kLongPress:
+        if (active_object) {
+          lv_event_send(active_object, LV_EVENT_LONG_PRESSED, NULL);
         }
-      }
+        break;
+    }
 
-      break;
+    trigger = TriggerKey(Keys::kVolumeUp, KeyStyle::kRepeat, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        events::Audio().Dispatch(audio::StepUpVolume{});
+        break;
+      case Trigger::kLongPress:
+        break;
+    }
+
+    trigger = TriggerKey(Keys::kVolumeDown, KeyStyle::kRepeat, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        events::Audio().Dispatch(audio::StepDownVolume{});
+        break;
+      case Trigger::kLongPress:
+        break;
+    }
+
+    trigger = TriggerKey(Keys::kDirectionalLeft, KeyStyle::kLongPress, now_ms);
+    switch (trigger) {
+      case Trigger::kNone:
+        break;
+      case Trigger::kClick:
+        break;
+      case Trigger::kLongPress:
+        events::Ui().Dispatch(internal::BackPressed{});
+        break;
+    }
   }
 }
 
-auto EncoderInput::HandleKeyState(Keys key, uint64_t ms, bool clicked) -> void {
+auto EncoderInput::UpdateKeyState(Keys key, uint64_t ms, bool clicked) -> void {
   if (clicked) {
     if (!touch_time_ms_.contains(key)) {
-      // Key was just pressed
+      // Key was just clicked.
       touch_time_ms_[key] = ms;
       just_released_.erase(key);
       fired_.erase(key);
