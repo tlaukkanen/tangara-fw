@@ -18,6 +18,7 @@
 #include "lua.hpp"
 #include "lua_database.hpp"
 #include "lua_queue.hpp"
+#include "lua_version.hpp"
 #include "lvgl.h"
 
 #include "event_queue.hpp"
@@ -74,6 +75,7 @@ Bridge::Bridge(system_fsm::ServiceLocator& services, lua_State& s)
 
   RegisterDatabaseModule(&s);
   RegisterQueueModule(&s);
+  RegisterVersionModule(&s);
 }
 
 static auto new_property_module(lua_State* state) -> int {

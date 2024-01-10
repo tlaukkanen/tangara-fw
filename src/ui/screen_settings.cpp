@@ -15,6 +15,7 @@
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
 #include "display.hpp"
+#include "esp_app_desc.h"
 #include "esp_log.h"
 
 #include "core/lv_group.h"
@@ -32,6 +33,7 @@
 #include "misc/lv_area.h"
 #include "model_top_bar.hpp"
 #include "nvs.hpp"
+#include "samd.hpp"
 #include "screen.hpp"
 #include "themes.hpp"
 #include "ui_events.hpp"
@@ -529,12 +531,13 @@ Storage::Storage(models::TopBar& bar) : MenuScreen(bar, "Storage") {
   });
 }
 
-FirmwareUpdate::FirmwareUpdate(models::TopBar& bar)
+FirmwareUpdate::FirmwareUpdate(models::TopBar& bar, drivers::Samd& samd)
     : MenuScreen(bar, "Firmware Update") {
   lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                         LV_FLEX_ALIGN_CENTER);
 
-  label_pair(content_, "SAMD21 FW:", "vIDKLOL");
+  auto samd_ver = samd.Version();
+  label_pair(content_, "SAMD21 FW:", {samd_ver.data(), samd_ver.size()});
 
   lv_obj_t* spacer = lv_obj_create(content_);
   lv_obj_set_size(spacer, 1, 4);
@@ -549,7 +552,8 @@ FirmwareUpdate::FirmwareUpdate(models::TopBar& bar)
   spacer = lv_obj_create(content_);
   lv_obj_set_size(spacer, 1, 8);
 
-  label_pair(content_, "ESP32 FW:", "vIDKLOL");
+  auto desc = esp_app_get_description();
+  label_pair(content_, "ESP32 FW:", desc->version);
 
   spacer = lv_obj_create(content_);
   lv_obj_set_size(spacer, 1, 4);

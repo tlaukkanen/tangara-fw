@@ -432,7 +432,8 @@ void Browse::react(const internal::ShowSettingsPage& ev) {
       screen.reset(new screens::Storage(sTopBarModel));
       break;
     case internal::ShowSettingsPage::Page::kFirmwareUpdate:
-      screen.reset(new screens::FirmwareUpdate(sTopBarModel));
+      screen.reset(
+          new screens::FirmwareUpdate(sTopBarModel, sServices->samd()));
       break;
     case internal::ShowSettingsPage::Page::kAbout:
       screen.reset(new screens::About(sTopBarModel));

@@ -1,8 +1,8 @@
 # Copyright 2023 jacqueline <me@jacqueline.id.au>
 #
 # SPDX-License-Identifier: GPL-3.0-only
-
 cmake_minimum_required(VERSION 3.16)
+
 include($ENV{PROJ_PATH}/tools/cmake/common.cmake)
 
 set(SDKCONFIG_DEFAULTS "sdkconfig.common")

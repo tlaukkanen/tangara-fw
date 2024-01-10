@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <optional>
+#include <string>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -19,6 +21,8 @@ class Samd {
 
   Samd();
   ~Samd();
+
+  auto Version() -> std::string;
 
   enum class ChargeStatus {
     // There is no battery plugged into the device.
@@ -63,6 +67,7 @@ class Samd {
   Samd& operator=(const Samd&) = delete;
 
  private:
+  uint8_t version_;
   std::optional<ChargeStatus> charge_status_;
   UsbStatus usb_status_;
 };

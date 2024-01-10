@@ -20,6 +20,7 @@
 
 #include "model_top_bar.hpp"
 #include "nvs.hpp"
+#include "samd.hpp"
 #include "screen.hpp"
 
 namespace ui {
@@ -103,7 +104,7 @@ class Storage : public MenuScreen {
 
 class FirmwareUpdate : public MenuScreen {
  public:
-  FirmwareUpdate(models::TopBar&);
+  FirmwareUpdate(models::TopBar&, drivers::Samd&);
 };
 
 class About : public MenuScreen {

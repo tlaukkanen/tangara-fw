@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -37,22 +38,25 @@ Samd::Samd() {
   // Being able to interface with the SAMD properly is critical. To ensure we
   // will be able to, we begin by checking the I2C protocol version is
   // compatible, and throw if it's not.
-  uint8_t raw_res = 0;
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
       .write_ack(Registers::kSamdFirmwareVersion)
       .start()
       .write_addr(kAddress, I2C_MASTER_READ)
-      .read(&raw_res, I2C_MASTER_NACK)
+      .read(&version_, I2C_MASTER_NACK)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(1));
-  ESP_LOGI(kTag, "samd firmware rev: %u", raw_res);
+  ESP_LOGI(kTag, "samd firmware rev: %u", version_);
 
   UpdateChargeStatus();
   UpdateUsbStatus();
 }
 Samd::~Samd() {}
+
+auto Samd::Version() -> std::string {
+  return std::to_string(version_);
+}
 
 auto Samd::GetChargeStatus() -> std::optional<ChargeStatus> {
   return charge_status_;

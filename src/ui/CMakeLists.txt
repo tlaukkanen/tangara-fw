@@ -9,5 +9,5 @@ idf_component_register(
   "screen_lua.cpp"
   "splash.c" "font_fusion_12.c" "font_fusion_10.c"
   INCLUDE_DIRS "include"
-  REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "esp_timer" "battery" "bindey" "lua" "luavgl")
+  REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "esp_timer" "battery" "bindey" "lua" "luavgl" "esp_app_format")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
