@@ -7,6 +7,7 @@
 #include "property.hpp"
 #include <sys/_stdint.h>
 
+#include <cmath>
 #include <memory>
 #include <string>
 
@@ -192,8 +193,6 @@ auto Property::PushValue(lua_State& s) -> int {
           lua_pushnil(&s);
         } else if constexpr (std::is_same_v<T, int>) {
           lua_pushinteger(&s, arg);
-        } else if constexpr (std::is_same_v<T, float>) {
-          lua_pushnumber(&s, arg);
         } else if constexpr (std::is_same_v<T, bool>) {
           lua_pushboolean(&s, arg);
         } else if constexpr (std::is_same_v<T, std::string>) {
@@ -241,7 +240,7 @@ auto Property::PopValue(lua_State& s) -> bool {
       if (lua_isinteger(&s, 2)) {
         new_val = lua_tointeger(&s, 2);
       } else {
-        new_val = lua_tonumber(&s, 2);
+        new_val = static_cast<lua_Integer>(std::round(lua_tonumber(&s, 2)));
       }
       break;
     case LUA_TBOOLEAN:

@@ -17,7 +17,7 @@
 namespace lua {
 
 using LuaValue =
-    std::variant<std::monostate, int, float, bool, std::string, audio::Track>;
+    std::variant<std::monostate, int, bool, std::string, audio::Track>;
 using LuaFunction = std::function<int(lua_State*)>;
 
 class Property {
