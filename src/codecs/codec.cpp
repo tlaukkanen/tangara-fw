@@ -14,6 +14,7 @@
 #include "opus.hpp"
 #include "types.hpp"
 #include "vorbis.hpp"
+#include "wav.hpp"
 
 namespace codecs {
 
@@ -21,7 +22,7 @@ auto StreamTypeToString(StreamType t) -> std::string {
   switch (t) {
     case StreamType::kMp3:
       return "Mp3";
-    case StreamType::kPcm:
+    case StreamType::kWav:
       return "Wav";
     case StreamType::kVorbis:
       return "Vorbis";
@@ -44,6 +45,8 @@ auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
       return new MiniFlacDecoder();
     case StreamType::kOpus:
       return new XiphOpusDecoder();
+    case StreamType::kWav:
+      return new WavDecoder();
     default:
       return {};
   }

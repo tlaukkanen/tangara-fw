@@ -24,10 +24,6 @@ namespace sample {
 //  3. Monty from Xiph.org reckons it's all you need.
 typedef int16_t Sample;
 
-constexpr auto Clip(int64_t v) -> Sample {
-  return std::clamp<int64_t>(v, INT16_MIN, INT16_MAX);
-}
-
 auto shiftWithDither(int64_t src, uint_fast8_t bits) -> Sample;
 
 constexpr auto FromSigned(int32_t src, uint_fast8_t bits) -> Sample {
@@ -42,7 +38,7 @@ constexpr auto FromSigned(int32_t src, uint_fast8_t bits) -> Sample {
 constexpr auto FromUnsigned(uint32_t src, uint_fast8_t bits) -> Sample {
   // Left-align, then substract the max value / 2 to make the sample centred
   // around zero.
-  return (src << (sizeof(uint16_t) * 8 - bits)) - (~0UL >> 1);
+  return (src << (sizeof(uint16_t) * 8 - bits)) - (INT16_MAX+1);
 }
 
 constexpr auto FromFloat(float src) -> Sample {

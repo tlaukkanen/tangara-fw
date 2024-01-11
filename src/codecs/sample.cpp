@@ -21,11 +21,8 @@ auto shiftWithDither(int64_t src, uint_fast8_t bits) -> Sample {
   uint64_t mask = 0xFFFFFFFF;
   mask >>= 32 - bits;
   int64_t noise = static_cast<int32_t>(komirand(&sSeed1, &sSeed2) & mask);
-  // Centre the noise around 0.
-  noise -= (mask >> 1);
-  // Apply to the sample, then clip and shift to 16 bit.
-  Sample clipped = Clip((src + noise) >> bits);
-  return clipped;
+  // Apply to the sample, then shift to 16 bit.
+  return (src + noise) >> bits;
 }
 
 }  // namespace sample

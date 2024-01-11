@@ -76,6 +76,8 @@ class ICodec {
     kOutOfInput,
     // Indicates that the data within the input buffer is fatally malformed.
     kMalformedData,
+    // Indicated that the format is unsupported
+    kUnsupportedFormat,
 
     kInternalError,
   };
@@ -88,6 +90,8 @@ class ICodec {
         return "malformed data";
       case Error::kInternalError:
         return "internal error";
+      case Error::kUnsupportedFormat:
+        return "unsupported format";
     }
     return "uhh";
   }

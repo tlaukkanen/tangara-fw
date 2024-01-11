@@ -18,3 +18,5 @@ doc/
 test/build/
 test/dependencies.lock
 test/sdkconfig
+sdkconfig.bak
+*.ignore
