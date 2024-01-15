@@ -41,6 +41,9 @@ class NvsStorage {
   auto AmpCurrentVolume() -> uint16_t;
   auto AmpCurrentVolume(uint16_t) -> bool;
 
+  auto AmpLeftBias() -> int_fast8_t;
+  auto AmpLeftBias(int_fast8_t) -> bool;
+
   auto HasShownOnboarding() -> bool;
   auto HasShownOnboarding(bool) -> bool;
 

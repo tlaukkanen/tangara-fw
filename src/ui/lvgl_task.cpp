@@ -81,10 +81,6 @@ auto UiTask::Main() -> void {
       lv_group_set_focus_cb(current_group, &group_focus_cb);
     }
 
-    if (current_screen_) {
-      current_screen_->Tick();
-    }
-
     TickType_t delay = lv_timer_handler();
     vTaskDelay(pdMS_TO_TICKS(std::clamp<TickType_t>(delay, 0, 100)));
   }

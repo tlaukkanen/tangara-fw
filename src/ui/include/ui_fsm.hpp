@@ -12,26 +12,21 @@
 
 #include "audio_events.hpp"
 #include "battery.hpp"
-#include "bindey/property.h"
 #include "db_events.hpp"
+#include "display.hpp"
+#include "encoder_input.hpp"
 #include "gpios.hpp"
 #include "lua_thread.hpp"
 #include "lvgl_task.hpp"
-#include "model_playback.hpp"
-#include "model_top_bar.hpp"
+#include "modal.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
 #include "relative_wheel.hpp"
-#include "screen_settings.hpp"
-#include "service_locator.hpp"
-#include "tinyfsm.hpp"
-
-#include "display.hpp"
-#include "encoder_input.hpp"
-#include "modal.hpp"
 #include "screen.hpp"
+#include "service_locator.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
+#include "tinyfsm.hpp"
 #include "touchwheel.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
@@ -60,20 +55,21 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const audio::PlaybackFinished&);
   virtual void react(const audio::PlaybackUpdate&);
   virtual void react(const audio::QueueUpdate&);
-  virtual void react(const audio::VolumeChanged&){};
+
+  virtual void react(const audio::VolumeChanged&);
+  virtual void react(const audio::VolumeBalanceChanged&);
+  virtual void react(const audio::VolumeLimitChanged&);
 
   virtual void react(const system_fsm::KeyLockChanged&);
   virtual void react(const OnLuaError&) {}
 
   virtual void react(const internal::BackPressed&) {}
-  virtual void react(const internal::ShowSettingsPage&){};
   virtual void react(const internal::ModalCancelPressed&) {
     sCurrentModal.reset();
   }
   virtual void react(const internal::ModalConfirmPressed&) {
     sCurrentModal.reset();
   }
-  virtual void react(const internal::OnboardingNavigate&) {}
   void react(const internal::ControlSchemeChanged&);
   virtual void react(const internal::ReindexDatabase&){};
 
@@ -102,10 +98,29 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::shared_ptr<Modal> sCurrentModal;
   static std::shared_ptr<lua::LuaThread> sLua;
 
-  static std::weak_ptr<screens::Bluetooth> bluetooth_screen_;
+  static lua::Property sBatteryPct;
+  static lua::Property sBatteryMv;
+  static lua::Property sBatteryCharging;
 
-  static models::Playback sPlaybackModel;
-  static models::TopBar sTopBarModel;
+  static lua::Property sBluetoothEnabled;
+  static lua::Property sBluetoothConnected;
+
+  static lua::Property sPlaybackPlaying;
+
+  static lua::Property sPlaybackTrack;
+  static lua::Property sPlaybackPosition;
+
+  static lua::Property sQueuePosition;
+  static lua::Property sQueueSize;
+  static lua::Property sQueueRepeat;
+  static lua::Property sQueueRandom;
+
+  static lua::Property sVolumeCurrentPct;
+  static lua::Property sVolumeCurrentDb;
+  static lua::Property sVolumeLeftBias;
+  static lua::Property sVolumeLimit;
+
+  static lua::Property sDisplayBrightness;
 };
 
 namespace states {
@@ -113,8 +128,10 @@ namespace states {
 class Splash : public UiState {
  public:
   void exit() override;
+
   void react(const system_fsm::BootComplete&) override;
   void react(const system_fsm::StorageMounted&) override;
+
   using UiState::react;
 };
 
@@ -124,15 +141,6 @@ class Lua : public UiState {
   void exit() override;
 
   void react(const OnLuaError&) override;
-
-  void react(const internal::ShowSettingsPage&) override;
-
-  void react(const system_fsm::BatteryStateChanged&) override;
-  void react(const audio::QueueUpdate&) override;
-  void react(const audio::PlaybackStarted&) override;
-  void react(const audio::PlaybackUpdate&) override;
-  void react(const audio::PlaybackFinished&) override;
-  void react(const audio::VolumeChanged&) override;
   void react(const internal::BackPressed&) override;
 
   using UiState::react;
@@ -147,53 +155,7 @@ class Lua : public UiState {
   auto SetPlaying(const lua::LuaValue&) -> bool;
   auto SetRandom(const lua::LuaValue&) -> bool;
   auto SetRepeat(const lua::LuaValue&) -> bool;
-
-  std::shared_ptr<lua::Property> battery_pct_;
-  std::shared_ptr<lua::Property> battery_mv_;
-  std::shared_ptr<lua::Property> battery_charging_;
-
-  std::shared_ptr<lua::Property> bluetooth_en_;
-
-  std::shared_ptr<lua::Property> playback_playing_;
-  std::shared_ptr<lua::Property> playback_track_;
-  std::shared_ptr<lua::Property> playback_position_;
-
-  std::shared_ptr<lua::Property> queue_position_;
-  std::shared_ptr<lua::Property> queue_size_;
-  std::shared_ptr<lua::Property> queue_repeat_;
-  std::shared_ptr<lua::Property> queue_random_;
-
-  std::shared_ptr<lua::Property> volume_current_pct_;
-  std::shared_ptr<lua::Property> volume_current_db_;
 };
-
-class Browse : public UiState {
- public:
-  void entry() override;
-
-  void react(const internal::BackPressed&) override;
-
-  void react(const internal::ShowSettingsPage&) override;
-  void react(const internal::ReindexDatabase&) override;
-
-  void react(const system_fsm::BluetoothDevicesChanged&) override;
-
-  using UiState::react;
-};
-
-class Indexing : public UiState {
- public:
-  void entry() override;
-  void exit() override;
-
-  void react(const database::event::UpdateStarted&) override;
-  void react(const database::event::UpdateProgress&) override;
-  void react(const database::event::UpdateFinished&) override;
-
-  using UiState::react;
-};
-
-class FatalError : public UiState {};
 
 }  // namespace states
 

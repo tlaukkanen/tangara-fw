@@ -35,21 +35,6 @@ struct ReindexDatabase : tinyfsm::Event {};
 
 struct BackPressed : tinyfsm::Event {};
 struct ShowNowPlaying : tinyfsm::Event {};
-struct ShowSettingsPage : tinyfsm::Event {
-  enum class Page {
-    kRoot,
-    kBluetooth,
-    kHeadphones,
-    kAppearance,
-    kInput,
-    kStorage,
-    kFirmwareUpdate,
-    kAbout,
-  } page;
-};
-struct OnboardingNavigate : tinyfsm::Event {
-  bool forwards;
-};
 
 struct ModalConfirmPressed : tinyfsm::Event {};
 struct ModalCancelPressed : tinyfsm::Event {};

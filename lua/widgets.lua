@@ -2,8 +2,48 @@ local lvgl = require("lvgl")
 local power = require("power")
 local bluetooth = require("bluetooth")
 local font = require("font")
+local backstack = require("backstack")
+local theme = require("theme")
 
 local widgets = {}
+
+function widgets.MenuScreen(opts)
+  local screen = {}
+  screen.root = lvgl.Object(nil, {
+    flex = {
+      flex_direction = "column",
+      flex_wrap = "nowrap",
+      justify_content = "flex-start",
+      align_items = "flex-start",
+      align_content = "flex-start",
+    },
+    w = lvgl.PCT(100),
+    h = lvgl.PCT(100),
+  })
+  screen.root:center()
+  screen.status_bar = widgets.StatusBar(screen.root, {
+    back_cb = opts.show_back and backstack.pop or nil,
+    title = opts.title,
+    transparent_bg = true
+  })
+  return screen
+end
+
+function widgets.Row(parent, left, right)
+  local container = parent:Object {
+    flex = {
+      flex_direction = "row",
+      justify_content = "flex-start",
+      align_items = "flex-start",
+      align_content = "flex-start",
+    },
+    w = lvgl.PCT(100),
+    h = lvgl.SIZE_CONTENT,
+  }
+  container:add_style(theme.list_item)
+  container:Label { text = left, flex_grow = 1 }
+  container:Label { text = right }
+end
 
 function widgets.StatusBar(parent, opts)
   local status_bar = {}

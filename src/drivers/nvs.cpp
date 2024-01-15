@@ -30,6 +30,7 @@ static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
 static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
+static constexpr char kKeyAmpLeftBias[] = "hp_bias";
 static constexpr char kKeyOnboarded[] = "intro";
 static constexpr char kKeyPrimaryInput[] = "in_pri";
 
@@ -153,6 +154,17 @@ auto NvsStorage::AmpCurrentVolume() -> uint16_t {
 
 auto NvsStorage::AmpCurrentVolume(uint16_t val) -> bool {
   nvs_set_u16(handle_, kKeyAmpCurrentVolume, val);
+  return nvs_commit(handle_) == ESP_OK;
+}
+
+auto NvsStorage::AmpLeftBias() -> int_fast8_t {
+  int8_t out = 0;
+  nvs_get_i8(handle_, kKeyAmpLeftBias, &out);
+  return out;
+}
+
+auto NvsStorage::AmpLeftBias(int_fast8_t val) -> bool {
+  nvs_set_i8(handle_, kKeyAmpLeftBias, val);
   return nvs_commit(handle_) == ESP_OK;
 }
 

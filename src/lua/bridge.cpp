@@ -37,21 +37,6 @@ namespace lua {
 
 static constexpr char kBridgeKey[] = "bridge";
 
-static auto open_settings_fn(lua_State* state) -> int {
-  events::Ui().Dispatch(ui::internal::ShowSettingsPage{
-      .page = ui::internal::ShowSettingsPage::Page::kRoot});
-  return 0;
-}
-
-static const struct luaL_Reg kLegacyUiFuncs[] = {
-    {"open_settings", open_settings_fn},
-    {NULL, NULL}};
-
-static auto lua_legacy_ui(lua_State* state) -> int {
-  luaL_newlib(state, kLegacyUiFuncs);
-  return 1;
-}
-
 auto Bridge::Get(lua_State* state) -> Bridge* {
   lua_pushstring(state, kBridgeKey);
   lua_gettable(state, LUA_REGISTRYINDEX);
@@ -63,9 +48,6 @@ Bridge::Bridge(system_fsm::ServiceLocator& services, lua_State& s)
   lua_pushstring(&s, kBridgeKey);
   lua_pushlightuserdata(&s, this);
   lua_settable(&s, LUA_REGISTRYINDEX);
-
-  luaL_requiref(&s, "legacy_ui", lua_legacy_ui, true);
-  lua_pop(&s, 1);
 
   luaL_requiref(&s, "linenoise", luaopen_linenoise, true);
   lua_pop(&s, 1);
@@ -94,8 +76,7 @@ inline constexpr bool always_false_v = false;
 
 auto Bridge::AddPropertyModule(
     const std::string& name,
-    std::vector<std::pair<std::string,
-                          std::variant<LuaFunction, std::shared_ptr<Property>>>>
+    std::vector<std::pair<std::string, std::variant<LuaFunction, Property*>>>
         props) -> void {
   // Create the module (or retrieve it if one with this name already exists)
   luaL_requiref(&state_, name.c_str(), new_property_module, true);
@@ -107,8 +88,8 @@ auto Bridge::AddPropertyModule(
           using T = std::decay_t<decltype(arg)>;
           if constexpr (std::is_same_v<T, LuaFunction>) {
             bindings_.Register(&state_, arg);
-          } else if constexpr (std::is_same_v<T, std::shared_ptr<Property>>) {
-            bindings_.Register(&state_, arg.get());
+          } else if constexpr (std::is_same_v<T, Property*>) {
+            bindings_.Register(&state_, arg);
           } else {
             static_assert(always_false_v<T>, "missing case");
           }

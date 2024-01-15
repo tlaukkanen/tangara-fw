@@ -12,7 +12,6 @@
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
 #include "lvgl.h"
-#include "widget_top_bar.hpp"
 
 #include "screen.hpp"
 
@@ -29,15 +28,6 @@ class Modal {
  protected:
   lv_obj_t* const root_;
   lv_group_t* const group_;
-
-  std::pmr::vector<std::unique_ptr<EventBinding>> event_bindings_;
-
-  template <typename T>
-  auto lv_bind(lv_obj_t* obj, lv_event_code_t ev, T fn) -> void {
-    auto binding = std::make_unique<EventBinding>(obj, ev);
-    binding->signal().connect(fn);
-    event_bindings_.push_back(std::move(binding));
-  }
 
  private:
   Screen* host_;

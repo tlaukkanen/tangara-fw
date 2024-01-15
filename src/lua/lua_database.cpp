@@ -73,8 +73,38 @@ static auto indexes(lua_State* state) -> int {
   return 1;
 }
 
-static const struct luaL_Reg kDatabaseFuncs[] = {{"indexes", indexes},
-                                                 {NULL, NULL}};
+static auto version(lua_State* L) -> int {
+  Bridge* instance = Bridge::Get(L);
+  auto db = instance->services().database().lock();
+  if (!db) {
+    return 0;
+  }
+  auto res = db->schemaVersion();
+  lua_pushlstring(L, res.data(), res.size());
+  return 1;
+}
+
+static auto size(lua_State* L) -> int {
+  Bridge* instance = Bridge::Get(L);
+  auto db = instance->services().database().lock();
+  if (!db) {
+    return 0;
+  }
+  lua_pushinteger(L, db->sizeOnDiskBytes());
+  return 1;
+}
+
+static auto recreate(lua_State* L) -> int {
+  return 0;
+}
+
+static auto update(lua_State* L) -> int {
+  return 0;
+}
+
+static const struct luaL_Reg kDatabaseFuncs[] = {
+    {"indexes", indexes},   {"version", version}, {"size", size},
+    {"recreate", recreate}, {"update", update},   {NULL, NULL}};
 
 /*
  * Struct to be used as userdata for the Lua representation of database records.

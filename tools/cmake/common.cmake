@@ -11,7 +11,6 @@ set(PROJECT_VER "0.1.0")
 set(COMPONENTS "")
 
 # External dependencies
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/bindey")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/catch2")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/cbor")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/esp-idf-lua")

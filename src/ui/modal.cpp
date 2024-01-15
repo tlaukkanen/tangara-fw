@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "modal.hpp"
+
 #include "misc/lv_color.h"
-#include "modal_progress.hpp"
 
 #include "core/lv_event.h"
 #include "esp_log.h"
@@ -24,7 +25,6 @@
 #include "themes.hpp"
 #include "ui_events.hpp"
 #include "ui_fsm.hpp"
-#include "widget_top_bar.hpp"
 #include "widgets/lv_label.h"
 
 namespace ui {

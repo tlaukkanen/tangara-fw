@@ -47,12 +47,27 @@ struct PlayFile : tinyfsm::Event {
 
 struct StepUpVolume : tinyfsm::Event {};
 struct StepDownVolume : tinyfsm::Event {};
+struct SetVolume : tinyfsm::Event {
+  std::optional<uint_fast8_t> percent;
+  std::optional<int32_t> db;
+};
+struct SetVolumeBalance : tinyfsm::Event {
+  int left_bias;
+};
+
 struct VolumeChanged : tinyfsm::Event {
   uint_fast8_t percent;
   int db;
 };
-struct ChangeMaxVolume : tinyfsm::Event {
-  uint16_t new_max;
+struct VolumeBalanceChanged : tinyfsm::Event {
+  int left_bias;
+};
+struct VolumeLimitChanged : tinyfsm::Event {
+  uint16_t new_limit;
+};
+
+struct SetVolumeLimit : tinyfsm::Event {
+  uint16_t new_limit;
 };
 
 struct TogglePlayPause : tinyfsm::Event {};

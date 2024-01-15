@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <variant>
 
 #include "collation.hpp"
@@ -196,6 +197,33 @@ Database::~Database() {
   delete cache_;
 
   sIsDbOpen.store(false);
+}
+
+auto Database::schemaVersion() -> std::string {
+  // If the database is open, then it must have the current schema.
+  return std::to_string(kCurrentDbVersion);
+}
+
+auto Database::sizeOnDiskBytes() -> size_t {
+  auto lock = drivers::acquire_spi();
+
+  FF_DIR dir;
+  FRESULT res = f_opendir(&dir, kDbPath);
+  if (res != FR_OK) {
+    return 0;
+  }
+
+  size_t total_size = 0;
+  for (;;) {
+    FILINFO info;
+    res = f_readdir(&dir, &info);
+    if (res != FR_OK || info.fname[0] == 0) {
+      break;
+    }
+    total_size += info.fsize;
+  }
+
+  return total_size;
 }
 
 auto Database::put(const std::string& key, const std::string& val) -> void {

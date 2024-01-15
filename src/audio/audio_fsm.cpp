@@ -82,11 +82,32 @@ void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
   }
 }
 
-void AudioState::react(const ChangeMaxVolume& ev) {
+void AudioState::react(const SetVolume& ev) {
+  // TODO.
+}
+
+void AudioState::react(const SetVolumeLimit& ev) {
   ESP_LOGI(kTag, "new max volume %i db",
-           (ev.new_max - drivers::wm8523::kLineLevelReferenceVolume) / 4);
-  sI2SOutput->SetMaxVolume(ev.new_max);
-  sServices->nvs().AmpMaxVolume(ev.new_max);
+           (ev.new_limit - drivers::wm8523::kLineLevelReferenceVolume) / 4);
+  sI2SOutput->SetMaxVolume(ev.new_limit);
+  sServices->nvs().AmpMaxVolume(ev.new_limit);
+
+  events::Ui().Dispatch(VolumeLimitChanged{
+      .new_limit = ev.new_limit,
+  });
+  events::Ui().Dispatch(VolumeChanged{
+      .percent = sOutput->GetVolumePct(),
+      .db = sOutput->GetVolumeDb(),
+  });
+}
+
+void AudioState::react(const SetVolumeBalance& ev) {
+  sOutput->SetVolumeImbalance(ev.left_bias);
+  sServices->nvs().AmpLeftBias(ev.left_bias);
+
+  events::Ui().Dispatch(VolumeBalanceChanged{
+      .left_bias = ev.left_bias,
+  });
 }
 
 void AudioState::react(const OutputModeChanged& ev) {
@@ -136,6 +157,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
   sI2SOutput->SetVolume(nvs.AmpCurrentVolume());
+  sI2SOutput->SetVolumeImbalance(nvs.AmpLeftBias());
 
   if (sServices->nvs().OutputMode() ==
       drivers::NvsStorage::Output::kHeadphones) {

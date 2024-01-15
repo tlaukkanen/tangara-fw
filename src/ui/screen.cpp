@@ -13,8 +13,6 @@
 #include "hal/lv_hal_disp.h"
 #include "misc/lv_area.h"
 #include "misc/lv_color.h"
-#include "model_top_bar.hpp"
-#include "widget_top_bar.hpp"
 
 namespace ui {
 
@@ -47,45 +45,6 @@ Screen::~Screen() {
   // generated whilst deleting the object tree, which causes a big mess.
   lv_group_del(group_);
   lv_obj_del(root_);
-}
-
-auto Screen::CreateTopBar(lv_obj_t* parent,
-                          const widgets::TopBar::Configuration& config,
-                          models::TopBar& model) -> widgets::TopBar* {
-  assert(top_bar_ == nullptr);
-  top_bar_ = std::make_unique<widgets::TopBar>(parent, config, model);
-  if (top_bar_->button()) {
-    lv_group_add_obj(group_, top_bar_->button());
-  }
-  return top_bar_.get();
-}
-
-MenuScreen::MenuScreen(models::TopBar& top_bar_model,
-                       const std::pmr::string& title,
-                       bool show_back_button)
-    : Screen() {
-  lv_group_set_wrap(group_, false);
-
-  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                        LV_FLEX_ALIGN_CENTER);
-
-  widgets::TopBar::Configuration config{
-      .show_back_button = show_back_button,
-      .title = title.c_str(),
-  };
-  CreateTopBar(content_, config, top_bar_model);
-
-  content_ = lv_obj_create(content_);
-  lv_obj_set_flex_grow(content_, 1);
-  lv_obj_set_width(content_, lv_pct(100));
-  lv_obj_set_layout(content_, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
-                        LV_FLEX_ALIGN_START);
-
-  lv_obj_set_style_pad_all(content_, 4, LV_PART_MAIN);
 }
 
 }  // namespace ui

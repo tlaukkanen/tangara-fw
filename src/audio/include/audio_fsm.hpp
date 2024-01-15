@@ -44,7 +44,11 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const StepUpVolume&);
   void react(const StepDownVolume&);
   virtual void react(const system_fsm::HasPhonesChanged&);
-  void react(const ChangeMaxVolume&);
+
+  void react(const SetVolume&);
+  void react(const SetVolumeLimit&);
+  void react(const SetVolumeBalance&);
+
   void react(const OutputModeChanged&);
 
   virtual void react(const system_fsm::BootComplete&) {}

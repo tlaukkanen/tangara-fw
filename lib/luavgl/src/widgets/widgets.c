@@ -45,6 +45,14 @@
 #include "roller.c"
 #endif
 
+#if LV_USE_SLIDER
+#include "slider.c"
+#endif
+
+#if LV_USE_SWITCH
+#include "switch.c"
+#endif
+
 #if LV_USE_TEXTAREA
 #include "textarea.c"
 #endif
@@ -96,6 +104,14 @@ static const luaL_Reg widget_create_methods[] = {
 
 #if LV_USE_ROLLER
     {"Roller",   luavgl_roller_create  },
+#endif
+
+#if LV_USE_SLIDER
+    {"Slider", luavgl_slider_create},
+#endif
+
+#if LV_USE_SWITCH
+    {"Switch", luavgl_switch_create},
 #endif
 
 #if LV_USE_TEXTAREA
@@ -152,6 +168,14 @@ static void luavgl_widgets_init(lua_State *L)
 
 #if LV_USE_BAR
   luavgl_bar_init(L);
+#endif
+
+#if LV_USE_SLIDER
+  luavgl_slider_init(L);
+#endif
+
+#if LV_USE_SWITCH
+  luavgl_switch_init(L);
 #endif
 
 }

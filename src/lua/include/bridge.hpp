@@ -26,7 +26,7 @@ class Bridge {
       const std::string&,
       std::vector<
           std::pair<std::string,
-                    std::variant<LuaFunction, std::shared_ptr<Property>>>>)
+                    std::variant<LuaFunction, Property*>>>)
       -> void;
 
   system_fsm::ServiceLocator& services() { return services_; }

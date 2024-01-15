@@ -63,6 +63,10 @@ class Database {
 
   ~Database();
 
+  auto schemaVersion() -> std::string;
+
+  auto sizeOnDiskBytes() -> size_t;
+
   /* Adds an arbitrary record to the database. */
   auto put(const std::string& key, const std::string& val) -> void;
 
