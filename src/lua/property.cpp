@@ -17,6 +17,7 @@
 #include "lua.hpp"
 #include "lua_thread.hpp"
 #include "lvgl.h"
+#include "memory_resource.hpp"
 #include "service_locator.hpp"
 #include "track.hpp"
 #include "types.hpp"
@@ -158,11 +159,12 @@ auto PropertyBindings::GetFunction(size_t i) -> const LuaFunction& {
 template <class... Ts>
 inline constexpr bool always_false_v = false;
 
-Property::Property(const LuaValue& val) : value_(val), cb_() {}
+Property::Property(const LuaValue& val)
+    : value_(val), cb_(), bindings_(&memory::kSpiRamResource) {}
 
 Property::Property(const LuaValue& val,
                    std::function<bool(const LuaValue& val)> cb)
-    : value_(val), cb_(cb) {}
+    : value_(val), cb_(cb), bindings_(&memory::kSpiRamResource) {}
 
 static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
   std::visit(

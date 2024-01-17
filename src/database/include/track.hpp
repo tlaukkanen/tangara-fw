@@ -74,6 +74,8 @@ auto tagToString(const TagValue&) -> std::string;
  */
 class TrackTags {
  public:
+  static auto create() -> std::shared_ptr<TrackTags>;
+
   TrackTags()
       : encoding_(Container::kUnsupported), genres_(&memory::kSpiRamResource) {}
 

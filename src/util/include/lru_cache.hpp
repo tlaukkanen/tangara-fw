@@ -13,6 +13,7 @@
 #include <optional>
 #include <unordered_map>
 #include <utility>
+#include "memory_resource.hpp"
 
 namespace util {
 
@@ -25,7 +26,9 @@ namespace util {
 template <int Size, typename K, typename V>
 class LruCache {
  public:
-  LruCache() : entries_(), key_to_it_() {}
+  LruCache()
+      : entries_(&memory::kSpiRamResource),
+        key_to_it_(&memory::kSpiRamResource) {}
 
   auto Put(K key, V val) -> void {
     if (key_to_it_.contains(key)) {
@@ -62,8 +65,8 @@ class LruCache {
   }
 
  private:
-  std::list<std::pair<K, V>> entries_;
-  std::unordered_map<K, decltype(entries_.begin())> key_to_it_;
+  std::pmr::list<std::pair<K, V>> entries_;
+  std::pmr::unordered_map<K, decltype(entries_.begin())> key_to_it_;
 };
 
 }  // namespace util

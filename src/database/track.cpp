@@ -8,6 +8,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <memory_resource>
 #include <sstream>
 #include <string>
 
@@ -88,6 +89,12 @@ auto tagToString(const TagValue& val) -> std::string {
       },
       val);
   return "";
+}
+
+auto TrackTags::create() -> std::shared_ptr<TrackTags> {
+  return std::allocate_shared<TrackTags,
+                              std::pmr::polymorphic_allocator<TrackTags>>(
+      &memory::kSpiRamResource);
 }
 
 template <typename T>

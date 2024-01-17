@@ -48,7 +48,7 @@ class Property {
  private:
   LuaValue value_;
   std::optional<std::function<bool(const LuaValue&)>> cb_;
-  std::vector<std::pair<lua_State*, int>> bindings_;
+  std::pmr::vector<std::pair<lua_State*, int>> bindings_;
 };
 
 class PropertyBindings {
@@ -61,7 +61,7 @@ class PropertyBindings {
   auto GetFunction(size_t i) -> const LuaFunction&;
 
  private:
-  std::vector<LuaFunction> functions_;
+  std::pmr::vector<LuaFunction> functions_;
 };
 
 }  // namespace lua

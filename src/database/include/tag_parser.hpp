@@ -41,7 +41,7 @@ class TagParserImpl : public ITagParser {
    * cache should be slightly larger than any page sizes in the UI.
    */
   std::mutex cache_mutex_;
-  util::LruCache<16, std::pmr::string, std::shared_ptr<TrackTags>> cache_;
+  util::LruCache<8, std::pmr::string, std::shared_ptr<TrackTags>> cache_;
 
   // We could also consider keeping caches of artist name -> std::string and
   // similar. This hasn't been done yet, as this isn't a common workload in

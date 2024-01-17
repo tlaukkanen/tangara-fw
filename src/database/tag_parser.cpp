@@ -168,7 +168,7 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path)
 auto GenericTagParser::ReadAndParseTags(const std::string& path)
     -> std::shared_ptr<TrackTags> {
   libtags::Aux aux;
-  auto out = std::make_shared<TrackTags>();
+  auto out = TrackTags::create();
   aux.tags = out.get();
   {
     auto lock = drivers::acquire_spi();
@@ -244,7 +244,7 @@ auto OpusTagParser::ReadAndParseTags(const std::string& path)
     return {};
   }
 
-  auto out = std::make_shared<TrackTags>();
+  auto out = TrackTags::create();
   out->encoding(Container::kOpus);
   for (const auto& pair : kVorbisIdToTag) {
     const char* tag = opus_tags_query(tags, pair.first, 0);
