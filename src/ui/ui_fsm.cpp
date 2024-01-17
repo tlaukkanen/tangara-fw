@@ -113,7 +113,7 @@ lua::Property UiState::sPlaybackPlaying{
       return true;
     }};
 
-lua::Property UiState::sPlaybackTrack{0};
+lua::Property UiState::sPlaybackTrack{};
 lua::Property UiState::sPlaybackPosition{0};
 
 lua::Property UiState::sQueuePosition{0};
@@ -263,6 +263,7 @@ void UiState::react(const internal::DismissAlerts&) {
 void UiState::react(const system_fsm::BatteryStateChanged& ev) {
   sBatteryPct.Update(static_cast<int>(ev.new_state.percent));
   sBatteryMv.Update(static_cast<int>(ev.new_state.millivolts));
+  sBatteryCharging.Update(ev.new_state.is_charging);
 }
 
 void UiState::react(const audio::QueueUpdate&) {
