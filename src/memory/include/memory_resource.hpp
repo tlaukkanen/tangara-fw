@@ -40,4 +40,9 @@ class Resource : public std::pmr::memory_resource {
 
 extern Resource kSpiRamResource;
 
+template <typename T>
+auto SpiRamAllocator() {
+  return std::pmr::polymorphic_allocator<T>{&kSpiRamResource};
+}
+
 }  // namespace memory

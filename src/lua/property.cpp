@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <memory>
+#include <memory_resource>
 #include <string>
 #include <variant>
 
@@ -160,11 +161,15 @@ template <class... Ts>
 inline constexpr bool always_false_v = false;
 
 Property::Property(const LuaValue& val)
-    : value_(val), cb_(), bindings_(&memory::kSpiRamResource) {}
+    : value_(memory::SpiRamAllocator<LuaValue>().new_object<LuaValue>(val)),
+      cb_(),
+      bindings_(&memory::kSpiRamResource) {}
 
 Property::Property(const LuaValue& val,
                    std::function<bool(const LuaValue& val)> cb)
-    : value_(val), cb_(cb), bindings_(&memory::kSpiRamResource) {}
+    : value_(memory::SpiRamAllocator<LuaValue>().new_object<LuaValue>(val)),
+      cb_(cb),
+      bindings_(&memory::kSpiRamResource) {}
 
 static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
   std::visit(
@@ -273,7 +278,7 @@ auto Property::PushValue(lua_State& s) -> int {
           static_assert(always_false_v<T>, "PushValue missing type");
         }
       },
-      value_);
+      *value_);
   return 1;
 }
 
@@ -343,7 +348,7 @@ auto Property::PopValue(lua_State& s) -> bool {
 }
 
 auto Property::Update(const LuaValue& v) -> void {
-  value_ = v;
+  *value_ = v;
 
   for (int i = bindings_.size() - 1; i >= 0; i--) {
     auto& b = bindings_[i];

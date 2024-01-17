@@ -35,7 +35,7 @@ class Property {
   Property(const LuaValue&);
   Property(const LuaValue&, std::function<bool(const LuaValue&)>);
 
-  auto Get() -> const LuaValue& { return value_; }
+  auto Get() -> const LuaValue& { return *value_; }
 
   auto IsTwoWay() -> bool { return cb_.has_value(); }
 
@@ -46,7 +46,7 @@ class Property {
   auto AddLuaBinding(lua_State*, int ref) -> void;
 
  private:
-  LuaValue value_;
+  std::unique_ptr<LuaValue> value_;
   std::optional<std::function<bool(const LuaValue&)>> cb_;
   std::pmr::vector<std::pair<lua_State*, int>> bindings_;
 };
