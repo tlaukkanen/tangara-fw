@@ -1,6 +1,8 @@
 #include "luavgl.h"
 #include "private.h"
 
+#include "esp_heap_caps.h"
+
 static void luavgl_obj_event_cb(lv_event_t *e)
 {
   lua_State *L = e->user_data;
@@ -102,7 +104,8 @@ static int luavgl_obj_on_event(lua_State *L)
   /* create obj->lobj->events, if NULL, realloc if existing and find no slot
    */
   if (events == NULL) {
-    events = calloc(sizeof(struct event_callback_s), 1);
+    events =
+        heap_caps_calloc(sizeof(struct event_callback_s), 1, MALLOC_CAP_SPIRAM);
     if (events == NULL) {
       return luaL_error(L, "No memory.");
     }
@@ -113,7 +116,9 @@ static int luavgl_obj_on_event(lua_State *L)
     /* realloc? */
     if (slot && slot == lobj->n_events) {
       struct event_callback_s *_events;
-      _events = realloc(lobj->events, (lobj->n_events + 1) * sizeof(*_events));
+      _events = heap_caps_realloc(lobj->events,
+                                  (lobj->n_events + 1) * sizeof(*_events),
+                                  MALLOC_CAP_SPIRAM);
       if (_events == NULL) {
         return luaL_error(L, "No memory.");
       }

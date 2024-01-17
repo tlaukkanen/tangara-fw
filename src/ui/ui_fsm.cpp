@@ -7,6 +7,7 @@
 #include "ui_fsm.hpp"
 
 #include <memory>
+#include <memory_resource>
 #include <variant>
 
 #include "bluetooth_types.hpp"
@@ -26,6 +27,7 @@
 #include "lauxlib.h"
 #include "lua_thread.hpp"
 #include "luavgl.h"
+#include "memory_resource.hpp"
 #include "misc/lv_gc.h"
 
 #include "audio_events.hpp"
@@ -449,8 +451,12 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   luaL_checktype(s, 1, LUA_TFUNCTION);
 
   // First, create a new plain old Screen object. We will use its root and
-  // group for the Lua screen.
-  auto new_screen = std::make_shared<screens::Lua>();
+  // group for the Lua screen. Allocate it in external ram so that arbitrarily
+  // deep screen stacks don't cause too much memory pressure.
+  auto new_screen =
+      std::allocate_shared<screens::Lua,
+                           std::pmr::polymorphic_allocator<screens::Lua>>(
+          &memory::kSpiRamResource);
 
   // Tell lvgl about the new roots.
   luavgl_set_root(s, new_screen->content());
