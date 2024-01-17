@@ -189,6 +189,33 @@ static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
       val);
 }
 
+static void pushTrack(lua_State* L, const audio::Track& track) {
+  lua_newtable(L);
+
+  for (const auto& tag : track.tags->allPresent()) {
+    lua_pushstring(L, database::tagName(tag).c_str());
+    pushTagValue(L, track.tags->get(tag));
+    lua_settable(L, -3);
+  }
+  if (track.db_info) {
+    lua_pushliteral(L, "id");
+    lua_pushinteger(L, track.db_info->id);
+    lua_settable(L, -3);
+  }
+
+  lua_pushliteral(L, "duration");
+  lua_pushinteger(L, track.duration);
+  lua_settable(L, -3);
+
+  lua_pushliteral(L, "bitrate_kbps");
+  lua_pushinteger(L, track.bitrate_kbps);
+  lua_settable(L, -3);
+
+  lua_pushliteral(L, "encoding");
+  lua_pushstring(L, codecs::StreamTypeToString(track.encoding).c_str());
+  lua_settable(L, -3);
+}
+
 static void pushDevice(lua_State* L, const drivers::bluetooth::Device& dev) {
   lua_createtable(L, 0, 4);
 
@@ -231,30 +258,7 @@ auto Property::PushValue(lua_State& s) -> int {
         } else if constexpr (std::is_same_v<T, std::string>) {
           lua_pushstring(&s, arg.c_str());
         } else if constexpr (std::is_same_v<T, audio::Track>) {
-          lua_newtable(&s);
-          int table = lua_gettop(&s);
-          for (const auto& tag : arg.tags->allPresent()) {
-            lua_pushstring(&s, database::tagName(tag).c_str());
-            pushTagValue(&s, arg.tags->get(tag));
-            lua_settable(&s, table);
-          }
-          if (arg.db_info) {
-            lua_pushliteral(&s, "id");
-            lua_pushinteger(&s, arg.db_info->id);
-            lua_settable(&s, table);
-          }
-
-          lua_pushliteral(&s, "duration");
-          lua_pushinteger(&s, arg.duration);
-          lua_settable(&s, table);
-
-          lua_pushliteral(&s, "bitrate_kbps");
-          lua_pushinteger(&s, arg.bitrate_kbps);
-          lua_settable(&s, table);
-
-          lua_pushliteral(&s, "encoding");
-          lua_pushstring(&s, codecs::StreamTypeToString(arg.encoding).c_str());
-          lua_settable(&s, table);
+          pushTrack(&s, arg);
         } else if constexpr (std::is_same_v<T, drivers::bluetooth::Device>) {
           pushDevice(&s, arg);
         } else if constexpr (std::is_same_v<
