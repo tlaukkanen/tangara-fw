@@ -95,10 +95,19 @@ static auto size(lua_State* L) -> int {
 }
 
 static auto recreate(lua_State* L) -> int {
+  ESP_LOGI(kTag, "recreate");
   return 0;
 }
 
 static auto update(lua_State* L) -> int {
+  Bridge* instance = Bridge::Get(L);
+  auto db = instance->services().database().lock();
+  if (!db) {
+    return 0;
+  }
+
+  instance->services().bg_worker().Dispatch<void>(
+      [=]() { db->updateIndexes(); });
   return 0;
 }
 

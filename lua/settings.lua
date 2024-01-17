@@ -6,6 +6,7 @@ local volume = require("volume")
 local display = require("display")
 local controls = require("controls")
 local bluetooth = require("bluetooth")
+local database = require("database")
 
 local settings = {}
 
@@ -74,7 +75,6 @@ function settings.bluetooth()
   local clear_paired = paired_container:Button {}
   clear_paired:Label { text = "x" }
   clear_paired:onClicked(function()
-    print("clear dev")
     bluetooth.paired_device:set()
   end)
 
@@ -277,9 +277,9 @@ function settings.database()
 
   local update = actions_container:Button {}
   update:Label { text = "Update" }
-
-  local recreate = actions_container:Button {}
-  recreate:Label { text = "Recreate" }
+  update:onClicked(function()
+    database.update()
+  end)
 end
 
 function settings.firmware()
