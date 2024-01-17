@@ -46,9 +46,7 @@ namespace states {
 [[maybe_unused]] static const char kTag[] = "BOOT";
 
 static auto bt_event_cb(drivers::bluetooth::Event ev) -> void {
-  if (ev == drivers::bluetooth::Event::kKnownDevicesChanged) {
-    events::Ui().Dispatch(BluetoothDevicesChanged{});
-  }
+  events::Ui().Dispatch(BluetoothEvent{.event = ev});
 }
 
 static const TickType_t kInterruptCheckPeriod = pdMS_TO_TICKS(100);

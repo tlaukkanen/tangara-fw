@@ -6,18 +6,27 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <memory>
 #include <string>
 
 #include "audio_events.hpp"
+#include "bluetooth_types.hpp"
 #include "lua.hpp"
 #include "lvgl.h"
 #include "service_locator.hpp"
 
 namespace lua {
 
-using LuaValue =
-    std::variant<std::monostate, int, bool, std::string, audio::Track>;
+// FIXME: We should use some kind of interface for this instead.
+using LuaValue = std::variant<std::monostate,
+                              int,
+                              bool,
+                              std::string,
+                              audio::Track,
+                              drivers::bluetooth::Device,
+                              std::vector<drivers::bluetooth::Device>>;
+
 using LuaFunction = std::function<int(lua_State*)>;
 
 class Property {

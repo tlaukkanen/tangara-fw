@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "battery.hpp"
+#include "bluetooth_types.hpp"
 #include "database.hpp"
 #include "haptics.hpp"
 #include "service_locator.hpp"
@@ -54,7 +55,9 @@ struct BatteryStateChanged : tinyfsm::Event {
   battery::Battery::BatteryState new_state;
 };
 
-struct BluetoothDevicesChanged : tinyfsm::Event {};
+struct BluetoothEvent : tinyfsm::Event {
+  drivers::bluetooth::Event event;
+};
 
 struct HapticTrigger : tinyfsm::Event {
   drivers::Haptics::Effect effect;

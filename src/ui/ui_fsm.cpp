@@ -9,6 +9,7 @@
 #include <memory>
 #include <variant>
 
+#include "bluetooth_types.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "lua.h"
@@ -73,8 +74,31 @@ lua::Property UiState::sBatteryPct{0};
 lua::Property UiState::sBatteryMv{0};
 lua::Property UiState::sBatteryCharging{false};
 
-lua::Property UiState::sBluetoothEnabled{false};
+lua::Property UiState::sBluetoothEnabled{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      if (std::get<bool>(val)) {
+        sServices->bluetooth().Enable();
+        sServices->bluetooth().SetDeviceDiscovery(true);
+      } else {
+        sServices->bluetooth().Disable();
+      }
+      return true;
+    }};
 lua::Property UiState::sBluetoothConnected{false};
+lua::Property UiState::sBluetoothPairedDevice{
+    std::monostate{}, [](const lua::LuaValue& val) {
+      if (std::holds_alternative<drivers::bluetooth::Device>(val)) {
+        auto dev = std::get<drivers::bluetooth::Device>(val);
+        sServices->bluetooth().SetPreferredDevice(dev.address);
+      }
+      return false;
+    }};
+lua::Property UiState::sBluetoothDevices{
+    std::vector<drivers::bluetooth::Device>{}};
+lua::Property UiState::sBluetoothScanning{false};
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
@@ -99,39 +123,93 @@ lua::Property UiState::sQueueRandom{false};
 
 lua::Property UiState::sVolumeCurrentPct{
     0, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<int>(val)) {
+        return false;
+      }
       events::Audio().Dispatch(audio::SetVolume{
-          .percent = {},
-          .db = 0,
+          .percent = std::get<int>(val),
+          .db = {},
       });
-      return false;
+      return true;
     }};
 lua::Property UiState::sVolumeCurrentDb{
     0, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<int>(val)) {
+        return false;
+      }
       events::Audio().Dispatch(audio::SetVolume{
           .percent = {},
-          .db = 0,
+          .db = std::get<int>(val),
       });
-      return false;
+      return true;
     }};
 lua::Property UiState::sVolumeLeftBias{
     0, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<int>(val)) {
+        return false;
+      }
       events::Audio().Dispatch(audio::SetVolumeBalance{
-          .left_bias = 0,
+          .left_bias = std::get<int>(val),
       });
-      return false;
+      return true;
     }};
 lua::Property UiState::sVolumeLimit{
     0, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<int>(val)) {
+        return false;
+      }
+      int limit = std::get<int>(val);
       events::Audio().Dispatch(audio::SetVolumeLimit{
-          .new_limit = 0,
+          .limit_db = limit,
       });
-      return false;
+      return true;
     }};
 
-lua::Property UiState::sDisplayBrightness{0, [](const lua::LuaValue& val) {
-                                            sDisplay->SetBrightness(0);
-                                            return false;
-                                          }};
+lua::Property UiState::sDisplayBrightness{
+    0, [](const lua::LuaValue& val) {
+      std::optional<int> brightness = 0;
+      std::visit(
+          [&](auto&& v) {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, int>) {
+              brightness = v;
+            }
+          },
+          val);
+      if (!brightness) {
+        return false;
+      }
+      sDisplay->SetBrightness(*brightness);
+      sServices->nvs().ScreenBrightness(*brightness);
+      return true;
+    }};
+
+lua::Property UiState::sControlsScheme{
+    0, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<int>(val)) {
+        return false;
+      }
+      drivers::NvsStorage::InputModes mode;
+      switch (std::get<int>(val)) {
+        case 0:
+          mode = drivers::NvsStorage::InputModes::kButtonsOnly;
+          break;
+        case 1:
+          mode = drivers::NvsStorage::InputModes::kButtonsWithWheel;
+          break;
+        case 2:
+          mode = drivers::NvsStorage::InputModes::kDirectionalWheel;
+          break;
+        case 3:
+          mode = drivers::NvsStorage::InputModes::kRotatingWheel;
+          break;
+        default:
+          return false;
+      }
+      sServices->nvs().PrimaryInput(mode);
+      sInput->mode(mode);
+      return true;
+    }};
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
@@ -223,7 +301,29 @@ void UiState::react(const audio::VolumeBalanceChanged& ev) {
 }
 
 void UiState::react(const audio::VolumeLimitChanged& ev) {
-  sVolumeLeftBias.Update(ev.new_limit);
+  sVolumeLimit.Update(ev.new_limit_db);
+}
+
+void UiState::react(const system_fsm::BluetoothEvent& ev) {
+  auto bt = sServices->bluetooth();
+  switch (ev.event) {
+    case drivers::bluetooth::Event::kKnownDevicesChanged:
+      sBluetoothDevices.Update(bt.KnownDevices());
+      break;
+    case drivers::bluetooth::Event::kConnectionStateChanged:
+      sBluetoothConnected.Update(bt.IsConnected());
+      if (bt.ConnectedDevice()) {
+        sBluetoothPairedDevice.Update(bt.ConnectedDevice().value());
+      } else {
+        sBluetoothPairedDevice.Update(std::monostate{});
+      }
+      break;
+    case drivers::bluetooth::Event::kDiscoveryChanged:
+      sBluetoothScanning.Update(bt.IsDiscovering());
+      break;
+    case drivers::bluetooth::Event::kPreferredDeviceChanged:
+      break;
+  }
 }
 
 namespace states {
@@ -245,12 +345,18 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   lv_disp_set_theme(NULL, base_theme);
   themes::Theme::instance()->Apply();
 
-  sDisplay->SetBrightness(sServices->nvs().ScreenBrightness());
+  int brightness = sServices->nvs().ScreenBrightness();
+  sDisplayBrightness.Update(brightness);
+  sDisplay->SetBrightness(brightness);
 
   auto touchwheel = sServices->touchwheel();
   if (touchwheel) {
     sInput = std::make_shared<EncoderInput>(sServices->gpios(), **touchwheel);
-    sInput->mode(sServices->nvs().PrimaryInput());
+
+    auto mode = sServices->nvs().PrimaryInput();
+    sInput->mode(mode);
+    sControlsScheme.Update(static_cast<int>(mode));
+
     sTask->input(sInput);
   } else {
     ESP_LOGE(kTag, "no input devices initialised!");
@@ -274,11 +380,13 @@ void Lua::entry() {
                                          {"battery_millivolts", &sBatteryMv},
                                          {"plugged_in", &sBatteryCharging},
                                      });
-    sLua->bridge().AddPropertyModule("bluetooth",
-                                     {
-                                         {"enabled", &sBluetoothEnabled},
-                                         {"connected", &sBluetoothConnected},
-                                     });
+    sLua->bridge().AddPropertyModule(
+        "bluetooth", {
+                         {"enabled", &sBluetoothEnabled},
+                         {"connected", &sBluetoothConnected},
+                         {"paired_device", &sBluetoothPairedDevice},
+                         {"devices", &sBluetoothDevices},
+                     });
     sLua->bridge().AddPropertyModule("playback",
                                      {
                                          {"playing", &sPlaybackPlaying},
@@ -299,6 +407,16 @@ void Lua::entry() {
                                          {"limit_db", &sVolumeLimit},
                                      });
 
+    sLua->bridge().AddPropertyModule("display",
+                                     {
+                                         {"brightness", &sDisplayBrightness},
+                                     });
+
+    sLua->bridge().AddPropertyModule("controls",
+                                     {
+                                         {"scheme", &sControlsScheme},
+                                     });
+
     sLua->bridge().AddPropertyModule(
         "backstack",
         {
@@ -310,6 +428,15 @@ void Lua::entry() {
                       {"show", [&](lua_State* s) { return ShowAlert(s); }},
                       {"hide", [&](lua_State* s) { return HideAlert(s); }},
                   });
+
+    auto bt = sServices->bluetooth();
+    sBluetoothEnabled.Update(bt.IsEnabled());
+    sBluetoothConnected.Update(bt.IsConnected());
+    if (bt.ConnectedDevice()) {
+      sBluetoothPairedDevice.Update(bt.ConnectedDevice().value());
+    }
+    sBluetoothDevices.Update(bt.KnownDevices());
+    sBluetoothScanning.Update(bt.IsDiscovering());
 
     sCurrentScreen.reset();
     sLua->RunScript("/lua/main.lua");

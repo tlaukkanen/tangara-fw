@@ -10,7 +10,9 @@
 #include <cmath>
 #include <memory>
 #include <string>
+#include <variant>
 
+#include "bluetooth_types.hpp"
 #include "lua.h"
 #include "lua.hpp"
 #include "lua_thread.hpp"
@@ -185,6 +187,35 @@ static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
       val);
 }
 
+static void pushDevice(lua_State* L, const drivers::bluetooth::Device& dev) {
+  lua_createtable(L, 0, 4);
+
+  lua_pushliteral(L, "address");
+  auto* mac = reinterpret_cast<drivers::bluetooth::mac_addr_t*>(
+      lua_newuserdata(L, sizeof(drivers::bluetooth::mac_addr_t)));
+  *mac = dev.address;
+  lua_rawset(L, -3);
+
+  // What I just did there was perfectly safe. Look, I can prove it:
+  static_assert(
+      std::is_trivially_copy_assignable<drivers::bluetooth::mac_addr_t>());
+  static_assert(
+      std::is_trivially_destructible<drivers::bluetooth::mac_addr_t>());
+
+  lua_pushliteral(L, "name");
+  lua_pushlstring(L, dev.name.data(), dev.name.size());
+  lua_rawset(L, -3);
+
+  // FIXME: This field deserves a little more structure.
+  lua_pushliteral(L, "class");
+  lua_pushinteger(L, dev.class_of_device);
+  lua_rawset(L, -3);
+
+  lua_pushliteral(L, "signal_strength");
+  lua_pushinteger(L, dev.signal_strength);
+  lua_rawset(L, -3);
+}
+
 auto Property::PushValue(lua_State& s) -> int {
   std::visit(
       [&](auto&& arg) {
@@ -222,12 +253,50 @@ auto Property::PushValue(lua_State& s) -> int {
           lua_pushliteral(&s, "encoding");
           lua_pushstring(&s, codecs::StreamTypeToString(arg.encoding).c_str());
           lua_settable(&s, table);
+        } else if constexpr (std::is_same_v<T, drivers::bluetooth::Device>) {
+          pushDevice(&s, arg);
+        } else if constexpr (std::is_same_v<
+                                 T, std::vector<drivers::bluetooth::Device>>) {
+          lua_createtable(&s, arg.size(), 0);
+          size_t i = 1;
+          for (const auto& dev : arg) {
+            pushDevice(&s, dev);
+            lua_rawseti(&s, -2, i++);
+          }
         } else {
           static_assert(always_false_v<T>, "PushValue missing type");
         }
       },
       value_);
   return 1;
+}
+
+auto popRichType(lua_State* L) -> LuaValue {
+  lua_pushliteral(L, "address");
+  lua_gettable(L, -2);
+
+  if (lua_isuserdata(L, -1)) {
+    // This must be a bt device!
+    drivers::bluetooth::mac_addr_t mac =
+        *reinterpret_cast<drivers::bluetooth::mac_addr_t*>(
+            lua_touserdata(L, -1));
+    lua_pop(L, 1);
+
+    lua_pushliteral(L, "name");
+    lua_gettable(L, -2);
+
+    std::pmr::string name = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    return drivers::bluetooth::Device{
+        .address = mac,
+        .name = name,
+        .class_of_device = 0,
+        .signal_strength = 0,
+    };
+  }
+
+  return std::monostate{};
 }
 
 auto Property::PopValue(lua_State& s) -> bool {
@@ -250,7 +319,14 @@ auto Property::PopValue(lua_State& s) -> bool {
       new_val = lua_tostring(&s, 2);
       break;
     default:
-      return false;
+      if (lua_istable(&s, 2)) {
+        new_val = popRichType(&s);
+        if (std::holds_alternative<std::monostate>(new_val)) {
+          return false;
+        }
+      } else {
+        return false;
+      }
   }
 
   if (cb_ && std::invoke(*cb_, new_val)) {

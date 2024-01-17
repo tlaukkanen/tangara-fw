@@ -80,6 +80,36 @@ auto Bluetooth::IsEnabled() -> bool {
   return !bluetooth::BluetoothState::is_in_state<bluetooth::Disabled>();
 }
 
+auto Bluetooth::IsConnected() -> bool {
+  return bluetooth::BluetoothState::is_in_state<bluetooth::Connected>();
+}
+
+auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::Device> {
+  if (!IsConnected()) {
+    return {};
+  }
+  auto looking_for = bluetooth::BluetoothState::preferred_device();
+  for (const auto& dev : bluetooth::BluetoothState::devices()) {
+    if (dev.address == looking_for) {
+      return dev;
+    }
+  }
+  return {};
+}
+
+auto Bluetooth::SetDeviceDiscovery(bool allowed) -> void {
+  if (allowed == bluetooth::BluetoothState::discovery()) {
+    return;
+  }
+  bluetooth::BluetoothState::discovery(allowed);
+  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+      bluetooth::events::DiscoveryChanged{});
+}
+
+auto Bluetooth::IsDiscovering() -> bool {
+  return bluetooth::BluetoothState::discovery();
+}
+
 auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {
   std::vector<bluetooth::Device> out = bluetooth::BluetoothState::devices();
   std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) -> bool {
@@ -97,13 +127,8 @@ auto Bluetooth::SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void {
       bluetooth::events::PreferredDeviceChanged{});
 }
 
-auto Bluetooth::SetDeviceDiscovery(bool allowed) -> void {
-  if (allowed == bluetooth::BluetoothState::discovery()) {
-    return;
-  }
-  bluetooth::BluetoothState::discovery(allowed);
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::DiscoveryChanged{});
+auto Bluetooth::PreferredDevice() -> std::optional<bluetooth::mac_addr_t> {
+  return bluetooth::BluetoothState::preferred_device();
 }
 
 auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
@@ -120,7 +145,7 @@ auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
   bluetooth::BluetoothState::event_handler(cb);
 }
 
-auto DeviceName() -> std::pmr::string {
+static auto DeviceName() -> std::pmr::string {
   uint8_t mac[8]{0};
   esp_efuse_mac_get_default(mac);
   std::ostringstream name;
@@ -267,7 +292,7 @@ Scanner* BluetoothState::sScanner_;
 std::mutex BluetoothState::sDevicesMutex_{};
 std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
 std::optional<mac_addr_t> BluetoothState::sPreferredDevice_{};
-mac_addr_t BluetoothState::sCurrentDevice_{0};
+std::optional<Device> BluetoothState::sCurrentDevice_{};
 bool BluetoothState::sIsDiscoveryAllowed_{false};
 
 std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
@@ -331,7 +356,7 @@ auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
     sDevices_[ev.device.address] = ev.device;
 
     if (ev.device.address == sPreferredDevice_) {
-      sCurrentDevice_ = ev.device.address;
+      sCurrentDevice_ = ev.device;
       is_preferred = true;
     }
 
@@ -466,9 +491,17 @@ void Idle::react(const events::internal::Gap& ev) {
 void Connecting::entry() {
   ESP_LOGI(kTag, "connecting to device");
   esp_a2d_source_connect(sPreferredDevice_.value().data());
+
+  if (sEventHandler_) {
+    std::invoke(sEventHandler_, Event::kConnectionStateChanged);
+  }
 }
 
-void Connecting::exit() {}
+void Connecting::exit() {
+  if (sEventHandler_) {
+    std::invoke(sEventHandler_, Event::kConnectionStateChanged);
+  }
+}
 
 void Connecting::react(const events::Disable& ev) {
   // TODO: disconnect gracefully

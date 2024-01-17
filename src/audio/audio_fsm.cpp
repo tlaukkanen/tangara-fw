@@ -87,13 +87,14 @@ void AudioState::react(const SetVolume& ev) {
 }
 
 void AudioState::react(const SetVolumeLimit& ev) {
-  ESP_LOGI(kTag, "new max volume %i db",
-           (ev.new_limit - drivers::wm8523::kLineLevelReferenceVolume) / 4);
-  sI2SOutput->SetMaxVolume(ev.new_limit);
-  sServices->nvs().AmpMaxVolume(ev.new_limit);
+  uint16_t limit_in_dac_units =
+      drivers::wm8523::kLineLevelReferenceVolume + (ev.limit_db * 4);
+
+  sI2SOutput->SetMaxVolume(limit_in_dac_units);
+  sServices->nvs().AmpMaxVolume(limit_in_dac_units);
 
   events::Ui().Dispatch(VolumeLimitChanged{
-      .new_limit = ev.new_limit,
+      .new_limit_db = ev.limit_db,
   });
   events::Ui().Dispatch(VolumeChanged{
       .percent = sOutput->GetVolumePct(),
@@ -166,6 +167,20 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
     sOutput = sBtOutput;
   }
   sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
+
+  events::Ui().Dispatch(VolumeLimitChanged{
+      .new_limit_db =
+          (static_cast<int>(nvs.AmpMaxVolume()) -
+           static_cast<int>(drivers::wm8523::kLineLevelReferenceVolume)) /
+          4,
+  });
+  events::Ui().Dispatch(VolumeChanged{
+      .percent = sOutput->GetVolumePct(),
+      .db = sOutput->GetVolumeDb(),
+  });
+  events::Ui().Dispatch(VolumeBalanceChanged{
+      .left_bias = nvs.AmpLeftBias(),
+  });
 
   sSampleConverter.reset(new SampleConverter());
   sSampleConverter->SetOutput(sOutput);

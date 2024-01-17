@@ -63,11 +63,11 @@ struct VolumeBalanceChanged : tinyfsm::Event {
   int left_bias;
 };
 struct VolumeLimitChanged : tinyfsm::Event {
-  uint16_t new_limit;
+  int new_limit_db;
 };
 
 struct SetVolumeLimit : tinyfsm::Event {
-  uint16_t new_limit;
+  int limit_db;
 };
 
 struct TogglePlayPause : tinyfsm::Event {};

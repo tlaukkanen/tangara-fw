@@ -50,39 +50,40 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
-  virtual void react(const system_fsm::BatteryStateChanged&);
-  virtual void react(const audio::PlaybackStarted&);
-  virtual void react(const audio::PlaybackFinished&);
-  virtual void react(const audio::PlaybackUpdate&);
-  virtual void react(const audio::QueueUpdate&);
-
-  virtual void react(const audio::VolumeChanged&);
-  virtual void react(const audio::VolumeBalanceChanged&);
-  virtual void react(const audio::VolumeLimitChanged&);
-
-  virtual void react(const system_fsm::KeyLockChanged&);
   virtual void react(const OnLuaError&) {}
-
   virtual void react(const internal::BackPressed&) {}
+  virtual void react(const system_fsm::BootComplete&) {}
+  virtual void react(const system_fsm::StorageMounted&) {}
+
+  void react(const system_fsm::BatteryStateChanged&);
+  void react(const audio::PlaybackStarted&);
+  void react(const audio::PlaybackFinished&);
+  void react(const audio::PlaybackUpdate&);
+  void react(const audio::QueueUpdate&);
+
+  void react(const audio::VolumeChanged&);
+  void react(const audio::VolumeBalanceChanged&);
+  void react(const audio::VolumeLimitChanged&);
+
+  void react(const system_fsm::KeyLockChanged&);
+
+  void react(const internal::DismissAlerts&);
+  void react(const internal::ControlSchemeChanged&);
+
+  void react(const database::event::UpdateStarted&){};
+  void react(const database::event::UpdateProgress&){};
+  void react(const database::event::UpdateFinished&){};
+
+  void react(const system_fsm::BluetoothEvent&);
+
   virtual void react(const internal::ModalCancelPressed&) {
     sCurrentModal.reset();
   }
   virtual void react(const internal::ModalConfirmPressed&) {
     sCurrentModal.reset();
   }
-  void react(const internal::ControlSchemeChanged&);
-  virtual void react(const internal::ReindexDatabase&){};
 
-  void react(const internal::DismissAlerts&);
-
-  virtual void react(const database::event::UpdateStarted&){};
-  virtual void react(const database::event::UpdateProgress&){};
-  virtual void react(const database::event::UpdateFinished&){};
-
-  virtual void react(const system_fsm::DisplayReady&) {}
-  virtual void react(const system_fsm::BootComplete&) {}
-  virtual void react(const system_fsm::StorageMounted&) {}
-  virtual void react(const system_fsm::BluetoothDevicesChanged&) {}
+  void react(const internal::ReindexDatabase&){};
 
  protected:
   void PushScreen(std::shared_ptr<Screen>);
@@ -104,6 +105,9 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static lua::Property sBluetoothEnabled;
   static lua::Property sBluetoothConnected;
+  static lua::Property sBluetoothPairedDevice;
+  static lua::Property sBluetoothDevices;
+  static lua::Property sBluetoothScanning;
 
   static lua::Property sPlaybackPlaying;
 
@@ -121,6 +125,9 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sVolumeLimit;
 
   static lua::Property sDisplayBrightness;
+
+  static lua::Property sControlsScheme;
+  static lua::Property sControlSensitivity;
 };
 
 namespace states {

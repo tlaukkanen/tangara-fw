@@ -80,7 +80,10 @@ end
 
 
 return function()
-  local menu = widgets.MenuScreen(true, "Licenses")
+  local menu = widgets.MenuScreen({
+    show_back = true,
+    title = "Licenses"
+  })
 
   local container = menu.root:Object {
     flex = {

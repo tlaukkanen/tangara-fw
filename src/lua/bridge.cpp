@@ -16,6 +16,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
+#include "lua_controls.hpp"
 #include "lua_database.hpp"
 #include "lua_queue.hpp"
 #include "lua_version.hpp"
@@ -55,6 +56,7 @@ Bridge::Bridge(system_fsm::ServiceLocator& services, lua_State& s)
   luaL_requiref(&s, "term.core", luaopen_term_core, true);
   lua_pop(&s, 1);
 
+  RegisterControlsModule(&s);
   RegisterDatabaseModule(&s);
   RegisterQueueModule(&s);
   RegisterVersionModule(&s);

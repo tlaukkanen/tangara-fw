@@ -3,6 +3,9 @@ local backstack = require("backstack")
 local widgets = require("widgets")
 local theme = require("theme")
 local volume = require("volume")
+local display = require("display")
+local controls = require("controls")
+local bluetooth = require("bluetooth")
 
 local settings = {}
 
@@ -34,16 +37,26 @@ function settings.bluetooth()
     flex = {
       flex_direction = "row",
       justify_content = "flex-start",
-      align_items = "flex-start",
+      align_items = "content",
       align_content = "flex-start",
     },
     w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
+    pad_bottom = 1,
   }
   enable_container:Label { text = "Enable", flex_grow = 1 }
-  enable_container:Switch {}
+  local enable_sw = enable_container:Switch {}
+  enable_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+    local enabled = enable_sw:enabled()
+    bluetooth.enabled:set(enabled)
+  end)
 
-  local preferred_container = menu.content:Object {
+  menu.content:Label {
+    text = "Paired Device",
+    pad_bottom = 1,
+  }:add_style(theme.settings_title)
+
+  local paired_container = menu.content:Object {
     flex = {
       flex_direction = "row",
       justify_content = "flex-start",
@@ -52,25 +65,50 @@ function settings.bluetooth()
     },
     w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
+    pad_bottom = 2,
   }
-  preferred_container:add_style(theme.settings_title)
-  preferred_container:Label {
-    text = "Preferred Device",
+
+  local paired_device = paired_container:Label {
     flex_grow = 1,
   }
-  preferred_container:Label { text = "x" }
-
-  local preferred_device = menu.content:Label {
-    text = "My Cool Speakers",
-  }
+  local clear_paired = paired_container:Button {}
+  clear_paired:Label { text = "x" }
+  clear_paired:onClicked(function()
+    print("clear dev")
+    bluetooth.paired_device:set()
+  end)
 
   menu.content:Label {
-    text = "Available Devices",
+    text = "Nearby Devices",
+    pad_bottom = 1,
   }:add_style(theme.settings_title)
 
-  local known_devices = menu.content:List {
+  local devices = menu.content:List {
     w = lvgl.PCT(100),
-    flex_grow = 1,
+    h = lvgl.SIZE_CONTENT,
+  }
+
+  menu.bindings = {
+    bluetooth.enabled:bind(function(en)
+      enable_sw:set { enabled = en }
+    end),
+    bluetooth.paired_device:bind(function(device)
+      if device then
+        paired_device:set { text = device.name }
+        clear_paired:clear_flag(lvgl.FLAG.HIDDEN)
+      else
+        paired_device:set { text = "None" }
+        clear_paired:add_flag(lvgl.FLAG.HIDDEN)
+      end
+    end),
+    bluetooth.devices:bind(function(devs)
+      devices:clean()
+      for _, dev in pairs(devs) do
+        devices:add_btn(nil, dev.name):onClicked(function()
+          bluetooth.paired_device:set(dev)
+        end)
+      end
+    end)
   }
 end
 
@@ -87,8 +125,9 @@ function settings.headphones()
   }
   local limits = { -10, 6, 10 }
   volume_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
-    local selection = volume_chooser:get('selected')
-    volume.limit_db.set(limits[selection])
+    -- luavgl dropdown binding uses 0-based indexing :(
+    local selection = volume_chooser:get('selected') + 1
+    volume.limit_db:set(limits[selection])
   end)
 
   menu.content:Label {
@@ -98,7 +137,7 @@ function settings.headphones()
   local balance = menu.content:Slider {
     w = lvgl.PCT(100),
     h = 5,
-    range = { min = -5, max = 5 },
+    range = { min = -100, max = 100 },
     value = 0,
   }
   balance:onevent(lvgl.EVENT.VALUE_CHANGED, function()
@@ -109,10 +148,9 @@ function settings.headphones()
 
   menu.bindings = {
     volume.limit_db:bind(function(limit)
-      print("new limit", limit)
-      for i=1,#limits do
+      for i = 1, #limits do
         if limits[i] == limit then
-          volume_chooser:set{ selected = i }
+          volume_chooser:set { selected = i - 1 }
         end
       end
     end),
@@ -122,12 +160,14 @@ function settings.headphones()
       }
       if bias < 0 then
         balance_label:set {
-          text = string.format("Left -%.2fdB", bias / 4)
+          text = string.format("Left %.2fdB", bias / 4)
+        }
+      elseif bias > 0 then
+        balance_label:set {
+          text = string.format("Right %.2fdB", -bias / 4)
         }
       else
-        balance_label:set {
-          text = string.format("Right -%.2fdB", -bias / 4)
-        }
+        balance_label:set { text = "Balanced" }
       end
     end),
   }
@@ -138,19 +178,37 @@ end
 function settings.display()
   local menu = SettingsScreen("Display")
 
-  menu.content:Label {
-    text = "Brightness",
-  }:add_style(theme.settings_title)
+  local brightness_title = menu.content:Object {
+    flex = {
+      flex_direction = "row",
+      justify_content = "flex-start",
+      align_items = "flex-start",
+      align_content = "flex-start",
+    },
+    w = lvgl.PCT(100),
+    h = lvgl.SIZE_CONTENT,
+  }
+  brightness_title:Label { text = "Brightness", flex_grow = 1 }
+  local brightness_pct = brightness_title:Label {}
+  brightness_pct:add_style(theme.settings_title)
 
   local brightness = menu.content:Slider {
     w = lvgl.PCT(100),
     h = 5,
     range = { min = 0, max = 100 },
-    value = 50,
+    value = display.brightness:get(),
   }
   brightness:onevent(lvgl.EVENT.VALUE_CHANGED, function()
-    print("bright", brightness:value())
+    display.brightness:set(brightness:value())
   end)
+
+  menu.bindings = {
+    display.brightness:bind(function(b)
+      brightness_pct:set { text = tostring(b) .. "%" }
+    end)
+  }
+
+  return menu
 end
 
 function settings.input()
@@ -160,14 +218,41 @@ function settings.input()
     text = "Control scheme",
   }:add_style(theme.settings_title)
 
+  local schemes = controls.schemes()
+  local option_to_scheme = {}
+  local scheme_to_option = {}
+
+  local option_idx = 0
+  local options = ""
+
+  for i, v in pairs(schemes) do
+    option_to_scheme[option_idx] = i
+    scheme_to_option[i] = option_idx
+    if option_idx > 0 then
+      options = options .. "\n"
+    end
+    options = options .. v
+    option_idx = option_idx + 1
+  end
+
   local controls_chooser = menu.content:Dropdown {
-    options = "Buttons only\nD-Pad\nTouchwheel",
-    selected = 3,
+    options = options,
   }
+
+  menu.bindings = {
+    controls.scheme:bind(function(s)
+      local option = scheme_to_option[s]
+      controls_chooser:set({ selected = option })
+    end)
+  }
+
   controls_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
-    local selection = controls_chooser:get('selected')
-    print("controls", selection)
+    local option = controls_chooser:get('selected')
+    local scheme = option_to_scheme[option]
+    controls.scheme:set(scheme)
   end)
+
+  return menu
 end
 
 function settings.database()

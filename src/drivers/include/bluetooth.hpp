@@ -32,14 +32,20 @@ class Bluetooth {
   auto Disable() -> void;
   auto IsEnabled() -> bool;
 
+  auto IsConnected() -> bool;
+  auto ConnectedDevice() -> std::optional<bluetooth::Device>;
+
   /*
    * Sets whether or not the bluetooth stack is allowed to actively scan for
    * new devices.
    */
   auto SetDeviceDiscovery(bool) -> void;
+  auto IsDiscovering() -> bool;
 
   auto KnownDevices() -> std::vector<bluetooth::Device>;
+
   auto SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void;
+  auto PreferredDevice() -> std::optional<bluetooth::mac_addr_t>;
 
   auto SetSource(StreamBufferHandle_t) -> void;
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
@@ -100,9 +106,11 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static auto Init(NvsStorage& storage) -> void;
 
   static auto devices() -> std::vector<Device>;
+
   static auto preferred_device() -> std::optional<mac_addr_t>;
   static auto preferred_device(std::optional<mac_addr_t>) -> void;
 
+  static auto scanning() -> bool;
   static auto discovery() -> bool;
   static auto discovery(bool) -> void;
 
@@ -135,7 +143,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static std::mutex sDevicesMutex_;
   static std::map<mac_addr_t, Device> sDevices_;
   static std::optional<mac_addr_t> sPreferredDevice_;
-  static mac_addr_t sCurrentDevice_;
+  static std::optional<Device> sCurrentDevice_;
   static bool sIsDiscoveryAllowed_;
 
   static std::atomic<StreamBufferHandle_t> sSource_;
