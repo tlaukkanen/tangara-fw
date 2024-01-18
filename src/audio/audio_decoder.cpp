@@ -139,17 +139,13 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   }
   stream->SetPreambleFinished();
 
-  if (open_res->total_samples) {
-    timer_.reset(new Timer(std::shared_ptr<Track>{new Track{
-                               .tags = stream->tags(),
-                               .db_info = {},
-                               .bitrate_kbps = 0,
-                               .encoding = stream->type(),
-                           }},
-                           open_res.value()));
-  } else {
-    timer_.reset();
-  }
+  timer_.reset(new Timer(std::shared_ptr<Track>{new Track{
+                             .tags = stream->tags(),
+                             .db_info = {},
+                             .bitrate_kbps = open_res->sample_rate_hz,
+                             .encoding = stream->type(),
+                         }},
+                         open_res.value()));
 
   current_sink_format_ = IAudioOutput::Format{
       .sample_rate = open_res->sample_rate_hz,

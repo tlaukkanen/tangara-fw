@@ -183,7 +183,7 @@ static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
           for (const auto& i : arg) {
             lua_pushlstring(L, i.data(), i.size());
             lua_pushboolean(L, true);
-            lua_rawset(L, -2);
+            lua_rawset(L, -3);
           }
         } else if constexpr (std::is_same_v<T, uint32_t>) {
           lua_pushinteger(L, arg);
