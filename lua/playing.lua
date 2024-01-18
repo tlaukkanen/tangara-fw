@@ -33,22 +33,24 @@ return function(opts)
       align_items = "center",
       align_content = "center",
     },
-    w = lvgl.HOR_RES(),
+    w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
     flex_grow = 1,
   }
 
   local artist = info:Label {
-    w = lvgl.SIZE_CONTENT,
+    w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
     text = "",
     text_font = font.fusion_10,
+    text_align = 2,
   }
 
   local title = info:Label {
-    w = lvgl.SIZE_CONTENT,
+    w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
     text = "",
+    text_align = 2,
   }
 
   local playlist = screen.root:Object {
