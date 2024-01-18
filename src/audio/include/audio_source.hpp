@@ -28,6 +28,8 @@ class TaggedStream : public codecs::IStream {
 
   auto CurrentPosition() -> int64_t override;
 
+  auto Size() -> std::optional<int64_t> override;
+
   auto SetPreambleFinished() -> void override;
 
  private:

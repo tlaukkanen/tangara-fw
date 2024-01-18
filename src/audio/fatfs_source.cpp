@@ -5,6 +5,7 @@
  */
 
 #include "fatfs_source.hpp"
+#include <sys/_stdint.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -66,4 +67,9 @@ auto FatfsSource::SeekTo(int64_t destination, SeekFrom from) -> void {
 auto FatfsSource::CurrentPosition() -> int64_t {
   return f_tell(file_.get());
 }
+
+auto FatfsSource::Size() -> std::optional<int64_t> {
+  return f_size(file_.get());
+}
+
 }  // namespace audio

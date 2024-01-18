@@ -49,6 +49,8 @@ class IStream {
 
   virtual auto CurrentPosition() -> int64_t = 0;
 
+  virtual auto Size() -> std::optional<int64_t> = 0;
+
   /*
    * Called by codecs to indicate that they've finished parsing any header data
    * within this stream, and are about to begin decoding.

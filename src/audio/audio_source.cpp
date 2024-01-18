@@ -34,6 +34,10 @@ auto TaggedStream::CurrentPosition() -> int64_t {
   return wrapped_->CurrentPosition();
 }
 
+auto TaggedStream::Size() -> std::optional<int64_t> {
+  return wrapped_->Size();
+}
+
 auto TaggedStream::SetPreambleFinished() -> void {
   wrapped_->SetPreambleFinished();
 }

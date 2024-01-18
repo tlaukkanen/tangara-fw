@@ -34,6 +34,8 @@ class FatfsSource : public codecs::IStream {
 
   auto CurrentPosition() -> int64_t override;
 
+  auto Size() -> std::optional<int64_t> override;
+
   FatfsSource(const FatfsSource&) = delete;
   FatfsSource& operator=(const FatfsSource&) = delete;
 
