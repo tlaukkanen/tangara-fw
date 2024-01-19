@@ -5,7 +5,7 @@
 # For more information about build system see
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
 
-set(PROJECT_VER "0.1.2")
+set(PROJECT_VER "0.1.3")
 
 # Build only the subset of components that we actually depend on.
 set(COMPONENTS "")
