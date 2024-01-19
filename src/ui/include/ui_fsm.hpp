@@ -51,6 +51,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const tinyfsm::Event& ev) {}
 
   virtual void react(const OnLuaError&) {}
+  virtual void react(const DumpLuaStack&) {}
   virtual void react(const internal::BackPressed&) {}
   virtual void react(const system_fsm::BootComplete&) {}
   virtual void react(const system_fsm::StorageMounted&) {}
@@ -148,6 +149,7 @@ class Lua : public UiState {
   void exit() override;
 
   void react(const OnLuaError&) override;
+  void react(const DumpLuaStack&) override;
   void react(const internal::BackPressed&) override;
 
   using UiState::react;

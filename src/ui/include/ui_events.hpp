@@ -28,6 +28,8 @@ struct OnLuaError : tinyfsm::Event {
   std::string message;
 };
 
+struct DumpLuaStack : tinyfsm::Event {};
+
 namespace internal {
 
 struct ControlSchemeChanged : tinyfsm::Event {};

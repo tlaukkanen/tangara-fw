@@ -541,6 +541,10 @@ void Lua::react(const OnLuaError& err) {
   ESP_LOGE("lua", "%s", err.message.c_str());
 }
 
+void Lua::react(const DumpLuaStack& ev) {
+  sLua->DumpStack();
+}
+
 void Lua::react(const internal::BackPressed& ev) {
   PopLuaScreen(sLua->state());
 }

@@ -43,6 +43,7 @@
 #include "service_locator.hpp"
 #include "system_events.hpp"
 #include "track.hpp"
+#include "ui_events.hpp"
 
 namespace console {
 
@@ -322,6 +323,25 @@ void RegisterHeaps() {
                         .help = "prints free heap space",
                         .hint = NULL,
                         .func = &CmdHeaps,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
+
+int CmdStacks(int argc, char** argv) {
+  static const std::pmr::string usage = "usage: stacks";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+  events::Ui().Dispatch(ui::DumpLuaStack{});
+  return 0;
+}
+
+void RegisterStacks() {
+  esp_console_cmd_t cmd{.command = "stacks",
+                        .help = "prints contents of each lua stack",
+                        .hint = NULL,
+                        .func = &CmdStacks,
                         .argtable = NULL};
   esp_console_cmd_register(&cmd);
 }
@@ -630,6 +650,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
   RegisterTasks();
 
   RegisterHeaps();
+  RegisterStacks();
 
 #if CONFIG_HEAP_TRACING
   RegisterAllocs();

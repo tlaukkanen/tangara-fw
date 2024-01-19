@@ -113,6 +113,9 @@ PropertyBindings::PropertyBindings(lua_State& s) {
   // Add our binding funcs (get, set, bind) to the metatable.
   luaL_setfuncs(&s, kPropertyBindingFuncs, 0);
 
+  // We've finished setting up the metatable, so pop it.
+  lua_pop(&s, 1);
+
   // Create a weak table in the registry to hold live bindings.
   lua_pushstring(&s, kBindingsTable);
   lua_newtable(&s);  // bindings = {}
@@ -368,6 +371,7 @@ auto Property::Update(const LuaValue& v) -> void {
 
     PushValue(*b.first);           // push the argument
     CallProtected(b.first, 1, 0);  // invoke the closure
+    lua_pop(b.first, 1);           // pop the bindings table
   }
 }
 

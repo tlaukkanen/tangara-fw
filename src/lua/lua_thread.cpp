@@ -6,8 +6,11 @@
 
 #include "lua_thread.hpp"
 
+#include <iostream>
 #include <memory>
 
+#include "lauxlib.h"
+#include "lua.h"
 #include "lua.hpp"
 
 #include "font/lv_font_loader.h"
@@ -121,6 +124,61 @@ auto LuaThread::RunString(const std::string& script) -> bool {
   }
   CallProtected(state_, 0, 0);
   return true;
+}
+
+auto LuaThread::DumpStack() -> void {
+  int top = lua_gettop(state_);
+  std::cout << "stack size: " << top << std::endl;
+  for (size_t i = 1; i <= top; i++) {
+    std::cout << "[" << i << "]\t" << luaL_typename(state_, i);
+    switch (lua_type(state_, i)) {
+      case LUA_TNUMBER:
+        std::cout << "\t(";
+        if (lua_isinteger(state_, i)) {
+          std::cout << lua_tointeger(state_, i);
+        } else {
+          std::cout << lua_tonumber(state_, i);
+        }
+        std::cout << ")";
+        break;
+      case LUA_TSTRING:
+        std::cout << "\t('" << lua_tostring(state_, i) << "')";
+        break;
+      case LUA_TBOOLEAN:
+        std::cout << "\t(" << lua_toboolean(state_, i) << ")";
+        break;
+      case LUA_TNIL:
+        // Value is implied.
+        break;
+      case LUA_TTABLE:
+        lua_pushnil(state_);
+        while (lua_next(state_, i) != 0) {
+          // Keys
+          std::cout << std::endl << "\t\t" << luaL_typename(state_, -2);
+          if (lua_type(state_, -2) == LUA_TSTRING) {
+            std::cout << "\t(" << lua_tostring(state_, -2) << ")";
+          } else if (lua_type(state_, -2) == LUA_TNUMBER) {
+            std::cout << "\t(" << lua_tonumber(state_, -2) << ")";
+          }
+
+          // Values
+          std::cout << "\t\t" << luaL_typename(state_, -1);
+          if (lua_type(state_, -1) == LUA_TSTRING) {
+            std::cout << "\t(" << lua_tostring(state_, -1) << ")";
+          } else if (lua_type(state_, -1) == LUA_TNUMBER) {
+            std::cout << "\t(" << lua_tonumber(state_, -1) << ")";
+          }
+          // Pop the value; we don't care about it. Leave the key on the stack
+          // for the next call to lua_next.
+          lua_pop(state_, 1);
+        }
+        break;
+      default:
+        std::cout << "\t(" << lua_topointer(state_, i) << ")";
+        break;
+    }
+    std::cout << std::endl;
+  }
 }
 
 static int msg_handler(lua_State* L) {
