@@ -5,6 +5,15 @@ local font = require("font")
 local playback = require("playback")
 local queue = require("queue")
 
+local img = {
+  play = "//lua/img/play.png",
+  pause = "//lua/img/pause.png",
+  next = "//lua/img/next.png",
+  next_disabled = "//lua/img/next_disabled.png",
+  prev = "//lua/img/prev.png",
+  prev_disabled = "//lua/img/prev_disabled.png",
+}
+
 return function(opts)
   local screen = {}
   screen.root = lvgl.Object(nil, {
@@ -106,19 +115,20 @@ return function(opts)
 
   controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
-  controls:Image {
-    src = "//lua/img/prev.png",
-  }
+  local prev_btn = controls:Button {}
+  prev_btn:onClicked(queue.previous)
+  local prev_img = prev_btn:Image { src = img.prev_disabled }
+
   local play_pause_btn = controls:Button {}
   play_pause_btn:onClicked(function()
     playback.playing:set(not playback.playing:get())
   end)
-  local play_pause_img = play_pause_btn:Image {
-    src = "//lua/img/pause.png",
-  }
-  controls:Image {
-    src = "//lua/img/next.png",
-  }
+  local play_pause_img = play_pause_btn:Image { src = img.pause }
+
+  local next_btn = controls:Button {}
+  next_btn:onClicked(queue.next)
+  local next_img = next_btn:Image { src = img.next_disabled }
+
   controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
   local end_time = controls:Label {
@@ -136,9 +146,9 @@ return function(opts)
   screen.bindings = {
     playback.playing:bind(function(playing)
       if playing then
-        play_pause_img:set_src("//lua/img/pause.png")
+        play_pause_img:set_src(img.pause)
       else
-        play_pause_img:set_src("//lua/img/play.png")
+        play_pause_img:set_src(img.play)
       end
     end),
     playback.position:bind(function(pos)
@@ -162,6 +172,13 @@ return function(opts)
     queue.position:bind(function(pos)
       if not pos then return end
       playlist_pos:set { text = tostring(pos) }
+
+      next_img:set_src(
+        pos < queue.size:get() and img.next or img.next_disabled
+      )
+      prev_img:set_src(
+        pos > 1 and img.prev or img.prev_disabled
+      )
     end),
     queue.size:bind(function(num)
       if not num then return end
