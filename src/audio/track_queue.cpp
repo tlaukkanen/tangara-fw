@@ -200,9 +200,12 @@ auto TrackQueue::next() -> void {
     shuffle_->next();
     pos_ = shuffle_->current();
   } else {
-    pos_++;
-    if (pos_ >= tracks_.size() && repeat_) {
-      pos_ = 0;
+    if (pos_ + 1 >= tracks_.size()) {
+      if (repeat_) {
+        pos_ = 0;
+      }
+    } else {
+      pos_++;
     }
   }
 
