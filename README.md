@@ -19,7 +19,9 @@ management of the ESP32.
 
 ## Contributing
 
-We're still working on getting stuff together; please check back soon!
+The firmware repositories for Tangara are mirrored on both [sourcehut](https://sr.ht/~jacqueline/tangara/) and [Codeberg](https://codeberg.org/cool-tech-zone/). Contributions on either platform are welcome; feel free to use whichever contribution workflow you prefer. If you are a [git-send-email](https://git-send-email.io/) nerd, then the list to use is [~jacqueline/tangara-devel@lists.sr.ht](mailto:~jacqueline/tangara-devel@lists.sr.ht).
+
+For issue tracking, refer to the 'issues' tab of the relevant repo on Codeberg.
 
 ## Thanks, Aisler!
 
