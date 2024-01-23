@@ -19,4 +19,10 @@ queue.replay = types.Property
 -- @see types.Property
 queue.random = types.Property
 
+--- Moves forward in the play queue, looping back around to the beginning if repeat is on.
+function queue.next() end
+
+--- Moves backward in the play queue, looping back around to the end if repeat is on.
+function queue.previous() end
+
 return queue

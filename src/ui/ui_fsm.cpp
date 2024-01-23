@@ -396,12 +396,16 @@ void Lua::entry() {
                                          {"track", &sPlaybackTrack},
                                          {"position", &sPlaybackPosition},
                                      });
-    sLua->bridge().AddPropertyModule("queue", {
-                                                  {"position", &sQueuePosition},
-                                                  {"size", &sQueueSize},
-                                                  {"replay", &sQueueRepeat},
-                                                  {"random", &sQueueRandom},
-                                              });
+    sLua->bridge().AddPropertyModule(
+        "queue",
+        {
+            {"next", [&](lua_State* s) { return QueueNext(s); }},
+            {"previous", [&](lua_State* s) { return QueuePrevious(s); }},
+            {"position", &sQueuePosition},
+            {"size", &sQueueSize},
+            {"replay", &sQueueRepeat},
+            {"random", &sQueueRandom},
+        });
     sLua->bridge().AddPropertyModule("volume",
                                      {
                                          {"current_pct", &sVolumeCurrentPct},
@@ -473,6 +477,16 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   // screen.
   PushScreen(new_screen);
 
+  return 0;
+}
+
+auto Lua::QueueNext(lua_State*) -> int {
+  sServices->track_queue().next();
+  return 0;
+}
+
+auto Lua::QueuePrevious(lua_State*) -> int {
+  sServices->track_queue().previous();
   return 0;
 }
 

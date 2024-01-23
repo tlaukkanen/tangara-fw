@@ -164,6 +164,9 @@ class Lua : public UiState {
   auto SetPlaying(const lua::LuaValue&) -> bool;
   auto SetRandom(const lua::LuaValue&) -> bool;
   auto SetRepeat(const lua::LuaValue&) -> bool;
+
+  auto QueueNext(lua_State*) -> int;
+  auto QueuePrevious(lua_State*) -> int;
 };
 
 }  // namespace states
