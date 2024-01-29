@@ -59,6 +59,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const StorageMounted&) {}
   virtual void react(const StorageError&) {}
   virtual void react(const KeyLockChanged&) {}
+  virtual void react(const SdDetectChanged&) {}
   virtual void react(const audio::PlaybackFinished&) {}
   virtual void react(const internal::IdleTimeout&) {}
 
@@ -95,12 +96,22 @@ class Running : public SystemState {
   void exit() override;
 
   void react(const KeyLockChanged&) override;
-  void react(const StorageError&) override;
+  void react(const SdDetectChanged&) override;
   void react(const audio::PlaybackFinished&) override;
 
   using SystemState::react;
+
+ private:
+  auto mountStorage() -> bool;
+  auto unmountStorage() -> void;
+
+  bool storage_mounted_;
 };
 
+/**
+ * State for when the screen is off, controls locked, and music paused. Prelude
+ * to shutting off power completely.
+ */
 class Idle : public SystemState {
  public:
   void entry() override;

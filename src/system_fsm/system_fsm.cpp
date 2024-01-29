@@ -48,11 +48,13 @@ void SystemState::react(const internal::GpioInterrupt&) {
   auto& gpios = sServices->gpios();
   bool prev_key_lock = gpios.IsLocked();
   bool prev_has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
+  bool prev_has_sd = gpios.Get(drivers::Gpios::Pin::kSdCardDetect);
 
   gpios.Read();
 
   bool key_lock = gpios.IsLocked();
   bool has_headphones = !gpios.Get(drivers::Gpios::Pin::kPhoneDetect);
+  bool has_sd = gpios.Get(drivers::Gpios::Pin::kSdCardDetect);
 
   if (key_lock != prev_key_lock) {
     KeyLockChanged ev{.locking = key_lock};
@@ -63,6 +65,11 @@ void SystemState::react(const internal::GpioInterrupt&) {
   if (has_headphones != prev_has_headphones) {
     HasPhonesChanged ev{.has_headphones = has_headphones};
     events::Audio().Dispatch(ev);
+  }
+  if (has_sd != prev_has_sd) {
+    SdDetectChanged ev{.has_sd_card = !has_sd};
+    events::System().Dispatch(ev);
+    events::Ui().Dispatch(ev);
   }
 }
 

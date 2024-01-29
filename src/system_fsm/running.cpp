@@ -25,59 +25,14 @@ namespace states {
 
 static database::IFileGatherer* sFileGatherer;
 
-/*
- * Ensure the storage and database are both available. If either of these fails
- * to open, then we assume it's an issue with the underlying SD card.
- */
 void Running::entry() {
-  ESP_LOGI(kTag, "mounting sd card");
-  vTaskDelay(pdMS_TO_TICKS(250));
-  auto storage_res = drivers::SdStorage::Create(sServices->gpios());
-  if (storage_res.has_error()) {
-    ESP_LOGW(kTag, "failed to mount!");
-    switch (storage_res.error()) {
-      case drivers::SdStorage::FAILED_TO_MOUNT:
-        sServices->sd(drivers::SdState::kNotFormatted);
-        break;
-      case drivers::SdStorage::FAILED_TO_READ:
-      default:
-        sServices->sd(drivers::SdState::kNotPresent);
-        break;
-    }
-
-    events::System().Dispatch(StorageError{});
-    events::Audio().Dispatch(StorageError{});
-    events::Ui().Dispatch(StorageError{});
-    return;
+  if (mountStorage()) {
+    events::Ui().Dispatch(StorageMounted{});
   }
-  sStorage.reset(storage_res.value());
-  sServices->sd(drivers::SdState::kMounted);
-
-  ESP_LOGI(kTag, "opening database");
-  sFileGatherer = new database::FileGathererImpl();
-  auto database_res =
-      database::Database::Open(*sFileGatherer, sServices->tag_parser(),
-                               sServices->collator(), sServices->bg_worker());
-  if (database_res.has_error()) {
-    ESP_LOGW(kTag, "failed to open!");
-    events::System().Dispatch(StorageError{});
-    events::Audio().Dispatch(StorageError{});
-    events::Ui().Dispatch(StorageError{});
-    return;
-  }
-  sServices->database(
-      std::unique_ptr<database::Database>{database_res.value()});
-
-  ESP_LOGI(kTag, "storage loaded okay");
-  StorageMounted ev{};
-  events::System().Dispatch(ev);
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
 }
 
 void Running::exit() {
-  sServices->database({});
-  sStorage.reset();
+  unmountStorage();
 }
 
 void Running::react(const KeyLockChanged& ev) {
@@ -92,9 +47,56 @@ void Running::react(const audio::PlaybackFinished& ev) {
   }
 }
 
-void Running::react(const StorageError& ev) {
-  ESP_LOGW(kTag, "error loading storage");
-  // TODO.
+void Running::react(const SdDetectChanged& ev) {
+  if (ev.has_sd_card) {
+    if (!sStorage && mountStorage()) {
+      events::Ui().Dispatch(StorageMounted{});
+    }
+  } else {
+    unmountStorage();
+  }
+}
+
+auto Running::mountStorage() -> bool {
+  ESP_LOGI(kTag, "mounting sd card");
+  auto storage_res = drivers::SdStorage::Create(sServices->gpios());
+  if (storage_res.has_error()) {
+    ESP_LOGW(kTag, "failed to mount!");
+    switch (storage_res.error()) {
+      case drivers::SdStorage::FAILED_TO_MOUNT:
+        sServices->sd(drivers::SdState::kNotFormatted);
+        break;
+      case drivers::SdStorage::FAILED_TO_READ:
+      default:
+        sServices->sd(drivers::SdState::kNotPresent);
+        break;
+    }
+    return false;
+  }
+
+  sStorage.reset(storage_res.value());
+  sServices->sd(drivers::SdState::kMounted);
+
+  ESP_LOGI(kTag, "opening database");
+  sFileGatherer = new database::FileGathererImpl();
+  auto database_res =
+      database::Database::Open(*sFileGatherer, sServices->tag_parser(),
+                               sServices->collator(), sServices->bg_worker());
+  if (database_res.has_error()) {
+    unmountStorage();
+    return false;
+  }
+
+  sServices->database(
+      std::unique_ptr<database::Database>{database_res.value()});
+
+  ESP_LOGI(kTag, "storage loaded okay");
+  return true;
+}
+
+auto Running::unmountStorage() -> void {
+  sServices->database({});
+  sStorage.reset();
 }
 
 }  // namespace states

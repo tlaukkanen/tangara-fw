@@ -49,6 +49,9 @@ struct KeyLockChanged : tinyfsm::Event {
 struct HasPhonesChanged : tinyfsm::Event {
   bool has_headphones;
 };
+struct SdDetectChanged : tinyfsm::Event {
+  bool has_sd_card;
+};
 
 struct ChargingStatusChanged : tinyfsm::Event {};
 struct BatteryStateChanged : tinyfsm::Event {
