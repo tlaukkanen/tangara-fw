@@ -10,6 +10,7 @@ enum
 {
 	Tunknown = -1,
 	Tartist,
+	Talbumartist,
 	Talbum,
 	Ttitle,
 	Tdate, /* "2014", "2015/02/01", but the year goes first */

@@ -37,6 +37,8 @@ static auto convert_tag(int tag) -> std::optional<Tag> {
       return Tag::kTitle;
     case Tartist:
       return Tag::kArtist;
+    case Talbumartist:
+      return Tag::kAlbumArtist;
     case Talbum:
       return Tag::kAlbum;
     case Ttrack:
