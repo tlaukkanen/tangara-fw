@@ -471,7 +471,7 @@ int CmdSamd(int argc, char** argv) {
   } else if (cmd == "msc") {
     bool current = samd.UsbMassStorage();
     std::cout << "toggling to: " << !current << std::endl;
-    samd.UsbMassStorage(!current);
+    events::System().Dispatch(system_fsm::SamdUsbMscChanged{.en = !current});
   } else if (cmd == "off") {
     std::cout << "bye !!!" << std::endl;
     vTaskDelay(pdMS_TO_TICKS(5));

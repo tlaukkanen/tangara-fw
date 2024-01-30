@@ -53,6 +53,10 @@ struct SdDetectChanged : tinyfsm::Event {
   bool has_sd_card;
 };
 
+struct SamdUsbMscChanged : tinyfsm::Event {
+  bool en;
+};
+
 struct ChargingStatusChanged : tinyfsm::Event {};
 struct BatteryStateChanged : tinyfsm::Event {
   battery::Battery::BatteryState new_state;

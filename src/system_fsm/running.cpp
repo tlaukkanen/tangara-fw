@@ -10,6 +10,7 @@
 #include "db_events.hpp"
 #include "file_gatherer.hpp"
 #include "freertos/projdefs.h"
+#include "gpios.hpp"
 #include "result.hpp"
 
 #include "audio_fsm.hpp"
@@ -55,12 +56,53 @@ void Running::react(const database::event::UpdateFinished&) {
 }
 
 void Running::react(const SdDetectChanged& ev) {
+  if (sServices->samd().UsbMassStorage()) {
+    // We don't currently control the sd card, so don't mess with it.
+    return;
+  }
+
   if (ev.has_sd_card) {
     if (!sStorage && mountStorage()) {
       events::Ui().Dispatch(StorageMounted{});
     }
   } else {
     unmountStorage();
+  }
+}
+
+void Running::react(const SamdUsbMscChanged& ev) {
+  if (ev.en) {
+    // Stop using the sd card, and power it off.
+    unmountStorage();
+
+    // Set up the SD card for usage by the samd21.
+    auto& gpios = sServices->gpios();
+    gpios.WriteSync(drivers::IGpios::Pin::kSdPowerEnable, 1);
+    gpios.WriteSync(drivers::IGpios::Pin::kSdMuxSwitch,
+                    drivers::IGpios::SD_MUX_SAMD);
+    gpios.WriteSync(drivers::IGpios::Pin::kSdMuxDisable, 0);
+
+    // Off you go!
+    sServices->samd().UsbMassStorage(true);
+  } else {
+    // Make sure the samd knows that its access is going away, and give it time
+    // to finish up any remaining work.
+    sServices->samd().UsbMassStorage(false);
+    vTaskDelay(pdMS_TO_TICKS(250));
+
+    auto& gpios = sServices->gpios();
+    // No more writing, please!
+    gpios.WriteSync(drivers::IGpios::Pin::kSdMuxDisable, 1);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // Reboot the SD card so that it comes up in a consistent state.
+    // TODO: can we avoid doing this?
+    gpios.WriteSync(drivers::IGpios::Pin::kSdPowerEnable, 0);
+
+    // Now it's ready for us.
+    if (mountStorage()) {
+      events::Ui().Dispatch(StorageMounted{});
+    }
   }
 }
 

@@ -118,8 +118,8 @@ SdStorage::~SdStorage() {
   sdspi_host_remove_device(this->handle_);
   sdspi_host_deinit();
 
-  gpio_.WriteSync(IGpios::Pin::kSdPowerEnable, 0);
   gpio_.WriteSync(IGpios::Pin::kSdMuxDisable, 1);
+  gpio_.WriteSync(IGpios::Pin::kSdPowerEnable, 0);
 }
 
 auto SdStorage::GetFs() -> FATFS* {
