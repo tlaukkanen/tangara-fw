@@ -22,6 +22,7 @@
 
 #include "collation.hpp"
 #include "cppbor.h"
+#include "cppbor_parse.h"
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/projdefs.h"
@@ -60,6 +61,7 @@ static const uint8_t kCurrentDbVersion = 5;
 static const char kKeyCustom[] = "U\0";
 static const char kKeyCollator[] = "collator";
 static const char kKeyTrackId[] = "next_track_id";
+static const char kKeyLastUpdate[] = "last_update";
 
 static std::atomic<bool> sIsDbOpen(false);
 
@@ -188,7 +190,8 @@ Database::Database(leveldb::DB* db,
       cache_(cache),
       file_gatherer_(file_gatherer),
       tag_parser_(tag_parser),
-      collator_(collator) {}
+      collator_(collator),
+      is_updating_(false) {}
 
 Database::~Database() {
   // Delete db_ first so that any outstanding background work finishes before
@@ -272,11 +275,18 @@ auto Database::getIndexes() -> std::vector<IndexInfo> {
 }
 
 auto Database::updateIndexes() -> void {
+  if (is_updating_.exchange(true)) {
+    return;
+  }
   events::Ui().Dispatch(event::UpdateStarted{});
+  events::System().Dispatch(event::UpdateStarted{});
+
   leveldb::ReadOptions read_options;
   read_options.fill_cache = false;
 
-  std::pair<uint16_t, uint16_t> newest_track{0, 0};
+  std::pair<uint16_t, uint16_t> last_update = dbGetLastUpdate();
+  ESP_LOGI(kTag, "last update was at %u,%u", last_update.first,
+           last_update.second);
 
   // Stage 1: verify all existing tracks are still valid.
   ESP_LOGI(kTag, "verifying existing tracks");
@@ -317,7 +327,6 @@ auto Database::updateIndexes() -> void {
         modified_at = {info.fdate, info.ftime};
       }
       if (modified_at == track->modified_at) {
-        newest_track = std::max(modified_at, newest_track);
         continue;
       } else {
         track->modified_at = modified_at;
@@ -356,12 +365,10 @@ auto Database::updateIndexes() -> void {
     }
   }
 
-  ESP_LOGI(kTag, "newest unmodified was at %u,%u", newest_track.first,
-           newest_track.second);
-
   // Stage 2: search for newly added files.
   ESP_LOGI(kTag, "scanning for new tracks");
   uint64_t num_processed = 0;
+  std::pair<uint16_t, uint16_t> newest_track = last_update;
   file_gatherer_.FindFiles("", [&](const std::string& path,
                                    const FILINFO& info) {
     num_processed++;
@@ -371,9 +378,10 @@ auto Database::updateIndexes() -> void {
     });
 
     std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
-    if (modified < newest_track) {
+    if (modified < last_update) {
       return;
     }
+    newest_track = std::max(modified, newest_track);
 
     std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
     if (!tags || tags->encoding() == Container::kUnsupported) {
@@ -442,7 +450,44 @@ auto Database::updateIndexes() -> void {
                tags->album().value_or("no album").c_str());
     }
   });
+  dbSetLastUpdate(newest_track);
+  ESP_LOGI(kTag, "newest track was at %u,%u", newest_track.first,
+           newest_track.second);
+
+  is_updating_ = false;
   events::Ui().Dispatch(event::UpdateFinished{});
+  events::System().Dispatch(event::UpdateFinished{});
+}
+
+auto Database::isUpdating() -> bool {
+  return is_updating_;
+}
+
+auto Database::dbGetLastUpdate() -> std::pair<uint16_t, uint16_t> {
+  std::string raw;
+  if (!db_->Get(leveldb::ReadOptions{}, kKeyLastUpdate, &raw).ok()) {
+    return {0, 0};
+  }
+  auto [res, unused, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(raw.data()), raw.size());
+  if (!res || res->type() != cppbor::ARRAY) {
+    return {0, 0};
+  }
+  auto as_arr = res->asArray();
+  if (as_arr->size() != 2 || as_arr->get(0)->type() != cppbor::UINT ||
+      as_arr->get(1)->type() != cppbor::UINT) {
+    return {0, 0};
+  }
+  return {as_arr->get(0)->asUint()->unsignedValue(),
+          as_arr->get(1)->asUint()->unsignedValue()};
+}
+
+auto Database::dbSetLastUpdate(std::pair<uint16_t, uint16_t> time) -> void {
+  auto encoding = cppbor::Array{
+      cppbor::Uint{time.first},
+      cppbor::Uint{time.second},
+  };
+  db_->Put(leveldb::WriteOptions{}, kKeyLastUpdate, encoding.toString());
 }
 
 auto Database::dbMintNewTrackId() -> TrackId {

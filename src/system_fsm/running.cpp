@@ -7,6 +7,7 @@
 #include "app_console.hpp"
 #include "audio_events.hpp"
 #include "database.hpp"
+#include "db_events.hpp"
 #include "file_gatherer.hpp"
 #include "freertos/projdefs.h"
 #include "result.hpp"
@@ -42,6 +43,12 @@ void Running::react(const KeyLockChanged& ev) {
 }
 
 void Running::react(const audio::PlaybackFinished& ev) {
+  if (IdleCondition()) {
+    transit<Idle>();
+  }
+}
+
+void Running::react(const database::event::UpdateFinished&) {
   if (IdleCondition()) {
     transit<Idle>();
   }

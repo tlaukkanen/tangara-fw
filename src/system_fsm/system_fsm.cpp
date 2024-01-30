@@ -95,7 +95,8 @@ void SystemState::react(const internal::SamdInterrupt&) {
 }
 
 auto SystemState::IdleCondition() -> bool {
-  return sServices->gpios().IsLocked() &&
+  auto db = sServices->database().lock();
+  return sServices->gpios().IsLocked() && !(db && db->isUpdating()) &&
          audio::AudioState::is_in_state<audio::states::Standby>();
 }
 

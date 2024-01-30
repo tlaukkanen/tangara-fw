@@ -78,6 +78,7 @@ class Database {
 
   auto getIndexes() -> std::vector<IndexInfo>;
   auto updateIndexes() -> void;
+  auto isUpdating() -> bool;
 
   // Cannot be copied or moved.
   Database(const Database&) = delete;
@@ -96,11 +97,16 @@ class Database {
   ITagParser& tag_parser_;
   locale::ICollator& collator_;
 
+  std::atomic<bool> is_updating_;
+
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
            IFileGatherer& file_gatherer,
            ITagParser& tag_parser,
            locale::ICollator& collator);
+
+  auto dbGetLastUpdate() -> std::pair<uint16_t, uint16_t>;
+  auto dbSetLastUpdate(std::pair<uint16_t, uint16_t>) -> void;
 
   auto dbMintNewTrackId() -> TrackId;
 

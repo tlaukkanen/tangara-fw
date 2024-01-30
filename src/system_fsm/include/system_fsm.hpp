@@ -13,6 +13,7 @@
 #include "battery.hpp"
 #include "bluetooth.hpp"
 #include "database.hpp"
+#include "db_events.hpp"
 #include "display.hpp"
 #include "gpios.hpp"
 #include "nvs.hpp"
@@ -60,6 +61,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const StorageError&) {}
   virtual void react(const KeyLockChanged&) {}
   virtual void react(const SdDetectChanged&) {}
+  virtual void react(const database::event::UpdateFinished&) {}
   virtual void react(const audio::PlaybackFinished&) {}
   virtual void react(const internal::IdleTimeout&) {}
 
@@ -98,6 +100,7 @@ class Running : public SystemState {
   void react(const KeyLockChanged&) override;
   void react(const SdDetectChanged&) override;
   void react(const audio::PlaybackFinished&) override;
+  void react(const database::event::UpdateFinished&) override;
 
   using SystemState::react;
 
