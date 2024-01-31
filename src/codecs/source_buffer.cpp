@@ -40,8 +40,9 @@ auto SourceBuffer::Refill(IStream* src) -> bool {
   }
   bool eof = false;
   AddBytes([&](cpp::span<std::byte> buf) -> size_t {
-    size_t bytes_read = src->Read(buf);
-    eof = bytes_read == 0;
+    ssize_t bytes_read = src->Read(buf);
+    // Treat read errors as EOF.
+    eof = bytes_read <= 0;
     return bytes_read;
   });
   return eof;
