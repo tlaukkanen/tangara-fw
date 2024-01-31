@@ -65,9 +65,11 @@ void Running::react(const SdDetectChanged& ev) {
     if (!sStorage && mountStorage()) {
       events::Ui().Dispatch(StorageMounted{});
     }
-  } else {
-    unmountStorage();
   }
+  // Don't automatically unmount, since this event seems to occasionally happen
+  // supriously. FIXME: Why?
+  // (It doesn't matter too much; by the time we get this event the SD card has
+  // already been disconnected electrically.)
 }
 
 void Running::react(const SamdUsbMscChanged& ev) {
@@ -144,6 +146,7 @@ auto Running::mountStorage() -> bool {
 }
 
 auto Running::unmountStorage() -> void {
+  ESP_LOGW(kTag, "unmounting storage");
   sServices->database({});
   sStorage.reset();
 }
