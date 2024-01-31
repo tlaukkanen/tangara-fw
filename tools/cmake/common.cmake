@@ -7,6 +7,10 @@
 
 set(PROJECT_VER "0.2.1")
 
+# esp-idf sets the C++ standard weird. Set cmake vars to match.
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_EXTENSIONS ON)
+
 # Build only the subset of components that we actually depend on.
 set(COMPONENTS "")
 
