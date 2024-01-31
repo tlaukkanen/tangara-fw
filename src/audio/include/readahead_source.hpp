@@ -27,7 +27,7 @@ namespace audio {
  */
 class ReadaheadSource : public codecs::IStream {
  public:
-  ReadaheadSource(tasks::Worker&, std::unique_ptr<codecs::IStream>);
+  ReadaheadSource(tasks::WorkerPool&, std::unique_ptr<codecs::IStream>);
   ~ReadaheadSource();
 
   auto Read(cpp::span<std::byte> dest) -> ssize_t override;
@@ -48,7 +48,7 @@ class ReadaheadSource : public codecs::IStream {
  private:
   auto BeginReadahead() -> void;
 
-  tasks::Worker& worker_;
+  tasks::WorkerPool& worker_;
   std::unique_ptr<codecs::IStream> wrapped_;
 
   bool readahead_enabled_;

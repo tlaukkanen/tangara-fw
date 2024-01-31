@@ -41,7 +41,7 @@
 
 namespace leveldb {
 
-tasks::Worker *sBackgroundThread = nullptr;
+tasks::WorkerPool *sBackgroundThread = nullptr;
 
 std::string ErrToStr(FRESULT err) {
   switch (err) {

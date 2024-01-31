@@ -57,7 +57,7 @@ class RandomIterator {
  */
 class TrackQueue {
  public:
-  TrackQueue(tasks::Worker& bg_worker);
+  TrackQueue(tasks::WorkerPool& bg_worker);
 
   /* Returns the currently playing track. */
   auto current() const -> std::optional<database::TrackId>;
@@ -105,7 +105,7 @@ class TrackQueue {
  private:
   mutable std::shared_mutex mutex_;
 
-  tasks::Worker& bg_worker_;
+  tasks::WorkerPool& bg_worker_;
 
   size_t pos_;
   std::pmr::vector<database::TrackId> tracks_;

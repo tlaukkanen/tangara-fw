@@ -44,7 +44,7 @@
 namespace audio {
 
 FatfsAudioInput::FatfsAudioInput(database::ITagParser& tag_parser,
-                                 tasks::Worker& bg_worker)
+                                 tasks::WorkerPool& bg_worker)
     : IAudioSource(),
       tag_parser_(tag_parser),
       bg_worker_(bg_worker),

@@ -18,7 +18,7 @@
 
 namespace leveldb {
 
-extern tasks::Worker* sBackgroundThread;
+extern tasks::WorkerPool* sBackgroundThread;
 
 // Tracks the files locked by EspEnv::LockFile().
 //

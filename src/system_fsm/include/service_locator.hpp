@@ -80,13 +80,9 @@ class ServiceLocator {
     touchwheel_ = std::move(i);
   }
 
-  auto haptics() -> drivers::Haptics& {
-    return *haptics_;
-  }
+  auto haptics() -> drivers::Haptics& { return *haptics_; }
 
-  auto haptics(std::unique_ptr<drivers::Haptics> i) {
-    haptics_ = std::move(i);
-  }
+  auto haptics(std::unique_ptr<drivers::Haptics> i) { haptics_ = std::move(i); }
 
   auto database() -> std::weak_ptr<database::Database> { return database_; }
 
@@ -121,12 +117,12 @@ class ServiceLocator {
     collator_ = std::move(i);
   }
 
-  auto bg_worker() -> tasks::Worker& {
+  auto bg_worker() -> tasks::WorkerPool& {
     assert(bg_worker_ != nullptr);
     return *bg_worker_;
   }
 
-  auto bg_worker(std::unique_ptr<tasks::Worker> w) -> void {
+  auto bg_worker(std::unique_ptr<tasks::WorkerPool> w) -> void {
     bg_worker_ = std::move(w);
   }
 
@@ -149,7 +145,7 @@ class ServiceLocator {
   std::unique_ptr<database::ITagParser> tag_parser_;
   std::unique_ptr<locale::ICollator> collator_;
 
-  std::unique_ptr<tasks::Worker> bg_worker_;
+  std::unique_ptr<tasks::WorkerPool> bg_worker_;
 
   drivers::SdState sd_;
 };

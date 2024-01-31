@@ -56,7 +56,7 @@ class Database {
   static auto Open(IFileGatherer& file_gatherer,
                    ITagParser& tag_parser,
                    locale::ICollator& collator,
-                   tasks::Worker& bg_worker)
+                   tasks::WorkerPool& bg_worker)
       -> cpp::result<Database*, DatabaseError>;
 
   static auto Destroy() -> void;

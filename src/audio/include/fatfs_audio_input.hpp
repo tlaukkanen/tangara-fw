@@ -31,7 +31,7 @@ namespace audio {
  */
 class FatfsAudioInput : public IAudioSource {
  public:
-  explicit FatfsAudioInput(database::ITagParser&, tasks::Worker&);
+  explicit FatfsAudioInput(database::ITagParser&, tasks::WorkerPool&);
   ~FatfsAudioInput();
 
   /*
@@ -55,7 +55,7 @@ class FatfsAudioInput : public IAudioSource {
       -> std::optional<codecs::StreamType>;
 
   database::ITagParser& tag_parser_;
-  tasks::Worker& bg_worker_;
+  tasks::WorkerPool& bg_worker_;
 
   std::mutex new_stream_mutex_;
   std::shared_ptr<TaggedStream> new_stream_;

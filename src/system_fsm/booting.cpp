@@ -68,8 +68,7 @@ auto Booting::entry() -> void {
   }
 
   ESP_LOGI(kTag, "starting bg worker");
-  sServices->bg_worker(std::unique_ptr<tasks::Worker>{
-      tasks::Worker::Start<tasks::Type::kBackgroundWorker>()});
+  sServices->bg_worker(std::make_unique<tasks::WorkerPool>());
 
   ESP_LOGI(kTag, "installing remaining drivers");
   drivers::spiffs_mount();

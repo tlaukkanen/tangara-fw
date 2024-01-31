@@ -74,7 +74,7 @@ auto notifyChanged(bool current_changed) -> void {
   events::Audio().Dispatch(ev);
 }
 
-TrackQueue::TrackQueue(tasks::Worker& bg_worker)
+TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker)
     : mutex_(),
       bg_worker_(bg_worker),
       pos_(0),

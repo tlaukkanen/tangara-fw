@@ -126,14 +126,14 @@ static auto CheckDatabase(leveldb::DB& db, locale::ICollator& col) -> bool {
 auto Database::Open(IFileGatherer& gatherer,
                     ITagParser& parser,
                     locale::ICollator& collator,
-                    tasks::Worker& bg_worker)
+                    tasks::WorkerPool& bg_worker)
     -> cpp::result<Database*, DatabaseError> {
   if (sIsDbOpen.exchange(true)) {
     return cpp::fail(DatabaseError::ALREADY_OPEN);
   }
 
   if (!leveldb::sBackgroundThread) {
-    leveldb::sBackgroundThread = tasks::Worker::Start<tasks::Type::kDatabase>();
+    leveldb::sBackgroundThread = &bg_worker;
   }
 
   return bg_worker

@@ -27,7 +27,7 @@ namespace audio {
 static constexpr char kTag[] = "readahead";
 static constexpr size_t kBufferSize = 1024 * 512;
 
-ReadaheadSource::ReadaheadSource(tasks::Worker& worker,
+ReadaheadSource::ReadaheadSource(tasks::WorkerPool& worker,
                                  std::unique_ptr<codecs::IStream> wrapped)
     : IStream(wrapped->type()),
       worker_(worker),

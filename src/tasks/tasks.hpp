@@ -48,8 +48,6 @@ template <Type t>
 auto AllocateStack() -> cpp::span<StackType_t>;
 template <Type t>
 auto Priority() -> UBaseType_t;
-template <Type t>
-auto WorkerQueueSize() -> std::size_t;
 
 auto PersistentMain(void* fn) -> void;
 
@@ -74,32 +72,15 @@ auto StartPersistent(BaseType_t core, const std::function<void(void)>& fn)
                                 Priority<t>(), stack.data(), task_buffer, core);
 }
 
-class Worker {
+class WorkerPool {
  private:
-  Worker(const std::pmr::string& name,
-         cpp::span<StackType_t> stack,
-         std::size_t queue_size,
-         UBaseType_t priority);
-
-  StackType_t* stack_;
   QueueHandle_t queue_;
-  std::atomic<bool> is_task_running_;
-  StaticTask_t *task_buffer_;
-  TaskHandle_t task_;
-
-  struct WorkItem {
-    std::function<void(void)>* fn;
-    bool quit;
-  };
+  using WorkItem = std::function<void(void)>*;
+  static auto Main(void* instance);
 
  public:
-  template <Type t>
-  static auto Start() -> Worker* {
-    return new Worker(Name<t>(), AllocateStack<t>(), WorkerQueueSize<t>(),
-                      Priority<t>());
-  }
-
-  static auto Main(void* instance);
+  WorkerPool();
+  ~WorkerPool();
 
   /*
    * Schedules the given function to be executed on the worker task, and
@@ -109,22 +90,19 @@ class Worker {
   auto Dispatch(const std::function<T(void)> fn) -> std::future<T> {
     std::shared_ptr<std::promise<T>> promise =
         std::make_shared<std::promise<T>>();
-    WorkItem item{
-        .fn = new std::function([=]() { promise->set_value(std::invoke(fn)); }),
-        .quit = false,
-    };
+    WorkItem item =
+        new std::function([=]() { promise->set_value(std::invoke(fn)); });
     xQueueSend(queue_, &item, portMAX_DELAY);
     return promise->get_future();
   }
 
-  ~Worker();
-
-  Worker(const Worker&) = delete;
-  Worker& operator=(const Worker&) = delete;
+  WorkerPool(const WorkerPool&) = delete;
+  WorkerPool& operator=(const WorkerPool&) = delete;
 };
 
 /* Specialisation of Evaluate for functions that return nothing. */
 template <>
-auto Worker::Dispatch(const std::function<void(void)> fn) -> std::future<void>;
+auto WorkerPool::Dispatch(const std::function<void(void)> fn)
+    -> std::future<void>;
 
 }  // namespace tasks
