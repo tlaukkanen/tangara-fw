@@ -4,6 +4,7 @@ local bluetooth = require("bluetooth")
 local font = require("font")
 local backstack = require("backstack")
 local theme = require("theme")
+local database = require("database")
 
 local widgets = {}
 
@@ -92,6 +93,9 @@ function widgets.StatusBar(parent, opts)
     status_bar.title:set { text = opts.title }
   end
 
+  status_bar.db_updating = status_bar.root:Image {
+    src = "//lua/img/db.png"
+  }
   status_bar.bluetooth = status_bar.root:Image {}
   status_bar.battery = status_bar.root:Image {}
   status_bar.chg = status_bar.battery:Image {
@@ -131,6 +135,13 @@ function widgets.StatusBar(parent, opts)
   end
 
   status_bar.bindings = {
+    database.updating:bind(function(yes)
+      if yes then
+        status_bar.db_updating:clear_flag(lvgl.FLAG.HIDDEN)
+      else
+        status_bar.db_updating:add_flag(lvgl.FLAG.HIDDEN)
+      end
+    end),
     power.battery_pct:bind(function(pct)
       percent = pct
       update_battery_icon()

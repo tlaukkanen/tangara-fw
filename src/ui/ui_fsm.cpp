@@ -11,6 +11,7 @@
 #include <variant>
 
 #include "bluetooth_types.hpp"
+#include "db_events.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "lua.h"
@@ -213,6 +214,8 @@ lua::Property UiState::sControlsScheme{
       return true;
     }};
 
+lua::Property UiState::sDatabaseUpdating{false};
+
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
@@ -256,6 +259,14 @@ void UiState::react(const internal::ControlSchemeChanged&) {
     return;
   }
   sInput->mode(sServices->nvs().PrimaryInput());
+}
+
+void UiState::react(const database::event::UpdateStarted&) {
+  sDatabaseUpdating.Update(true);
+}
+
+void UiState::react(const database::event::UpdateFinished&) {
+  sDatabaseUpdating.Update(false);
 }
 
 void UiState::react(const internal::DismissAlerts&) {
@@ -435,6 +446,10 @@ void Lua::entry() {
                       {"show", [&](lua_State* s) { return ShowAlert(s); }},
                       {"hide", [&](lua_State* s) { return HideAlert(s); }},
                   });
+    sLua->bridge().AddPropertyModule("database",
+                                     {
+                                         {"updating", &sDatabaseUpdating},
+                                     });
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());

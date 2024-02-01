@@ -71,9 +71,9 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const internal::DismissAlerts&);
   void react(const internal::ControlSchemeChanged&);
 
-  void react(const database::event::UpdateStarted&){};
+  void react(const database::event::UpdateStarted&);
   void react(const database::event::UpdateProgress&){};
-  void react(const database::event::UpdateFinished&){};
+  void react(const database::event::UpdateFinished&);
 
   void react(const system_fsm::BluetoothEvent&);
 
@@ -129,6 +129,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static lua::Property sControlsScheme;
   static lua::Property sControlSensitivity;
+
+  static lua::Property sDatabaseUpdating;
 };
 
 namespace states {
