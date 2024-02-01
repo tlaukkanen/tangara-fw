@@ -142,6 +142,17 @@ auto Running::mountStorage() -> bool {
       std::unique_ptr<database::Database>{database_res.value()});
 
   ESP_LOGI(kTag, "storage loaded okay");
+
+  // Tell the database to refresh so that we pick up any changes from the newly
+  // mounted card.
+  sServices->bg_worker().Dispatch<void>([&]() {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    db->updateIndexes();
+  });
+
   return true;
 }
 
