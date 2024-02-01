@@ -66,7 +66,7 @@ auto AllocateStack<Type::kAudioConverter>() -> cpp::span<StackType_t> {
 // an eye-wateringly large amount of stack.
 template <>
 auto AllocateStack<Type::kBackgroundWorker>() -> cpp::span<StackType_t> {
-  std::size_t size = 256 * 1024;
+  std::size_t size = 64 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
@@ -125,7 +125,7 @@ auto WorkerPool::Main(void* q) {
   }
 }
 
-static constexpr size_t kNumWorkers = 3;
+static constexpr size_t kNumWorkers = 4;
 static constexpr size_t kMaxPendingItems = 8;
 
 WorkerPool::WorkerPool()

@@ -141,11 +141,11 @@ auto Database::Open(IFileGatherer& gatherer,
           [&]() -> cpp::result<Database*, DatabaseError> {
             leveldb::DB* db;
             std::unique_ptr<leveldb::Cache> cache{
-                leveldb::NewLRUCache(24 * 1024)};
+                leveldb::NewLRUCache(4 * 1024)};
 
             leveldb::Options options;
             options.env = sEnv.env();
-            options.write_buffer_size = 48 * 1024;
+            options.write_buffer_size = 4 * 1024;
             options.max_file_size = 32;
             options.block_cache = cache.get();
             options.block_size = 512;
