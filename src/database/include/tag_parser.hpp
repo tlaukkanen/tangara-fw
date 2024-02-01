@@ -20,12 +20,6 @@ class ITagParser {
       -> std::shared_ptr<TrackTags> = 0;
 };
 
-class GenericTagParser : public ITagParser {
- public:
-  auto ReadAndParseTags(const std::string& path)
-      -> std::shared_ptr<TrackTags> override;
-};
-
 class TagParserImpl : public ITagParser {
  public:
   TagParserImpl();
@@ -33,8 +27,7 @@ class TagParserImpl : public ITagParser {
       -> std::shared_ptr<TrackTags> override;
 
  private:
-  std::map<std::string, std::unique_ptr<ITagParser>> extension_to_parser_;
-  GenericTagParser generic_parser_;
+  auto parseNew(const std::string& path) -> std::shared_ptr<TrackTags>;
 
   /*
    * Cache of tags that have already been extracted from files. Ideally this
@@ -46,12 +39,6 @@ class TagParserImpl : public ITagParser {
   // We could also consider keeping caches of artist name -> std::string and
   // similar. This hasn't been done yet, as this isn't a common workload in
   // any of our UI.
-};
-
-class OpusTagParser : public ITagParser {
- public:
-  auto ReadAndParseTags(const std::string& path)
-      -> std::shared_ptr<TrackTags> override;
 };
 
 }  // namespace database

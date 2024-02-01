@@ -6,30 +6,19 @@
 
 #include "tag_parser.hpp"
 
-#include <stdint.h>
+#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <mutex>
 
 #include "esp_log.h"
 #include "ff.h"
-#include "opusfile.h"
 #include "spi.hpp"
 #include "tags.h"
 
 #include "memory_resource.hpp"
 
 namespace database {
-
-const static std::array<std::pair<const char*, Tag>, 7> kVorbisIdToTag = {{
-    {"TITLE", Tag::kTitle},
-    {"ARTIST", Tag::kArtist},
-    {"ALBUM", Tag::kAlbum},
-    {"ALBUMARTIST", Tag::kAlbumArtist},
-    {"DISCNUMBER", Tag::kDisc},
-    {"TRACKNUMBER", Tag::kTrack},
-    {"GENRE", Tag::kGenres},
-}};
 
 static auto convert_tag(int tag) -> std::optional<Tag> {
   switch (tag) {
@@ -117,9 +106,7 @@ static void toc(Tagctx* ctx, int ms, int offset) {}
 static const std::size_t kBufSize = 1024;
 [[maybe_unused]] static const char* kTag = "TAGS";
 
-TagParserImpl::TagParserImpl() {
-  extension_to_parser_["opus"] = std::make_unique<OpusTagParser>();
-}
+TagParserImpl::TagParserImpl() {}
 
 auto TagParserImpl::ReadAndParseTags(const std::string& path)
     -> std::shared_ptr<TrackTags> {
@@ -132,18 +119,7 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path)
     }
   }
 
-  ITagParser* parser = &generic_parser_;
-  auto dot_pos = path.find_last_of(".");
-  if (dot_pos != std::string::npos && path.size() - dot_pos > 1) {
-    std::string extension = path.substr(dot_pos + 1);
-    std::transform(extension.begin(), extension.end(), extension.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    if (extension_to_parser_.contains(extension)) {
-      parser = extension_to_parser_[extension].get();
-    }
-  }
-
-  std::shared_ptr<TrackTags> tags = parser->ReadAndParseTags(path);
+  std::shared_ptr<TrackTags> tags = parseNew(path);
   if (!tags) {
     return {};
   }
@@ -167,7 +143,7 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path)
   return tags;
 }
 
-auto GenericTagParser::ReadAndParseTags(const std::string& path)
+auto TagParserImpl::parseNew(const std::string& path)
     -> std::shared_ptr<TrackTags> {
   libtags::Aux aux;
   auto out = TrackTags::create();
@@ -226,36 +202,6 @@ auto GenericTagParser::ReadAndParseTags(const std::string& path)
       out->encoding(Container::kUnsupported);
   }
 
-  return out;
-}
-
-auto OpusTagParser::ReadAndParseTags(const std::string& path)
-    -> std::shared_ptr<TrackTags> {
-  auto lock = drivers::acquire_spi();
-  std::string vfs_path = "/sdcard" + path;
-  int err;
-  OggOpusFile* f = op_test_file(vfs_path.c_str(), &err);
-  if (f == NULL) {
-    ESP_LOGE(kTag, "opusfile tag parsing failed: %d", err);
-    return {};
-  }
-  const OpusTags* tags = op_tags(f, -1);
-  if (tags == NULL) {
-    ESP_LOGE(kTag, "no tags in opusfile");
-    op_free(f);
-    return {};
-  }
-
-  auto out = TrackTags::create();
-  out->encoding(Container::kOpus);
-  for (const auto& pair : kVorbisIdToTag) {
-    const char* tag = opus_tags_query(tags, pair.first, 0);
-    if (tag != NULL) {
-      out->set(pair.second, tag);
-    }
-  }
-
-  op_free(f);
   return out;
 }
 
