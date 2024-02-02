@@ -41,6 +41,8 @@ idf.py -p /dev/ttyUSB0 -b 115200 flash
 
 # Running tests
 
+(Note: tests are currently broken, and have been for a while. Sorry! IOU a working test suite by the time we ship devices :))
+
 Tests are implemented as a separate application build, located in the `test`
 directory. We use Catch2 as our test framework.
 
