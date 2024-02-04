@@ -628,14 +628,41 @@ int CmdLua(int argc, char** argv) {
   return 0;
 }
 
+int CmdLuaRun(int argc, char** argv) {
+  std::unique_ptr<lua::LuaThread> context{
+      lua::LuaThread::Start(*AppConsole::sServices)};
+  if (!context) {
+    return 1;
+  }
+
+  if (argc != 2) {
+    std::cout << "luarun expects 1 argument" << std::endl;
+    return 1;
+  }
+
+  if (context->RunString(argv[1])) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
 void RegisterLua() {
-  esp_console_cmd_t cmd{
+  esp_console_cmd_t cmd_lua{
       .command = "lua",
       .help = "Executes a lua script. With no args, begins a lua repl session",
       .hint = NULL,
       .func = &CmdLua,
       .argtable = NULL};
-  esp_console_cmd_register(&cmd);
+  esp_console_cmd_register(&cmd_lua);
+
+  esp_console_cmd_t cmd_luarun{
+      .command = "luarun",
+      .help = "Executes a string of lua source code given as argument",
+      .hint = NULL,
+      .func = &CmdLuaRun,
+      .argtable = NULL};
+  esp_console_cmd_register(&cmd_luarun);
 }
 
 auto AppConsole::RegisterExtraComponents() -> void {
