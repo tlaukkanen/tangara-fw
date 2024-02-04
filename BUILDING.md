@@ -34,7 +34,7 @@ There is also a `.env.fish` for fish users.
 onto your board, something like:
 
 ```
-idf.py -p /dev/ttyUSB0 -b 115200 flash
+idf.py -p /dev/ttyUSB0 -b 1000000 flash
 ```
 
 (give or take the correct serial port)
