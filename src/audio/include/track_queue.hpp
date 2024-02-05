@@ -98,6 +98,9 @@ class TrackQueue {
   auto repeat(bool) -> void;
   auto repeat() const -> bool;
 
+  auto serialise() -> std::string;
+  auto deserialise(const std::string&) -> void;
+
   // Cannot be copied or moved.
   TrackQueue(const TrackQueue&) = delete;
   TrackQueue& operator=(const TrackQueue&) = delete;

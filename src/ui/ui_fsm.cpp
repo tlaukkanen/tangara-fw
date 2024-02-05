@@ -301,7 +301,7 @@ void UiState::react(const audio::PlaybackUpdate& ev) {
   sPlaybackPosition.Update(static_cast<int>(ev.seconds_elapsed));
 }
 
-void UiState::react(const audio::PlaybackFinished&) {
+void UiState::react(const audio::PlaybackStopped&) {
   sPlaybackPlaying.Update(false);
 }
 

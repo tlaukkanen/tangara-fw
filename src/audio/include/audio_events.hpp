@@ -35,7 +35,7 @@ struct PlaybackUpdate : tinyfsm::Event {
   std::shared_ptr<Track> track;
 };
 
-struct PlaybackFinished : tinyfsm::Event {};
+struct PlaybackStopped : tinyfsm::Event {};
 
 struct QueueUpdate : tinyfsm::Event {
   bool current_changed;

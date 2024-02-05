@@ -9,6 +9,7 @@
 #include "database.hpp"
 #include "db_events.hpp"
 #include "file_gatherer.hpp"
+#include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "gpios.hpp"
 #include "result.hpp"
@@ -25,12 +26,22 @@ namespace states {
 
 [[maybe_unused]] static const char kTag[] = "RUN";
 
+static const TickType_t kTicksBeforeUnmount = pdMS_TO_TICKS(10000);
+
+static TimerHandle_t sUnmountTimer = nullptr;
+
+static void timer_callback(TimerHandle_t timer) {
+  events::System().Dispatch(internal::UnmountTimeout{});
+}
+
 static database::IFileGatherer* sFileGatherer;
 
 void Running::entry() {
-  if (mountStorage()) {
-    events::Ui().Dispatch(StorageMounted{});
+  if (!sUnmountTimer) {
+    sUnmountTimer = xTimerCreate("unmount_timeout", kTicksBeforeUnmount, false,
+                                 NULL, timer_callback);
   }
+  mountStorage();
 }
 
 void Running::exit() {
@@ -38,18 +49,18 @@ void Running::exit() {
 }
 
 void Running::react(const KeyLockChanged& ev) {
-  if (IdleCondition()) {
-    transit<Idle>();
-  }
+  checkIdle();
 }
 
-void Running::react(const audio::PlaybackFinished& ev) {
-  if (IdleCondition()) {
-    transit<Idle>();
-  }
+void Running::react(const audio::PlaybackStopped& ev) {
+  checkIdle();
 }
 
 void Running::react(const database::event::UpdateFinished&) {
+  checkIdle();
+}
+
+void Running::react(const internal::UnmountTimeout&) {
   if (IdleCondition()) {
     transit<Idle>();
   }
@@ -61,10 +72,8 @@ void Running::react(const SdDetectChanged& ev) {
     return;
   }
 
-  if (ev.has_sd_card) {
-    if (!sStorage && mountStorage()) {
-      events::Ui().Dispatch(StorageMounted{});
-    }
+  if (ev.has_sd_card && !sStorage) {
+    mountStorage();
   }
   // Don't automatically unmount, since this event seems to occasionally happen
   // supriously. FIXME: Why?
@@ -102,9 +111,14 @@ void Running::react(const SamdUsbMscChanged& ev) {
     gpios.WriteSync(drivers::IGpios::Pin::kSdPowerEnable, 0);
 
     // Now it's ready for us.
-    if (mountStorage()) {
-      events::Ui().Dispatch(StorageMounted{});
-    }
+    mountStorage();
+  }
+}
+
+auto Running::checkIdle() -> void {
+  xTimerStop(sUnmountTimer, portMAX_DELAY);
+  if (IdleCondition()) {
+    xTimerStart(sUnmountTimer, portMAX_DELAY);
   }
 }
 
@@ -142,6 +156,9 @@ auto Running::mountStorage() -> bool {
       std::unique_ptr<database::Database>{database_res.value()});
 
   ESP_LOGI(kTag, "storage loaded okay");
+  events::Ui().Dispatch(StorageMounted{});
+  events::Audio().Dispatch(StorageMounted{});
+  events::System().Dispatch(StorageMounted{});
 
   // Tell the database to refresh so that we pick up any changes from the newly
   // mounted card.

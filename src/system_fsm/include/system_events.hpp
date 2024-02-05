@@ -76,6 +76,7 @@ struct GpioInterrupt : tinyfsm::Event {};
 struct SamdInterrupt : tinyfsm::Event {};
 
 struct IdleTimeout : tinyfsm::Event {};
+struct UnmountTimeout : tinyfsm::Event {};
 
 }  // namespace internal
 

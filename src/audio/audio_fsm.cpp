@@ -49,6 +49,7 @@ std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 std::optional<database::TrackId> AudioState::sCurrentTrack;
+bool AudioState::sIsPlaybackAllowed;
 
 void AudioState::react(const system_fsm::KeyLockChanged& ev) {
   if (ev.locking && sServices) {
@@ -138,6 +139,23 @@ auto AudioState::playTrack(database::TrackId id) -> void {
   });
 }
 
+auto AudioState::readyToPlay() -> bool {
+  return sCurrentTrack.has_value() && sIsPlaybackAllowed;
+}
+
+void AudioState::react(const TogglePlayPause& ev) {
+  sIsPlaybackAllowed = !sIsPlaybackAllowed;
+  if (readyToPlay()) {
+    if (!is_in_state<states::Playback>()) {
+      transit<states::Playback>();
+    }
+  } else {
+    if (!is_in_state<states::Standby>()) {
+      transit<states::Standby>();
+    }
+  }
+}
+
 namespace states {
 
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
@@ -199,21 +217,55 @@ void Playback::react(const PlayFile& ev) {
 }
 
 void Standby::react(const internal::InputFileOpened& ev) {
-  transit<Playback>();
+  if (readyToPlay()) {
+    transit<Playback>();
+  }
 }
 
 void Standby::react(const QueueUpdate& ev) {
   auto current_track = sServices->track_queue().current();
-  if (!current_track || (sCurrentTrack && *sCurrentTrack == *current_track)) {
+  if (!current_track || (sCurrentTrack && (*sCurrentTrack == *current_track))) {
     return;
   }
   playTrack(*current_track);
 }
 
-void Standby::react(const TogglePlayPause& ev) {
-  if (sCurrentTrack) {
-    transit<Playback>();
+static const char kQueueKey[] = "audio:queue";
+
+void Standby::react(const system_fsm::KeyLockChanged& ev) {
+  if (!ev.locking) {
+    return;
   }
+  sServices->bg_worker().Dispatch<void>([]() {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    auto& queue = sServices->track_queue();
+    if (queue.totalSize() <= queue.currentPosition()) {
+      // Nothing is playing, so don't bother saving the queue.
+      db->put(kQueueKey, "");
+      return;
+    }
+    db->put(kQueueKey, queue.serialise());
+  });
+}
+
+void Standby::react(const system_fsm::StorageMounted& ev) {
+  sServices->bg_worker().Dispatch<void>([]() {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    auto res = db->get(kQueueKey);
+    if (res) {
+      // Don't restore the same queue again. This ideally should do nothing,
+      // but guards against bad edge cases where restoring the queue ends up
+      // causing a crash.
+      db->put(kQueueKey, "");
+      sServices->track_queue().deserialise(*res);
+    }
+  });
 }
 
 void Playback::entry() {
@@ -226,17 +278,14 @@ void Playback::entry() {
 
 void Playback::exit() {
   ESP_LOGI(kTag, "finishing playback");
-  // TODO(jacqueline): Second case where it's useful to wait for the i2s buffer
-  // to drain.
-  vTaskDelay(pdMS_TO_TICKS(10));
   sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
 
   // Stash the current volume now, in case it changed during playback, since we
   // might be powering off soon.
   sServices->nvs().AmpCurrentVolume(sOutput->GetVolume());
 
-  events::System().Dispatch(PlaybackFinished{});
-  events::Ui().Dispatch(PlaybackFinished{});
+  events::System().Dispatch(PlaybackStopped{});
+  events::Ui().Dispatch(PlaybackStopped{});
 }
 
 void Playback::react(const system_fsm::HasPhonesChanged& ev) {
@@ -257,10 +306,6 @@ void Playback::react(const QueueUpdate& ev) {
     return;
   }
   playTrack(*current_track);
-}
-
-void Playback::react(const TogglePlayPause& ev) {
-  transit<Standby>();
 }
 
 void Playback::react(const PlaybackUpdate& ev) {

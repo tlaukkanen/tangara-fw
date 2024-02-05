@@ -5,6 +5,7 @@ local font = require("font")
 local queue = require("queue")
 local playing = require("playing")
 local theme = require("theme")
+local playback = require("playback")
 
 local browser = {}
 
@@ -67,12 +68,14 @@ function browser.create(opts)
     local enqueue = widgets.IconBtn(buttons, "//lua/img/enqueue.png", "Enqueue")
     enqueue:onClicked(function()
       queue.add(original_iterator)
+      playback.playing:set(true)
     end)
     -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
     local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
     play:onClicked(function()
       queue.clear()
       queue.add(original_iterator)
+      playback.playing:set(true)
       backstack.push(playing)
     end
     )
@@ -109,6 +112,7 @@ function browser.create(opts)
       else
         queue.clear()
         queue.add(contents)
+        playback.playing:set(true)
         backstack.push(playing)
       end
     end)

@@ -5,6 +5,7 @@
  */
 
 #include "track_queue.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -308,6 +309,76 @@ auto TrackQueue::repeat(bool en) -> void {
 auto TrackQueue::repeat() const -> bool {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
   return repeat_;
+}
+
+auto TrackQueue::serialise() -> std::string {
+  cppbor::Array tracks{};
+  for (database::TrackId track : tracks_) {
+    tracks.add(cppbor::Uint(track));
+  }
+  // FIXME: this should include the RandomIterator's seed as well.
+  cppbor::Array encoded{
+      cppbor::Uint{pos_},
+      std::move(tracks),
+  };
+  return encoded.toString();
+}
+
+class QueueParseClient : public cppbor::ParseClient {
+ public:
+  QueueParseClient(size_t& pos, std::pmr::vector<database::TrackId>& tracks)
+      : pos_(pos),
+        tracks_(tracks),
+        in_root_array_(false),
+        in_track_list_(false) {}
+
+  ParseClient* item(std::unique_ptr<cppbor::Item>& item,
+                    const uint8_t* hdrBegin,
+                    const uint8_t* valueBegin,
+                    const uint8_t* end) override {
+    if (item->type() == cppbor::ARRAY) {
+      if (!in_root_array_) {
+        in_root_array_ = true;
+      } else {
+        in_track_list_ = true;
+      }
+    } else if (item->type() == cppbor::UINT) {
+      auto val = item->asUint()->unsignedValue();
+      if (in_track_list_) {
+        tracks_.push_back(val);
+      } else {
+        pos_ = static_cast<size_t>(val);
+      }
+    }
+    return this;
+  }
+
+  ParseClient* itemEnd(std::unique_ptr<cppbor::Item>& item,
+                       const uint8_t* hdrBegin,
+                       const uint8_t* valueBegin,
+                       const uint8_t* end) override {
+    return this;
+  }
+
+  void error(const uint8_t* position,
+             const std::string& errorMessage) override {}
+
+ private:
+  size_t& pos_;
+  std::pmr::vector<database::TrackId>& tracks_;
+
+  bool in_root_array_;
+  bool in_track_list_;
+};
+
+auto TrackQueue::deserialise(const std::string& s) -> void {
+  if (s.empty()) {
+    return;
+  }
+  QueueParseClient client{pos_, tracks_};
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
+  cppbor::parse(data, data + s.size(), &client);
+  notifyChanged(true);
 }
 
 }  // namespace audio

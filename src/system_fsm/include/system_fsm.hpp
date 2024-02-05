@@ -63,8 +63,9 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const SdDetectChanged&) {}
   virtual void react(const SamdUsbMscChanged&) {}
   virtual void react(const database::event::UpdateFinished&) {}
-  virtual void react(const audio::PlaybackFinished&) {}
+  virtual void react(const audio::PlaybackStopped&) {}
   virtual void react(const internal::IdleTimeout&) {}
+  virtual void react(const internal::UnmountTimeout&) {}
 
  protected:
   auto IdleCondition() -> bool;
@@ -100,13 +101,16 @@ class Running : public SystemState {
 
   void react(const KeyLockChanged&) override;
   void react(const SdDetectChanged&) override;
-  void react(const audio::PlaybackFinished&) override;
+  void react(const audio::PlaybackStopped&) override;
   void react(const database::event::UpdateFinished&) override;
   void react(const SamdUsbMscChanged&) override;
+  void react(const internal::UnmountTimeout&) override;
 
   using SystemState::react;
 
  private:
+  auto checkIdle() -> void;
+
   auto mountStorage() -> bool;
   auto unmountStorage() -> void;
 
