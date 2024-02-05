@@ -123,6 +123,7 @@ return function(opts)
   play_pause_btn:onClicked(function()
     playback.playing:set(not playback.playing:get())
   end)
+  play_pause_btn:focus()
   local play_pause_img = play_pause_btn:Image { src = img.pause }
 
   local next_btn = controls:Button {}
