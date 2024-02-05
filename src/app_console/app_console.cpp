@@ -54,7 +54,7 @@ int CmdVersion(int argc, char** argv) {
   std::cout << "firmware-version=" << esp_app_get_description()->version << std::endl;
   std::cout << "samd-version=" << AppConsole::sServices->samd().Version() << std::endl;
   std::cout << "collation=" << AppConsole::sServices->collator().Describe().value_or("") << std::endl;
-  std::cout << "database-schema=" << database::kCurrentDbVersion << std::endl;
+  std::cout << "database-schema=" << uint32_t(database::kCurrentDbVersion) << std::endl;
   return 0;
 }
 
