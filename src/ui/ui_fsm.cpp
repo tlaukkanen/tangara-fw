@@ -77,19 +77,24 @@ lua::Property UiState::sBatteryPct{0};
 lua::Property UiState::sBatteryMv{0};
 lua::Property UiState::sBatteryCharging{false};
 
-lua::Property UiState::sBluetoothEnabled{
-    false, [](const lua::LuaValue& val) {
-      if (!std::holds_alternative<bool>(val)) {
-        return false;
-      }
-      if (std::get<bool>(val)) {
-        sServices->bluetooth().Enable();
-        sServices->bluetooth().SetDeviceDiscovery(true);
-      } else {
-        sServices->bluetooth().Disable();
-      }
-      return true;
-    }};
+lua::Property UiState::sBluetoothEnabled {
+  false, [](const lua::LuaValue& val) {
+    if (!std::holds_alternative<bool>(val)) {
+      return false;
+    }
+    if (std::get<bool>(val)) {
+      sServices->bluetooth().Enable();
+      sServices->bluetooth().SetDeviceDiscovery(true);
+      sServices->nvs().OutputMode(drivers::NvsStorage::Output::kBluetooth);
+    } else {
+      sServices->bluetooth().Disable();
+      sServices->nvs().OutputMode(drivers::NvsStorage::Output::kHeadphones);
+    }
+    events::Audio().Dispatch(audio::OutputModeChanged{});
+    return true;
+  }
+};
+
 lua::Property UiState::sBluetoothConnected{false};
 lua::Property UiState::sBluetoothPairedDevice{
     std::monostate{}, [](const lua::LuaValue& val) {

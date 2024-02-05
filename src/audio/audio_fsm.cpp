@@ -113,7 +113,6 @@ void AudioState::react(const SetVolumeBalance& ev) {
 }
 
 void AudioState::react(const OutputModeChanged& ev) {
-  // TODO: handle SetInUse
   ESP_LOGI(kTag, "output mode changed");
   auto new_mode = sServices->nvs().OutputMode();
   sOutput->SetMode(IAudioOutput::Modes::kOff);
