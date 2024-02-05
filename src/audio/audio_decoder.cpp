@@ -48,7 +48,7 @@ namespace audio {
 [[maybe_unused]] static const char* kTag = "audio_dec";
 
 static constexpr std::size_t kCodecBufferLength =
-    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;
+    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample);
 
 Timer::Timer(std::shared_ptr<Track> t,
              const codecs::ICodec::OutputFormat& format)

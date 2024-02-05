@@ -27,10 +27,12 @@
 
 namespace drivers {
 
-// We normalise to 2-channel, 16 bit audio, which gives us a max of 4092 / 2 / 2
-// (16 bits) frames. This in turn means that at 48kHz, we have about 10ms of
-// budget to fill each buffer.
-constexpr size_t kI2SBufferLengthFrames = 512;
+// DMA max buffer size for I2S is 4092. We normalise to 2-channel, 16 bit
+// audio, which gives us a max of 4092 / 2 / 2 (16 bits) frames. This in turn
+// means that at 48kHz, we have about 21ms of budget to fill each buffer.
+// We base this off of the maximum DMA size in order to minimise the amount of
+// work the CPU has to do to service the DMA callbacks.
+constexpr size_t kI2SBufferLengthFrames = 1024;
 
 /**
  * Interface for a DAC that receives PCM samples over I2S.

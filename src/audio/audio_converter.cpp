@@ -25,7 +25,7 @@
 [[maybe_unused]] static constexpr char kTag[] = "mixer";
 
 static constexpr std::size_t kSampleBufferLength =
-    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2;
+    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample);
 static constexpr std::size_t kSourceBufferLength = kSampleBufferLength * 2;
 
 namespace audio {
