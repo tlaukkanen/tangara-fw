@@ -138,22 +138,27 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
     return false;
   }
   stream->SetPreambleFinished();
-
-  timer_.reset(new Timer(std::shared_ptr<Track>{new Track{
-                             .tags = stream->tags(),
-                             .db_info = {},
-                             .bitrate_kbps = open_res->sample_rate_hz,
-                             .encoding = stream->type(),
-                         }},
-                         open_res.value()));
-
   current_sink_format_ = IAudioOutput::Format{
       .sample_rate = open_res->sample_rate_hz,
       .num_channels = open_res->num_channels,
       .bits_per_sample = 16,
   };
+
   ESP_LOGI(kTag, "stream started ok");
   events::Audio().Dispatch(internal::InputFileOpened{});
+
+  auto tags = std::make_shared<Track>(Track{
+      .tags = stream->tags(),
+      .db_info = {},
+      .bitrate_kbps = open_res->sample_rate_hz,
+      .encoding = stream->type(),
+  });
+  timer_.reset(new Timer(tags, open_res.value()));
+
+  PlaybackUpdate ev{.seconds_elapsed = 0, .track = tags};
+  events::Audio().Dispatch(ev);
+  events::Ui().Dispatch(ev);
+
   return true;
 }
 
