@@ -814,6 +814,11 @@ end
 function obj:invalidate()
 end
 
+--- Sets this object as the current selection of the object's group.
+---@return nil
+function obj:focus()
+end
+
 ---
 --- Object event callback. `para` is not used for now.
 --- @alias EventCallback fun(obj:Object, code: ObjEventCode): nil

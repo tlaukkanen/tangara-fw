@@ -1,3 +1,5 @@
+#include "core/lv_group.h"
+#include "core/lv_obj.h"
 #include "luavgl.h"
 #include "private.h"
 
@@ -579,6 +581,21 @@ static int luavgl_obj_get_pos(lua_State *L) {
 }
 
 /**
+ * set this object as the current selection
+ */
+static int luavgl_obj_focus(lua_State *L) {
+  lv_obj_t *obj = luavgl_to_obj(L, 1);
+
+  lv_group_t *group = lv_obj_get_group(obj);
+  if (group == NULL) {
+    return 0;
+  }
+  lv_group_focus_obj(obj);
+
+  return 0;
+}
+
+/**
  * Remove all animations associates to this object
  */
 static int luavgl_obj_remove_anim_all(lua_State *L) {
@@ -654,6 +671,7 @@ static const luaL_Reg luavgl_obj_methods[] = {
     {"indev_search", luavgl_obj_indev_search},
     {"get_coords", luavgl_obj_get_coords},
     {"get_pos", luavgl_obj_get_pos},
+    {"focus", luavgl_obj_focus},
 
     {"onevent", luavgl_obj_on_event},
     {"onPressed", luavgl_obj_on_pressed},
