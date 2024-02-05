@@ -24,6 +24,7 @@
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
 #include "database.hpp"
+#include "esp_app_desc.h"
 #include "esp_console.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -48,6 +49,23 @@
 namespace console {
 
 std::shared_ptr<system_fsm::ServiceLocator> AppConsole::sServices;
+
+int CmdVersion(int argc, char** argv) {
+  std::cout << "firmware-version=" << esp_app_get_description()->version << std::endl;
+  std::cout << "samd-version=" << AppConsole::sServices->samd().Version() << std::endl;
+  std::cout << "collation=" << AppConsole::sServices->collator().Describe().value_or("") << std::endl;
+  std::cout << "database-schema=" << uint32_t(database::kCurrentDbVersion) << std::endl;
+  return 0;
+}
+
+void RegisterVersion() {
+  esp_console_cmd_t cmd{.command = "version",
+                        .help = "Displays firmware version information",
+                        .hint = NULL,
+                        .func = &CmdVersion,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+}
 
 int CmdListDir(int argc, char** argv) {
   auto db = AppConsole::sServices->database().lock();
@@ -666,6 +684,7 @@ void RegisterLua() {
 }
 
 auto AppConsole::RegisterExtraComponents() -> void {
+  RegisterVersion();
   RegisterListDir();
   RegisterPlayFile();
   /*

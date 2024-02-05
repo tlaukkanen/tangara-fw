@@ -35,6 +35,8 @@
 
 namespace database {
 
+const uint8_t kCurrentDbVersion = 5;
+
 struct SearchKey;
 class Record;
 class Iterator;
