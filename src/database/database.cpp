@@ -274,12 +274,27 @@ auto Database::getIndexes() -> std::vector<IndexInfo> {
   };
 }
 
+class UpdateNotifier {
+ public:
+  UpdateNotifier(std::atomic<bool>& is_updating) : is_updating_(is_updating) {
+    events::Ui().Dispatch(event::UpdateStarted{});
+    events::System().Dispatch(event::UpdateStarted{});
+  }
+  ~UpdateNotifier() {
+    is_updating_ = false;
+    events::Ui().Dispatch(event::UpdateFinished{});
+    events::System().Dispatch(event::UpdateFinished{});
+  }
+
+ private:
+  std::atomic<bool>& is_updating_;
+};
+
 auto Database::updateIndexes() -> void {
   if (is_updating_.exchange(true)) {
     return;
   }
-  events::Ui().Dispatch(event::UpdateStarted{});
-  events::System().Dispatch(event::UpdateStarted{});
+  UpdateNotifier notifier{is_updating_};
 
   leveldb::ReadOptions read_options;
   read_options.fill_cache = false;
@@ -453,10 +468,6 @@ auto Database::updateIndexes() -> void {
   dbSetLastUpdate(newest_track);
   ESP_LOGI(kTag, "newest track was at %u,%u", newest_track.first,
            newest_track.second);
-
-  is_updating_ = false;
-  events::Ui().Dispatch(event::UpdateFinished{});
-  events::System().Dispatch(event::UpdateFinished{});
 }
 
 auto Database::isUpdating() -> bool {

@@ -28,6 +28,8 @@ auto FileGathererImpl::FindFiles(
 
   while (!to_explore.empty()) {
     std::string next_path_str = to_explore.front();
+    to_explore.pop_front();
+
     const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
 
     FF_DIR dir;
@@ -72,7 +74,6 @@ auto FileGathererImpl::FindFiles(
 
     auto lock = drivers::acquire_spi();
     f_closedir(&dir);
-    to_explore.pop_front();
   }
 }
 
