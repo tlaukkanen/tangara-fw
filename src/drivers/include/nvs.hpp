@@ -22,6 +22,9 @@ class NvsStorage {
  public:
   static auto OpenSync() -> NvsStorage*;
 
+  auto LockPolarity() -> bool;
+  auto LockPolarity(bool) -> bool;
+
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::mac_addr_t>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::mac_addr_t>) -> bool;
 

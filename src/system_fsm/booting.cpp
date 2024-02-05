@@ -98,6 +98,8 @@ auto Booting::entry() -> void {
     sServices->bluetooth().Enable();
   }
 
+  sServices->nvs().LockPolarity(true);
+
   BootComplete ev{.services = sServices};
   events::Audio().Dispatch(ev);
   events::Ui().Dispatch(ev);

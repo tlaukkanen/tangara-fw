@@ -33,6 +33,7 @@ static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
 static constexpr char kKeyAmpLeftBias[] = "hp_bias";
 static constexpr char kKeyOnboarded[] = "intro";
 static constexpr char kKeyPrimaryInput[] = "in_pri";
+static constexpr char kKeyLockPolarity[] = "lockpol";
 
 auto NvsStorage::OpenSync() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -83,6 +84,19 @@ auto NvsStorage::SchemaVersionSync() -> uint8_t {
     return UINT8_MAX;
   }
   return ret;
+}
+
+auto NvsStorage::LockPolarity() -> bool {
+  uint8_t res;
+  if (nvs_get_u8(handle_, kKeyLockPolarity, &res) != ESP_OK) {
+    return false;
+  }
+  return res > 0;
+}
+
+auto NvsStorage::LockPolarity(bool p) -> bool {
+  nvs_set_u8(handle_, kKeyLockPolarity, p);
+  return nvs_commit(handle_) == ESP_OK;
 }
 
 auto NvsStorage::PreferredBluetoothDevice()
