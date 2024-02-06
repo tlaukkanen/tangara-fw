@@ -90,7 +90,11 @@ function settings.bluetooth()
 
   menu.bindings = {
     bluetooth.enabled:bind(function(en)
-      enable_sw:set { enabled = en }
+      if en then
+        enable_sw:add_state(lvgl.STATE.CHECKED)
+      else
+        enable_sw:clear_state(lvgl.STATE.CHECKED)
+      end
     end),
     bluetooth.paired_device:bind(function(device)
       if device then
