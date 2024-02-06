@@ -9,7 +9,6 @@
 #include <sstream>
 #include <string>
 
-#include "bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_attr.h"
 #include "esp_avrc_api.h"
@@ -25,15 +24,20 @@
 #include "esp_wifi_types.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
+#include "freertos/timers.h"
+#include "tinyfsm/include/tinyfsm.hpp"
+
+#include "bluetooth_types.hpp"
 #include "memory_resource.hpp"
 #include "nvs.hpp"
-#include "tinyfsm/include/tinyfsm.hpp"
+#include "tasks.hpp"
 
 namespace drivers {
 
 [[maybe_unused]] static constexpr char kTag[] = "bluetooth";
 
 DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
+static tasks::WorkerPool* sBgWorker;
 
 auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
@@ -62,7 +66,8 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   return xStreamBufferReceive(stream, buf, buf_size, 0);
 }
 
-Bluetooth::Bluetooth(NvsStorage& storage) {
+Bluetooth::Bluetooth(NvsStorage& storage, tasks::WorkerPool& bg_worker) {
+  sBgWorker = &bg_worker;
   bluetooth::BluetoothState::Init(storage);
 }
 
@@ -295,6 +300,7 @@ std::mutex BluetoothState::sDevicesMutex_{};
 std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
 std::optional<MacAndName> BluetoothState::sPreferredDevice_{};
 std::optional<MacAndName> BluetoothState::sConnectingDevice_{};
+int BluetoothState::sConnectAttemptsRemaining_{0};
 
 std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
 std::function<void(Event)> BluetoothState::sEventHandler_;
@@ -347,7 +353,6 @@ auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
     sDevices_[ev.device.address] = ev.device;
 
     if (sPreferredDevice_ && ev.device.address == sPreferredDevice_->mac) {
-      sConnectingDevice_ = sPreferredDevice_;
       is_preferred = true;
     }
 
@@ -361,17 +366,27 @@ auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
   }
 }
 
-auto BluetoothState::connect(const MacAndName& dev) -> void {
-  if (!is_in_state<Idle>()) {
-    return;
+auto BluetoothState::connect(const MacAndName& dev) -> bool {
+  if (sConnectingDevice_ && sConnectingDevice_->mac == dev.mac) {
+    sConnectAttemptsRemaining_--;
+  } else {
+    sConnectAttemptsRemaining_ = 3;
   }
+
+  if (sConnectAttemptsRemaining_ == 0) {
+    return false;
+  }
+
   sConnectingDevice_ = dev;
   ESP_LOGI(kTag, "connecting to '%s' (%u%u%u%u%u%u)", dev.name.c_str(),
            dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4],
            dev.mac[5]);
-  if (esp_a2d_source_connect(sConnectingDevice_->mac.data()) == ESP_OK) {
-    transit<Connecting>();
+  if (esp_a2d_source_connect(sConnectingDevice_->mac.data()) != ESP_OK) {
+    return false;
   }
+
+  transit<Connecting>();
+  return true;
 }
 
 static bool sIsFirstEntry = true;
@@ -446,15 +461,24 @@ void Disabled::react(const events::Enable&) {
   // Don't let anyone interact with us before we're ready.
   esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
+  ESP_LOGI(kTag, "bt enabled");
   if (sPreferredDevice_) {
+    ESP_LOGI(kTag, "connecting to preferred device '%s'",
+             sPreferredDevice_->name.c_str());
     connect(*sPreferredDevice_);
   } else {
+    ESP_LOGI(kTag, "scanning for devices");
     transit<Idle>();
   }
 }
 
 void Idle::entry() {
   ESP_LOGI(kTag, "bt is idle");
+  sScanner_->ScanContinuously();
+}
+
+void Idle::exit() {
+  sScanner_->StopScanning();
 }
 
 void Idle::react(const events::Disable& ev) {
@@ -478,7 +502,20 @@ void Idle::react(const events::internal::Gap& ev) {
   sScanner_->HandleGapEvent(ev);
 }
 
+TimerHandle_t sTimeoutTimer;
+
+static void timeoutCallback(TimerHandle_t) {
+  sBgWorker->Dispatch<void>([]() {
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        events::ConnectTimedOut{});
+  });
+}
+
 void Connecting::entry() {
+  sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(5000), false, NULL,
+                               timeoutCallback);
+  xTimerStart(sTimeoutTimer, portMAX_DELAY);
+
   sScanner_->StopScanning();
   if (sEventHandler_) {
     std::invoke(sEventHandler_, Event::kConnectionStateChanged);
@@ -486,9 +523,18 @@ void Connecting::entry() {
 }
 
 void Connecting::exit() {
-  sConnectingDevice_ = {};
+  xTimerDelete(sTimeoutTimer, portMAX_DELAY);
+
   if (sEventHandler_) {
     std::invoke(sEventHandler_, Event::kConnectionStateChanged);
+  }
+}
+
+void Connecting::react(const events::ConnectTimedOut& ev) {
+  ESP_LOGI(kTag, "timed out awaiting connection");
+  esp_a2d_source_disconnect(sConnectingDevice_->mac.data());
+  if (!connect(*sConnectingDevice_)) {
+    transit<Idle>();
   }
 }
 
@@ -659,8 +705,8 @@ void Connected::react(const events::internal::Avrc& ev) {
       if (ev.param->conn_stat.connected) {
         // TODO: tell the target about our capabilities
       }
-      // Don't worry about disconnect events; if there's a serious problem then
-      // the entire bluetooth connection will drop out, which is handled
+      // Don't worry about disconnect events; if there's a serious problem
+      // then the entire bluetooth connection will drop out, which is handled
       // elsewhere.
       break;
     case ESP_AVRC_CT_REMOTE_FEATURES_EVT:

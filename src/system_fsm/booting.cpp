@@ -89,7 +89,8 @@ auto Booting::entry() -> void {
   sServices->collator(locale::CreateCollator());
 
   ESP_LOGI(kTag, "init bluetooth");
-  sServices->bluetooth(std::make_unique<drivers::Bluetooth>(sServices->nvs()));
+  sServices->bluetooth(std::make_unique<drivers::Bluetooth>(
+      sServices->nvs(), sServices->bg_worker()));
   sServices->bluetooth().SetEventHandler(bt_event_cb);
 
   if (sServices->nvs().OutputMode() ==

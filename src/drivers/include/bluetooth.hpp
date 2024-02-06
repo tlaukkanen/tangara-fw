@@ -17,6 +17,7 @@
 #include "esp_avrc_api.h"
 #include "esp_gap_bt_api.h"
 #include "nvs.hpp"
+#include "tasks.hpp"
 #include "tinyfsm.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
@@ -27,7 +28,7 @@ namespace drivers {
  */
 class Bluetooth {
  public:
-  Bluetooth(NvsStorage& storage);
+  Bluetooth(NvsStorage& storage, tasks::WorkerPool&);
 
   auto Enable() -> bool;
   auto Disable() -> void;
@@ -53,6 +54,7 @@ namespace events {
 struct Enable : public tinyfsm::Event {};
 struct Disable : public tinyfsm::Event {};
 
+struct ConnectTimedOut : public tinyfsm::Event {};
 struct PreferredDeviceChanged : public tinyfsm::Event {};
 struct SourceChanged : public tinyfsm::Event {};
 struct DeviceDiscovered : public tinyfsm::Event {
@@ -124,6 +126,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
   virtual void react(const events::Enable& ev){};
   virtual void react(const events::Disable& ev) = 0;
+  virtual void react(const events::ConnectTimedOut& ev){};
   virtual void react(const events::PreferredDeviceChanged& ev){};
   virtual void react(const events::SourceChanged& ev){};
   virtual void react(const events::ChangeVolume&) {}
@@ -141,12 +144,14 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static std::mutex sDevicesMutex_;
   static std::map<mac_addr_t, Device> sDevices_;
   static std::optional<bluetooth::MacAndName> sPreferredDevice_;
+
   static std::optional<bluetooth::MacAndName> sConnectingDevice_;
+  static int sConnectAttemptsRemaining_;
 
   static std::atomic<StreamBufferHandle_t> sSource_;
   static std::function<void(Event)> sEventHandler_;
 
-  auto connect(const bluetooth::MacAndName&) -> void;
+  auto connect(const bluetooth::MacAndName&) -> bool;
 };
 
 class Disabled : public BluetoothState {
@@ -165,6 +170,7 @@ class Disabled : public BluetoothState {
 class Idle : public BluetoothState {
  public:
   void entry() override;
+  void exit() override;
 
   void react(const events::Disable& ev) override;
   void react(const events::PreferredDeviceChanged& ev) override;
@@ -181,6 +187,7 @@ class Connecting : public BluetoothState {
 
   void react(const events::PreferredDeviceChanged& ev) override;
 
+  void react(const events::ConnectTimedOut& ev) override;
   void react(const events::Disable& ev) override;
   void react(const events::internal::Gap& ev) override;
   void react(const events::internal::A2dp& ev) override;
