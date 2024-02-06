@@ -102,19 +102,6 @@ auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::Device> {
   return {};
 }
 
-auto Bluetooth::SetDeviceDiscovery(bool allowed) -> void {
-  if (allowed == bluetooth::BluetoothState::discovery()) {
-    return;
-  }
-  bluetooth::BluetoothState::discovery(allowed);
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::DiscoveryChanged{});
-}
-
-auto Bluetooth::IsDiscovering() -> bool {
-  return bluetooth::BluetoothState::discovery();
-}
-
 auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {
   std::vector<bluetooth::Device> out = bluetooth::BluetoothState::devices();
   std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) -> bool {
@@ -308,7 +295,6 @@ std::mutex BluetoothState::sDevicesMutex_{};
 std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
 std::optional<MacAndName> BluetoothState::sPreferredDevice_{};
 std::optional<MacAndName> BluetoothState::sConnectingDevice_{};
-bool BluetoothState::sIsDiscoveryAllowed_{false};
 
 std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
 std::function<void(Event)> BluetoothState::sEventHandler_;
@@ -336,16 +322,6 @@ auto BluetoothState::preferred_device() -> std::optional<MacAndName> {
 auto BluetoothState::preferred_device(std::optional<MacAndName> addr) -> void {
   std::lock_guard lock{sDevicesMutex_};
   sPreferredDevice_ = addr;
-}
-
-auto BluetoothState::discovery() -> bool {
-  std::lock_guard lock{sDevicesMutex_};
-  return sIsDiscoveryAllowed_;
-}
-
-auto BluetoothState::discovery(bool en) -> void {
-  std::lock_guard lock{sDevicesMutex_};
-  sIsDiscoveryAllowed_ = en;
 }
 
 auto BluetoothState::source() -> StreamBufferHandle_t {
@@ -380,17 +356,21 @@ auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
     }
   }
 
-  if (is_preferred && is_in_state<Idle>()) {
-    ESP_LOGI(kTag, "new device is preferred. connecting.");
-    transit<Connecting>();
+  if (is_preferred && sPreferredDevice_) {
+    connect(*sPreferredDevice_);
   }
 }
 
-auto BluetoothState::react(const events::DiscoveryChanged& ev) -> void {
-  if (sIsDiscoveryAllowed_) {
-    sScanner_->ScanContinuously();
-  } else {
-    sScanner_->StopScanning();
+auto BluetoothState::connect(const MacAndName& dev) -> void {
+  if (!is_in_state<Idle>()) {
+    return;
+  }
+  sConnectingDevice_ = dev;
+  ESP_LOGI(kTag, "connecting to '%s' (%u%u%u%u%u%u)", dev.name.c_str(),
+           dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4],
+           dev.mac[5]);
+  if (esp_a2d_source_connect(sConnectingDevice_->mac.data()) == ESP_OK) {
+    transit<Connecting>();
   }
 }
 
@@ -413,16 +393,6 @@ void Disabled::entry() {
   esp_bluedroid_deinit();
   esp_bt_controller_disable();
   esp_bt_controller_deinit();
-}
-
-void Disabled::exit() {
-  if (sIsDiscoveryAllowed_) {
-    ESP_LOGI(kTag, "bt enabled, beginning discovery");
-    sScanner_->ScanContinuously();
-  } else {
-    ESP_LOGI(kTag, "bt enabled, scanning once");
-    sScanner_->ScanOnce();
-  }
 }
 
 void Disabled::react(const events::Enable&) {
@@ -477,8 +447,7 @@ void Disabled::react(const events::Enable&) {
   esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
   if (sPreferredDevice_) {
-    sConnectingDevice_ = sPreferredDevice_;
-    transit<Connecting>();
+    connect(*sPreferredDevice_);
   } else {
     transit<Idle>();
   }
@@ -501,8 +470,7 @@ void Idle::react(const events::PreferredDeviceChanged& ev) {
     }
   }
   if (is_discovered) {
-    sConnectingDevice_ = sPreferredDevice_;
-    transit<Connecting>();
+    connect(*sPreferredDevice_);
   }
 }
 
@@ -512,20 +480,13 @@ void Idle::react(const events::internal::Gap& ev) {
 
 void Connecting::entry() {
   sScanner_->StopScanning();
-
-  auto dev = sConnectingDevice_;
-  ESP_LOGI(kTag, "connecting to '%s' (%u%u%u%u%u%u)", dev->name.c_str(),
-           dev->mac[0], dev->mac[1], dev->mac[2], dev->mac[3], dev->mac[4],
-           dev->mac[5]);
-  esp_a2d_source_connect(sConnectingDevice_->mac.data());
-
   if (sEventHandler_) {
     std::invoke(sEventHandler_, Event::kConnectionStateChanged);
   }
 }
 
 void Connecting::exit() {
-  ESP_LOGI(kTag, "connecting finished");
+  sConnectingDevice_ = {};
   if (sEventHandler_) {
     std::invoke(sEventHandler_, Event::kConnectionStateChanged);
   }
@@ -546,7 +507,6 @@ void Connecting::react(const events::internal::Gap& ev) {
     case ESP_BT_GAP_AUTH_CMPL_EVT:
       if (ev.param->auth_cmpl.stat != ESP_BT_STATUS_SUCCESS) {
         ESP_LOGE(kTag, "auth failed");
-        sConnectingDevice_ = {};
         transit<Idle>();
       }
       break;
@@ -556,22 +516,18 @@ void Connecting::react(const events::internal::Gap& ev) {
       break;
     case ESP_BT_GAP_PIN_REQ_EVT:
       ESP_LOGW(kTag, "device needs a pin to connect");
-      sConnectingDevice_ = {};
       transit<Idle>();
       break;
     case ESP_BT_GAP_CFM_REQ_EVT:
       ESP_LOGW(kTag, "user needs to do cfm. idk man.");
-      sConnectingDevice_ = {};
       transit<Idle>();
       break;
     case ESP_BT_GAP_KEY_NOTIF_EVT:
       ESP_LOGW(kTag, "the device is telling us a password??");
-      sConnectingDevice_ = {};
       transit<Idle>();
       break;
     case ESP_BT_GAP_KEY_REQ_EVT:
       ESP_LOGW(kTag, "the device wants a password!");
-      sConnectingDevice_ = {};
       transit<Idle>();
       break;
     case ESP_BT_GAP_MODE_CHG_EVT:

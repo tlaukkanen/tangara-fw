@@ -36,13 +36,6 @@ class Bluetooth {
   auto IsConnected() -> bool;
   auto ConnectedDevice() -> std::optional<bluetooth::Device>;
 
-  /*
-   * Sets whether or not the bluetooth stack is allowed to actively scan for
-   * new devices.
-   */
-  auto SetDeviceDiscovery(bool) -> void;
-  auto IsDiscovering() -> bool;
-
   auto KnownDevices() -> std::vector<bluetooth::Device>;
 
   auto SetPreferredDevice(std::optional<bluetooth::MacAndName> dev) -> void;
@@ -62,7 +55,6 @@ struct Disable : public tinyfsm::Event {};
 
 struct PreferredDeviceChanged : public tinyfsm::Event {};
 struct SourceChanged : public tinyfsm::Event {};
-struct DiscoveryChanged : public tinyfsm::Event {};
 struct DeviceDiscovered : public tinyfsm::Event {
   const Device& device;
 };
@@ -134,7 +126,6 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(const events::Disable& ev) = 0;
   virtual void react(const events::PreferredDeviceChanged& ev){};
   virtual void react(const events::SourceChanged& ev){};
-  virtual void react(const events::DiscoveryChanged&);
   virtual void react(const events::ChangeVolume&) {}
 
   virtual void react(const events::DeviceDiscovered&);
@@ -151,23 +142,22 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static std::map<mac_addr_t, Device> sDevices_;
   static std::optional<bluetooth::MacAndName> sPreferredDevice_;
   static std::optional<bluetooth::MacAndName> sConnectingDevice_;
-  static bool sIsDiscoveryAllowed_;
 
   static std::atomic<StreamBufferHandle_t> sSource_;
   static std::function<void(Event)> sEventHandler_;
+
+  auto connect(const bluetooth::MacAndName&) -> void;
 };
 
 class Disabled : public BluetoothState {
  public:
   void entry() override;
-  void exit() override;
 
   void react(const events::Enable& ev) override;
   void react(const events::Disable& ev) override{};
 
   void react(const events::internal::Gap& ev) override {}
   void react(const events::internal::A2dp& ev) override {}
-  void react(const events::DiscoveryChanged& ev) override{};
 
   using BluetoothState::react;
 };

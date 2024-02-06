@@ -85,7 +85,6 @@ lua::Property UiState::sBluetoothEnabled{
       if (std::get<bool>(val)) {
         sServices->nvs().OutputMode(drivers::NvsStorage::Output::kBluetooth);
         sServices->bluetooth().Enable();
-        sServices->bluetooth().SetDeviceDiscovery(true);
       } else {
         sServices->nvs().OutputMode(drivers::NvsStorage::Output::kHeadphones);
         sServices->bluetooth().Disable();
@@ -109,7 +108,6 @@ lua::Property UiState::sBluetoothPairedDevice{
     }};
 lua::Property UiState::sBluetoothDevices{
     std::vector<drivers::bluetooth::Device>{}};
-lua::Property UiState::sBluetoothScanning{false};
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
@@ -340,9 +338,6 @@ void UiState::react(const system_fsm::BluetoothEvent& ev) {
         sBluetoothPairedDevice.Update(std::monostate{});
       }
       break;
-    case drivers::bluetooth::Event::kDiscoveryChanged:
-      sBluetoothScanning.Update(bt.IsDiscovering());
-      break;
     case drivers::bluetooth::Event::kPreferredDeviceChanged:
       break;
   }
@@ -466,7 +461,6 @@ void Lua::entry() {
       sBluetoothPairedDevice.Update(bt.ConnectedDevice().value());
     }
     sBluetoothDevices.Update(bt.KnownDevices());
-    sBluetoothScanning.Update(bt.IsDiscovering());
 
     sCurrentScreen.reset();
     sLua->RunScript("/lua/main.lua");

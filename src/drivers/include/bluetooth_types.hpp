@@ -27,7 +27,6 @@ enum class Event {
   kKnownDevicesChanged,
   kConnectionStateChanged,
   kPreferredDeviceChanged,
-  kDiscoveryChanged,
 };
 
 }  // namespace bluetooth

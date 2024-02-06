@@ -108,7 +108,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sBluetoothConnected;
   static lua::Property sBluetoothPairedDevice;
   static lua::Property sBluetoothDevices;
-  static lua::Property sBluetoothScanning;
 
   static lua::Property sPlaybackPlaying;
 
