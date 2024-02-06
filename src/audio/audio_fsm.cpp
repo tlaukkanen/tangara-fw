@@ -171,7 +171,8 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sFileSource.reset(
       new FatfsAudioInput(sServices->tag_parser(), sServices->bg_worker()));
   sI2SOutput.reset(new I2SAudioOutput(stream, sServices->gpios()));
-  sBtOutput.reset(new BluetoothAudioOutput(stream, sServices->bluetooth()));
+  sBtOutput.reset(new BluetoothAudioOutput(stream, sServices->bluetooth(),
+                                           sServices->bg_worker()));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());

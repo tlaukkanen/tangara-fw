@@ -11,6 +11,7 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
+#include <stdint.h>
 #include "bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
@@ -48,6 +49,8 @@ class Bluetooth {
   auto PreferredDevice() -> std::optional<bluetooth::MacAndName>;
 
   auto SetSource(StreamBufferHandle_t) -> void;
+  auto SetVolume(uint8_t) -> void;
+
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
 };
 
@@ -62,6 +65,9 @@ struct SourceChanged : public tinyfsm::Event {};
 struct DiscoveryChanged : public tinyfsm::Event {};
 struct DeviceDiscovered : public tinyfsm::Event {
   const Device& device;
+};
+struct ChangeVolume : public tinyfsm::Event {
+  const uint8_t volume;
 };
 
 namespace internal {
@@ -129,6 +135,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(const events::PreferredDeviceChanged& ev){};
   virtual void react(const events::SourceChanged& ev){};
   virtual void react(const events::DiscoveryChanged&);
+  virtual void react(const events::ChangeVolume&) {}
 
   virtual void react(const events::DeviceDiscovered&);
 
@@ -198,6 +205,7 @@ class Connected : public BluetoothState {
 
   void react(const events::PreferredDeviceChanged& ev) override;
   void react(const events::SourceChanged& ev) override;
+  void react(const events::ChangeVolume&) override;
 
   void react(const events::Disable& ev) override;
   void react(const events::internal::Gap& ev) override;
@@ -207,6 +215,7 @@ class Connected : public BluetoothState {
   using BluetoothState::react;
 
  private:
+  uint8_t transaction_num_;
   mac_addr_t connected_to_;
 };
 

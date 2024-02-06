@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -16,12 +17,15 @@
 #include "bluetooth.hpp"
 #include "gpios.hpp"
 #include "i2s_dac.hpp"
+#include "tasks.hpp"
 
 namespace audio {
 
 class BluetoothAudioOutput : public IAudioOutput {
  public:
-  BluetoothAudioOutput(StreamBufferHandle_t, drivers::Bluetooth& bt);
+  BluetoothAudioOutput(StreamBufferHandle_t,
+                       drivers::Bluetooth& bt,
+                       tasks::WorkerPool&);
   ~BluetoothAudioOutput();
 
   auto SetMode(Modes) -> void override;
@@ -46,6 +50,8 @@ class BluetoothAudioOutput : public IAudioOutput {
 
  private:
   drivers::Bluetooth& bluetooth_;
+  tasks::WorkerPool& bg_worker_;
+  uint8_t volume_;
 };
 
 }  // namespace audio

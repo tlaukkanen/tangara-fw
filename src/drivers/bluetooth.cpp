@@ -17,6 +17,7 @@
 #include "esp_bt_defs.h"
 #include "esp_bt_device.h"
 #include "esp_bt_main.h"
+#include "esp_err.h"
 #include "esp_gap_bt_api.h"
 #include "esp_log.h"
 #include "esp_mac.h"
@@ -147,6 +148,11 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
   bluetooth::BluetoothState::source(src);
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::SourceChanged{});
+}
+
+auto Bluetooth::SetVolume(uint8_t vol) -> void {
+  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+      bluetooth::events::ChangeVolume{.volume = vol});
 }
 
 auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
@@ -401,6 +407,8 @@ void Disabled::entry() {
 
   sScanner_->StopScanningNow();
 
+  esp_a2d_source_deinit();
+  esp_avrc_ct_deinit();
   esp_bluedroid_disable();
   esp_bluedroid_deinit();
   esp_bt_controller_disable();
@@ -603,6 +611,7 @@ void Connecting::react(const events::internal::A2dp& ev) {
 void Connected::entry() {
   ESP_LOGI(kTag, "entering connected state");
 
+  transaction_num_ = 0;
   connected_to_ = sConnectingDevice_->mac;
   sPreferredDevice_ = sConnectingDevice_;
   sConnectingDevice_ = {};
@@ -636,6 +645,18 @@ void Connected::react(const events::SourceChanged& ev) {
     esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY);
   } else {
     esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_STOP);
+  }
+}
+
+void Connected::react(const events::ChangeVolume& ev) {
+  ESP_LOGI(kTag, "send vol %u", ev.volume);
+  esp_err_t err = esp_avrc_ct_send_set_absolute_volume_cmd(
+      transaction_num_++, std::clamp<uint8_t>(ev.volume, 0, 0x7f));
+  if (err != ESP_OK) {
+    ESP_LOGW(kTag, "send vol failed %u", err);
+  }
+  if (transaction_num_ > ESP_AVRC_TRANS_LABEL_MAX) {
+    transaction_num_ = 0;
   }
 }
 
