@@ -105,6 +105,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
  public:
   static auto Init(NvsStorage& storage) -> void;
 
+  static auto lock() -> std::lock_guard<std::mutex>;
+
   static auto devices() -> std::vector<Device>;
 
   static auto preferred_device() -> std::optional<bluetooth::MacAndName>;
@@ -141,7 +143,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static NvsStorage* sStorage_;
   static Scanner* sScanner_;
 
-  static std::mutex sDevicesMutex_;
+  static std::mutex sFsmMutex;
   static std::map<mac_addr_t, Device> sDevices_;
   static std::optional<bluetooth::MacAndName> sPreferredDevice_;
 

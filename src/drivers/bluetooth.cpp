@@ -40,17 +40,20 @@ DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
 static tasks::WorkerPool* sBgWorker;
 
 auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::internal::Gap{.type = event, .param = param});
 }
 
 auto avrcp_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t* param)
     -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::internal::Avrc{.type = event, .param = param});
 }
 
 auto a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::internal::A2dp{.type = event, .param = param});
 }
@@ -72,6 +75,7 @@ Bluetooth::Bluetooth(NvsStorage& storage, tasks::WorkerPool& bg_worker) {
 }
 
 auto Bluetooth::Enable() -> bool {
+  auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::Enable{});
 
@@ -79,20 +83,24 @@ auto Bluetooth::Enable() -> bool {
 }
 
 auto Bluetooth::Disable() -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::Disable{});
 }
 
 auto Bluetooth::IsEnabled() -> bool {
+  auto lock = bluetooth::BluetoothState::lock();
   return !bluetooth::BluetoothState::is_in_state<bluetooth::Disabled>();
 }
 
 auto Bluetooth::IsConnected() -> bool {
+  auto lock = bluetooth::BluetoothState::lock();
   return bluetooth::BluetoothState::is_in_state<bluetooth::Connected>();
 }
 
 auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::Device> {
-  if (!IsConnected()) {
+  auto lock = bluetooth::BluetoothState::lock();
+  if (!bluetooth::BluetoothState::is_in_state<bluetooth::Connected>()) {
     return {};
   }
   auto looking_for = bluetooth::BluetoothState::preferred_device();
@@ -108,6 +116,7 @@ auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::Device> {
 }
 
 auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {
+  auto lock = bluetooth::BluetoothState::lock();
   std::vector<bluetooth::Device> out = bluetooth::BluetoothState::devices();
   std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) -> bool {
     return a.signal_strength < b.signal_strength;
@@ -117,6 +126,7 @@ auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {
 
 auto Bluetooth::SetPreferredDevice(std::optional<bluetooth::MacAndName> dev)
     -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   auto cur = bluetooth::BluetoothState::preferred_device();
   if (dev && cur && dev->mac == cur->mac) {
     return;
@@ -130,10 +140,12 @@ auto Bluetooth::SetPreferredDevice(std::optional<bluetooth::MacAndName> dev)
 }
 
 auto Bluetooth::PreferredDevice() -> std::optional<bluetooth::MacAndName> {
+  auto lock = bluetooth::BluetoothState::lock();
   return bluetooth::BluetoothState::preferred_device();
 }
 
 auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   if (src == bluetooth::BluetoothState::source()) {
     return;
   }
@@ -143,12 +155,14 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
 }
 
 auto Bluetooth::SetVolume(uint8_t vol) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::ChangeVolume{.volume = vol});
 }
 
 auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
     -> void {
+  auto lock = bluetooth::BluetoothState::lock();
   bluetooth::BluetoothState::event_handler(cb);
 }
 
@@ -296,7 +310,7 @@ auto Scanner::HandleDeviceDiscovery(const esp_bt_gap_cb_param_t& param)
 NvsStorage* BluetoothState::sStorage_;
 Scanner* BluetoothState::sScanner_;
 
-std::mutex BluetoothState::sDevicesMutex_{};
+std::mutex BluetoothState::sFsmMutex{};
 std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
 std::optional<MacAndName> BluetoothState::sPreferredDevice_{};
 std::optional<MacAndName> BluetoothState::sConnectingDevice_{};
@@ -311,8 +325,11 @@ auto BluetoothState::Init(NvsStorage& storage) -> void {
   tinyfsm::FsmList<bluetooth::BluetoothState>::start();
 }
 
+auto BluetoothState::lock() -> std::lock_guard<std::mutex> {
+  return std::lock_guard<std::mutex>{sFsmMutex};
+}
+
 auto BluetoothState::devices() -> std::vector<Device> {
-  std::lock_guard lock{sDevicesMutex_};
   std::vector<Device> out;
   for (const auto& device : sDevices_) {
     out.push_back(device.second);
@@ -321,44 +338,36 @@ auto BluetoothState::devices() -> std::vector<Device> {
 }
 
 auto BluetoothState::preferred_device() -> std::optional<MacAndName> {
-  std::lock_guard lock{sDevicesMutex_};
   return sPreferredDevice_;
 }
 
 auto BluetoothState::preferred_device(std::optional<MacAndName> addr) -> void {
-  std::lock_guard lock{sDevicesMutex_};
   sPreferredDevice_ = addr;
 }
 
 auto BluetoothState::source() -> StreamBufferHandle_t {
-  std::lock_guard lock{sDevicesMutex_};
   return sSource_.load();
 }
 
 auto BluetoothState::source(StreamBufferHandle_t src) -> void {
-  std::lock_guard lock{sDevicesMutex_};
   sSource_.store(src);
 }
 
 auto BluetoothState::event_handler(std::function<void(Event)> cb) -> void {
-  std::lock_guard lock{sDevicesMutex_};
   sEventHandler_ = cb;
 }
 
 auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
   bool is_preferred = false;
-  {
-    std::lock_guard<std::mutex> lock{sDevicesMutex_};
-    bool already_known = sDevices_.contains(ev.device.address);
-    sDevices_[ev.device.address] = ev.device;
+  bool already_known = sDevices_.contains(ev.device.address);
+  sDevices_[ev.device.address] = ev.device;
 
-    if (sPreferredDevice_ && ev.device.address == sPreferredDevice_->mac) {
-      is_preferred = true;
-    }
+  if (sPreferredDevice_ && ev.device.address == sPreferredDevice_->mac) {
+    is_preferred = true;
+  }
 
-    if (sEventHandler_ && !already_known) {
-      std::invoke(sEventHandler_, Event::kKnownDevicesChanged);
-    }
+  if (sEventHandler_ && !already_known) {
+    std::invoke(sEventHandler_, Event::kKnownDevicesChanged);
   }
 
   if (is_preferred && sPreferredDevice_) {
@@ -487,11 +496,8 @@ void Idle::react(const events::Disable& ev) {
 
 void Idle::react(const events::PreferredDeviceChanged& ev) {
   bool is_discovered = false;
-  {
-    std::lock_guard<std::mutex> lock{sDevicesMutex_};
-    if (sPreferredDevice_ && sDevices_.contains(sPreferredDevice_->mac)) {
-      is_discovered = true;
-    }
+  if (sPreferredDevice_ && sDevices_.contains(sPreferredDevice_->mac)) {
+    is_discovered = true;
   }
   if (is_discovered) {
     connect(*sPreferredDevice_);
@@ -506,6 +512,7 @@ TimerHandle_t sTimeoutTimer;
 
 static void timeoutCallback(TimerHandle_t) {
   sBgWorker->Dispatch<void>([]() {
+    auto lock = bluetooth::BluetoothState::lock();
     tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
         events::ConnectTimedOut{});
   });
