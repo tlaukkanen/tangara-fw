@@ -23,6 +23,8 @@
 #include "FreeRTOSConfig.h"
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
+#include "bluetooth.hpp"
+#include "bluetooth_types.hpp"
 #include "database.hpp"
 #include "esp_app_desc.h"
 #include "esp_console.h"
@@ -419,8 +421,11 @@ int CmdBtList(int argc, char** argv) {
       std::cout << "index out of range" << std::endl;
       return -1;
     }
-    AppConsole::sServices->bluetooth().SetPreferredDevice(
-        devices[index].address);
+    drivers::bluetooth::MacAndName dev{
+        .mac = devices[index].address,
+        .name = {devices[index].name.data(), devices[index].name.size()},
+    };
+    AppConsole::sServices->bluetooth().SetPreferredDevice(dev);
   } else {
     std::cout << "mac\t\trssi\tname" << std::endl;
     for (const auto& device : devices) {

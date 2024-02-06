@@ -25,7 +25,8 @@ namespace drivers {
 static constexpr uint8_t kSchemaVersion = 1;
 
 static constexpr char kKeyVersion[] = "ver";
-static constexpr char kKeyBluetooth[] = "bt";
+static constexpr char kKeyBluetoothMac[] = "bt_mac";
+static constexpr char kKeyBluetoothName[] = "bt_name";
 static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
@@ -100,22 +101,36 @@ auto NvsStorage::LockPolarity(bool p) -> bool {
 }
 
 auto NvsStorage::PreferredBluetoothDevice()
-    -> std::optional<bluetooth::mac_addr_t> {
-  bluetooth::mac_addr_t out{0};
-  size_t size = out.size();
-  if (nvs_get_blob(handle_, kKeyBluetooth, out.data(), &size) != ESP_OK) {
+    -> std::optional<bluetooth::MacAndName> {
+  bluetooth::mac_addr_t mac{0};
+  size_t size = mac.size();
+  if (nvs_get_blob(handle_, kKeyBluetoothMac, mac.data(), &size) != ESP_OK) {
     return {};
   }
+  size_t name_len = 0;
+  if (nvs_get_str(handle_, kKeyBluetoothName, NULL, &name_len) != ESP_OK) {
+  }
+  char* raw_name = new char[name_len];
+  if (nvs_get_str(handle_, kKeyBluetoothName, raw_name, &name_len) != ESP_OK) {
+    delete[] raw_name;
+    return {};
+  }
+  bluetooth::MacAndName out{
+      .mac = mac,
+      .name = {raw_name, name_len},
+  };
+  delete[] raw_name;
   return out;
 }
 
 auto NvsStorage::PreferredBluetoothDevice(
-    std::optional<bluetooth::mac_addr_t> addr) -> bool {
-  if (!addr) {
-    nvs_erase_key(handle_, kKeyBluetooth);
+    std::optional<bluetooth::MacAndName> dev) -> bool {
+  if (!dev) {
+    nvs_erase_key(handle_, kKeyBluetoothMac);
+    nvs_erase_key(handle_, kKeyBluetoothName);
   } else {
-    nvs_set_blob(handle_, kKeyBluetooth, addr.value().data(),
-                 addr.value().size());
+    nvs_set_blob(handle_, kKeyBluetoothMac, dev->mac.data(), dev->mac.size());
+    nvs_set_str(handle_, kKeyBluetoothName, dev->name.c_str());
   }
   return nvs_commit(handle_) == ESP_OK;
 }

@@ -11,6 +11,11 @@ namespace bluetooth {
 
 typedef std::array<uint8_t, 6> mac_addr_t;
 
+struct MacAndName {
+  mac_addr_t mac;
+  std::string name;
+};
+
 struct Device {
   mac_addr_t address;
   std::pmr::string name;

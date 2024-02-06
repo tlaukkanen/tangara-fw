@@ -125,6 +125,7 @@ void AudioState::react(const OutputModeChanged& ev) {
       break;
   }
   sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
+  sSampleConverter->SetOutput(sOutput);
 }
 
 auto AudioState::playTrack(database::TrackId id) -> void {

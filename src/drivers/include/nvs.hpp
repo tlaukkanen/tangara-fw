@@ -25,8 +25,8 @@ class NvsStorage {
   auto LockPolarity() -> bool;
   auto LockPolarity(bool) -> bool;
 
-  auto PreferredBluetoothDevice() -> std::optional<bluetooth::mac_addr_t>;
-  auto PreferredBluetoothDevice(std::optional<bluetooth::mac_addr_t>) -> bool;
+  auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
+  auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> bool;
 
   enum class Output : uint8_t {
     kHeadphones = 0,

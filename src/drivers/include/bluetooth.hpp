@@ -44,8 +44,8 @@ class Bluetooth {
 
   auto KnownDevices() -> std::vector<bluetooth::Device>;
 
-  auto SetPreferredDevice(const bluetooth::mac_addr_t& mac) -> void;
-  auto PreferredDevice() -> std::optional<bluetooth::mac_addr_t>;
+  auto SetPreferredDevice(std::optional<bluetooth::MacAndName> dev) -> void;
+  auto PreferredDevice() -> std::optional<bluetooth::MacAndName>;
 
   auto SetSource(StreamBufferHandle_t) -> void;
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
@@ -107,8 +107,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
   static auto devices() -> std::vector<Device>;
 
-  static auto preferred_device() -> std::optional<mac_addr_t>;
-  static auto preferred_device(std::optional<mac_addr_t>) -> void;
+  static auto preferred_device() -> std::optional<bluetooth::MacAndName>;
+  static auto preferred_device(std::optional<bluetooth::MacAndName>) -> void;
 
   static auto scanning() -> bool;
   static auto discovery() -> bool;
@@ -142,8 +142,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
   static std::mutex sDevicesMutex_;
   static std::map<mac_addr_t, Device> sDevices_;
-  static std::optional<mac_addr_t> sPreferredDevice_;
-  static std::optional<Device> sCurrentDevice_;
+  static std::optional<bluetooth::MacAndName> sPreferredDevice_;
+  static std::optional<bluetooth::MacAndName> sConnectingDevice_;
   static bool sIsDiscoveryAllowed_;
 
   static std::atomic<StreamBufferHandle_t> sSource_;
@@ -205,6 +205,9 @@ class Connected : public BluetoothState {
   void react(const events::internal::Avrc& ev) override;
 
   using BluetoothState::react;
+
+ private:
+  mac_addr_t connected_to_;
 };
 
 }  // namespace bluetooth
