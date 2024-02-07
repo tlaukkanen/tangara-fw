@@ -108,12 +108,7 @@ void TouchWheel::Update() {
   uint8_t status = ReadRegister(Register::DETECTION_STATUS);
   if (status & 0b10000000) {
     // Still calibrating.
-    ESP_LOGW(kTag, "awaiting calibration");
     return;
-  }
-  if (status & 0b01000000) {
-    // Probably okay, but we should keep an eye on this for development.
-    ESP_LOGW(kTag, "touchwheel acquisition >16ms");
   }
   if (status & 0b10) {
     // Slider detect.
