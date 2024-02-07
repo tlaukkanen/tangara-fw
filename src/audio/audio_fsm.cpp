@@ -162,7 +162,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
   constexpr size_t kDrainBufferSize =
-      drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2 * 8;
+      drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 8;
   ESP_LOGI(kTag, "allocating drain buffer, size %u KiB",
            kDrainBufferSize / 1024);
   StreamBufferHandle_t stream = xStreamBufferCreateWithCaps(

@@ -17,4 +17,6 @@ set(OPUS_BUILD_TESTING OFF)
 set(OPUS_BUILD_SHARED_LIBS OFF)
 
 add_subdirectory($ENV{PROJ_PATH}/lib/opus ${CMAKE_CURRENT_BINARY_DIR}/opus)
+target_compile_definitions(opus PRIVATE CUSTOM_SUPPORT)
+target_include_directories(opus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${COMPONENT_LIB} PUBLIC opus)
