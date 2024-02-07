@@ -86,7 +86,9 @@ auto Bluetooth::Enable() -> bool {
 }
 
 auto Bluetooth::Disable() -> void {
-  auto lock = bluetooth::BluetoothState::lock();
+  // FIXME: the BT tasks unfortunately call back into us while holding an
+  // internal lock, which then deadlocks with our fsm lock.
+  // auto lock = bluetooth::BluetoothState::lock();
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::Disable{});
 }
