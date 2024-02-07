@@ -5,7 +5,7 @@
 # For more information about build system see
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
 
-set(PROJECT_VER "0.4.0")
+set(PROJECT_VER "0.4.1")
 
 # esp-idf sets the C++ standard weird. Set cmake vars to match.
 set(CMAKE_CXX_STANDARD 23)
