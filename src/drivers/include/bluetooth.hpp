@@ -75,7 +75,7 @@ struct A2dp : public tinyfsm::Event {
 };
 struct Avrc : public tinyfsm::Event {
   esp_avrc_ct_cb_event_t type;
-  esp_avrc_ct_cb_param_t* param;
+  esp_avrc_ct_cb_param_t param;
 };
 }  // namespace internal
 }  // namespace events

@@ -47,9 +47,12 @@ auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
 
 auto avrcp_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t* param)
     -> void {
-  auto lock = bluetooth::BluetoothState::lock();
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::internal::Avrc{.type = event, .param = param});
+  esp_avrc_ct_cb_param_t copy = *param;
+  sBgWorker->Dispatch<void>([=]() {
+    auto lock = bluetooth::BluetoothState::lock();
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        bluetooth::events::internal::Avrc{.type = event, .param = copy});
+  });
 }
 
 auto a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param) -> void {
@@ -658,7 +661,6 @@ void Connected::react(const events::SourceChanged& ev) {
 }
 
 void Connected::react(const events::ChangeVolume& ev) {
-  ESP_LOGI(kTag, "send vol %u", ev.volume);
   esp_err_t err = esp_avrc_ct_send_set_absolute_volume_cmd(
       transaction_num_++, std::clamp<uint8_t>(ev.volume, 0, 0x7f));
   if (err != ESP_OK) {
@@ -709,7 +711,7 @@ void Connected::react(const events::internal::A2dp& ev) {
 void Connected::react(const events::internal::Avrc& ev) {
   switch (ev.type) {
     case ESP_AVRC_CT_CONNECTION_STATE_EVT:
-      if (ev.param->conn_stat.connected) {
+      if (ev.param.conn_stat.connected) {
         // TODO: tell the target about our capabilities
       }
       // Don't worry about disconnect events; if there's a serious problem
