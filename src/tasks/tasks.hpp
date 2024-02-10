@@ -10,6 +10,7 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <memory_resource>
 #include <string>
 
 #include "esp_heap_caps.h"
