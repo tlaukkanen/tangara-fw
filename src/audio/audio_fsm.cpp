@@ -357,7 +357,7 @@ void Playback::react(const internal::InputFileClosed& ev) {}
 
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
-  sServices->track_queue().next();
+  sServices->track_queue().finish();
   if (!sServices->track_queue().current()) {
     transit<Standby>();
   }

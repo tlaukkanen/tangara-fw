@@ -34,12 +34,12 @@ namespace audio {
 [[maybe_unused]] static constexpr char kTag[] = "tracks";
 
 RandomIterator::RandomIterator(size_t size)
-    : seed_(), pos_(0), size_(size), repeat_(false) {
+    : seed_(), pos_(0), size_(size), replay_(false) {
   esp_fill_random(&seed_, sizeof(seed_));
 }
 
 auto RandomIterator::current() const -> size_t {
-  if (pos_ < size_ || repeat_) {
+  if (pos_ < size_ || replay_) {
     return MillerShuffle(pos_, seed_, size_);
   }
   return size_;
@@ -65,8 +65,8 @@ auto RandomIterator::resize(size_t s) -> void {
   pos_ = 0;
 }
 
-auto RandomIterator::repeat(bool r) -> void {
-  repeat_ = r;
+auto RandomIterator::replay(bool r) -> void {
+  replay_ = r;
 }
 
 auto notifyChanged(bool current_changed) -> void {
@@ -81,7 +81,8 @@ TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker)
       pos_(0),
       tracks_(&memory::kSpiRamResource),
       shuffle_(),
-      repeat_(false) {}
+      repeat_(false),
+      replay_(false) {}
 
 auto TrackQueue::current() const -> std::optional<database::TrackId> {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
@@ -202,7 +203,7 @@ auto TrackQueue::next() -> void {
     pos_ = shuffle_->current();
   } else {
     if (pos_ + 1 >= tracks_.size()) {
-      if (repeat_) {
+      if (replay_) {
         pos_ = 0;
       }
     } else {
@@ -229,6 +230,14 @@ auto TrackQueue::previous() -> void {
   }
 
   notifyChanged(true);
+}
+
+auto TrackQueue::finish() -> void {
+  if (repeat_) {
+    notifyChanged(true);
+  } else {
+    next();
+  }
 }
 
 auto TrackQueue::skipTo(database::TrackId id) -> void {
@@ -279,7 +288,7 @@ auto TrackQueue::random(bool en) -> void {
     // repeated calls with en == true will re-shuffle.
     if (en) {
       shuffle_.emplace(tracks_.size());
-      shuffle_->repeat(repeat_);
+      shuffle_->replay(replay_);
     } else {
       shuffle_.reset();
     }
@@ -298,9 +307,6 @@ auto TrackQueue::repeat(bool en) -> void {
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
     repeat_ = en;
-    if (shuffle_) {
-      shuffle_->repeat(en);
-    }
   }
 
   notifyChanged(false);
@@ -309,6 +315,22 @@ auto TrackQueue::repeat(bool en) -> void {
 auto TrackQueue::repeat() const -> bool {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
   return repeat_;
+}
+
+auto TrackQueue::replay(bool en) -> void {
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    replay_ = en;
+    if (shuffle_) {
+      shuffle_->replay(en);
+    }
+  }
+  notifyChanged(false);
+}
+
+auto TrackQueue::replay() const -> bool {
+  const std::shared_lock<std::shared_mutex> lock(mutex_);
+  return replay_;
 }
 
 auto TrackQueue::serialise() -> std::string {

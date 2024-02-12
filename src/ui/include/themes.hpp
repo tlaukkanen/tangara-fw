@@ -32,6 +32,7 @@ class Theme {
   lv_style_t button_style_;
   lv_style_t bar_style_;
   lv_style_t dropdown_style_;
+  lv_style_t dropdown_list_style_;
 
   lv_style_t slider_indicator_style_;
   lv_style_t slider_knob_style_;

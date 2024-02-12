@@ -33,13 +33,13 @@ class RandomIterator {
 
   // Note resizing has the side-effect of restarting iteration.
   auto resize(size_t) -> void;
-  auto repeat(bool) -> void;
+  auto replay(bool) -> void;
 
  private:
   size_t seed_;
   size_t pos_;
   size_t size_;
-  bool repeat_;
+  bool replay_;
 };
 
 /*
@@ -85,6 +85,12 @@ class TrackQueue {
   auto next() -> void;
   auto previous() -> void;
 
+  /* 
+   * Called when the current track finishes
+   */
+  auto finish() -> void;
+
+
   auto skipTo(database::TrackId) -> void;
 
   /*
@@ -97,6 +103,9 @@ class TrackQueue {
 
   auto repeat(bool) -> void;
   auto repeat() const -> bool;
+
+  auto replay(bool) -> void;
+  auto replay() const -> bool;
 
   auto serialise() -> std::string;
   auto deserialise(const std::string&) -> void;
@@ -115,6 +124,7 @@ class TrackQueue {
 
   std::optional<RandomIterator> shuffle_;
   bool repeat_;
+  bool replay_;
 };
 
 }  // namespace audio

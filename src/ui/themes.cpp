@@ -89,6 +89,14 @@ Theme::Theme() {
   lv_style_set_border_color(&dropdown_style_, lv_palette_main(LV_PALETTE_BLUE));
   lv_style_set_border_side(&dropdown_style_, LV_BORDER_SIDE_FULL);
 
+  lv_style_init(&dropdown_list_style_);
+  lv_style_set_radius(&dropdown_list_style_, 2);
+  lv_style_set_border_width(&dropdown_list_style_, 1);
+  lv_style_set_border_color(&dropdown_list_style_, lv_palette_main(LV_PALETTE_BLUE_GREY));
+  lv_style_set_bg_opa(&dropdown_list_style_, LV_OPA_COVER);
+  lv_style_set_bg_color(&dropdown_list_style_, lv_color_white());
+  lv_style_set_pad_all(&dropdown_list_style_, 2);
+
   lv_theme_t* parent_theme = lv_disp_get_theme(NULL);
   theme_ = *parent_theme;
   theme_.user_data = this;
@@ -124,6 +132,8 @@ void Theme::Callback(lv_obj_t* obj) {
     lv_obj_add_style(obj, &switch_knob_style_, LV_PART_KNOB);
   } else if (lv_obj_check_type(obj, &lv_dropdown_class)) {
     lv_obj_add_style(obj, &dropdown_style_, LV_PART_MAIN);
+  } else if (lv_obj_check_type(obj, &lv_dropdownlist_class)) {
+    lv_obj_add_style(obj, &dropdown_list_style_, LV_PART_MAIN);
   }
 }
 

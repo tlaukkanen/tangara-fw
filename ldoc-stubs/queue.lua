@@ -15,6 +15,10 @@ queue.size = types.Property
 -- @see types.Property
 queue.replay = types.Property
 
+-- Determines whether or not the current track will repeat indefinitely
+-- @see types.Property
+queue.repeat_track = types.Property
+
 --- Determines whether, when progressing to the next track in the queue, the next track will be chosen randomly. The random selection algorithm used is a Miller Shuffle, which guarantees that no repeat selections will be made until every item in the queue has been played.
 -- @see types.Property
 queue.random = types.Property
