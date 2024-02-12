@@ -16,6 +16,7 @@ namespace drivers {
 RelativeWheel::RelativeWheel(TouchWheel& touch)
     : touch_(touch),
       is_enabled_(true),
+      sensitivity_(128),
       threshold_(10),
       is_clicking_(false),
       was_clicking_(false),
@@ -48,7 +49,6 @@ auto RelativeWheel::Update() -> void {
 
   int delta = 128 - last_angle_;
   uint8_t rotated_angle = new_angle + delta;
-
   if (rotated_angle < 128 - threshold_) {
     ticks_ = 1;
     last_angle_ = new_angle;
@@ -64,12 +64,15 @@ auto RelativeWheel::SetEnabled(bool en) -> void {
   is_enabled_ = en;
 }
 
-auto RelativeWheel::SetThreshold(int val) -> void {
-  threshold_ = val;
+auto RelativeWheel::SetSensitivity(uint8_t val) -> void {
+  sensitivity_ = val;
+  int tmax = 35;
+  int tmin = 5;
+  threshold_ = (((255. - sensitivity_)/255.)*(tmax - tmin) + tmin);
 }
 
-auto RelativeWheel::GetThreshold() -> int {
-  return threshold_;
+auto RelativeWheel::GetSensitivity() -> uint8_t {
+  return sensitivity_;
 }
 
 auto RelativeWheel::is_clicking() const -> bool {

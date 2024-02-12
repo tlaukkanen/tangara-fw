@@ -275,7 +275,7 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
 
 auto EncoderInput::scroll_sensitivity(uint8_t val) -> void {
   scroll_sensitivity_ = val;
-  relative_wheel_->SetThreshold(scroll_sensitivity_);
+  relative_wheel_->SetSensitivity(scroll_sensitivity_);
 }
 
 auto EncoderInput::UpdateKeyState(Keys key, uint64_t ms, bool clicked) -> void {
