@@ -162,6 +162,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
     : handle_(handle),
       lock_polarity_(kKeyLockPolarity),
       brightness_(kKeyBrightness),
+      sensitivity_(kKeyScrollSensitivity),
       amp_max_vol_(kKeyAmpMaxVolume),
       amp_cur_vol_(kKeyAmpCurrentVolume),
       amp_left_bias_(kKeyAmpLeftBias),
@@ -180,6 +181,7 @@ auto NvsStorage::Read() -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   lock_polarity_.read(handle_);
   brightness_.read(handle_);
+  sensitivity_.read(handle_);
   amp_max_vol_.read(handle_);
   amp_cur_vol_.read(handle_);
   amp_left_bias_.read(handle_);
@@ -286,14 +288,13 @@ auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> void {
 }
 
 auto NvsStorage::ScrollSensitivity() -> uint_fast8_t {
-  uint8_t out = 10;
-  nvs_get_u8(handle_, kKeyScrollSensitivity, &out);
-  return out;
+  std::lock_guard<std::mutex> lock{mutex_};
+  return std::clamp<uint8_t>(sensitivity_.get().value_or(128), 0, 100);
 }
 
-auto NvsStorage::ScrollSensitivity(uint_fast8_t val) -> bool {
-  nvs_set_u8(handle_, kKeyScrollSensitivity, val);
-  return nvs_commit(handle_) == ESP_OK;
+auto NvsStorage::ScrollSensitivity(uint_fast8_t val) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  sensitivity_.set(val);
 }
 
 auto NvsStorage::AmpMaxVolume() -> uint16_t {
