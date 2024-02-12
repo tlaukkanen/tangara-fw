@@ -111,6 +111,9 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
     ESP_LOGE(kTag, "failed to read tags");
     return false;
   }
+  if (!tags->title()) {
+    tags->title(path);
+  }
 
   auto stream_type = ContainerToStreamType(tags->encoding());
   if (!stream_type.has_value()) {

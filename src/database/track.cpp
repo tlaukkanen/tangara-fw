@@ -302,6 +302,6 @@ auto Track::TitleOrFilename() const -> std::pmr::string {
   if (start == std::pmr::string::npos) {
     return data().filepath;
   }
-  return data().filepath.substr(start);
+  return data().filepath.substr(start + 1);
 }
 }  // namespace database
