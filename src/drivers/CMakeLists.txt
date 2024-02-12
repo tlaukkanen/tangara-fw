@@ -9,5 +9,5 @@ idf_component_register(
   "spiffs.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "esp_adc" "fatfs" "result" "lvgl" "span" "tasks" "nvs_flash" "spiffs"
-  "bt" "tinyfsm")
+  "bt" "tinyfsm" "util")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

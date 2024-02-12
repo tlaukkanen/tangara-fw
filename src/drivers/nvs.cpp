@@ -13,6 +13,8 @@
 
 #include "bluetooth.hpp"
 #include "bluetooth_types.hpp"
+#include "cppbor.h"
+#include "cppbor_parse.h"
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -27,6 +29,7 @@ static constexpr uint8_t kSchemaVersion = 1;
 static constexpr char kKeyVersion[] = "ver";
 static constexpr char kKeyBluetoothMac[] = "bt_mac";
 static constexpr char kKeyBluetoothName[] = "bt_name";
+static constexpr char kKeyBluetoothVolumes[] = "bt_vols";
 static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
@@ -132,6 +135,101 @@ auto NvsStorage::PreferredBluetoothDevice(
     nvs_set_blob(handle_, kKeyBluetoothMac, dev->mac.data(), dev->mac.size());
     nvs_set_str(handle_, kKeyBluetoothName, dev->name.c_str());
   }
+  return nvs_commit(handle_) == ESP_OK;
+}
+
+class VolumesParseClient : public cppbor::ParseClient {
+ public:
+  VolumesParseClient(NvsStorage::BtVolumes& out)
+      : state_(State::kInit), mac_(), vol_(), out_(out) {}
+
+  ParseClient* item(std::unique_ptr<cppbor::Item>& item,
+                    const uint8_t* hdrBegin,
+                    const uint8_t* valueBegin,
+                    const uint8_t* end) override {
+    if (item->type() == cppbor::ARRAY) {
+      if (state_ == State::kInit) {
+        ESP_LOGI(kTag, "enter root");
+        state_ = State::kRoot;
+      } else if (state_ == State::kRoot) {
+        ESP_LOGI(kTag, "enter pair");
+        state_ = State::kPair;
+      }
+    } else if (item->type() == cppbor::BSTR && state_ == State::kPair) {
+      ESP_LOGI(kTag, "get str");
+      auto data = item->asBstr()->value();
+      mac_.emplace();
+      std::copy(data.begin(), data.end(), mac_->begin());
+    } else if (item->type() == cppbor::UINT && state_ == State::kPair) {
+      vol_ =
+          std::clamp<uint64_t>(item->asUint()->unsignedValue(), 0, UINT8_MAX);
+    }
+    return this;
+  }
+
+  ParseClient* itemEnd(std::unique_ptr<cppbor::Item>& item,
+                       const uint8_t* hdrBegin,
+                       const uint8_t* valueBegin,
+                       const uint8_t* end) override {
+    if (item->type() == cppbor::ARRAY) {
+      if (state_ == State::kRoot) {
+        state_ = State::kFinished;
+      } else if (state_ == State::kPair) {
+        if (vol_ && mac_) {
+          out_.Put(*mac_, *vol_);
+        }
+        mac_.reset();
+        vol_.reset();
+        state_ = State::kRoot;
+      }
+    }
+    return this;
+  }
+
+  void error(const uint8_t* position,
+             const std::string& errorMessage) override {}
+
+ private:
+  enum class State {
+    kInit,
+    kRoot,
+    kPair,
+    kFinished,
+  };
+
+  State state_;
+  std::optional<bluetooth::mac_addr_t> mac_;
+  std::optional<uint8_t> vol_;
+  NvsStorage::BtVolumes& out_;
+};
+
+auto NvsStorage::BluetoothVolumes() -> BtVolumes {
+  BtVolumes out;
+  size_t encoded_len = 0;
+  if (nvs_get_str(handle_, kKeyBluetoothVolumes, NULL, &encoded_len) !=
+      ESP_OK) {
+    return out;
+  }
+  auto encoded = std::unique_ptr<char[]>{new char[encoded_len]};
+  if (nvs_get_str(handle_, kKeyBluetoothVolumes, encoded.get(), &encoded_len) !=
+      ESP_OK) {
+    return out;
+  }
+  VolumesParseClient client{out};
+  auto data = reinterpret_cast<const uint8_t*>(encoded.get());
+  cppbor::parse(data, data + encoded_len, &client);
+  return out;
+}
+
+auto NvsStorage::BluetoothVolumes(const BtVolumes& vols) -> bool {
+  cppbor::Array enc;
+  auto vols_list = vols.Get();
+  for (auto vol = vols_list.rbegin(); vol < vols_list.rend(); vol++) {
+    enc.add(cppbor::Array{cppbor::Bstr{{vol->first.data(), vol->first.size()}},
+                          cppbor::Uint{vol->second}});
+  }
+  std::string encoded = enc.toString();
+  nvs_set_str(handle_, kKeyBluetoothVolumes, encoded.c_str());
   return nvs_commit(handle_) == ESP_OK;
 }
 

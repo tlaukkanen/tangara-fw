@@ -35,7 +35,7 @@ class Bluetooth {
   auto IsEnabled() -> bool;
 
   auto IsConnected() -> bool;
-  auto ConnectedDevice() -> std::optional<bluetooth::Device>;
+  auto ConnectedDevice() -> std::optional<bluetooth::MacAndName>;
 
   auto KnownDevices() -> std::vector<bluetooth::Device>;
 

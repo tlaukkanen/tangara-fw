@@ -47,6 +47,7 @@ namespace states {
 
 static auto bt_event_cb(drivers::bluetooth::Event ev) -> void {
   events::Ui().Dispatch(BluetoothEvent{.event = ev});
+  events::Audio().Dispatch(BluetoothEvent{.event = ev});
 }
 
 static const TickType_t kInterruptCheckPeriod = pdMS_TO_TICKS(100);

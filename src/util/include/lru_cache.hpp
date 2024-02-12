@@ -10,9 +10,11 @@
 #include <bitset>
 #include <cstdint>
 #include <list>
+#include <map>
 #include <optional>
 #include <unordered_map>
 #include <utility>
+
 #include "memory_resource.hpp"
 
 namespace util {
@@ -64,9 +66,16 @@ class LruCache {
     key_to_it_.clear();
   }
 
+  auto Get() const -> std::vector<std::pair<K, V>> {
+    std::vector<std::pair<K, V>> out;
+    out.resize(entries_.size());
+    std::copy(entries_.begin(), entries_.end(), out.begin());
+    return out;
+  }
+
  private:
   std::pmr::list<std::pair<K, V>> entries_;
-  std::pmr::unordered_map<K, decltype(entries_.begin())> key_to_it_;
+  std::pmr::map<K, decltype(entries_.begin())> key_to_it_;
 };
 
 }  // namespace util

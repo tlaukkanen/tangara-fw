@@ -15,6 +15,7 @@
 
 #include "bluetooth_types.hpp"
 #include "tasks.hpp"
+#include "lru_cache.hpp"
 
 namespace drivers {
 
@@ -27,6 +28,11 @@ class NvsStorage {
 
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> bool;
+
+  using BtVolumes = util::LruCache<10, bluetooth::mac_addr_t, uint8_t> ;
+
+  auto BluetoothVolumes() -> BtVolumes;
+  auto BluetoothVolumes(const BtVolumes&) -> bool;
 
   enum class Output : uint8_t {
     kHeadphones = 0,

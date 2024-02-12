@@ -12,6 +12,7 @@
 #include <variant>
 
 #include "audio_sink.hpp"
+#include "bluetooth_types.hpp"
 #include "esp_log.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -51,14 +52,25 @@ std::shared_ptr<IAudioOutput> AudioState::sOutput;
 std::optional<database::TrackId> AudioState::sCurrentTrack;
 bool AudioState::sIsPlaybackAllowed;
 
-void AudioState::react(const system_fsm::KeyLockChanged& ev) {
-  if (ev.locking && sServices) {
-    sServices->nvs().AmpCurrentVolume(sOutput->GetVolume());
+void AudioState::react(const system_fsm::BluetoothEvent& ev) {
+  if (ev.event != drivers::bluetooth::Event::kConnectionStateChanged) {
+    return;
   }
+  auto dev = sServices->bluetooth().ConnectedDevice();
+  if (!dev) {
+    return;
+  }
+  auto vols = sServices->nvs().BluetoothVolumes();
+  sBtOutput->SetVolume(vols.Get(dev->mac).value_or(10));
+  events::Ui().Dispatch(VolumeChanged{
+      .percent = sOutput->GetVolumePct(),
+      .db = sOutput->GetVolumeDb(),
+  });
 }
 
 void AudioState::react(const StepUpVolume& ev) {
   if (sOutput->AdjustVolumeUp()) {
+    commitVolume();
     events::Ui().Dispatch(VolumeChanged{
         .percent = sOutput->GetVolumePct(),
         .db = sOutput->GetVolumeDb(),
@@ -68,6 +80,7 @@ void AudioState::react(const StepUpVolume& ev) {
 
 void AudioState::react(const StepDownVolume& ev) {
   if (sOutput->AdjustVolumeDown()) {
+    commitVolume();
     events::Ui().Dispatch(VolumeChanged{
         .percent = sOutput->GetVolumePct(),
         .db = sOutput->GetVolumeDb(),
@@ -126,6 +139,14 @@ void AudioState::react(const OutputModeChanged& ev) {
   }
   sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
   sSampleConverter->SetOutput(sOutput);
+
+  // Bluetooth volume isn't 'changed' until we've connected to a device.
+  if (new_mode == drivers::NvsStorage::Output::kHeadphones) {
+    events::Ui().Dispatch(VolumeChanged{
+        .percent = sOutput->GetVolumePct(),
+        .db = sOutput->GetVolumeDb(),
+    });
+  }
 }
 
 auto AudioState::playTrack(database::TrackId id) -> void {
@@ -137,6 +158,22 @@ auto AudioState::playTrack(database::TrackId id) -> void {
     }
     sFileSource->SetPath(db->getTrackPath(id));
   });
+}
+
+auto AudioState::commitVolume() -> void {
+  auto mode = sServices->nvs().OutputMode();
+  auto vol = sOutput->GetVolume();
+  if (mode == drivers::NvsStorage::Output::kHeadphones) {
+    sServices->nvs().AmpCurrentVolume(vol);
+  } else if (mode == drivers::NvsStorage::Output::kBluetooth) {
+    auto dev = sServices->bluetooth().ConnectedDevice();
+    if (!dev) {
+      return;
+    }
+    auto vols = sServices->nvs().BluetoothVolumes();
+    vols.Put(dev->mac, vol);
+    sServices->nvs().BluetoothVolumes(vols);
+  }
 }
 
 auto AudioState::readyToPlay() -> bool {
@@ -283,7 +320,7 @@ void Playback::exit() {
 
   // Stash the current volume now, in case it changed during playback, since we
   // might be powering off soon.
-  sServices->nvs().AmpCurrentVolume(sOutput->GetVolume());
+  commitVolume();
 
   events::System().Dispatch(PlaybackStopped{});
   events::Ui().Dispatch(PlaybackStopped{});

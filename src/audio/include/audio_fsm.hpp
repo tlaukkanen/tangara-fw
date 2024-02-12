@@ -52,8 +52,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const OutputModeChanged&);
 
   virtual void react(const system_fsm::BootComplete&) {}
-  virtual void react(const system_fsm::KeyLockChanged&);
+  virtual void react(const system_fsm::KeyLockChanged&) {};
   virtual void react(const system_fsm::StorageMounted&) {}
+  virtual void react(const system_fsm::BluetoothEvent&);
 
   virtual void react(const PlayFile&) {}
   virtual void react(const QueueUpdate&) {}
@@ -67,6 +68,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
  protected:
   auto playTrack(database::TrackId id) -> void;
+  auto commitVolume() -> void;
 
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
@@ -88,6 +90,9 @@ namespace states {
 class Uninitialised : public AudioState {
  public:
   void react(const system_fsm::BootComplete&) override;
+
+  void react(const system_fsm::BluetoothEvent&) override {};
+
   using AudioState::react;
 };
 
