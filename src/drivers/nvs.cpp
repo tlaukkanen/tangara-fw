@@ -149,14 +149,11 @@ class VolumesParseClient : public cppbor::ParseClient {
                     const uint8_t* end) override {
     if (item->type() == cppbor::ARRAY) {
       if (state_ == State::kInit) {
-        ESP_LOGI(kTag, "enter root");
         state_ = State::kRoot;
       } else if (state_ == State::kRoot) {
-        ESP_LOGI(kTag, "enter pair");
         state_ = State::kPair;
       }
     } else if (item->type() == cppbor::BSTR && state_ == State::kPair) {
-      ESP_LOGI(kTag, "get str");
       auto data = item->asBstr()->value();
       mac_.emplace();
       std::copy(data.begin(), data.end(), mac_->begin());
