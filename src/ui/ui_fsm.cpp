@@ -368,14 +368,20 @@ void UiState::react(const audio::VolumeLimitChanged& ev) {
 
 void UiState::react(const system_fsm::BluetoothEvent& ev) {
   auto bt = sServices->bluetooth();
+  auto dev = bt.ConnectedDevice();
   switch (ev.event) {
     case drivers::bluetooth::Event::kKnownDevicesChanged:
       sBluetoothDevices.Update(bt.KnownDevices());
       break;
     case drivers::bluetooth::Event::kConnectionStateChanged:
       sBluetoothConnected.Update(bt.IsConnected());
-      if (bt.ConnectedDevice()) {
-        sBluetoothPairedDevice.Update(bt.ConnectedDevice().value());
+      if (dev) {
+        sBluetoothPairedDevice.Update(drivers::bluetooth::Device{
+            .address = dev->mac,
+            .name = {dev->name.data(), dev->name.size()},
+            .class_of_device = 0,
+            .signal_strength = 0,
+        });
       } else {
         sBluetoothPairedDevice.Update(std::monostate{});
       }
@@ -505,9 +511,6 @@ void Lua::entry() {
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());
     sBluetoothConnected.Update(bt.IsConnected());
-    if (bt.ConnectedDevice()) {
-      sBluetoothPairedDevice.Update(bt.ConnectedDevice().value());
-    }
     sBluetoothDevices.Update(bt.KnownDevices());
 
     sCurrentScreen.reset();

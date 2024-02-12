@@ -103,21 +103,12 @@ auto Bluetooth::IsConnected() -> bool {
   return bluetooth::BluetoothState::is_in_state<bluetooth::Connected>();
 }
 
-auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::Device> {
+auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::MacAndName> {
   auto lock = bluetooth::BluetoothState::lock();
   if (!bluetooth::BluetoothState::is_in_state<bluetooth::Connected>()) {
     return {};
   }
-  auto looking_for = bluetooth::BluetoothState::preferred_device();
-  if (!looking_for) {
-    return {};
-  }
-  for (const auto& dev : bluetooth::BluetoothState::devices()) {
-    if (dev.address == looking_for->mac) {
-      return dev;
-    }
-  }
-  return {};
+  return bluetooth::BluetoothState::preferred_device();
 }
 
 auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {

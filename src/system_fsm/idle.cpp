@@ -34,6 +34,9 @@ static void timer_callback(TimerHandle_t timer) {
  */
 void Idle::entry() {
   ESP_LOGI(kTag, "system became idle");
+
+  sServices->nvs().Write();
+
   events::Audio().Dispatch(OnIdle{});
   events::Ui().Dispatch(OnIdle{});
 

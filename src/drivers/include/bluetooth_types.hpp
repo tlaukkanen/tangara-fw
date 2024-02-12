@@ -14,6 +14,8 @@ typedef std::array<uint8_t, 6> mac_addr_t;
 struct MacAndName {
   mac_addr_t mac;
   std::string name;
+
+  bool operator==(const MacAndName&) const = default;
 };
 
 struct Device {
