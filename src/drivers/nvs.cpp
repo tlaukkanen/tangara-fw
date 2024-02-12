@@ -34,6 +34,7 @@ static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
 static constexpr char kKeyAmpLeftBias[] = "hp_bias";
 static constexpr char kKeyOnboarded[] = "intro";
 static constexpr char kKeyPrimaryInput[] = "in_pri";
+static constexpr char kKeyScrollSensitivity[] = "scroll";
 static constexpr char kKeyLockPolarity[] = "lockpol";
 
 auto NvsStorage::OpenSync() -> NvsStorage* {
@@ -161,6 +162,17 @@ auto NvsStorage::ScreenBrightness() -> uint_fast8_t {
 
 auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> bool {
   nvs_set_u8(handle_, kKeyBrightness, val);
+  return nvs_commit(handle_) == ESP_OK;
+}
+
+auto NvsStorage::ScrollSensitivity() -> uint_fast8_t {
+  uint8_t out = 10;
+  nvs_get_u8(handle_, kKeyScrollSensitivity, &out);
+  return out;
+}
+
+auto NvsStorage::ScrollSensitivity(uint_fast8_t val) -> bool {
+  nvs_set_u8(handle_, kKeyScrollSensitivity, val);
   return nvs_commit(handle_) == ESP_OK;
 }
 

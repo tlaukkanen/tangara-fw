@@ -50,6 +50,7 @@ EncoderInput::EncoderInput(drivers::IGpios& gpios, drivers::TouchWheel& wheel)
       scroller_(std::make_unique<Scroller>()),
       mode_(drivers::NvsStorage::InputModes::kRotatingWheel),
       is_locked_(false),
+      scroll_sensitivity_(10),
       is_scrolling_wheel_(false) {
   lv_indev_drv_init(&driver_);
   driver_.type = LV_INDEV_TYPE_ENCODER;
@@ -270,6 +271,11 @@ auto EncoderInput::Read(lv_indev_data_t* data) -> void {
         break;
     }
   }
+}
+
+auto EncoderInput::scroll_sensitivity(uint8_t val) -> void {
+  scroll_sensitivity_ = val;
+  relative_wheel_->SetThreshold(scroll_sensitivity_);
 }
 
 auto EncoderInput::UpdateKeyState(Keys key, uint64_t ms, bool clicked) -> void {

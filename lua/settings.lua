@@ -256,6 +256,20 @@ function settings.input()
     controls.scheme:set(scheme)
   end)
 
+  menu.content:Label {
+    text = "Scroll Sensitivity",
+  }:add_style(theme.settings_title)
+
+  local sensitivity = menu.content:Slider {
+    w = lvgl.PCT(100),
+    h = 5,
+    range = { min = 5, max = 45 },
+    value = controls.scroll_sensitivity:get(),
+  }
+  sensitivity:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+    controls.scroll_sensitivity:set(sensitivity:value())
+  end)
+
   return menu
 end
 
