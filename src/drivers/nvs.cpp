@@ -27,17 +27,104 @@ namespace drivers {
 static constexpr uint8_t kSchemaVersion = 1;
 
 static constexpr char kKeyVersion[] = "ver";
-static constexpr char kKeyBluetoothMac[] = "bt_mac";
-static constexpr char kKeyBluetoothName[] = "bt_name";
+static constexpr char kKeyBluetoothPreferred[] = "bt_dev";
 static constexpr char kKeyBluetoothVolumes[] = "bt_vols";
 static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
 static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
 static constexpr char kKeyAmpLeftBias[] = "hp_bias";
-static constexpr char kKeyOnboarded[] = "intro";
 static constexpr char kKeyPrimaryInput[] = "in_pri";
 static constexpr char kKeyLockPolarity[] = "lockpol";
+
+static auto nvs_get_string(nvs_handle_t nvs, const char* key)
+    -> std::optional<std::string> {
+  size_t len = 0;
+  if (nvs_get_blob(nvs, key, NULL, &len) != ESP_OK) {
+    return {};
+  }
+  auto raw = std::unique_ptr<char[]>{new char[len]};
+  if (nvs_get_blob(nvs, key, raw.get(), &len) != ESP_OK) {
+    return {};
+  }
+  return {{raw.get(), len}};
+}
+
+template <>
+auto Setting<uint16_t>::load(nvs_handle_t nvs) -> std::optional<uint16_t> {
+  uint16_t out;
+  if (nvs_get_u16(nvs, name_, &out) != ESP_OK) {
+    return {};
+  }
+  return out;
+}
+
+template <>
+auto Setting<uint16_t>::store(nvs_handle_t nvs, uint16_t v) -> void {
+  nvs_set_u16(nvs, name_, v);
+}
+
+template <>
+auto Setting<uint8_t>::load(nvs_handle_t nvs) -> std::optional<uint8_t> {
+  uint8_t out;
+  if (nvs_get_u8(nvs, name_, &out) != ESP_OK) {
+    return {};
+  }
+  return out;
+}
+
+template <>
+auto Setting<uint8_t>::store(nvs_handle_t nvs, uint8_t v) -> void {
+  nvs_set_u8(nvs, name_, v);
+}
+
+template <>
+auto Setting<int8_t>::load(nvs_handle_t nvs) -> std::optional<int8_t> {
+  int8_t out;
+  if (nvs_get_i8(nvs, name_, &out) != ESP_OK) {
+    return {};
+  }
+  return out;
+}
+
+template <>
+auto Setting<int8_t>::store(nvs_handle_t nvs, int8_t v) -> void {
+  nvs_set_i8(nvs, name_, v);
+}
+
+template <>
+auto Setting<bluetooth::MacAndName>::load(nvs_handle_t nvs)
+    -> std::optional<bluetooth::MacAndName> {
+  auto raw = nvs_get_string(nvs, name_);
+  if (!raw) {
+    return {};
+  }
+  auto [parsed, unused, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(raw->data()), raw->size());
+  if (parsed->type() != cppbor::ARRAY) {
+    return {};
+  }
+  auto arr = parsed->asArray();
+  auto mac = arr->get(1)->asViewBstr()->view();
+  auto name = arr->get(0)->asViewTstr()->view();
+  bluetooth::MacAndName res{
+      .mac = {},
+      .name = {name.begin(), name.end()},
+  };
+  std::copy(mac.begin(), mac.end(), res.mac.begin());
+  return res;
+}
+
+template <>
+auto Setting<bluetooth::MacAndName>::store(nvs_handle_t nvs,
+                                           bluetooth::MacAndName v) -> void {
+  cppbor::Array cbor{
+      cppbor::Tstr{v.name},
+      cppbor::Bstr{{v.mac.data(), v.mac.size()}},
+  };
+  auto encoded = cbor.encode();
+  nvs_set_blob(nvs, name_, encoded.data(), encoded.size());
+}
 
 auto NvsStorage::OpenSync() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
@@ -64,15 +151,55 @@ auto NvsStorage::OpenSync() -> NvsStorage* {
     return nullptr;
   }
 
+  instance->Read();
+
   ESP_LOGI(kTag, "nvm storage initialised okay");
   return instance.release();
 }
 
-NvsStorage::NvsStorage(nvs_handle_t handle) : handle_(handle) {}
+NvsStorage::NvsStorage(nvs_handle_t handle)
+    : handle_(handle),
+      lock_polarity_(kKeyLockPolarity),
+      brightness_(kKeyBrightness),
+      amp_max_vol_(kKeyAmpMaxVolume),
+      amp_cur_vol_(kKeyAmpCurrentVolume),
+      amp_left_bias_(kKeyAmpLeftBias),
+      input_mode_(kKeyPrimaryInput),
+      output_mode_(kKeyOutput),
+      bt_preferred_(kKeyBluetoothPreferred),
+      bt_volumes_(),
+      bt_volumes_dirty_(false) {}
 
 NvsStorage::~NvsStorage() {
   nvs_close(handle_);
   nvs_flash_deinit();
+}
+
+auto NvsStorage::Read() -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  lock_polarity_.read(handle_);
+  brightness_.read(handle_);
+  amp_max_vol_.read(handle_);
+  amp_cur_vol_.read(handle_);
+  amp_left_bias_.read(handle_);
+  input_mode_.read(handle_);
+  output_mode_.read(handle_);
+  bt_preferred_.read(handle_);
+  readBtVolumes();
+}
+
+auto NvsStorage::Write() -> bool {
+  std::lock_guard<std::mutex> lock{mutex_};
+  lock_polarity_.write(handle_);
+  brightness_.write(handle_);
+  amp_max_vol_.write(handle_);
+  amp_cur_vol_.write(handle_);
+  amp_left_bias_.write(handle_);
+  input_mode_.write(handle_);
+  output_mode_.write(handle_);
+  bt_preferred_.write(handle_);
+  writeBtVolumes();
+  return nvs_commit(handle_) == ESP_OK;
 }
 
 auto NvsStorage::DowngradeSchemaSync() -> bool {
@@ -91,56 +218,126 @@ auto NvsStorage::SchemaVersionSync() -> uint8_t {
 }
 
 auto NvsStorage::LockPolarity() -> bool {
-  uint8_t res;
-  if (nvs_get_u8(handle_, kKeyLockPolarity, &res) != ESP_OK) {
-    return false;
-  }
-  return res > 0;
+  std::lock_guard<std::mutex> lock{mutex_};
+  return lock_polarity_.get().value_or(0) > 0;
 }
 
-auto NvsStorage::LockPolarity(bool p) -> bool {
-  nvs_set_u8(handle_, kKeyLockPolarity, p);
-  return nvs_commit(handle_) == ESP_OK;
+auto NvsStorage::LockPolarity(bool p) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  lock_polarity_.set(p);
 }
 
 auto NvsStorage::PreferredBluetoothDevice()
     -> std::optional<bluetooth::MacAndName> {
-  bluetooth::mac_addr_t mac{0};
-  size_t size = mac.size();
-  if (nvs_get_blob(handle_, kKeyBluetoothMac, mac.data(), &size) != ESP_OK) {
-    return {};
-  }
-  size_t name_len = 0;
-  if (nvs_get_str(handle_, kKeyBluetoothName, NULL, &name_len) != ESP_OK) {
-  }
-  char* raw_name = new char[name_len];
-  if (nvs_get_str(handle_, kKeyBluetoothName, raw_name, &name_len) != ESP_OK) {
-    delete[] raw_name;
-    return {};
-  }
-  bluetooth::MacAndName out{
-      .mac = mac,
-      .name = {raw_name, name_len},
-  };
-  delete[] raw_name;
-  return out;
+  std::lock_guard<std::mutex> lock{mutex_};
+  return bt_preferred_.get();
 }
 
 auto NvsStorage::PreferredBluetoothDevice(
-    std::optional<bluetooth::MacAndName> dev) -> bool {
-  if (!dev) {
-    nvs_erase_key(handle_, kKeyBluetoothMac);
-    nvs_erase_key(handle_, kKeyBluetoothName);
-  } else {
-    nvs_set_blob(handle_, kKeyBluetoothMac, dev->mac.data(), dev->mac.size());
-    nvs_set_str(handle_, kKeyBluetoothName, dev->name.c_str());
+    std::optional<bluetooth::MacAndName> dev) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  bt_preferred_.set(std::move(dev));
+}
+
+auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac) -> uint8_t {
+  std::lock_guard<std::mutex> lock{mutex_};
+  // Note we don't set the dirty flag here, even though it's an LRU cache, so
+  // that we can avoid constantly re-writing this setting to flash when the
+  // user hasn't actually been changing their volume.
+  return bt_volumes_.Get(mac).value_or(10);
+}
+
+auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac, uint8_t vol)
+    -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  bt_volumes_dirty_ = true;
+  bt_volumes_.Put(mac, vol);
+}
+
+auto NvsStorage::OutputMode() -> Output {
+  std::lock_guard<std::mutex> lock{mutex_};
+  switch (output_mode_.get().value_or(0xFF)) {
+    case static_cast<uint8_t>(Output::kBluetooth):
+      return Output::kBluetooth;
+    case static_cast<uint8_t>(Output::kHeadphones):
+    default:
+      return Output::kHeadphones;
   }
-  return nvs_commit(handle_) == ESP_OK;
+}
+
+auto NvsStorage::OutputMode(Output out) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  output_mode_.set(static_cast<uint8_t>(out));
+  // Always write this immediately, to guard against any crashes caused by
+  // toggling the output mode.
+  output_mode_.write(handle_);
+  nvs_commit(handle_);
+}
+
+auto NvsStorage::ScreenBrightness() -> uint_fast8_t {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return std::clamp<uint8_t>(brightness_.get().value_or(50), 0, 100);
+}
+
+auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  brightness_.set(val);
+}
+
+auto NvsStorage::AmpMaxVolume() -> uint16_t {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return amp_max_vol_.get().value_or(wm8523::kDefaultMaxVolume);
+}
+
+auto NvsStorage::AmpMaxVolume(uint16_t val) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  amp_max_vol_.set(val);
+}
+
+auto NvsStorage::AmpCurrentVolume() -> uint16_t {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return amp_cur_vol_.get().value_or(wm8523::kDefaultVolume);
+}
+
+auto NvsStorage::AmpCurrentVolume(uint16_t val) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  amp_cur_vol_.set(val);
+}
+
+auto NvsStorage::AmpLeftBias() -> int_fast8_t {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return amp_left_bias_.get().value_or(0);
+}
+
+auto NvsStorage::AmpLeftBias(int_fast8_t val) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  amp_left_bias_.set(val);
+}
+
+auto NvsStorage::PrimaryInput() -> InputModes {
+  std::lock_guard<std::mutex> lock{mutex_};
+  switch (input_mode_.get().value_or(3)) {
+    case static_cast<uint8_t>(InputModes::kButtonsOnly):
+      return InputModes::kButtonsOnly;
+    case static_cast<uint8_t>(InputModes::kButtonsWithWheel):
+      return InputModes::kButtonsWithWheel;
+    case static_cast<uint8_t>(InputModes::kDirectionalWheel):
+      return InputModes::kDirectionalWheel;
+    case static_cast<uint8_t>(InputModes::kRotatingWheel):
+      return InputModes::kRotatingWheel;
+    default:
+      return InputModes::kRotatingWheel;
+  }
+}
+
+auto NvsStorage::PrimaryInput(InputModes mode) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  input_mode_.set(static_cast<uint8_t>(mode));
 }
 
 class VolumesParseClient : public cppbor::ParseClient {
  public:
-  VolumesParseClient(NvsStorage::BtVolumes& out)
+  VolumesParseClient(util::LruCache<10, bluetooth::mac_addr_t, uint8_t>& out)
       : state_(State::kInit), mac_(), vol_(), out_(out) {}
 
   ParseClient* item(std::unique_ptr<cppbor::Item>& item,
@@ -197,133 +394,34 @@ class VolumesParseClient : public cppbor::ParseClient {
   State state_;
   std::optional<bluetooth::mac_addr_t> mac_;
   std::optional<uint8_t> vol_;
-  NvsStorage::BtVolumes& out_;
+  util::LruCache<10, bluetooth::mac_addr_t, uint8_t>& out_;
 };
 
-auto NvsStorage::BluetoothVolumes() -> BtVolumes {
-  BtVolumes out;
-  size_t encoded_len = 0;
-  if (nvs_get_str(handle_, kKeyBluetoothVolumes, NULL, &encoded_len) !=
-      ESP_OK) {
-    return out;
+auto NvsStorage::readBtVolumes() -> void {
+  bt_volumes_.Clear();
+  auto raw = nvs_get_string(handle_, kKeyBluetoothVolumes);
+  if (!raw) {
+    return;
   }
-  auto encoded = std::unique_ptr<char[]>{new char[encoded_len]};
-  if (nvs_get_str(handle_, kKeyBluetoothVolumes, encoded.get(), &encoded_len) !=
-      ESP_OK) {
-    return out;
-  }
-  VolumesParseClient client{out};
-  auto data = reinterpret_cast<const uint8_t*>(encoded.get());
-  cppbor::parse(data, data + encoded_len, &client);
-  return out;
+  VolumesParseClient client{bt_volumes_};
+  auto data = reinterpret_cast<const uint8_t*>(raw->data());
+  cppbor::parse(data, data + raw->size(), &client);
 }
 
-auto NvsStorage::BluetoothVolumes(const BtVolumes& vols) -> bool {
+auto NvsStorage::writeBtVolumes() -> void {
+  if (!bt_volumes_dirty_) {
+    return;
+  }
+  bt_volumes_dirty_ = false;
+
   cppbor::Array enc;
-  auto vols_list = vols.Get();
+  auto vols_list = bt_volumes_.Get();
   for (auto vol = vols_list.rbegin(); vol < vols_list.rend(); vol++) {
     enc.add(cppbor::Array{cppbor::Bstr{{vol->first.data(), vol->first.size()}},
                           cppbor::Uint{vol->second}});
   }
   std::string encoded = enc.toString();
   nvs_set_str(handle_, kKeyBluetoothVolumes, encoded.c_str());
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::OutputMode() -> Output {
-  uint8_t out = 0;
-  nvs_get_u8(handle_, kKeyOutput, &out);
-  switch (out) {
-    case static_cast<uint8_t>(Output::kBluetooth):
-      return Output::kBluetooth;
-    case static_cast<uint8_t>(Output::kHeadphones):
-    default:
-      return Output::kHeadphones;
-  }
-}
-
-auto NvsStorage::OutputMode(Output out) -> bool {
-  uint8_t as_int = static_cast<uint8_t>(out);
-  nvs_set_u8(handle_, kKeyOutput, as_int);
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::ScreenBrightness() -> uint_fast8_t {
-  uint8_t out = 50;
-  nvs_get_u8(handle_, kKeyBrightness, &out);
-  return out;
-}
-
-auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> bool {
-  nvs_set_u8(handle_, kKeyBrightness, val);
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::AmpMaxVolume() -> uint16_t {
-  uint16_t out = wm8523::kDefaultMaxVolume;
-  nvs_get_u16(handle_, kKeyAmpMaxVolume, &out);
-  return out;
-}
-
-auto NvsStorage::AmpMaxVolume(uint16_t val) -> bool {
-  nvs_set_u16(handle_, kKeyAmpMaxVolume, val);
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::AmpCurrentVolume() -> uint16_t {
-  uint16_t out = wm8523::kDefaultVolume;
-  nvs_get_u16(handle_, kKeyAmpCurrentVolume, &out);
-  return out;
-}
-
-auto NvsStorage::AmpCurrentVolume(uint16_t val) -> bool {
-  nvs_set_u16(handle_, kKeyAmpCurrentVolume, val);
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::AmpLeftBias() -> int_fast8_t {
-  int8_t out = 0;
-  nvs_get_i8(handle_, kKeyAmpLeftBias, &out);
-  return out;
-}
-
-auto NvsStorage::AmpLeftBias(int_fast8_t val) -> bool {
-  nvs_set_i8(handle_, kKeyAmpLeftBias, val);
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::HasShownOnboarding() -> bool {
-  uint8_t out = false;
-  nvs_get_u8(handle_, kKeyOnboarded, &out);
-  return out;
-}
-
-auto NvsStorage::HasShownOnboarding(bool val) -> bool {
-  nvs_set_u8(handle_, kKeyOnboarded, val);
-  return nvs_commit(handle_) == ESP_OK;
-}
-
-auto NvsStorage::PrimaryInput() -> InputModes {
-  uint8_t out = 3;
-  nvs_get_u8(handle_, kKeyPrimaryInput, &out);
-  switch (out) {
-    case static_cast<uint8_t>(InputModes::kButtonsOnly):
-      return InputModes::kButtonsOnly;
-    case static_cast<uint8_t>(InputModes::kButtonsWithWheel):
-      return InputModes::kButtonsWithWheel;
-    case static_cast<uint8_t>(InputModes::kDirectionalWheel):
-      return InputModes::kDirectionalWheel;
-    case static_cast<uint8_t>(InputModes::kRotatingWheel):
-      return InputModes::kRotatingWheel;
-    default:
-      return InputModes::kRotatingWheel;
-  }
-}
-
-auto NvsStorage::PrimaryInput(InputModes mode) -> bool {
-  uint8_t as_int = static_cast<uint8_t>(mode);
-  nvs_set_u8(handle_, kKeyPrimaryInput, as_int);
-  return nvs_commit(handle_) == ESP_OK;
 }
 
 }  // namespace drivers

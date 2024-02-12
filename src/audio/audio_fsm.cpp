@@ -60,8 +60,7 @@ void AudioState::react(const system_fsm::BluetoothEvent& ev) {
   if (!dev) {
     return;
   }
-  auto vols = sServices->nvs().BluetoothVolumes();
-  sBtOutput->SetVolume(vols.Get(dev->mac).value_or(10));
+  sBtOutput->SetVolume(sServices->nvs().BluetoothVolume(dev->mac));
   events::Ui().Dispatch(VolumeChanged{
       .percent = sOutput->GetVolumePct(),
       .db = sOutput->GetVolumeDb(),
@@ -170,9 +169,7 @@ auto AudioState::commitVolume() -> void {
     if (!dev) {
       return;
     }
-    auto vols = sServices->nvs().BluetoothVolumes();
-    vols.Put(dev->mac, vol);
-    sServices->nvs().BluetoothVolumes(vols);
+    sServices->nvs().BluetoothVolume(dev->mac, vol);
   }
 }
 
