@@ -12,6 +12,10 @@ local img = {
   next_disabled = "//lua/img/next_disabled.png",
   prev = "//lua/img/prev.png",
   prev_disabled = "//lua/img/prev_disabled.png",
+  shuffle = "//lua/img/shuffle.png",
+  shuffle_disabled = "//lua/img/shuffle_disabled.png",
+  repeat_enabled = "//lua/img/repeat.png",
+  repeat_disabled = "//lua/img/repeat_disabled.png",
 }
 
 return function(opts)
@@ -69,9 +73,20 @@ return function(opts)
       align_items = "center",
       align_content = "center",
     },
-    w = lvgl.SIZE_CONTENT,
+    w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
   }
+  
+  playlist:Object({ w = 3, h = 1 }) -- spacer
+  
+  local cur_time = playlist:Label {
+    w = lvgl.SIZE_CONTENT,
+    h = lvgl.SIZE_CONTENT,
+    text = "",
+    text_font = font.fusion_10,
+  }
+
+  playlist:Object({ flex_grow = 1, h = 1 }) -- spacer
 
   local playlist_pos = playlist:Label {
     text = "",
@@ -85,6 +100,17 @@ return function(opts)
     text = "",
     text_font = font.fusion_10,
   }
+
+  playlist:Object({ flex_grow = 1, h = 1 }) -- spacer
+  
+  local end_time = playlist:Label {
+    w = lvgl.SIZE_CONTENT,
+    h = lvgl.SIZE_CONTENT,
+    align = lvgl.ALIGN.RIGHT_MID,
+    text = "",
+    text_font = font.fusion_10,
+  }
+  playlist:Object({ w = 3, h = 1 }) -- spacer
 
   local scrubber = screen.root:Bar {
     w = lvgl.PCT(100),
@@ -106,14 +132,14 @@ return function(opts)
     pad_all = 2,
   }
 
-  local cur_time = controls:Label {
-    w = lvgl.SIZE_CONTENT,
-    h = lvgl.SIZE_CONTENT,
-    text = "",
-    text_font = font.fusion_10,
-  }
 
   controls:Object({ flex_grow = 1, h = 1 }) -- spacer
+
+  local repeat_btn = controls:Button {}
+  repeat_btn:onClicked(function()
+    queue.repeat_track:set(not queue.repeat_track:get())
+  end)
+  local repeat_img = repeat_btn:Image { src = img.repeat_enabled }
 
   local prev_btn = controls:Button {}
   prev_btn:onClicked(queue.previous)
@@ -130,15 +156,14 @@ return function(opts)
   next_btn:onClicked(queue.next)
   local next_img = next_btn:Image { src = img.next_disabled }
 
+  local shuffle_btn = controls:Button {}
+  shuffle_btn:onClicked(function()
+    queue.random:set(not queue.random:get())
+  end)
+  local shuffle_img = shuffle_btn:Image { src = img.shuffle }
+
   controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
-  local end_time = controls:Label {
-    w = lvgl.SIZE_CONTENT,
-    h = lvgl.SIZE_CONTENT,
-    align = lvgl.ALIGN.RIGHT_MID,
-    text = "",
-    text_font = font.fusion_10,
-  }
 
   local format_time = function(time)
     return string.format("%d:%02d", time // 60, time % 60)
@@ -180,6 +205,20 @@ return function(opts)
       prev_img:set_src(
         pos > 1 and img.prev or img.prev_disabled
       )
+    end),
+    queue.random:bind(function(shuffling)
+      if shuffling then
+        shuffle_img:set_src(img.shuffle)
+      else
+        shuffle_img:set_src(img.shuffle_disabled)
+      end
+    end),
+    queue.repeat_track:bind(function(en)
+      if en then
+        repeat_img:set_src(img.repeat_enabled)
+      else
+        repeat_img:set_src(img.repeat_disabled)
+      end
     end),
     queue.size:bind(function(num)
       if not num then return end

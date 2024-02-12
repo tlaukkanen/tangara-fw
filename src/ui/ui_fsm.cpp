@@ -127,8 +127,30 @@ lua::Property UiState::sPlaybackPosition{0};
 
 lua::Property UiState::sQueuePosition{0};
 lua::Property UiState::sQueueSize{0};
-lua::Property UiState::sQueueRepeat{false};
-lua::Property UiState::sQueueRandom{false};
+lua::Property UiState::sQueueRepeat{false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      bool new_val = std::get<bool>(val);
+      sServices->track_queue().repeat(new_val);
+      return true;
+}};
+lua::Property UiState::sQueueReplay{false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      bool new_val = std::get<bool>(val);
+      sServices->track_queue().replay(new_val);
+      return true;
+}};
+lua::Property UiState::sQueueRandom{false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      bool new_val = std::get<bool>(val);
+      sServices->track_queue().random(new_val);
+      return true;
+}};
 
 lua::Property UiState::sVolumeCurrentPct{
     0, [](const lua::LuaValue& val) {
@@ -296,6 +318,7 @@ void UiState::react(const audio::QueueUpdate&) {
   sQueuePosition.Update(current_pos);
   sQueueRandom.Update(queue.random());
   sQueueRepeat.Update(queue.repeat());
+  sQueueReplay.Update(queue.replay());
 }
 
 void UiState::react(const audio::PlaybackStarted& ev) {
@@ -417,7 +440,8 @@ void Lua::entry() {
             {"previous", [&](lua_State* s) { return QueuePrevious(s); }},
             {"position", &sQueuePosition},
             {"size", &sQueueSize},
-            {"replay", &sQueueRepeat},
+            {"replay", &sQueueReplay},
+            {"repeat_track", &sQueueRepeat},
             {"random", &sQueueRandom},
         });
     sLua->bridge().AddPropertyModule("volume",
@@ -561,6 +585,15 @@ auto Lua::SetRepeat(const lua::LuaValue& val) -> bool {
   }
   bool b = std::get<bool>(val);
   sServices->track_queue().repeat(b);
+  return true;
+}
+
+auto Lua::SetReplay(const lua::LuaValue& val) -> bool {
+  if (!std::holds_alternative<bool>(val)) {
+    return false;
+  }
+  bool b = std::get<bool>(val);
+  sServices->track_queue().replay(b);
   return true;
 }
 
