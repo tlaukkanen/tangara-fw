@@ -318,10 +318,12 @@ auto TrackQueue::repeat() const -> bool {
 }
 
 auto TrackQueue::replay(bool en) -> void {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);
-  replay_ = en;
-  if (shuffle_) {
-    shuffle_->replay(en);
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    replay_ = en;
+    if (shuffle_) {
+      shuffle_->replay(en);
+    }
   }
   notifyChanged(false);
 }
