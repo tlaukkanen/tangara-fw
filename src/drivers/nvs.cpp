@@ -195,6 +195,7 @@ auto NvsStorage::Write() -> bool {
   std::lock_guard<std::mutex> lock{mutex_};
   lock_polarity_.write(handle_);
   brightness_.write(handle_);
+  sensitivity_.write(handle_);
   amp_max_vol_.write(handle_);
   amp_cur_vol_.write(handle_);
   amp_left_bias_.write(handle_);
@@ -289,7 +290,7 @@ auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> void {
 
 auto NvsStorage::ScrollSensitivity() -> uint_fast8_t {
   std::lock_guard<std::mutex> lock{mutex_};
-  return std::clamp<uint8_t>(sensitivity_.get().value_or(128), 0, 100);
+  return std::clamp<uint8_t>(sensitivity_.get().value_or(128), 0, 255);
 }
 
 auto NvsStorage::ScrollSensitivity(uint_fast8_t val) -> void {
