@@ -41,7 +41,7 @@ class TremorVorbisDecoder : public ICodec {
 
  private:
   std::shared_ptr<IStream> input_;
-  OggVorbis_File vorbis_;
+  std::unique_ptr<OggVorbis_File> vorbis_;
 };
 
 }  // namespace codecs

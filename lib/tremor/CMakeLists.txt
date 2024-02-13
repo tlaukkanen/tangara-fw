@@ -6,3 +6,5 @@ idf_component_register(
   res012.c sharedbook.c synthesis.c vorbisfile.c window.c
   INCLUDE_DIRS "."
   REQUIRES "ogg")
+
+target_compile_options("${COMPONENT_LIB}" PRIVATE -Og)
