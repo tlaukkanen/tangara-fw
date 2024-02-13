@@ -12,6 +12,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "cppbor_parse.h"
 #include "database.hpp"
 #include "tasks.hpp"
 #include "track.hpp"
@@ -24,6 +25,7 @@ namespace audio {
  */
 class RandomIterator {
  public:
+  RandomIterator();
   RandomIterator(size_t size);
 
   auto current() const -> size_t;
@@ -34,6 +36,10 @@ class RandomIterator {
   // Note resizing has the side-effect of restarting iteration.
   auto resize(size_t) -> void;
   auto replay(bool) -> void;
+
+  auto seed() -> size_t& { return seed_; }
+  auto pos() -> size_t& { return pos_; }
+  auto size() -> size_t& { return size_; }
 
  private:
   size_t seed_;
@@ -85,11 +91,10 @@ class TrackQueue {
   auto next() -> void;
   auto previous() -> void;
 
-  /* 
+  /*
    * Called when the current track finishes
    */
   auto finish() -> void;
-
 
   auto skipTo(database::TrackId) -> void;
 
@@ -125,6 +130,38 @@ class TrackQueue {
   std::optional<RandomIterator> shuffle_;
   bool repeat_;
   bool replay_;
+
+  class QueueParseClient : public cppbor::ParseClient {
+   public:
+    QueueParseClient(TrackQueue& queue);
+
+    ParseClient* item(std::unique_ptr<cppbor::Item>& item,
+                      const uint8_t* hdrBegin,
+                      const uint8_t* valueBegin,
+                      const uint8_t* end) override;
+
+    ParseClient* itemEnd(std::unique_ptr<cppbor::Item>& item,
+                         const uint8_t* hdrBegin,
+                         const uint8_t* valueBegin,
+                         const uint8_t* end) override;
+
+    void error(const uint8_t* position,
+               const std::string& errorMessage) override {}
+
+   private:
+    TrackQueue& queue_;
+
+    enum class State {
+      kInit,
+      kRoot,
+      kMetadata,
+      kShuffle,
+      kTracks,
+      kFinished,
+    };
+    State state_;
+    size_t i_;
+  };
 };
 
 }  // namespace audio
