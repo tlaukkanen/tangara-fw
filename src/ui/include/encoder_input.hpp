@@ -38,6 +38,7 @@ class EncoderInput {
   auto registration() -> lv_indev_t* { return registration_; }
 
   auto mode(drivers::NvsStorage::InputModes mode) { mode_ = mode; }
+  auto scroll_sensitivity(uint8_t val) -> void; // Value between 0-255, used to scale the threshold
   auto lock(bool l) -> void { is_locked_ = l; }
 
  private:
@@ -51,6 +52,7 @@ class EncoderInput {
 
   drivers::NvsStorage::InputModes mode_;
   bool is_locked_;
+  uint8_t scroll_sensitivity_;
 
   // Every kind of distinct input that we could map to an action.
   enum class Keys {

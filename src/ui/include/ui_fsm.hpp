@@ -128,7 +128,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sDisplayBrightness;
 
   static lua::Property sControlsScheme;
-  static lua::Property sControlSensitivity;
+  static lua::Property sScrollSensitivity;
 
   static lua::Property sDatabaseUpdating;
 };
