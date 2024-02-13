@@ -256,6 +256,21 @@ function settings.input()
     controls.scheme:set(scheme)
   end)
 
+  menu.content:Label {
+    text = "Scroll Sensitivity",
+  }:add_style(theme.settings_title)
+
+  local slider_scale = 4; -- Power steering
+  local sensitivity = menu.content:Slider {
+    w = lvgl.PCT(90),
+    h = 5,
+    range = { min = 0, max = 255/slider_scale },
+    value = controls.scroll_sensitivity:get()/slider_scale,
+  }
+  sensitivity:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+    controls.scroll_sensitivity:set(sensitivity:value()*slider_scale)
+  end)
+
   return menu
 end
 

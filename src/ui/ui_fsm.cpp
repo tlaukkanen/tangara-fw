@@ -242,6 +242,25 @@ lua::Property UiState::sControlsScheme{
       return true;
     }};
 
+lua::Property UiState::sScrollSensitivity{
+    0, [](const lua::LuaValue& val) {
+      std::optional<int> sensitivity = 0;
+      std::visit(
+          [&](auto&& v) {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, int>) {
+              sensitivity = v;
+            }
+          },
+          val);
+      if (!sensitivity) {
+        return false;
+      }
+      sInput->scroll_sensitivity(*sensitivity);
+      sServices->nvs().ScrollSensitivity(*sensitivity);
+      return true;
+    }};
+
 lua::Property UiState::sDatabaseUpdating{false};
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
@@ -403,6 +422,10 @@ void Splash::react(const system_fsm::BootComplete& ev) {
     sInput->mode(mode);
     sControlsScheme.Update(static_cast<int>(mode));
 
+    auto sensitivity = sServices->nvs().ScrollSensitivity();
+    sInput->scroll_sensitivity(sensitivity);
+    sScrollSensitivity.Update(static_cast<int>(sensitivity));
+
     sTask->input(sInput);
   } else {
     ESP_LOGE(kTag, "no input devices initialised!");
@@ -466,6 +489,7 @@ void Lua::entry() {
     sLua->bridge().AddPropertyModule("controls",
                                      {
                                          {"scheme", &sControlsScheme},
+                                         {"scroll_sensitivity", &sScrollSensitivity},
                                      });
 
     sLua->bridge().AddPropertyModule(

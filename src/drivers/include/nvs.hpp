@@ -87,6 +87,9 @@ class NvsStorage {
   auto ScreenBrightness() -> uint_fast8_t;
   auto ScreenBrightness(uint_fast8_t) -> void;
 
+  auto ScrollSensitivity() -> uint_fast8_t;
+  auto ScrollSensitivity(uint_fast8_t) -> void;
+
   auto AmpMaxVolume() -> uint16_t;
   auto AmpMaxVolume(uint16_t) -> void;
 
@@ -118,6 +121,7 @@ class NvsStorage {
 
   Setting<uint8_t> lock_polarity_;
   Setting<uint8_t> brightness_;
+  Setting<uint8_t> sensitivity_;
   Setting<uint16_t> amp_max_vol_;
   Setting<uint16_t> amp_cur_vol_;
   Setting<int8_t> amp_left_bias_;

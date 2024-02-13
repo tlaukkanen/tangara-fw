@@ -25,6 +25,9 @@ class RelativeWheel {
   auto Update() -> void;
   auto SetEnabled(bool) -> void;
 
+  auto SetSensitivity(uint8_t) -> void;
+  auto GetSensitivity() -> uint8_t;
+
   auto is_clicking() const -> bool;
   auto ticks() const -> std::int_fast16_t;
 
@@ -36,6 +39,8 @@ class RelativeWheel {
   TouchWheel& touch_;
 
   bool is_enabled_;
+  uint8_t sensitivity_;
+  uint8_t threshold_;
 
   bool is_clicking_;
   bool was_clicking_;
