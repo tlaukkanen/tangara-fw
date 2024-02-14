@@ -14,8 +14,6 @@
 #include <utility>
 
 #include "ivorbisfile.h"
-#include "ogg/ogg.h"
-#include "opus.h"
 #include "sample.hpp"
 #include "span.hpp"
 
@@ -41,7 +39,7 @@ class TremorVorbisDecoder : public ICodec {
 
  private:
   std::shared_ptr<IStream> input_;
-  std::unique_ptr<OggVorbis_File> vorbis_;
+  std::unique_ptr<TremorOggVorbis_File> vorbis_;
 };
 
 }  // namespace codecs

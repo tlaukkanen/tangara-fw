@@ -4,31 +4,20 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "ivorbiscodec.h"
-#include "ivorbisfile.h"
-#include "ogg/config_types.h"
-#include "opus.hpp"
-
-#include <stdint.h>
-#include <sys/_stdint.h>
+#include "vorbis.hpp"
 
 #include <cstdint>
 #include <cstring>
 #include <optional>
 
 #include "esp_heap_caps.h"
-#include "mad.h"
+#include "esp_log.h"
+#include "ivorbiscodec.h"
+#include "ivorbisfile.h"
 
 #include "codec.hpp"
-#include "esp_log.h"
-#include "ogg/ogg.h"
-#include "opus.h"
-#include "opus_defines.h"
-#include "opus_types.h"
-#include "result.hpp"
 #include "sample.hpp"
 #include "types.hpp"
-#include "vorbis.hpp"
 
 namespace codecs {
 
@@ -39,7 +28,7 @@ static size_t read_cb(void* ptr, size_t size, size_t nmemb, void* instance) {
   return source->Read({reinterpret_cast<std::byte*>(ptr), size * nmemb});
 }
 
-static int seek_cb(void* instance, ogg_int64_t offset, int whence) {
+static int seek_cb(void* instance, tremor_ogg_int64_t offset, int whence) {
   IStream* source = reinterpret_cast<IStream*>(instance);
   if (!source->CanSeek()) {
     return -1;
@@ -80,8 +69,8 @@ static const ov_callbacks kCallbacks{
 
 TremorVorbisDecoder::TremorVorbisDecoder()
     : input_(),
-      vorbis_(reinterpret_cast<OggVorbis_File*>(
-          heap_caps_malloc(sizeof(OggVorbis_File),
+      vorbis_(reinterpret_cast<TremorOggVorbis_File*>(
+          heap_caps_malloc(sizeof(TremorOggVorbis_File),
                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT))) {}
 
 TremorVorbisDecoder::~TremorVorbisDecoder() {
