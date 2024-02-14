@@ -8,7 +8,7 @@
 
 static OPUS_INLINE void *opus_alloc (size_t size)
 {
-   return heap_caps_malloc(size, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+   return heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
 }
 
 static OPUS_INLINE void opus_free (void *ptr)
