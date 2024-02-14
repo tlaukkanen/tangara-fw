@@ -41,5 +41,6 @@ target_compile_options(${COMPONENT_LIB}
       $<$<C_COMPILER_ID:AppleClang,Clang,GNU>:-Wno-implicit-function-declaration>
       $<$<C_COMPILER_ID:AppleClang,Clang,GNU>:-Wno-stringop-overflow>
       $<$<C_COMPILER_ID:AppleClang,Clang,GNU>:-fPIC>
+      -Ofast
 )
 
