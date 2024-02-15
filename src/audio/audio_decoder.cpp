@@ -155,7 +155,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
       .bitrate_kbps = open_res->sample_rate_hz,
       .encoding = stream->type(),
   });
-  timer_.reset(new Timer(tags, open_res.value()));
+  timer_.reset(new Timer(tags, open_res.value(), stream->Offset()));
 
   // TODO: How does *this?* need to change?
   PlaybackUpdate ev{.seconds_elapsed = stream->Offset(), .track = tags};

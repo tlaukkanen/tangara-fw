@@ -244,11 +244,13 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
 }
 
 void Standby::react(const PlayFile& ev) {
+  sCurrentTrack = 0;
+  sIsPlaybackAllowed = true;
   sFileSource->SetPath(ev.filename, 10);
 }
 
 void Playback::react(const PlayFile& ev) {
-  sFileSource->SetPath(ev.filename, 15);
+  sFileSource->SetPath(ev.filename, 10);
 }
 
 void Standby::react(const SeekFile& ev) {
