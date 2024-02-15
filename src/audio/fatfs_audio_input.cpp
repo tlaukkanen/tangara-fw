@@ -62,9 +62,9 @@ auto FatfsAudioInput::SetPath(std::optional<std::string> path) -> void {
   }
 }
 
-auto FatfsAudioInput::SetPath(const std::string& path) -> void {
+auto FatfsAudioInput::SetPath(const std::string& path,uint32_t offset) -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
-  if (OpenFile(path)) {
+  if (OpenFile(path, offset)) {
     has_new_stream_ = true;
     has_new_stream_.notify_one();
   }
@@ -103,7 +103,7 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<TaggedStream> {
   }
 }
 
-auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
+auto FatfsAudioInput::OpenFile(const std::string& path,uint32_t offset) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   auto tags = tag_parser_.ReadAndParseTags(path);
@@ -136,7 +136,7 @@ auto FatfsAudioInput::OpenFile(const std::string& path) -> bool {
 
   auto source =
       std::make_unique<FatfsSource>(stream_type.value(), std::move(file));
-  new_stream_.reset(new TaggedStream(tags, std::move(source)));
+  new_stream_.reset(new TaggedStream(tags, std::move(source), offset));
   return true;
 }
 

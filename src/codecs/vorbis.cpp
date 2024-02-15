@@ -84,7 +84,7 @@ TremorVorbisDecoder::~TremorVorbisDecoder() {
   ov_clear(&vorbis_);
 }
 
-auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
+auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
   int res = ov_open_callbacks(input.get(), &vorbis_, NULL, 0, kCallbacks);
   if (res < 0) {

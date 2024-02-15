@@ -78,7 +78,7 @@ XiphOpusDecoder::~XiphOpusDecoder() {
   }
 }
 
-auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input)
+auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
   input_ = input;
 

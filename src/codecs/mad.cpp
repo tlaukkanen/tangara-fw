@@ -58,7 +58,7 @@ auto MadMp3Decoder::GetBytesUsed() -> std::size_t {
   }
 }
 
-auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
+auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     -> cpp::result<OutputFormat, ICodec::Error> {
   input_ = input;
 

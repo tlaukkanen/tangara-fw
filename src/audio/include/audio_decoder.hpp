@@ -24,7 +24,7 @@ namespace audio {
  */
 class Timer {
  public:
-  Timer(std::shared_ptr<Track>, const codecs::ICodec::OutputFormat& format);
+  Timer(std::shared_ptr<Track>, const codecs::ICodec::OutputFormat& format, uint32_t current_seconds = 0);
 
   auto AddSamples(std::size_t) -> void;
 

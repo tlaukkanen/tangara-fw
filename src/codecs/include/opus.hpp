@@ -26,7 +26,7 @@ class XiphOpusDecoder : public ICodec {
   XiphOpusDecoder();
   ~XiphOpusDecoder();
 
-  auto OpenStream(std::shared_ptr<IStream> input)
+  auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
   auto DecodeTo(cpp::span<sample::Sample> destination)

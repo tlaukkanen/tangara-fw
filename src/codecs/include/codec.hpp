@@ -117,7 +117,7 @@ class ICodec {
    * Decodes metadata or headers from the given input stream, and returns the
    * format for the samples that will be decoded from it.
    */
-  virtual auto OpenStream(std::shared_ptr<IStream> input)
+  virtual auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       -> cpp::result<OutputFormat, Error> = 0;
 
   struct OutputInfo {

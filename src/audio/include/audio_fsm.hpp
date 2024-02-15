@@ -57,6 +57,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const system_fsm::BluetoothEvent&);
 
   virtual void react(const PlayFile&) {}
+  virtual void react(const SeekFile&) {}
   virtual void react(const QueueUpdate&) {}
   virtual void react(const PlaybackUpdate&) {}
   void react(const TogglePlayPause&);
@@ -99,6 +100,7 @@ class Uninitialised : public AudioState {
 class Standby : public AudioState {
  public:
   void react(const PlayFile&) override;
+  void react(const SeekFile&) override;
   void react(const internal::InputFileOpened&) override;
   void react(const QueueUpdate&) override;
   void react(const system_fsm::KeyLockChanged&) override;
@@ -115,6 +117,7 @@ class Playback : public AudioState {
   void react(const system_fsm::HasPhonesChanged&) override;
 
   void react(const PlayFile&) override;
+  void react(const SeekFile&) override;
   void react(const QueueUpdate&) override;
   void react(const PlaybackUpdate&) override;
 

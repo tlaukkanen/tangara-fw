@@ -42,7 +42,7 @@ MiniFlacDecoder::~MiniFlacDecoder() {
   }
 }
 
-auto MiniFlacDecoder::OpenStream(std::shared_ptr<IStream> input)
+auto MiniFlacDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
   input_ = input;
 

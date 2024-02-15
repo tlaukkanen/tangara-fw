@@ -45,6 +45,11 @@ struct PlayFile : tinyfsm::Event {
   std::string filename;
 };
 
+struct SeekFile : tinyfsm::Event {
+  std::string filename;
+ uint32_t offset;
+};
+
 struct StepUpVolume : tinyfsm::Event {};
 struct StepDownVolume : tinyfsm::Event {};
 struct SetVolume : tinyfsm::Event {

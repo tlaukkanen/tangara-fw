@@ -51,9 +51,10 @@ static constexpr std::size_t kCodecBufferLength =
     drivers::kI2SBufferLengthFrames * sizeof(sample::Sample);
 
 Timer::Timer(std::shared_ptr<Track> t,
-             const codecs::ICodec::OutputFormat& format)
+             const codecs::ICodec::OutputFormat& format,
+             uint32_t current_seconds)
     : track_(t),
-      current_seconds_(0),
+      current_seconds_(current_seconds),
       current_sample_in_second_(0),
       samples_per_second_(format.sample_rate_hz * format.num_channels),
       total_duration_seconds_(format.total_samples.value_or(0) /
@@ -131,7 +132,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
     return false;
   }
 
-  auto open_res = codec_->OpenStream(stream);
+  auto open_res = codec_->OpenStream(stream, stream->Offset());
   if (open_res.has_error()) {
     ESP_LOGE(kTag, "codec failed to start: %s",
              codecs::ICodec::ErrorString(open_res.error()).c_str());
@@ -147,6 +148,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   ESP_LOGI(kTag, "stream started ok");
   events::Audio().Dispatch(internal::InputFileOpened{});
 
+  // TODO: How does this need to change?
   auto tags = std::make_shared<Track>(Track{
       .tags = stream->tags(),
       .db_info = {},
@@ -155,7 +157,8 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   });
   timer_.reset(new Timer(tags, open_res.value()));
 
-  PlaybackUpdate ev{.seconds_elapsed = 0, .track = tags};
+  // TODO: How does *this?* need to change?
+  PlaybackUpdate ev{.seconds_elapsed = stream->Offset(), .track = tags};
   events::Audio().Dispatch(ev);
   events::Ui().Dispatch(ev);
 

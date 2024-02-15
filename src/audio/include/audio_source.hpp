@@ -16,7 +16,8 @@ namespace audio {
 class TaggedStream : public codecs::IStream {
  public:
   TaggedStream(std::shared_ptr<database::TrackTags>,
-               std::unique_ptr<codecs::IStream> wrapped);
+               std::unique_ptr<codecs::IStream> wrapped,
+              uint32_t offset = 0);
 
   auto tags() -> std::shared_ptr<database::TrackTags>;
 
@@ -30,11 +31,14 @@ class TaggedStream : public codecs::IStream {
 
   auto Size() -> std::optional<int64_t> override;
 
+  auto Offset() -> uint32_t;
+
   auto SetPreambleFinished() -> void override;
 
  private:
   std::shared_ptr<database::TrackTags> tags_;
   std::unique_ptr<codecs::IStream> wrapped_;
+  int32_t offset_;
 };
 
 class IAudioSource {
