@@ -6,54 +6,37 @@
  * GOVERNED BY A BSD-STYLE SOURCE LICENSE INCLUDED WITH THIS SOURCE *
  * IN 'COPYING'. PLEASE READ THESE TERMS BEFORE DISTRIBUTING.       *
  *                                                                  *
- * THE TremorOggVorbis 'TREMOR' SOURCE CODE IS (C) COPYRIGHT 1994-2003    *
+ * THE TremorOggVorbis 'TREMOR' SOURCE CODE IS (C) COPYRIGHT 1994-2002    *
  * BY THE Xiph.Org FOUNDATION http://www.xiph.org/                  *
  *                                                                  *
  ********************************************************************
 
- function: modified discrete cosine transform prototypes
+ function: #ifdef jail to whip a few platforms into the UNIX ideal.
 
  ********************************************************************/
+#ifndef _TREMOR_OS_TYPES_H
+#define _TREMOR_OS_TYPES_H
 
-#ifndef _OGG_mdct_H_
-#define _OGG_mdct_H_
-
-#include "ivorbiscodec.h"
-#include "misc.h"
-
-#define DATA_TYPE tremor_ogg_int32_t
-#define REG_TYPE  register tremor_ogg_int32_t
-
+#include <stdint.h>
 #ifdef _LOW_ACCURACY_
-#define cPI3_8 (0x0062)
-#define cPI2_8 (0x00b5)
-#define cPI1_8 (0x00ed)
+#  define X(n) (((((n)>>22)+1)>>1) - ((((n)>>22)+1)>>9))
+#  define LOOKUP_T const unsigned char
 #else
-#define cPI3_8 (0x30fbc54d)
-#define cPI2_8 (0x5a82799a)
-#define cPI1_8 (0x7641af3d)
+#  define X(n) (n)
+#  define LOOKUP_T const tremor_ogg_int32_t
 #endif
 
-extern void mdct_backward(int n, DATA_TYPE *in);
-extern void mdct_shift_right(int n, DATA_TYPE *in, DATA_TYPE *right);
-extern void mdct_unroll_lap(int n0,int n1,
-			    int lW,int W,
-			    DATA_TYPE *in,DATA_TYPE *right,
-			    LOOKUP_T *w0,LOOKUP_T *w1,
-			    tremor_ogg_int16_t *out,
-			    int step,
-			    int start,int end /* samples, this frame */);
+/* make it easy on the folks that want to compile the libs with a
+   different malloc than stdlib */
+#define _tremor_ogg_malloc  malloc
+#define _tremor_ogg_calloc  calloc
+#define _tremor_ogg_realloc realloc
+#define _tremor_ogg_free    free
 
-#endif
+typedef int64_t tremor_ogg_int64_t;
+typedef int32_t tremor_ogg_int32_t;
+typedef uint32_t tremor_ogg_uint32_t;
+typedef int16_t tremor_ogg_int16_t;
+typedef uint16_t tremor_ogg_uint16_t;
 
-
-
-
-
-
-
-
-
-
-
-
+#endif  /* _TREMOR_OS_TYPES_H */

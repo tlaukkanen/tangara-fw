@@ -33,6 +33,9 @@ namespace audio {
 
 [[maybe_unused]] static constexpr char kTag[] = "tracks";
 
+RandomIterator::RandomIterator()
+    : seed_(0), pos_(0), size_(0), replay_(false) {}
+
 RandomIterator::RandomIterator(size_t size)
     : seed_(), pos_(0), size_(size), replay_(false) {
   esp_fill_random(&seed_, sizeof(seed_));
@@ -338,66 +341,127 @@ auto TrackQueue::serialise() -> std::string {
   for (database::TrackId track : tracks_) {
     tracks.add(cppbor::Uint(track));
   }
-  // FIXME: this should include the RandomIterator's seed as well.
-  cppbor::Array encoded{
-      cppbor::Uint{pos_},
-      std::move(tracks),
-  };
+  cppbor::Map encoded;
+  encoded.add(cppbor::Uint{0}, cppbor::Array{
+                                   cppbor::Uint{pos_},
+                                   cppbor::Bool{repeat_},
+                                   cppbor::Bool{replay_},
+                               });
+  if (shuffle_) {
+    encoded.add(cppbor::Uint{1}, cppbor::Array{
+                                     cppbor::Uint{shuffle_->size()},
+                                     cppbor::Uint{shuffle_->seed()},
+                                     cppbor::Uint{shuffle_->pos()},
+                                 });
+  }
+  encoded.add(cppbor::Uint{2}, std::move(tracks));
   return encoded.toString();
 }
 
-class QueueParseClient : public cppbor::ParseClient {
- public:
-  QueueParseClient(size_t& pos, std::pmr::vector<database::TrackId>& tracks)
-      : pos_(pos),
-        tracks_(tracks),
-        in_root_array_(false),
-        in_track_list_(false) {}
+TrackQueue::QueueParseClient::QueueParseClient(TrackQueue& queue)
+    : queue_(queue), state_(State::kInit), i_(0) {}
 
-  ParseClient* item(std::unique_ptr<cppbor::Item>& item,
-                    const uint8_t* hdrBegin,
-                    const uint8_t* valueBegin,
-                    const uint8_t* end) override {
-    if (item->type() == cppbor::ARRAY) {
-      if (!in_root_array_) {
-        in_root_array_ = true;
-      } else {
-        in_track_list_ = true;
-      }
-    } else if (item->type() == cppbor::UINT) {
-      auto val = item->asUint()->unsignedValue();
-      if (in_track_list_) {
-        tracks_.push_back(val);
-      } else {
-        pos_ = static_cast<size_t>(val);
+cppbor::ParseClient* TrackQueue::QueueParseClient::item(
+    std::unique_ptr<cppbor::Item>& item,
+    const uint8_t* hdrBegin,
+    const uint8_t* valueBegin,
+    const uint8_t* end) {
+  if (state_ == State::kInit) {
+    if (item->type() == cppbor::MAP) {
+      state_ = State::kRoot;
+    }
+  } else if (state_ == State::kRoot) {
+    if (item->type() == cppbor::UINT) {
+      switch (item->asUint()->unsignedValue()) {
+        case 0:
+          state_ = State::kMetadata;
+          break;
+        case 1:
+          state_ = State::kShuffle;
+          break;
+        case 2:
+          state_ = State::kTracks;
+          break;
+        default:
+          state_ = State::kFinished;
       }
     }
-    return this;
+  } else if (state_ == State::kMetadata) {
+    if (item->type() == cppbor::ARRAY) {
+      i_ = 0;
+    } else if (item->type() == cppbor::UINT) {
+      queue_.pos_ = item->asUint()->unsignedValue();
+    } else if (item->type() == cppbor::SIMPLE) {
+      bool val = item->asBool()->value();
+      if (i_ == 0) {
+        queue_.repeat_ = val;
+      } else if (i_ == 1) {
+        queue_.replay_ = val;
+      }
+      i_++;
+    }
+  } else if (state_ == State::kShuffle) {
+    if (item->type() == cppbor::ARRAY) {
+      i_ = 0;
+      queue_.shuffle_.emplace();
+      queue_.shuffle_->replay(queue_.replay_);
+    } else if (item->type() == cppbor::UINT) {
+      auto val = item->asUint()->unsignedValue();
+      switch (i_) {
+        case 0:
+          queue_.shuffle_->size() = val;
+          break;
+        case 1:
+          queue_.shuffle_->seed() = val;
+          break;
+        case 2:
+          queue_.shuffle_->pos() = val;
+          break;
+        default:
+          break;
+      }
+      i_++;
+    }
+  } else if (state_ == State::kTracks) {
+    if (item->type() == cppbor::UINT) {
+      queue_.tracks_.push_back(item->asUint()->unsignedValue());
+    }
+  } else if (state_ == State::kFinished) {
   }
+  return this;
+}
 
-  ParseClient* itemEnd(std::unique_ptr<cppbor::Item>& item,
-                       const uint8_t* hdrBegin,
-                       const uint8_t* valueBegin,
-                       const uint8_t* end) override {
-    return this;
+cppbor::ParseClient* TrackQueue::QueueParseClient::itemEnd(
+    std::unique_ptr<cppbor::Item>& item,
+    const uint8_t* hdrBegin,
+    const uint8_t* valueBegin,
+    const uint8_t* end) {
+  if (state_ == State::kInit) {
+    state_ = State::kFinished;
+  } else if (state_ == State::kRoot) {
+    state_ = State::kFinished;
+  } else if (state_ == State::kMetadata) {
+    if (item->type() == cppbor::ARRAY) {
+      state_ = State::kRoot;
+    }
+  } else if (state_ == State::kShuffle) {
+    if (item->type() == cppbor::ARRAY) {
+      state_ = State::kRoot;
+    }
+  } else if (state_ == State::kTracks) {
+    if (item->type() == cppbor::ARRAY) {
+      state_ = State::kRoot;
+    }
+  } else if (state_ == State::kFinished) {
   }
-
-  void error(const uint8_t* position,
-             const std::string& errorMessage) override {}
-
- private:
-  size_t& pos_;
-  std::pmr::vector<database::TrackId>& tracks_;
-
-  bool in_root_array_;
-  bool in_track_list_;
-};
+  return this;
+}
 
 auto TrackQueue::deserialise(const std::string& s) -> void {
   if (s.empty()) {
     return;
   }
-  QueueParseClient client{pos_, tracks_};
+  QueueParseClient client{*this};
   const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
   cppbor::parse(data, data + s.size(), &client);
   notifyChanged(true);

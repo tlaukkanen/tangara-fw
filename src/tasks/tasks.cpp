@@ -39,22 +39,20 @@ auto AllocateStack() -> cpp::span<StackType_t>;
 // usually written with embedded use cases in mind.
 template <>
 auto AllocateStack<Type::kAudioDecoder>() -> cpp::span<StackType_t> {
-  constexpr std::size_t size = 24 * 1024;
+  constexpr std::size_t size = 20 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
 }
-// LVGL requires only a relatively small stack. However, it can be allocated in
-// PSRAM so we give it a bit of headroom for safety.
+// LVGL requires only a relatively small stack. Lua's stack is allocated
+// separately.
 template <>
 auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
-  constexpr std::size_t size = 16 * 1024;
+  constexpr std::size_t size = 14 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
 }
 template <>
-// PCM conversion and resampling uses a very small amount of stack. It works
-// entirely with PSRAM-allocated buffers, so no real speed gain from allocating
-// it internally.
+// PCM conversion and resampling uses a very small amount of stack.
 auto AllocateStack<Type::kAudioConverter>() -> cpp::span<StackType_t> {
   constexpr std::size_t size = 4 * 1024;
   static StackType_t sStack[size];

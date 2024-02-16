@@ -1,12 +1,12 @@
 /********************************************************************
  *                                                                  *
- * THIS FILE IS PART OF THE OggVorbis 'TREMOR' CODEC SOURCE CODE.   *
+ * THIS FILE IS PART OF THE TremorOggVorbis 'TREMOR' CODEC SOURCE CODE.   *
  *                                                                  *
  * USE, DISTRIBUTION AND REPRODUCTION OF THIS LIBRARY SOURCE IS     *
  * GOVERNED BY A BSD-STYLE SOURCE LICENSE INCLUDED WITH THIS SOURCE *
  * IN 'COPYING'. PLEASE READ THESE TERMS BEFORE DISTRIBUTING.       *
  *                                                                  *
- * THE OggVorbis 'TREMOR' SOURCE CODE IS (C) COPYRIGHT 1994-2002    *
+ * THE TremorOggVorbis 'TREMOR' SOURCE CODE IS (C) COPYRIGHT 1994-2002    *
  * BY THE Xiph.Org FOUNDATION http://www.xiph.org/                  *
  *                                                                  *
  ********************************************************************
@@ -32,7 +32,7 @@
 char pcmout[4096]; /* take 4k out of the data segment, not the stack */
 
 int main(){
-  OggVorbis_File vf;
+  TremorOggVorbis_File vf;
   int eof=0;
   int current_section;
 
@@ -69,12 +69,7 @@ int main(){
       /* EOF */
       eof=1;
     } else if (ret < 0) {
-      if(ret==OV_EBADLINK){
-        fprintf(stderr,"Corrupt bitstream section! Exiting.\n");
-        exit(1);
-      }
-
-      /* some other error in the stream.  Not a problem, just reporting it in
+      /* error in the stream.  Not a problem, just reporting it in
 	 case we (the app) cares.  In this case, we don't. */
     } else {
       /* we don't bother dealing with sample rate changes, etc, but

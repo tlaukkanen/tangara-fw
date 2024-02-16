@@ -1,12 +1,12 @@
 /********************************************************************
  *                                                                  *
- * THIS FILE IS PART OF THE OggVorbis 'TREMOR' CODEC SOURCE CODE.   *
+ * THIS FILE IS PART OF THE TremorOggVorbis 'TREMOR' CODEC SOURCE CODE.   *
  *                                                                  *
  * USE, DISTRIBUTION AND REPRODUCTION OF THIS LIBRARY SOURCE IS     *
  * GOVERNED BY A BSD-STYLE SOURCE LICENSE INCLUDED WITH THIS SOURCE *
  * IN 'COPYING'. PLEASE READ THESE TERMS BEFORE DISTRIBUTING.       *
  *                                                                  *
- * THE OggVorbis 'TREMOR' SOURCE CODE IS (C) COPYRIGHT 1994-2002    *
+ * THE TremorOggVorbis 'TREMOR' SOURCE CODE IS (C) COPYRIGHT 1994-2002    *
  * BY THE Xiph.Org FOUNDATION http://www.xiph.org/                  *
  *                                                                  *
  ********************************************************************
@@ -20,7 +20,7 @@
 #if !defined(_V_WIDE_MATH) && !defined(_LOW_ACCURACY_)
 #define _V_WIDE_MATH
 
-static inline ogg_int32_t MULT32(ogg_int32_t x, ogg_int32_t y) {
+static inline tremor_ogg_int32_t MULT32(tremor_ogg_int32_t x, tremor_ogg_int32_t y) {
   int lo,hi;
   asm volatile("smull\t%0, %1, %2, %3"
                : "=&r"(lo),"=&r"(hi)
@@ -29,11 +29,11 @@ static inline ogg_int32_t MULT32(ogg_int32_t x, ogg_int32_t y) {
   return(hi);
 }
 
-static inline ogg_int32_t MULT31(ogg_int32_t x, ogg_int32_t y) {
+static inline tremor_ogg_int32_t MULT31(tremor_ogg_int32_t x, tremor_ogg_int32_t y) {
   return MULT32(x,y)<<1;
 }
 
-static inline ogg_int32_t MULT31_SHIFT15(ogg_int32_t x, ogg_int32_t y) {
+static inline tremor_ogg_int32_t MULT31_SHIFT15(tremor_ogg_int32_t x, tremor_ogg_int32_t y) {
   int lo,hi;
   asm volatile("smull	%0, %1, %2, %3\n\t"
 	       "movs	%0, %0, lsr #15\n\t"
@@ -46,9 +46,9 @@ static inline ogg_int32_t MULT31_SHIFT15(ogg_int32_t x, ogg_int32_t y) {
 
 #define MB() asm volatile ("" : : : "memory")
 
-static inline void XPROD32(ogg_int32_t  a, ogg_int32_t  b,
-			   ogg_int32_t  t, ogg_int32_t  v,
-			   ogg_int32_t *x, ogg_int32_t *y)
+static inline void XPROD32(tremor_ogg_int32_t  a, tremor_ogg_int32_t  b,
+			   tremor_ogg_int32_t  t, tremor_ogg_int32_t  v,
+			   tremor_ogg_int32_t *x, tremor_ogg_int32_t *y)
 {
   int x1, y1, l;
   asm(	"smull	%0, %1, %4, %6\n\t"
@@ -64,9 +64,9 @@ static inline void XPROD32(ogg_int32_t  a, ogg_int32_t  b,
   *y = y1;
 }
 
-static inline void XPROD31(ogg_int32_t  a, ogg_int32_t  b,
-			   ogg_int32_t  t, ogg_int32_t  v,
-			   ogg_int32_t *x, ogg_int32_t *y)
+static inline void XPROD31(tremor_ogg_int32_t  a, tremor_ogg_int32_t  b,
+			   tremor_ogg_int32_t  t, tremor_ogg_int32_t  v,
+			   tremor_ogg_int32_t *x, tremor_ogg_int32_t *y)
 {
   int x1, y1, l;
   asm(	"smull	%0, %1, %4, %6\n\t"
@@ -82,9 +82,9 @@ static inline void XPROD31(ogg_int32_t  a, ogg_int32_t  b,
   *y = y1 << 1;
 }
 
-static inline void XNPROD31(ogg_int32_t  a, ogg_int32_t  b,
-			    ogg_int32_t  t, ogg_int32_t  v,
-			    ogg_int32_t *x, ogg_int32_t *y)
+static inline void XNPROD31(tremor_ogg_int32_t  a, tremor_ogg_int32_t  b,
+			    tremor_ogg_int32_t  t, tremor_ogg_int32_t  v,
+			    tremor_ogg_int32_t *x, tremor_ogg_int32_t *y)
 {
   int x1, y1, l;
   asm(	"rsb	%2, %4, #0\n\t"
@@ -105,7 +105,7 @@ static inline void XNPROD31(ogg_int32_t  a, ogg_int32_t  b,
 #ifndef _V_CLIP_MATH
 #define _V_CLIP_MATH
 
-static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x) {
+static inline tremor_ogg_int32_t CLIP_TO_15(tremor_ogg_int32_t x) {
   int tmp;
   asm volatile("subs	%1, %0, #32768\n\t"
 	       "movpl	%0, #0x7f00\n\t"
@@ -123,18 +123,17 @@ static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x) {
 #ifndef _V_LSP_MATH_ASM
 #define _V_LSP_MATH_ASM
 
-static inline void lsp_loop_asm(ogg_uint32_t *qip,ogg_uint32_t *pip,
-				ogg_int32_t *qexpp,
-				ogg_int32_t *ilsp,ogg_int32_t wi,
-				ogg_int32_t m){
+static inline void lsp_loop_asm(tremor_ogg_uint32_t *qip,tremor_ogg_uint32_t *pip,
+				tremor_ogg_int32_t *qexpp,
+				tremor_ogg_int32_t *ilsp,tremor_ogg_int32_t wi,
+				tremor_ogg_int32_t m){
   
-  ogg_uint32_t qi=*qip,pi=*pip;
-  ogg_int32_t qexp=*qexpp;
+  tremor_ogg_uint32_t qi=*qip,pi=*pip;
+  tremor_ogg_int32_t qexp=*qexpp;
 
   asm("mov     r0,%3;"
-      "movs    r1,%5,asr#1;"
+      "mov     r1,%5,asr#1;"
       "add     r0,r0,r1,lsl#3;"
-      "beq 2f;\n"
       "1:"
       
       "ldmdb   r0!,{r1,r3};"
@@ -157,10 +156,9 @@ static inline void lsp_loop_asm(ogg_uint32_t *qip,ogg_uint32_t *pip,
       "cmp     r0,%3;\n"
       "bhi     1b;\n"
       
-      "2:"
       // odd filter assymetry
       "ands    r0,%5,#1;\n"
-      "beq     3f;\n"
+      "beq     2f;\n"
       "add     r0,%3,%5,lsl#2;\n"
       
       "ldr     r1,[r0,#-4];\n"
@@ -172,7 +170,7 @@ static inline void lsp_loop_asm(ogg_uint32_t *qip,ogg_uint32_t *pip,
       "umull   %1,r3,r0,%1;\n"       //pi*=labs(ilsp[j+1]-wi)
       
       "cmn     r2,r3;\n"             // shift down 16?
-      "beq     3f;\n"
+      "beq     2f;\n"
       "add     %2,%2,#16;\n"
       "mov     %0,%0,lsr #16;\n"
       "orr     %0,%0,r2,lsl #16;\n"
@@ -186,7 +184,7 @@ static inline void lsp_loop_asm(ogg_uint32_t *qip,ogg_uint32_t *pip,
       //}
 	 
       /* normalize to max 16 sig figs */
-      "3:"
+      "2:"
       "mov     r2,#0;"
       "orr     r1,%0,%1;"
       "tst     r1,#0xff000000;"
@@ -216,10 +214,10 @@ static inline void lsp_loop_asm(ogg_uint32_t *qip,ogg_uint32_t *pip,
   *qexpp=qexp;
 }
 
-static inline void lsp_norm_asm(ogg_uint32_t *qip,ogg_int32_t *qexpp){
+static inline void lsp_norm_asm(tremor_ogg_uint32_t *qip,tremor_ogg_int32_t *qexpp){
 
-  ogg_uint32_t qi=*qip;
-  ogg_int32_t qexp=*qexpp;
+  tremor_ogg_uint32_t qi=*qip;
+  tremor_ogg_int32_t qexp=*qexpp;
 
   asm("tst     %0,#0x0000ff00;"
       "moveq   %0,%0,lsl #8;"

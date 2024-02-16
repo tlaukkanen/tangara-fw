@@ -30,9 +30,16 @@ MiniFlacDecoder::MiniFlacDecoder()
       current_sample_() {
   miniflac_init(flac_.get(), MINIFLAC_CONTAINER_UNKNOWN);
   for (int i = 0; i < samples_by_channel_.size(); i++) {
-    // Full decoded frames too big to fit in internal ram :(
+    uint32_t caps;
+    if (i == 0) {
+      caps = MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL;
+    } else {
+      // FIXME: We can *almost* fit two channels into internal ram, but we're a
+      // few KiB shy of being able to do it safely.
+      caps = MALLOC_CAP_SPIRAM;
+    }
     samples_by_channel_[i] = reinterpret_cast<int32_t*>(
-        heap_caps_malloc(kMaxFrameSize * sizeof(int32_t), MALLOC_CAP_SPIRAM));
+        heap_caps_malloc(kMaxFrameSize * sizeof(int32_t), caps));
   }
 }
 

@@ -4,31 +4,20 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "ivorbiscodec.h"
-#include "ivorbisfile.h"
-#include "ogg/config_types.h"
-#include "opus.hpp"
-
-#include <stdint.h>
-#include <sys/_stdint.h>
+#include "vorbis.hpp"
 
 #include <cstdint>
 #include <cstring>
 #include <optional>
 
 #include "esp_heap_caps.h"
-#include "mad.h"
+#include "esp_log.h"
+#include "ivorbiscodec.h"
+#include "ivorbisfile.h"
 
 #include "codec.hpp"
-#include "esp_log.h"
-#include "ogg/ogg.h"
-#include "opus.h"
-#include "opus_defines.h"
-#include "opus_types.h"
-#include "result.hpp"
 #include "sample.hpp"
 #include "types.hpp"
-#include "vorbis.hpp"
 
 namespace codecs {
 
@@ -39,7 +28,7 @@ static size_t read_cb(void* ptr, size_t size, size_t nmemb, void* instance) {
   return source->Read({reinterpret_cast<std::byte*>(ptr), size * nmemb});
 }
 
-static int seek_cb(void* instance, ogg_int64_t offset, int whence) {
+static int seek_cb(void* instance, tremor_ogg_int64_t offset, int whence) {
   IStream* source = reinterpret_cast<IStream*>(instance);
   if (!source->CanSeek()) {
     return -1;
@@ -78,17 +67,21 @@ static const ov_callbacks kCallbacks{
     .tell_func = tell_cb,  // Not seekable
 };
 
-TremorVorbisDecoder::TremorVorbisDecoder() : input_(), vorbis_() {}
+TremorVorbisDecoder::TremorVorbisDecoder()
+    : input_(),
+      vorbis_(reinterpret_cast<TremorOggVorbis_File*>(
+          heap_caps_malloc(sizeof(TremorOggVorbis_File),
+                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT))) {}
 
 TremorVorbisDecoder::~TremorVorbisDecoder() {
-  ov_clear(&vorbis_);
+  ov_clear(vorbis_.get());
 }
 
 auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
-  int res = ov_open_callbacks(input.get(), &vorbis_, NULL, 0, kCallbacks);
+  int res = ov_open_callbacks(input.get(), vorbis_.get(), NULL, 0, kCallbacks);
   if (res < 0) {
-    std::pmr::string err;
+    std::string err;
     switch (res) {
       case OV_EREAD:
         err = "OV_EREAD";
@@ -112,13 +105,13 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t off
     return cpp::fail(Error::kMalformedData);
   }
 
-  vorbis_info* info = ov_info(&vorbis_, -1);
+  vorbis_info* info = ov_info(vorbis_.get(), -1);
   if (info == NULL) {
     ESP_LOGE(kTag, "failed to get stream info");
     return cpp::fail(Error::kMalformedData);
   }
 
-  auto l = ov_pcm_total(&vorbis_, -1);
+  auto l = ov_pcm_total(vorbis_.get(), -1);
   std::optional<uint32_t> length;
   if (l > 0) {
     length = l * info->channels;
@@ -137,9 +130,10 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t off
 
 auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
-  int bitstream = 0;
-  long bytes_written = ov_read(&vorbis_, reinterpret_cast<char*>(output.data()),
-                               output.size_bytes(), &bitstream);
+  int unused = 0;
+  long bytes_written =
+      ov_read(vorbis_.get(), reinterpret_cast<char*>(output.data()),
+              ((output.size() - 1) * sizeof(sample::Sample)), &unused);
   if (bytes_written == OV_HOLE) {
     ESP_LOGE(kTag, "got OV_HOLE");
     return cpp::fail(Error::kMalformedData);
@@ -156,7 +150,7 @@ auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
 }
 
 auto TremorVorbisDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
-  if (ov_pcm_seek(&vorbis_, target) != 0) {
+  if (ov_pcm_seek(vorbis_.get(), target) != 0) {
     return cpp::fail(Error::kInternalError);
   }
   return {};
