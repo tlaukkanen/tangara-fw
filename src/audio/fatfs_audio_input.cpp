@@ -136,7 +136,7 @@ auto FatfsAudioInput::OpenFile(const std::string& path,uint32_t offset) -> bool 
 
   auto source =
       std::make_unique<FatfsSource>(stream_type.value(), std::move(file));
-  new_stream_.reset(new TaggedStream(tags, std::move(source), offset));
+  new_stream_.reset(new TaggedStream(tags, std::move(source), path, offset));
   return true;
 }
 

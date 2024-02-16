@@ -26,6 +26,7 @@ struct Track {
   uint32_t duration;
   uint32_t bitrate_kbps;
   codecs::StreamType encoding;
+  std::string filepath;
 };
 
 struct PlaybackStarted : tinyfsm::Event {};
@@ -46,8 +47,8 @@ struct PlayFile : tinyfsm::Event {
 };
 
 struct SeekFile : tinyfsm::Event {
+  uint32_t offset;
   std::string filename;
- uint32_t offset;
 };
 
 struct StepUpVolume : tinyfsm::Event {};

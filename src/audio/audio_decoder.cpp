@@ -148,16 +148,15 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   ESP_LOGI(kTag, "stream started ok");
   events::Audio().Dispatch(internal::InputFileOpened{});
 
-  // TODO: How does this need to change?
   auto tags = std::make_shared<Track>(Track{
       .tags = stream->tags(),
       .db_info = {},
       .bitrate_kbps = open_res->sample_rate_hz,
       .encoding = stream->type(),
+      .filepath = stream->Filepath(),
   });
   timer_.reset(new Timer(tags, open_res.value(), stream->Offset()));
 
-  // TODO: How does *this?* need to change?
   PlaybackUpdate ev{.seconds_elapsed = stream->Offset(), .track = tags};
   events::Audio().Dispatch(ev);
   events::Ui().Dispatch(ev);

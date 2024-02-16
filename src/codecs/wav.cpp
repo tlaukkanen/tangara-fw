@@ -218,7 +218,6 @@ auto WavDecoder::DecodeTo(cpp::span<sample::Sample> output)
 
   buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
     size_t bytes_read = buf.size_bytes();
-    ESP_LOGI(kTag, "Bytes read: %d", bytes_read);
     size_t frames_read =
         bytes_read / bytes_per_sample_ / output_format_.num_channels;
 
@@ -244,10 +243,6 @@ auto WavDecoder::DecodeTo(cpp::span<sample::Sample> output)
     return samples_written * bytes_per_sample_;
   });
 
-  ESP_LOGI(kTag, "Samples written %d", samples_written);
-  if (is_eof) {
-    ESP_LOGI(kTag, "EOF");
-  }
 
   return OutputInfo{.samples_written = samples_written,
                     .is_stream_finished = samples_written == 0 && is_eof};

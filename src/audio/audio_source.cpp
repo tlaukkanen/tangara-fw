@@ -12,8 +12,9 @@ namespace audio {
 
 TaggedStream::TaggedStream(std::shared_ptr<database::TrackTags> t,
                            std::unique_ptr<codecs::IStream> w,
+                           std::string filepath,
                            uint32_t offset)
-    : codecs::IStream(w->type()), tags_(t), wrapped_(std::move(w)), offset_(offset) {}
+    : codecs::IStream(w->type()), tags_(t), wrapped_(std::move(w)), filepath_(filepath), offset_(offset) {}
 
 auto TaggedStream::tags() -> std::shared_ptr<database::TrackTags> {
   return tags_;
@@ -41,6 +42,10 @@ auto TaggedStream::Size() -> std::optional<int64_t> {
 
 auto TaggedStream::Offset() -> uint32_t {
   return offset_;
+}
+
+auto TaggedStream::Filepath() -> std::string {
+  return filepath_;
 }
 
 auto TaggedStream::SetPreambleFinished() -> void {

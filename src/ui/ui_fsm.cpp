@@ -123,7 +123,21 @@ lua::Property UiState::sPlaybackPlaying{
     }};
 
 lua::Property UiState::sPlaybackTrack{};
-lua::Property UiState::sPlaybackPosition{0};
+lua::Property UiState::sPlaybackPosition{0, [](const lua::LuaValue& val) {
+    int current_val = std::get<int>(sPlaybackPosition.Get());
+    if (!std::holds_alternative<int>(val)) {
+      return false;
+    }
+    int new_val = std::get<int>(val);
+    if (current_val != new_val) {
+      auto track = sPlaybackTrack.Get();
+      if (!std::holds_alternative<audio::Track>(track)) {
+        return false;
+      }
+      events::Audio().Dispatch(audio::SeekFile{.offset = (uint32_t)new_val, .filename = std::get<audio::Track>(track).filepath});
+    }
+    return true;
+}};
 
 lua::Property UiState::sQueuePosition{0};
 lua::Property UiState::sQueueSize{0};
