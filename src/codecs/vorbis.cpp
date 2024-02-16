@@ -124,6 +124,10 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t off
     length = l * info->channels;
   }
 
+  if (offset) {
+    ov_time_seek(&vorbis_, offset*1000);
+  }
+
   return OutputFormat{
       .num_channels = static_cast<uint8_t>(info->channels),
       .sample_rate_hz = static_cast<uint32_t>(info->rate),
