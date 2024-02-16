@@ -16,18 +16,18 @@ namespace database {
 class ITagParser {
  public:
   virtual ~ITagParser() {}
-  virtual auto ReadAndParseTags(const std::string& path)
+  virtual auto ReadAndParseTags(std::string_view path)
       -> std::shared_ptr<TrackTags> = 0;
 };
 
 class TagParserImpl : public ITagParser {
  public:
   TagParserImpl();
-  auto ReadAndParseTags(const std::string& path)
+  auto ReadAndParseTags(std::string_view path)
       -> std::shared_ptr<TrackTags> override;
 
  private:
-  auto parseNew(const std::string& path) -> std::shared_ptr<TrackTags>;
+  auto parseNew(std::string_view path) -> std::shared_ptr<TrackTags>;
 
   /*
    * Cache of tags that have already been extracted from files. Ideally this
