@@ -128,6 +128,10 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     length = l * 2;
   }
 
+  if (offset) {
+    SeekTo(offset * 48000);
+  }
+
   return OutputFormat{
       .num_channels = 2,
       .sample_rate_hz = 48000,
