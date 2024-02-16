@@ -118,7 +118,7 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t off
   }
 
   if (offset) {
-    ov_time_seek(&vorbis_, offset*1000);
+    ov_time_seek(vorbis_.get(), offset*1000);
   }
 
   return OutputFormat{
