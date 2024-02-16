@@ -73,9 +73,19 @@ static int luavgl_slider_tostring(lua_State *L) {
   return 1;
 }
 
+static int luavgl_slider_is_dragged(lua_State *L) {
+  lv_obj_t *obj = luavgl_to_obj(L, 1);
+  bool is_dragged = lv_slider_is_dragged(obj);
+  lv_group_t * g   = lv_obj_get_group(obj);
+  bool editing     = lv_group_get_editing(g);
+  lua_pushboolean(L, editing || is_dragged);
+  return 1;
+}
+
 static const luaL_Reg luavgl_slider_methods[] = {
     {"set", luavgl_slider_set},
     {"value", luavgl_slider_value},
+    {"is_dragged", luavgl_slider_is_dragged},
     {NULL, NULL},
 };
 
