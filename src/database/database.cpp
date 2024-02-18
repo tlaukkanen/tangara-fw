@@ -383,8 +383,7 @@ auto Database::updateIndexes() -> void {
   ESP_LOGI(kTag, "scanning for new tracks");
   uint64_t num_processed = 0;
   std::pair<uint16_t, uint16_t> newest_track = last_update;
-  file_gatherer_.FindFiles("", [&](const std::string& path,
-                                   const FILINFO& info) {
+  file_gatherer_.FindFiles("", [&](std::string_view path, const FILINFO& info) {
     num_processed++;
     events::Ui().Dispatch(event::UpdateProgress{
         .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
@@ -456,9 +455,7 @@ auto Database::updateIndexes() -> void {
       dbCreateIndexesForTrack(*t);
     } else if (existing_data->filepath !=
                std::pmr::string{path.data(), path.size()}) {
-      ESP_LOGW(kTag, "tag hash collision for %s and %s",
-               existing_data->filepath.c_str(), path.c_str());
-      ESP_LOGI(kTag, "hash components: %s, %s, %s",
+      ESP_LOGW(kTag, "hash collision: %s, %s, %s",
                tags->title().value_or("no title").c_str(),
                tags->artist().value_or("no artist").c_str(),
                tags->album().value_or("no album").c_str());
