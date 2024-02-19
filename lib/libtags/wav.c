@@ -2,7 +2,7 @@
 
 #define le16u(d) (u16int)((d)[0] | (d)[1]<<8)
 
-static struct {
+static const struct {
 	char *s;
 	int type;
 }t[] = {
@@ -12,6 +12,8 @@ static struct {
 	{"INAM", Ttitle},
 	{"IPRD", Talbum},
 	{"ITRK", Ttrack},
+	{"ICMT", Tcomment},
+	{"????", Tunknown},
 };
 
 int
@@ -26,7 +28,7 @@ tagwav(Tagctx *ctx)
 
 	sz = 1;
 	info = 0;
-	for(i = 0; i < 8 && sz > 0; i++){
+	for(i = 0; sz > 0; i++){
 		if(ctx->read(ctx, d, 4+4+(i?0:4)) != 4+4+(i?0:4))
 			return -1;
 		if(i == 0){
@@ -66,20 +68,20 @@ tagwav(Tagctx *ctx)
 		}else if(memcmp(d, "LIST", 4) == 0){
 			sz = csz - 4;
 			continue;
-		}else if(memcmp(d, "data", 4) == 0){
-			break;
-		}else if(info){
-			csz++;
+		}else if(info && csz < (u32int)ctx->bufsz){
 			for(n = 0; n < nelem(t); n++){
-				if(memcmp(d, t[n].s, 4) == 0){
-					if(ctx->read(ctx, d, csz) != (int)csz)
+				if(memcmp(d, t[n].s, 4) == 0 || t[n].type == Tunknown){
+					if(ctx->read(ctx, d+5, csz) != (int)csz)
 						return -1;
-					d[csz-1] = 0;
-					txtcb(ctx, t[n].type, "", d);
+					d[4] = 0;
+					d[5+csz] = 0;
+					txtcb(ctx, t[n].type, t[n].type == Tunknown ? (char*)d : "", d+5);
 					csz = 0;
 					break;
 				}
 			}
+			if(n < nelem(t))
+				continue;
 		}
 
 		if(ctx->seek(ctx, csz, 1) < 0)

@@ -35,6 +35,8 @@ static const char *t2s[] =
 	[Ttrackpeak] = "trackpeak",
 	[Tgenre] = "genre",
 	[Timage] = "image",
+	[Tcomposer] = "composer",
+	[Tcomment] = "comment",
 };
 
 static void
@@ -43,7 +45,9 @@ tag(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagr
 	USED(ctx); USED(k); USED(f);
 	if(t == Timage)
 		print("%-12s %s %d %d\n", t2s[t], v, offset, size);
-	else if(t != Tunknown)
+	else if(t == Tunknown)
+		print("%-12s %s\n", k, v);
+	else
 		print("%-12s %s\n", t2s[t], v);
 }
 
