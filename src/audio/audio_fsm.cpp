@@ -366,6 +366,12 @@ void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
   sServices->track_queue().finish();
   if (!sServices->track_queue().current()) {
+    for (int i = 0; i < 20; i++) {
+      if (xStreamBufferIsEmpty(sDrainBuffer)) {
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(200));
+    }
     transit<Standby>();
   }
 }
