@@ -16,6 +16,7 @@
 #include "lua.h"
 #include "lvgl.h"
 
+#include "bridge.hpp"
 #include "database.hpp"
 #include "event_queue.hpp"
 #include "index.hpp"

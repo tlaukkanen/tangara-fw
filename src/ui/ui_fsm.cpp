@@ -36,6 +36,7 @@
 #include "encoder_input.hpp"
 #include "event_queue.hpp"
 #include "gpios.hpp"
+#include "lua_registry.hpp"
 #include "lvgl_task.hpp"
 #include "nvs.hpp"
 #include "property.hpp"

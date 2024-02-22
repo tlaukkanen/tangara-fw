@@ -40,7 +40,7 @@
 #include "freertos/projdefs.h"
 #include "haptics.hpp"
 #include "index.hpp"
-#include "lua_thread.hpp"
+#include "lua_registry.hpp"
 #include "memory_resource.hpp"
 #include "samd.hpp"
 #include "service_locator.hpp"
