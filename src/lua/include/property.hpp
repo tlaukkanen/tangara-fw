@@ -53,7 +53,9 @@ class Property {
 
 class PropertyBindings {
  public:
-  PropertyBindings(lua_State&);
+  PropertyBindings();
+
+  auto install(lua_State*) -> void;
 
   auto Register(lua_State*, Property*) -> void;
   auto Register(lua_State*, LuaFunction) -> void;

@@ -9,21 +9,15 @@
 #include <iostream>
 #include <memory>
 
-#include "lauxlib.h"
-#include "lua.h"
-#include "lua.hpp"
-
-#include "font/lv_font_loader.h"
-#include "luavgl.h"
-
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "lua.hpp"
+
+#include "bridge.hpp"
 #include "event_queue.hpp"
+#include "memory_resource.hpp"
 #include "service_locator.hpp"
 #include "ui_events.hpp"
-
-LV_FONT_DECLARE(font_fusion_12);
-LV_FONT_DECLARE(font_fusion_10);
 
 namespace lua {
 
@@ -59,23 +53,7 @@ static int lua_panic(lua_State* L) {
   return 0;
 }
 
-static auto make_font_cb(const char* name, int size, int weight)
-    -> const lv_font_t* {
-  if (std::string{"fusion"} == name) {
-    if (size == 12) {
-      return &font_fusion_12;
-    }
-    if (size == 10) {
-      return &font_fusion_10;
-    }
-  }
-  return NULL;
-}
-
-static auto delete_font_cb(lv_font_t* font) -> void {}
-
-auto LuaThread::Start(system_fsm::ServiceLocator& services, lv_obj_t* lvgl_root)
-    -> LuaThread* {
+auto LuaThread::Start(system_fsm::ServiceLocator& services) -> LuaThread* {
   auto alloc = std::make_unique<Allocator>();
   lua_State* state = lua_newstate(lua_alloc, alloc.get());
   if (!state) {
@@ -85,24 +63,11 @@ auto LuaThread::Start(system_fsm::ServiceLocator& services, lv_obj_t* lvgl_root)
   luaL_openlibs(state);
   lua_atpanic(state, lua_panic);
 
-  auto bridge = std::make_unique<Bridge>(services, *state);
-
-  // FIXME: luavgl init should probably be a part of the bridge.
-  if (lvgl_root) {
-    luavgl_set_pcall(state, CallProtected);
-    luavgl_set_font_extension(state, make_font_cb, delete_font_cb);
-    luavgl_set_root(state, lvgl_root);
-    luaL_requiref(state, "lvgl", luaopen_lvgl, true);
-    lua_pop(state, 1);
-  }
-
-  return new LuaThread(alloc, bridge, state);
+  return new LuaThread(alloc, state);
 }
 
-LuaThread::LuaThread(std::unique_ptr<Allocator>& alloc,
-                     std::unique_ptr<Bridge>& bridge,
-                     lua_State* state)
-    : alloc_(std::move(alloc)), bridge_(std::move(bridge)), state_(state) {}
+LuaThread::LuaThread(std::unique_ptr<Allocator>& alloc, lua_State* state)
+    : alloc_(std::move(alloc)), state_(state) {}
 
 LuaThread::~LuaThread() {
   lua_close(state_);
@@ -217,6 +182,53 @@ auto CallProtected(lua_State* s, int nargs, int nresults) -> int {
   lua_remove(s, base);
 
   return ret;
+}
+
+auto Registry::instance(system_fsm::ServiceLocator& s) -> Registry& {
+  static Registry sRegistry{s};
+  return sRegistry;
+}
+
+Registry::Registry(system_fsm::ServiceLocator& services)
+    : services_(services), bridge_(new Bridge(services)) {}
+
+auto Registry::uiThread() -> std::shared_ptr<LuaThread> {
+  if (!ui_thread_) {
+    ui_thread_ = newThread();
+    bridge_->installLvgl(ui_thread_->state());
+  }
+  return ui_thread_;
+}
+
+auto Registry::newThread() -> std::shared_ptr<LuaThread> {
+  std::shared_ptr<LuaThread> thread{LuaThread::Start(services_)};
+  bridge_->installBaseModules(thread->state());
+  for (auto& module : modules_) {
+    bridge_->installPropertyModule(thread->state(), module.first,
+                                   module.second);
+  }
+  threads_.push_back(thread);
+  return thread;
+}
+
+auto Registry::AddPropertyModule(
+    const std::string& name,
+    std::vector<std::pair<std::string, std::variant<LuaFunction, Property*>>>
+        properties) -> void {
+  modules_.push_back(std::make_pair(name, properties));
+
+  // Any live threads will need to be updated to include the new module.
+  auto it = threads_.begin();
+  while (it != threads_.end()) {
+    auto thread = it->lock();
+    if (!thread) {
+      // Thread has been destroyed; stop tracking it.
+      it = threads_.erase(it);
+    } else {
+      bridge_->installPropertyModule(thread->state(), name, properties);
+      it++;
+    }
+  }
 }
 
 }  // namespace lua

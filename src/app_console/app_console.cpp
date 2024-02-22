@@ -628,8 +628,7 @@ static const char kReplMain[] =
     "repl:run()\n";
 
 int CmdLua(int argc, char** argv) {
-  std::unique_ptr<lua::LuaThread> context{
-      lua::LuaThread::Start(*AppConsole::sServices)};
+  auto context = lua::Registry::instance(*AppConsole::sServices).newThread();
   if (!context) {
     return 1;
   }
@@ -652,8 +651,7 @@ int CmdLua(int argc, char** argv) {
 }
 
 int CmdLuaRun(int argc, char** argv) {
-  std::unique_ptr<lua::LuaThread> context{
-      lua::LuaThread::Start(*AppConsole::sServices)};
+  auto context = lua::Registry::instance(*AppConsole::sServices).newThread();
   if (!context) {
     return 1;
   }

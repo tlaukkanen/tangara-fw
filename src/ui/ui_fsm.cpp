@@ -128,29 +128,29 @@ lua::Property UiState::sPlaybackPosition{0};
 lua::Property UiState::sQueuePosition{0};
 lua::Property UiState::sQueueSize{0};
 lua::Property UiState::sQueueRepeat{false, [](const lua::LuaValue& val) {
-      if (!std::holds_alternative<bool>(val)) {
-        return false;
-      }
-      bool new_val = std::get<bool>(val);
-      sServices->track_queue().repeat(new_val);
-      return true;
-}};
+                                      if (!std::holds_alternative<bool>(val)) {
+                                        return false;
+                                      }
+                                      bool new_val = std::get<bool>(val);
+                                      sServices->track_queue().repeat(new_val);
+                                      return true;
+                                    }};
 lua::Property UiState::sQueueReplay{false, [](const lua::LuaValue& val) {
-      if (!std::holds_alternative<bool>(val)) {
-        return false;
-      }
-      bool new_val = std::get<bool>(val);
-      sServices->track_queue().replay(new_val);
-      return true;
-}};
+                                      if (!std::holds_alternative<bool>(val)) {
+                                        return false;
+                                      }
+                                      bool new_val = std::get<bool>(val);
+                                      sServices->track_queue().replay(new_val);
+                                      return true;
+                                    }};
 lua::Property UiState::sQueueRandom{false, [](const lua::LuaValue& val) {
-      if (!std::holds_alternative<bool>(val)) {
-        return false;
-      }
-      bool new_val = std::get<bool>(val);
-      sServices->track_queue().random(new_val);
-      return true;
-}};
+                                      if (!std::holds_alternative<bool>(val)) {
+                                        return false;
+                                      }
+                                      bool new_val = std::get<bool>(val);
+                                      sServices->track_queue().random(new_val);
+                                      return true;
+                                    }};
 
 lua::Property UiState::sVolumeCurrentPct{
     0, [](const lua::LuaValue& val) {
@@ -442,27 +442,26 @@ void Lua::entry() {
                                alert_timer_callback);
     sAlertContainer = lv_obj_create(sCurrentScreen->alert());
 
-    sLua.reset(lua::LuaThread::Start(*sServices, sCurrentScreen->content()));
-    sLua->bridge().AddPropertyModule("power",
-                                     {
-                                         {"battery_pct", &sBatteryPct},
-                                         {"battery_millivolts", &sBatteryMv},
-                                         {"plugged_in", &sBatteryCharging},
-                                     });
-    sLua->bridge().AddPropertyModule(
-        "bluetooth", {
-                         {"enabled", &sBluetoothEnabled},
-                         {"connected", &sBluetoothConnected},
-                         {"paired_device", &sBluetoothPairedDevice},
-                         {"devices", &sBluetoothDevices},
-                     });
-    sLua->bridge().AddPropertyModule("playback",
-                                     {
-                                         {"playing", &sPlaybackPlaying},
-                                         {"track", &sPlaybackTrack},
-                                         {"position", &sPlaybackPosition},
-                                     });
-    sLua->bridge().AddPropertyModule(
+    auto& registry = lua::Registry::instance(*sServices);
+    sLua = registry.uiThread();
+    registry.AddPropertyModule("power", {
+                                            {"battery_pct", &sBatteryPct},
+                                            {"battery_millivolts", &sBatteryMv},
+                                            {"plugged_in", &sBatteryCharging},
+                                        });
+    registry.AddPropertyModule("bluetooth",
+                               {
+                                   {"enabled", &sBluetoothEnabled},
+                                   {"connected", &sBluetoothConnected},
+                                   {"paired_device", &sBluetoothPairedDevice},
+                                   {"devices", &sBluetoothDevices},
+                               });
+    registry.AddPropertyModule("playback", {
+                                               {"playing", &sPlaybackPlaying},
+                                               {"track", &sPlaybackTrack},
+                                               {"position", &sPlaybackPosition},
+                                           });
+    registry.AddPropertyModule(
         "queue",
         {
             {"next", [&](lua_State* s) { return QueueNext(s); }},
@@ -473,40 +472,39 @@ void Lua::entry() {
             {"repeat_track", &sQueueRepeat},
             {"random", &sQueueRandom},
         });
-    sLua->bridge().AddPropertyModule("volume",
-                                     {
-                                         {"current_pct", &sVolumeCurrentPct},
-                                         {"current_db", &sVolumeCurrentDb},
-                                         {"left_bias", &sVolumeLeftBias},
-                                         {"limit_db", &sVolumeLimit},
-                                     });
+    registry.AddPropertyModule("volume",
+                               {
+                                   {"current_pct", &sVolumeCurrentPct},
+                                   {"current_db", &sVolumeCurrentDb},
+                                   {"left_bias", &sVolumeLeftBias},
+                                   {"limit_db", &sVolumeLimit},
+                               });
 
-    sLua->bridge().AddPropertyModule("display",
-                                     {
-                                         {"brightness", &sDisplayBrightness},
-                                     });
+    registry.AddPropertyModule("display",
+                               {
+                                   {"brightness", &sDisplayBrightness},
+                               });
 
-    sLua->bridge().AddPropertyModule("controls",
-                                     {
-                                         {"scheme", &sControlsScheme},
-                                         {"scroll_sensitivity", &sScrollSensitivity},
-                                     });
+    registry.AddPropertyModule("controls",
+                               {
+                                   {"scheme", &sControlsScheme},
+                                   {"scroll_sensitivity", &sScrollSensitivity},
+                               });
 
-    sLua->bridge().AddPropertyModule(
+    registry.AddPropertyModule(
         "backstack",
         {
             {"push", [&](lua_State* s) { return PushLuaScreen(s); }},
             {"pop", [&](lua_State* s) { return PopLuaScreen(s); }},
         });
-    sLua->bridge().AddPropertyModule(
+    registry.AddPropertyModule(
         "alerts", {
                       {"show", [&](lua_State* s) { return ShowAlert(s); }},
                       {"hide", [&](lua_State* s) { return HideAlert(s); }},
                   });
-    sLua->bridge().AddPropertyModule("database",
-                                     {
-                                         {"updating", &sDatabaseUpdating},
-                                     });
+    registry.AddPropertyModule("database", {
+                                               {"updating", &sDatabaseUpdating},
+                                           });
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());
