@@ -54,9 +54,10 @@ auto MiniFlacDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
   input_ = input;
 
   MINIFLAC_RESULT res;
+  bool is_eof;
   auto read_until_result = [&](auto fn) {
     while (true) {
-      bool eof = buffer_.Refill(input_.get());
+      is_eof = buffer_.Refill(input_.get());
       buffer_.ConsumeBytes(fn);
       if (res == MINIFLAC_CONTINUE && !eof) {
         continue;
@@ -64,6 +65,35 @@ auto MiniFlacDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       break;
     }
   };
+
+  uint16_t min_block_size = 0; // In samples
+
+  read_until_result([&](cpp::span<std::byte> buf) -> size_t {
+    uint32_t bytes_used = 0;
+    res = miniflac_streaminfo_min_block_size(
+        flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
+        buf.size_bytes(), &bytes_used, &min_block_size);
+    return bytes_used;
+  });
+
+  if (res != MINIFLAC_OK) {
+    return cpp::fail(Error::kMalformedData);
+  }
+
+  uint16_t max_block_size = 0; // In samples
+  read_until_result([&](cpp::span<std::byte> buf) -> size_t {
+    uint32_t bytes_used = 0;
+    res = miniflac_streaminfo_min_block_size(
+        flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
+        buf.size_bytes(), &bytes_used, &max_block_size);
+    return bytes_used;
+  });
+
+  if (res != MINIFLAC_OK) {
+    return cpp::fail(Error::kMalformedData);
+  }
+
+  ESP_LOGI(kTag, "Blocksize min: %u max %u", min_block_size, max_block_size);
 
   uint32_t sample_rate = 0;
 
@@ -112,79 +142,10 @@ auto MiniFlacDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
   }
 
   // Seeking
-  offset = 50;
+  offset = 0;
   if (offset) {
-      // TODO: This assumes a constant sample_rate
-      uint64_t target_sample = sample_rate * offset;
-      uint32_t num_seekpoints;
-      read_until_result([&](cpp::span<std::byte> buf) -> size_t {
-        uint32_t bytes_used = 0;
-        res = miniflac_seektable_seekpoints(
-            flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
-            buf.size_bytes(), &bytes_used, &num_seekpoints);
-        return bytes_used;
-      });
-      if (res != MINIFLAC_OK) {
-        // TODO: Not having a seektable is not malformed
-        // but currently seeking will not work without it.
-        return cpp::fail(Error::kMalformedData);
-      }
-    // Loop over the seek table
-    ESP_LOGI(kTag, "Found seektable with %lu points", num_seekpoints);
-    uint64_t sample_number;
-    uint64_t sample_offset_bytes;
-    uint16_t num_samples_in_target;
-    for (uint32_t i = 0; i < num_seekpoints; i++) {
-      // Get sample number
-      read_until_result([&](cpp::span<std::byte> buf) -> size_t {
-        uint32_t bytes_used = 0;
-        res = miniflac_seektable_sample_number(
-            flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
-            buf.size_bytes(), &bytes_used, &sample_number);
-        return bytes_used;
-      });
-      if (res != MINIFLAC_OK) {
-        return cpp::fail(Error::kMalformedData);
-      }
-      read_until_result([&](cpp::span<std::byte> buf) -> size_t {
-        uint32_t bytes_used = 0;
-        res = miniflac_seektable_sample_offset(
-            flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
-            buf.size_bytes(), &bytes_used, &sample_offset_bytes);
-        return bytes_used;
-      });
-      if (res != MINIFLAC_OK) {
-        return cpp::fail(Error::kMalformedData);
-      }
-      read_until_result([&](cpp::span<std::byte> buf) -> size_t {
-        uint32_t bytes_used = 0;
-        res = miniflac_seektable_samples(
-            flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
-            buf.size_bytes(), &bytes_used, &num_samples_in_target);
-        return bytes_used;
-      });
-      if (res != MINIFLAC_OK) {
-        return cpp::fail(Error::kMalformedData);
-      }
-
-      ESP_LOGI(kTag, "Seektable entry %lu", i);
-
-      // Check if we want to seek to this seektable position?
-      if (sample_number + num_samples_in_target >= target_sample) {
-        ESP_LOGI(kTag, "Break on Seektable entry %lu", i);
-        break;
-      }
-    }
-
-    // Seek forward to target_sample
-    if (sample_number > 0) {
-      ESP_LOGI(kTag, "total samples: %llu", total_samples);
-      ESP_LOGI(kTag, "TARGET SAMPLE: %llu", target_sample);
-      ESP_LOGI(kTag, "SAMPLE NUMBER: %llu", sample_number);
-    }
-    uint64_t byte_offset = sample_offset_bytes;
-    ESP_LOGI(kTag, "Byte offset is forward %llu bytes", byte_offset);
-    ESP_LOGI(kTag, "Decoder state pre: %d", flac_->state);
+    // Super dumb approach, but lets try it first
+    // Go to the first frame
     while(flac_.get()->state == MINIFLAC_METADATA) {
         read_until_result([&](cpp::span<std::byte> buf) -> size_t {
           uint32_t bytes_used = 0;
@@ -194,46 +155,42 @@ auto MiniFlacDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
           return bytes_used;
         });
         if (res != MINIFLAC_OK) {
-          ESP_LOGI(kTag, "Decoder error 1 %d", res);
+          ESP_LOGI(kTag, "IT HAPPENED");
         }
     }
-    ESP_LOGI(kTag, "Decoder state post: %d", flac_->state);
-
+    ESP_LOGI(kTag, "Flac state: %d", flac_->state);
+     
+     // Naive approach 
+    uint64_t byte_offset = offset; // TODO
 
     ESP_LOGI(kTag, "Going to skip forward %llu bytes", byte_offset);
     if (input_.get()->CanSeek()) {
       ESP_LOGI(kTag, "Skipping forward %llu bytes", byte_offset);
       buffer_.Empty();
       input_.get()->SeekTo(byte_offset, IStream::SeekFrom::kCurrentPosition);
-      ESP_LOGI(kTag, "Skipped %llu bytes", byte_offset);
     }
+    // buffer_.Refill(input_.get());
 
+    // // Sync again
+    // read_until_result([&](cpp::span<std::byte> buf) -> size_t {
+    //   uint32_t bytes_used = 0;
+    //   res = miniflac_sync(
+    //       flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
+    //       buf.size_bytes(), &bytes_used);
+    //   return bytes_used;
+    // });
+    // if (res != MINIFLAC_OK) {
+    //   ESP_LOGI(kTag, "IT HAPPENED HERE! %d", res);
+    // }
 
-    ESP_LOGI(kTag, "Pre-refill");
-    buffer_.Refill(input_.get());
-    ESP_LOGI(kTag, "Post-refill");
+    // ESP_LOGI(kTag, "Decoder state: %d", flac_->state);
+    // ESP_LOGI(kTag, "Frame header state: %d", flac_->frame.header.state);
 
-
-    read_until_result([&](cpp::span<std::byte> buf) -> size_t {
-      uint32_t bytes_used = 0;
-      res = miniflac_sync(
-          flac_.get(), reinterpret_cast<const uint8_t*>(buf.data()),
-          buf.size_bytes(), &bytes_used);
-      return bytes_used;
-    });
-    if (res != MINIFLAC_OK) {
-      ESP_LOGI(kTag, "Decoder error 1 %d", res);
-    }
-    ESP_LOGI(kTag, "JOB'S DONE");
+    // // TODO: Sample number is not guaranteed, could be block index.
+    // ESP_LOGI(kTag, "Ended up... at sample %llu", flac_->frame.header.sample_number);
+    // ESP_LOGI(kTag, "and block index: %lu", flac_->frame.header.frame_number);
+    // ESP_LOGI(kTag, "total samples: %llu", total_samples);
   }
-
-  ESP_LOGI(kTag, "Decoder state: %d", flac_->state);
-  ESP_LOGI(kTag, "Frame header state: %d", flac_->frame.header.state);
-
-  // TODO: Sample number is not guaranteed, could be block index.
-  ESP_LOGI(kTag, "Ended up... at sample %llu", flac_->frame.header.sample_number);
-  ESP_LOGI(kTag, "and block index: %lu", flac_->frame.header.frame_number);
-  ESP_LOGI(kTag, "total samples: %llu", total_samples);
 
 
   OutputFormat format{
@@ -274,7 +231,7 @@ auto MiniFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
       };
     } else {
       ESP_LOGI(kTag, "Failed: decoder result: %d", res);
-      // return cpp::fail(Error::kMalformedData);
+      return cpp::fail(Error::kMalformedData);
     }
   }
 

@@ -74,4 +74,9 @@ auto SourceBuffer::ConsumeBytes(
   }
 }
 
+auto SourceBuffer::Empty() -> void {
+  offset_of_bytes_ = 0;
+  bytes_in_buffer_ = 0;
+}
+
 }  // namespace codecs

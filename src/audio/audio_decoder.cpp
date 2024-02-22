@@ -167,6 +167,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
 auto Decoder::ContinueDecoding() -> bool {
   auto res = codec_->DecodeTo(codec_buffer_);
   if (res.has_error()) {
+    ESP_LOGI(kTag, "RAN INTO DECODING ERROR");
     return true;
   }
 
