@@ -24,6 +24,7 @@
 #include "core/lv_obj_tree.h"
 #include "database.hpp"
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
 #include "haptics.hpp"
 #include "lauxlib.h"
 #include "lua_thread.hpp"
@@ -503,6 +504,11 @@ void Lua::entry() {
                       {"show", [&](lua_State* s) { return ShowAlert(s); }},
                       {"hide", [&](lua_State* s) { return HideAlert(s); }},
                   });
+
+    registry.AddPropertyModule(
+        "time", {
+                    {"ticks", [&](lua_State* s) { return Ticks(s); }},
+                });
     registry.AddPropertyModule("database", {
                                                {"updating", &sDatabaseUpdating},
                                            });
@@ -562,6 +568,11 @@ auto Lua::PopLuaScreen(lua_State* s) -> int {
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
   return 0;
+}
+
+auto Lua::Ticks(lua_State* s) -> int {
+  lua_pushinteger(s, esp_timer_get_time()/1000);
+  return 1;
 }
 
 auto Lua::ShowAlert(lua_State* s) -> int {
