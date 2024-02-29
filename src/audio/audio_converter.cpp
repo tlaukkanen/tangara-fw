@@ -77,9 +77,9 @@ auto SampleConverter::ConvertSamples(cpp::span<sample::Sample> input,
       reinterpret_cast<std::byte*>(input.data()), input.size_bytes()};
   size_t bytes_sent = 0;
   while (bytes_sent < input_as_bytes.size()) {
-    bytes_sent +=
-        xStreamBufferSend(source_, input_as_bytes.subspan(bytes_sent).data(),
-                          input_as_bytes.size() - bytes_sent, portMAX_DELAY);
+    bytes_sent += xStreamBufferSend(
+        source_, input_as_bytes.subspan(bytes_sent).data(),
+        input_as_bytes.size() - bytes_sent, pdMS_TO_TICKS(100));
   }
 }
 
