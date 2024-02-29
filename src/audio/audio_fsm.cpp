@@ -51,6 +51,10 @@ std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
+// Two seconds of samples for two channels, at a representative sample rate.
+constexpr size_t kDrainBufferSize = sizeof(sample::Sample) * 48000 * 4;
+StreamBufferHandle_t AudioState::sDrainBuffer;
+
 std::optional<database::TrackId> AudioState::sCurrentTrack;
 bool AudioState::sIsPlaybackAllowed;
 
@@ -129,7 +133,7 @@ void AudioState::react(const SetVolumeBalance& ev) {
 void AudioState::react(const OutputModeChanged& ev) {
   ESP_LOGI(kTag, "output mode changed");
   auto new_mode = sServices->nvs().OutputMode();
-  sOutput->SetMode(IAudioOutput::Modes::kOff);
+  sOutput->mode(IAudioOutput::Modes::kOff);
   switch (new_mode) {
     case drivers::NvsStorage::Output::kBluetooth:
       sOutput = sBtOutput;
@@ -138,7 +142,7 @@ void AudioState::react(const OutputModeChanged& ev) {
       sOutput = sI2SOutput;
       break;
   }
-  sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
+  sOutput->mode(IAudioOutput::Modes::kOnPaused);
   sSampleConverter->SetOutput(sOutput);
 
   // Bluetooth volume isn't 'changed' until we've connected to a device.
@@ -147,6 +151,32 @@ void AudioState::react(const OutputModeChanged& ev) {
         .percent = sOutput->GetVolumePct(),
         .db = sOutput->GetVolumeDb(),
     });
+  }
+}
+
+auto AudioState::clearDrainBuffer() -> void {
+  // Tell the decoder to stop adding new samples. This might not take effect
+  // immediately, since the decoder might currently be stuck waiting for space
+  // to become available in the drain buffer.
+  sFileSource->SetPath();
+
+  auto mode = sOutput->mode();
+  if (mode == IAudioOutput::Modes::kOnPlaying) {
+    // If we're currently playing, then the drain buffer will be actively
+    // draining on its own. Just keep trying to reset until it works.
+    while (xStreamBufferReset(sDrainBuffer) != pdPASS) {
+    }
+  } else {
+    // If we're not currently playing, then we need to actively pull samples
+    // out of the drain buffer to unblock the decoder.
+    while (!xStreamBufferIsEmpty(sDrainBuffer)) {
+      // Read a little to unblock the decoder.
+      uint8_t drain[2048];
+      xStreamBufferReceive(sDrainBuffer, drain, sizeof(drain), 0);
+
+      // Try to quickly discard the rest.
+      xStreamBufferReset(sDrainBuffer);
+    }
   }
 }
 
@@ -194,10 +224,6 @@ void AudioState::react(const TogglePlayPause& ev) {
 
 namespace states {
 
-// Two seconds of samples for two channels, at a representative sample rate.
-constexpr size_t kDrainBufferSize = sizeof(sample::Sample) * 48000 * 4;
-static StreamBufferHandle_t sDrainBuffer;
-
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
@@ -229,7 +255,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   } else {
     sOutput = sBtOutput;
   }
-  sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
+  sOutput->mode(IAudioOutput::Modes::kOnPaused);
 
   events::Ui().Dispatch(VolumeLimitChanged{
       .new_limit_db =
@@ -272,6 +298,7 @@ void Standby::react(const QueueUpdate& ev) {
   if (!current_track || (sCurrentTrack && (*sCurrentTrack == *current_track))) {
     return;
   }
+  clearDrainBuffer();
   playTrack(*current_track);
 }
 
@@ -315,7 +342,7 @@ void Standby::react(const system_fsm::StorageMounted& ev) {
 
 void Playback::entry() {
   ESP_LOGI(kTag, "beginning playback");
-  sOutput->SetMode(IAudioOutput::Modes::kOnPlaying);
+  sOutput->mode(IAudioOutput::Modes::kOnPlaying);
 
   events::System().Dispatch(PlaybackStarted{});
   events::Ui().Dispatch(PlaybackStarted{});
@@ -323,10 +350,10 @@ void Playback::entry() {
 
 void Playback::exit() {
   ESP_LOGI(kTag, "finishing playback");
-  sOutput->SetMode(IAudioOutput::Modes::kOnPaused);
+  sOutput->mode(IAudioOutput::Modes::kOnPaused);
 
-  // Stash the current volume now, in case it changed during playback, since we
-  // might be powering off soon.
+  // Stash the current volume now, in case it changed during playback, since
+  // we might be powering off soon.
   commitVolume();
 
   events::System().Dispatch(PlaybackStopped{});
@@ -342,6 +369,10 @@ void Playback::react(const system_fsm::HasPhonesChanged& ev) {
 void Playback::react(const QueueUpdate& ev) {
   if (!ev.current_changed) {
     return;
+  }
+  // Cut the current track immediately.
+  if (ev.reason == QueueUpdate::Reason::kExplicitUpdate) {
+    clearDrainBuffer();
   }
   auto current_track = sServices->track_queue().current();
   if (!current_track) {

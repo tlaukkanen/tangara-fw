@@ -33,6 +33,8 @@ namespace audio {
 
 [[maybe_unused]] static constexpr char kTag[] = "tracks";
 
+using Reason = QueueUpdate::Reason;
+
 RandomIterator::RandomIterator()
     : seed_(0), pos_(0), size_(0), replay_(false) {}
 
@@ -72,8 +74,11 @@ auto RandomIterator::replay(bool r) -> void {
   replay_ = r;
 }
 
-auto notifyChanged(bool current_changed) -> void {
-  QueueUpdate ev{.current_changed = current_changed};
+auto notifyChanged(bool current_changed, Reason reason) -> void {
+  QueueUpdate ev{
+      .current_changed = current_changed,
+      .reason = reason,
+  };
   events::Ui().Dispatch(ev);
   events::Audio().Dispatch(ev);
 }
@@ -157,7 +162,7 @@ auto TrackQueue::insert(Item i, size_t index) -> void {
         update_shuffler();
       }
     }
-    notifyChanged(current_changed);
+    notifyChanged(current_changed, Reason::kExplicitUpdate);
   } else if (std::holds_alternative<database::TrackIterator>(i)) {
     // Iterators can be very large, and retrieving items from them often
     // requires disk i/o. Handle them asynchronously so that inserting them
@@ -185,7 +190,7 @@ auto TrackQueue::insert(Item i, size_t index) -> void {
         const std::unique_lock<std::shared_mutex> lock(mutex_);
         update_shuffler();
       }
-      notifyChanged(current_changed);
+      notifyChanged(current_changed, Reason::kExplicitUpdate);
     });
   }
 }
@@ -200,6 +205,10 @@ auto TrackQueue::append(Item i) -> void {
 }
 
 auto TrackQueue::next() -> void {
+  next(Reason::kExplicitUpdate);
+}
+
+auto TrackQueue::next(Reason r) -> void {
   bool changed = true;
 
   {
@@ -221,7 +230,7 @@ auto TrackQueue::next() -> void {
     }
   }
 
-  notifyChanged(changed);
+  notifyChanged(changed, r);
 }
 
 auto TrackQueue::previous() -> void {
@@ -245,22 +254,22 @@ auto TrackQueue::previous() -> void {
     }
   }
 
-  notifyChanged(changed);
+  notifyChanged(changed, Reason::kExplicitUpdate);
 }
 
 auto TrackQueue::finish() -> void {
   if (repeat_) {
-    notifyChanged(true);
+    notifyChanged(true, Reason::kRepeatingLastTrack);
   } else {
-    next();
+    next(Reason::kTrackFinished);
   }
 }
 
 auto TrackQueue::skipTo(database::TrackId id) -> void {
   // Defer this work to the background not because it's particularly
-  // long-running (although it could be), but because we want to ensure we only
-  // search for the given id after any previously pending iterator insertions
-  // have finished.
+  // long-running (although it could be), but because we want to ensure we
+  // only search for the given id after any previously pending iterator
+  // insertions have finished.
   bg_worker_.Dispatch<void>([=, this]() {
     bool found = false;
     {
@@ -274,7 +283,7 @@ auto TrackQueue::skipTo(database::TrackId id) -> void {
       }
     }
     if (found) {
-      notifyChanged(true);
+      notifyChanged(true, Reason::kExplicitUpdate);
     }
   });
 }
@@ -294,7 +303,7 @@ auto TrackQueue::clear() -> void {
     }
   }
 
-  notifyChanged(true);
+  notifyChanged(true, Reason::kExplicitUpdate);
 }
 
 auto TrackQueue::random(bool en) -> void {
@@ -311,7 +320,7 @@ auto TrackQueue::random(bool en) -> void {
   }
 
   // Current track doesn't get randomised until next().
-  notifyChanged(false);
+  notifyChanged(false, Reason::kExplicitUpdate);
 }
 
 auto TrackQueue::random() const -> bool {
@@ -325,7 +334,7 @@ auto TrackQueue::repeat(bool en) -> void {
     repeat_ = en;
   }
 
-  notifyChanged(false);
+  notifyChanged(false, Reason::kExplicitUpdate);
 }
 
 auto TrackQueue::repeat() const -> bool {
@@ -341,7 +350,7 @@ auto TrackQueue::replay(bool en) -> void {
       shuffle_->replay(en);
     }
   }
-  notifyChanged(false);
+  notifyChanged(false, Reason::kExplicitUpdate);
 }
 
 auto TrackQueue::replay() const -> bool {
@@ -477,7 +486,7 @@ auto TrackQueue::deserialise(const std::string& s) -> void {
   QueueParseClient client{*this};
   const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
   cppbor::parse(data, data + s.size(), &client);
-  notifyChanged(true);
+  notifyChanged(true, Reason::kExplicitUpdate);
 }
 
 }  // namespace audio

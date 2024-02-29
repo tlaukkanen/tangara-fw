@@ -27,7 +27,8 @@ class IAudioOutput {
   StreamBufferHandle_t stream_;
 
  public:
-  IAudioOutput(StreamBufferHandle_t stream) : stream_(stream) {}
+  IAudioOutput(StreamBufferHandle_t stream)
+      : stream_(stream), mode_(Modes::kOff) {}
 
   virtual ~IAudioOutput() {}
 
@@ -41,7 +42,14 @@ class IAudioOutput {
    * Indicates whether this output is currently being sent samples. If this is
    * false, the output should place itself into a low power state.
    */
-  virtual auto SetMode(Modes) -> void = 0;
+  auto mode(Modes m) -> void {
+    if (mode_ == m) {
+      return;
+    }
+    changeMode(m);
+    mode_ = m;
+  }
+  auto mode() -> Modes { return mode_; }
 
   virtual auto SetVolumeImbalance(int_fast8_t balance) -> void = 0;
 
@@ -67,6 +75,11 @@ class IAudioOutput {
   virtual auto Configure(const Format& format) -> void = 0;
 
   auto stream() -> StreamBufferHandle_t { return stream_; }
+
+ protected:
+  Modes mode_;
+
+  virtual auto changeMode(Modes new_mode) -> void = 0;
 };
 
 }  // namespace audio

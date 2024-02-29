@@ -12,6 +12,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "audio_events.hpp"
 #include "cppbor_parse.h"
 #include "database.hpp"
 #include "tasks.hpp"
@@ -120,6 +121,8 @@ class TrackQueue {
   TrackQueue& operator=(const TrackQueue&) = delete;
 
  private:
+  auto next(QueueUpdate::Reason r) -> void;
+
   mutable std::shared_mutex mutex_;
 
   tasks::WorkerPool& bg_worker_;

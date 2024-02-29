@@ -23,8 +23,6 @@ class I2SAudioOutput : public IAudioOutput {
   I2SAudioOutput(StreamBufferHandle_t, drivers::IGpios& expander);
   ~I2SAudioOutput();
 
-  auto SetMode(Modes) -> void override;
-
   auto SetMaxVolume(uint16_t) -> void;
   auto SetVolumeDb(uint16_t) -> void;
 
@@ -45,6 +43,9 @@ class I2SAudioOutput : public IAudioOutput {
 
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
+
+ protected:
+  auto changeMode(Modes) -> void override;
 
  private:
   drivers::IGpios& expander_;

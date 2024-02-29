@@ -52,7 +52,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const OutputModeChanged&);
 
   virtual void react(const system_fsm::BootComplete&) {}
-  virtual void react(const system_fsm::KeyLockChanged&) {};
+  virtual void react(const system_fsm::KeyLockChanged&){};
   virtual void react(const system_fsm::StorageMounted&) {}
   virtual void react(const system_fsm::BluetoothEvent&);
 
@@ -67,6 +67,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const internal::AudioPipelineIdle&) {}
 
  protected:
+  auto clearDrainBuffer() -> void;
   auto playTrack(database::TrackId id) -> void;
   auto commitVolume() -> void;
 
@@ -78,6 +79,8 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<I2SAudioOutput> sI2SOutput;
   static std::shared_ptr<BluetoothAudioOutput> sBtOutput;
   static std::shared_ptr<IAudioOutput> sOutput;
+
+  static StreamBufferHandle_t sDrainBuffer;
 
   static std::optional<database::TrackId> sCurrentTrack;
 
@@ -91,7 +94,7 @@ class Uninitialised : public AudioState {
  public:
   void react(const system_fsm::BootComplete&) override;
 
-  void react(const system_fsm::BluetoothEvent&) override {};
+  void react(const system_fsm::BluetoothEvent&) override{};
 
   using AudioState::react;
 };

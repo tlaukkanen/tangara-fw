@@ -14,7 +14,6 @@
 #include "tinyfsm.hpp"
 
 #include "track.hpp"
-#include "track_queue.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -39,6 +38,13 @@ struct PlaybackStopped : tinyfsm::Event {};
 
 struct QueueUpdate : tinyfsm::Event {
   bool current_changed;
+
+  enum Reason {
+    kExplicitUpdate,
+    kRepeatingLastTrack,
+    kTrackFinished,
+  };
+  Reason reason;
 };
 
 struct PlayFile : tinyfsm::Event {

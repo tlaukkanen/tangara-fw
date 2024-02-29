@@ -58,7 +58,7 @@ I2SAudioOutput::~I2SAudioOutput() {
   dac_->SetSource(nullptr);
 }
 
-auto I2SAudioOutput::SetMode(Modes mode) -> void {
+auto I2SAudioOutput::changeMode(Modes mode) -> void {
   if (mode == current_mode_) {
     return;
   }
