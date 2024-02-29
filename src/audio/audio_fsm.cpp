@@ -290,10 +290,12 @@ void Playback::react(const PlayFile& ev) {
 }
 
 void Standby::react(const SeekFile& ev) {
+  clearDrainBuffer();
   sFileSource->SetPath(ev.filename, ev.offset);
 }
 
 void Playback::react(const SeekFile& ev) {
+  clearDrainBuffer();
   sFileSource->SetPath(ev.filename, ev.offset);
 }
 
