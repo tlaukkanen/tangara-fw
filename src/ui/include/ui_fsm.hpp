@@ -163,6 +163,8 @@ class Lua : public UiState {
   auto ShowAlert(lua_State*) -> int;
   auto HideAlert(lua_State*) -> int;
 
+  auto Ticks(lua_State*) -> int;
+
   auto SetPlaying(const lua::LuaValue&) -> bool;
   auto SetRandom(const lua::LuaValue&) -> bool;
   auto SetRepeat(const lua::LuaValue&) -> bool;

@@ -22,12 +22,12 @@ static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
 
 auto FileGathererImpl::FindFiles(
     const std::string& root,
-    std::function<void(const std::string&, const FILINFO&)> cb) -> void {
-  std::deque<std::string> to_explore;
-  to_explore.push_back(root);
+    std::function<void(std::string_view, const FILINFO&)> cb) -> void {
+  std::pmr::deque<std::pmr::string> to_explore{&memory::kSpiRamResource};
+  to_explore.push_back({root.data(), root.size()});
 
   while (!to_explore.empty()) {
-    std::string next_path_str = to_explore.front();
+    auto next_path_str = to_explore.front();
     to_explore.pop_front();
 
     const TCHAR* next_path = static_cast<const TCHAR*>(next_path_str.c_str());
@@ -56,7 +56,7 @@ auto FileGathererImpl::FindFiles(
         // System or hidden file. Ignore it and move on.
         continue;
       } else {
-        std::string full_path;
+        std::pmr::string full_path{&memory::kSpiRamResource};
         full_path += next_path_str;
         full_path += "/";
         full_path += info.fname;

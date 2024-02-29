@@ -21,7 +21,7 @@ class IFileGatherer {
 
   virtual auto FindFiles(
       const std::string& root,
-      std::function<void(const std::string&, const FILINFO&)> cb)
+      std::function<void(std::string_view, const FILINFO&)> cb)
       -> void = 0;
 };
 
@@ -29,7 +29,7 @@ class FileGathererImpl : public IFileGatherer {
  public:
   virtual auto FindFiles(
       const std::string& root,
-      std::function<void(const std::string&, const FILINFO&)> cb)
+      std::function<void(std::string_view, const FILINFO&)> cb)
       -> void override;
 };
 

@@ -200,39 +200,52 @@ auto TrackQueue::append(Item i) -> void {
 }
 
 auto TrackQueue::next() -> void {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);
-  if (shuffle_) {
-    shuffle_->next();
-    pos_ = shuffle_->current();
-  } else {
-    if (pos_ + 1 >= tracks_.size()) {
-      if (replay_) {
-        pos_ = 0;
-      }
+  bool changed = true;
+
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    if (shuffle_) {
+      shuffle_->next();
+      pos_ = shuffle_->current();
     } else {
-      pos_++;
+      if (pos_ + 1 >= tracks_.size()) {
+        if (replay_) {
+          pos_ = 0;
+        } else {
+          pos_ = tracks_.size();
+          changed = false;
+        }
+      } else {
+        pos_++;
+      }
     }
   }
 
-  notifyChanged(true);
+  notifyChanged(changed);
 }
 
 auto TrackQueue::previous() -> void {
-  const std::unique_lock<std::shared_mutex> lock(mutex_);
-  if (shuffle_) {
-    shuffle_->prev();
-    pos_ = shuffle_->current();
-  } else {
-    if (pos_ == 0) {
-      if (repeat_) {
-        pos_ = tracks_.size() - 1;
-      }
+  bool changed = true;
+
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    if (shuffle_) {
+      shuffle_->prev();
+      pos_ = shuffle_->current();
     } else {
-      pos_--;
+      if (pos_ == 0) {
+        if (repeat_) {
+          pos_ = tracks_.size() - 1;
+        } else {
+          changed = false;
+        }
+      } else {
+        pos_--;
+      }
     }
   }
 
-  notifyChanged(true);
+  notifyChanged(changed);
 }
 
 auto TrackQueue::finish() -> void {

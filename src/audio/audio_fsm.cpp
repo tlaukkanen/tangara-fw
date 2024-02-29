@@ -13,7 +13,9 @@
 
 #include "audio_sink.hpp"
 #include "bluetooth_types.hpp"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 
@@ -192,20 +194,28 @@ void AudioState::react(const TogglePlayPause& ev) {
 
 namespace states {
 
+// Two seconds of samples for two channels, at a representative sample rate.
+constexpr size_t kDrainBufferSize = sizeof(sample::Sample) * 48000 * 4;
+static StreamBufferHandle_t sDrainBuffer;
+
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
-  constexpr size_t kDrainBufferSize =
-      drivers::kI2SBufferLengthFrames * sizeof(sample::Sample) * 2 * 8;
   ESP_LOGI(kTag, "allocating drain buffer, size %u KiB",
            kDrainBufferSize / 1024);
-  StreamBufferHandle_t stream = xStreamBufferCreateWithCaps(
-      kDrainBufferSize, sizeof(sample::Sample), MALLOC_CAP_DMA);
+
+  auto meta = reinterpret_cast<StaticStreamBuffer_t*>(
+      heap_caps_malloc(sizeof(StaticStreamBuffer_t), MALLOC_CAP_DMA));
+  auto storage = reinterpret_cast<uint8_t*>(
+      heap_caps_malloc(kDrainBufferSize, MALLOC_CAP_SPIRAM));
+
+  sDrainBuffer = xStreamBufferCreateStatic(
+      kDrainBufferSize, sizeof(sample::Sample), storage, meta);
 
   sFileSource.reset(
       new FatfsAudioInput(sServices->tag_parser(), sServices->bg_worker()));
-  sI2SOutput.reset(new I2SAudioOutput(stream, sServices->gpios()));
-  sBtOutput.reset(new BluetoothAudioOutput(stream, sServices->bluetooth(),
+  sI2SOutput.reset(new I2SAudioOutput(sDrainBuffer, sServices->gpios()));
+  sBtOutput.reset(new BluetoothAudioOutput(sDrainBuffer, sServices->bluetooth(),
                                            sServices->bg_worker()));
 
   auto& nvs = sServices->nvs();
@@ -366,6 +376,12 @@ void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
   sServices->track_queue().finish();
   if (!sServices->track_queue().current()) {
+    for (int i = 0; i < 20; i++) {
+      if (xStreamBufferIsEmpty(sDrainBuffer)) {
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(200));
+    }
     transit<Standby>();
   }
 }

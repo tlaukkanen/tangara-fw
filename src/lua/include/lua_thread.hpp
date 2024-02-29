@@ -10,9 +10,7 @@
 #include <string>
 
 #include "lua.hpp"
-#include "lvgl.h"
 
-#include "bridge.hpp"
 #include "service_locator.hpp"
 
 namespace lua {
@@ -23,8 +21,7 @@ auto CallProtected(lua_State*, int nargs, int nresults) -> int;
 
 class LuaThread {
  public:
-  static auto Start(system_fsm::ServiceLocator&, lv_obj_t* lvgl_root = nullptr)
-      -> LuaThread*;
+  static auto Start(system_fsm::ServiceLocator&) -> LuaThread*;
   ~LuaThread();
 
   auto RunScript(const std::string& path) -> bool;
@@ -32,14 +29,15 @@ class LuaThread {
 
   auto DumpStack() -> void;
 
-  auto bridge() -> Bridge& { return *bridge_; }
   auto state() -> lua_State* { return state_; }
 
+  LuaThread(const LuaThread&) = delete;
+  LuaThread& operator=(const LuaThread&) = delete;
+
  private:
-  LuaThread(std::unique_ptr<Allocator>&, std::unique_ptr<Bridge>&, lua_State*);
+  LuaThread(std::unique_ptr<Allocator>&, lua_State*);
 
   std::unique_ptr<Allocator> alloc_;
-  std::unique_ptr<Bridge> bridge_;
   lua_State* state_;
 };
 

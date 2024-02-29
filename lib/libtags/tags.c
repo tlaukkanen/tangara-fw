@@ -46,8 +46,8 @@ tagscallcb(Tagctx *ctx, int type, const char *k, char *s, int offset, int size, 
 		e = s + strlen(s);
 		while(e != s && (uchar)e[-1] <= ' ')
 			e--;
-		if (*e != 0)
-			*e = 0;
+		if(*e != 0)
+		  *e = 0;
 	}
 	if(*s){
 		ctx->tag(ctx, type, k, s, offset, size, f);

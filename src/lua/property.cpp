@@ -10,10 +10,12 @@
 #include <cmath>
 #include <memory>
 #include <memory_resource>
+#include <sstream>
 #include <string>
 #include <variant>
 
 #include "bluetooth_types.hpp"
+#include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
 #include "lua_thread.hpp"
@@ -76,10 +78,30 @@ static auto property_bind(lua_State* state) -> int {
   return 1;
 }
 
-static const struct luaL_Reg kPropertyBindingFuncs[] = {{"get", property_get},
-                                                        {"set", property_set},
-                                                        {"bind", property_bind},
-                                                        {NULL, NULL}};
+static auto property_tostring(lua_State* state) -> int {
+  Property* p = check_property(state);
+  p->PushValue(*state);
+
+  std::stringstream str{};
+  str << "property { " << luaL_tolstring(state, -1, NULL);
+  if (!p->IsTwoWay()) {
+    str << ", read-only";
+  }
+  str << " }";
+
+  lua_settop(state, 0);
+
+  std::string res = str.str();
+  lua_pushlstring(state, res.data(), res.size());
+  return 1;
+}
+
+static const struct luaL_Reg kPropertyBindingFuncs[] = {
+    {"get", property_get},
+    {"set", property_set},
+    {"bind", property_bind},
+    {"__tostring", property_tostring},
+    {NULL, NULL}};
 
 static auto generic_function_cb(lua_State* state) -> int {
   lua_pushstring(state, kBinderKey);
@@ -98,45 +120,47 @@ static auto generic_function_cb(lua_State* state) -> int {
   return std::invoke(fn, state);
 }
 
-PropertyBindings::PropertyBindings(lua_State& s) {
-  lua_pushstring(&s, kBinderKey);
-  lua_pushlightuserdata(&s, this);
-  lua_settable(&s, LUA_REGISTRYINDEX);
+PropertyBindings::PropertyBindings() : functions_(&memory::kSpiRamResource) {}
+
+auto PropertyBindings::install(lua_State* L) -> void {
+  lua_pushstring(L, kBinderKey);
+  lua_pushlightuserdata(L, this);
+  lua_settable(L, LUA_REGISTRYINDEX);
 
   // Create the metatable responsible for the Property API.
-  luaL_newmetatable(&s, kPropertyMetatable);
+  luaL_newmetatable(L, kPropertyMetatable);
 
-  lua_pushliteral(&s, "__index");
-  lua_pushvalue(&s, -2);
-  lua_settable(&s, -3);  // metatable.__index = metatable
+  lua_pushliteral(L, "__index");
+  lua_pushvalue(L, -2);
+  lua_settable(L, -3);  // metatable.__index = metatable
 
   // Add our binding funcs (get, set, bind) to the metatable.
-  luaL_setfuncs(&s, kPropertyBindingFuncs, 0);
+  luaL_setfuncs(L, kPropertyBindingFuncs, 0);
 
   // We've finished setting up the metatable, so pop it.
-  lua_pop(&s, 1);
+  lua_pop(L, 1);
 
   // Create a weak table in the registry to hold live bindings.
-  lua_pushstring(&s, kBindingsTable);
-  lua_newtable(&s);  // bindings = {}
+  lua_pushstring(L, kBindingsTable);
+  lua_newtable(L);  // bindings = {}
 
   // Metatable for the weak table. Values are weak.
-  lua_newtable(&s);  // meta = {}
-  lua_pushliteral(&s, "__mode");
-  lua_pushliteral(&s, "v");
-  lua_settable(&s, -3);      // meta.__mode='v'
-  lua_setmetatable(&s, -2);  // setmetatable(bindings, meta)
+  lua_newtable(L);  // meta = {}
+  lua_pushliteral(L, "__mode");
+  lua_pushliteral(L, "v");
+  lua_settable(L, -3);      // meta.__mode='v'
+  lua_setmetatable(L, -2);  // setmetatable(bindings, meta)
 
-  lua_settable(&s, LUA_REGISTRYINDEX);  // REGISTRY[kBindingsTable] = bindings
+  lua_settable(L, LUA_REGISTRYINDEX);  // REGISTRY[kBindingsTable] = bindings
 
   // Create the metatable for C++ functions.
-  luaL_newmetatable(&s, kFunctionMetatable);
+  luaL_newmetatable(L, kFunctionMetatable);
 
-  lua_pushliteral(&s, "__call");
-  lua_pushcfunction(&s, generic_function_cb);
-  lua_settable(&s, -3);  // metatable.__call = metatable
+  lua_pushliteral(L, "__call");
+  lua_pushcfunction(L, generic_function_cb);
+  lua_settable(L, -3);  // metatable.__call = metatable
 
-  lua_pop(&s, 1);  // Clean up the function metatable
+  lua_pop(L, 1);  // Clean up the function metatable
 }
 
 auto PropertyBindings::Register(lua_State* s, Property* prop) -> void {

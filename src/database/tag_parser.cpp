@@ -108,7 +108,7 @@ static const std::size_t kBufSize = 1024;
 
 TagParserImpl::TagParserImpl() {}
 
-auto TagParserImpl::ReadAndParseTags(const std::string& path)
+auto TagParserImpl::ReadAndParseTags(std::string_view path)
     -> std::shared_ptr<TrackTags> {
   {
     std::lock_guard<std::mutex> lock{cache_mutex_};
@@ -130,7 +130,7 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path)
   if (!tags->track()) {
     auto slash_pos = path.find_last_of("/");
     if (slash_pos != std::string::npos && path.size() - slash_pos > 1) {
-      std::string trunc = path.substr(slash_pos + 1);
+      auto trunc = path.substr(slash_pos + 1);
       tags->track({trunc.data(), trunc.size()});
     }
   }
@@ -143,8 +143,8 @@ auto TagParserImpl::ReadAndParseTags(const std::string& path)
   return tags;
 }
 
-auto TagParserImpl::parseNew(const std::string& path)
-    -> std::shared_ptr<TrackTags> {
+auto TagParserImpl::parseNew(std::string_view p) -> std::shared_ptr<TrackTags> {
+  std::string path{p};
   libtags::Aux aux;
   auto out = TrackTags::create();
   aux.tags = out.get();

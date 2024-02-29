@@ -63,7 +63,7 @@ tagopus(Tagctx *ctx)
 			ctx->buf[sz] = 0;
 
 			if((v = strchr(ctx->buf, '=')) == nil)
-				continue;
+				return -1;
 			*v++ = 0;
 			cbvorbiscomment(ctx, ctx->buf, v);
 		}
