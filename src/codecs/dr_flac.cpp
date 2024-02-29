@@ -112,8 +112,4 @@ auto DrFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
       .is_stream_finished = frames_written < frames_to_read};
 }
 
-auto DrFlacDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
-  return {};
-}
-
 }  // namespace codecs

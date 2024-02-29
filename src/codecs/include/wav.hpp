@@ -37,8 +37,6 @@ class WavDecoder : public ICodec {
   auto DecodeTo(cpp::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
 
-  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
-
   WavDecoder(const WavDecoder&) = delete;
   WavDecoder& operator=(const WavDecoder&) = delete;
 

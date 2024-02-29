@@ -32,8 +32,6 @@ class MadMp3Decoder : public ICodec {
   auto DecodeTo(cpp::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
 
-  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
-
   MadMp3Decoder(const MadMp3Decoder&) = delete;
   MadMp3Decoder& operator=(const MadMp3Decoder&) = delete;
 

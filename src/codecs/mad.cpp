@@ -230,11 +230,6 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
                     .is_stream_finished = is_eos_};
 }
 
-auto MadMp3Decoder::SeekTo(std::size_t target_sample)
-    -> cpp::result<void, Error> {
-  return {};
-}
-
 auto MadMp3Decoder::SkipID3Tags(IStream& stream) -> void {
   // First check that the file actually does start with ID3 tags.
   std::array<std::byte, 3> magic_buf{};

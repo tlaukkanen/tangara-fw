@@ -248,10 +248,6 @@ auto WavDecoder::DecodeTo(cpp::span<sample::Sample> output)
                     .is_stream_finished = samples_written == 0 && is_eof};
 }
 
-auto WavDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
-  return {};
-}
-
 auto codecs::WavDecoder::GetFormat() const -> uint16_t {
   if (wave_format_ == kWaveFormatExtensible) {
     return subformat_;

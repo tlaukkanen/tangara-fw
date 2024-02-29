@@ -130,8 +130,6 @@ class ICodec {
    */
   virtual auto DecodeTo(cpp::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> = 0;
-
-  virtual auto SeekTo(size_t target_sample) -> cpp::result<void, Error> = 0;
 };
 
 auto CreateCodecForType(StreamType type) -> std::optional<ICodec*>;

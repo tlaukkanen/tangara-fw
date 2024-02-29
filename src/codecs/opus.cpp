@@ -78,7 +78,8 @@ XiphOpusDecoder::~XiphOpusDecoder() {
   }
 }
 
-auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
+auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input,
+                                 uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
   input_ = input;
 
@@ -128,8 +129,8 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     length = l * 2;
   }
 
-  if (offset) {
-    SeekTo(offset * 48000);
+  if (offset && op_pcm_seek(opus_, offset * 48000) != 0) {
+    return cpp::fail(Error::kInternalError);
   }
 
   return OutputFormat{
@@ -153,13 +154,6 @@ auto XiphOpusDecoder::DecodeTo(cpp::span<sample::Sample> output)
       .samples_written = static_cast<size_t>(samples_written),
       .is_stream_finished = samples_written == 0,
   };
-}
-
-auto XiphOpusDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
-  if (op_pcm_seek(opus_, target) != 0) {
-    return cpp::fail(Error::kInternalError);
-  }
-  return {};
 }
 
 }  // namespace codecs
