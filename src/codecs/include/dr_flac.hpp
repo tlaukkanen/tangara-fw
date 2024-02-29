@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <sys/_stdint.h>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -14,7 +13,7 @@
 #include <string>
 #include <utility>
 
-#include "miniflac.h"
+#include "dr_flac.h"
 #include "sample.hpp"
 #include "source_buffer.hpp"
 #include "span.hpp"
@@ -23,29 +22,23 @@
 
 namespace codecs {
 
-class MiniFlacDecoder : public ICodec {
+class DrFlacDecoder : public ICodec {
  public:
-  MiniFlacDecoder();
-  ~MiniFlacDecoder();
+  DrFlacDecoder();
+  ~DrFlacDecoder();
 
-  auto OpenStream(std::shared_ptr<IStream> input)
+  auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
   auto DecodeTo(cpp::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
 
-  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
-
-  MiniFlacDecoder(const MiniFlacDecoder&) = delete;
-  MiniFlacDecoder& operator=(const MiniFlacDecoder&) = delete;
+  DrFlacDecoder(const DrFlacDecoder&) = delete;
+  DrFlacDecoder& operator=(const DrFlacDecoder&) = delete;
 
  private:
   std::shared_ptr<IStream> input_;
-  SourceBuffer buffer_;
-
-  std::unique_ptr<miniflac_t> flac_;
-  std::array<int32_t*, 2> samples_by_channel_;
-  std::optional<size_t> current_sample_;
+  drflac *flac_;
 };
 
 }  // namespace codecs

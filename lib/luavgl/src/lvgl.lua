@@ -1098,6 +1098,11 @@ end
 function slider:value()
 end
 
+--- get whether slider is dragged or not
+--- @return boolean
+function slider:is_dragged()
+end
+
 ---
 --- Switch widget
 ---@class Switch:Object

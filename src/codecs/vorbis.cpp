@@ -77,7 +77,8 @@ TremorVorbisDecoder::~TremorVorbisDecoder() {
   ov_clear(vorbis_.get());
 }
 
-auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
+auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,
+                                     uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
   int res = ov_open_callbacks(input.get(), vorbis_.get(), NULL, 0, kCallbacks);
   if (res < 0) {
@@ -117,6 +118,10 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input)
     length = l * info->channels;
   }
 
+  if (offset && ov_time_seek(vorbis_.get(), offset * 1000) != 0) {
+    return cpp::fail(Error::kInternalError);
+  }
+
   return OutputFormat{
       .num_channels = static_cast<uint8_t>(info->channels),
       .sample_rate_hz = static_cast<uint32_t>(info->rate),
@@ -143,13 +148,6 @@ auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
           static_cast<size_t>(bytes_written / sizeof(sample::Sample)),
       .is_stream_finished = bytes_written == 0,
   };
-}
-
-auto TremorVorbisDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
-  if (ov_pcm_seek(vorbis_.get(), target) != 0) {
-    return cpp::fail(Error::kInternalError);
-  }
-  return {};
 }
 
 }  // namespace codecs

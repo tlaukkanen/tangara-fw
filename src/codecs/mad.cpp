@@ -44,6 +44,7 @@ MadMp3Decoder::MadMp3Decoder()
   mad_frame_init(frame_.get());
   mad_synth_init(synth_.get());
 }
+
 MadMp3Decoder::~MadMp3Decoder() {
   mad_stream_finish(stream_.get());
   mad_frame_finish(frame_.get());
@@ -58,7 +59,7 @@ auto MadMp3Decoder::GetBytesUsed() -> std::size_t {
   }
 }
 
-auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
+auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
     -> cpp::result<OutputFormat, ICodec::Error> {
   input_ = input;
 
@@ -113,6 +114,45 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input)
     auto cbr_length = input->Size().value() / (header.bitrate / 8);
     output.total_samples = cbr_length * output.sample_rate_hz * channels;
   }
+
+  mad_timer_t timer;
+  mad_timer_reset(&timer);
+  bool need_refill = false;
+  bool seek_err = false;
+
+  while (mad_timer_count(timer, MAD_UNITS_SECONDS) < offset) {
+    if (seek_err) {
+      return cpp::fail(ICodec::Error::kMalformedData);
+    }
+
+    if (need_refill && buffer_.Refill(input_.get())) {
+      return cpp::fail(ICodec::Error::kMalformedData);
+    }
+    need_refill = false;
+
+    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+      mad_stream_buffer(stream_.get(),
+                        reinterpret_cast<const unsigned char*>(buf.data()),
+                        buf.size());
+
+      while (mad_header_decode(&header, stream_.get()) < 0) {
+        if (MAD_RECOVERABLE(stream_->error)) {
+          continue;
+        }
+        if (stream_->error == MAD_ERROR_BUFLEN) {
+          need_refill = true;
+          return GetBytesUsed();
+        }
+        // The error is unrecoverable. Give up.
+        seek_err = true;
+        return 0;
+      }
+
+      mad_timer_add(&timer, header.duration);
+      return GetBytesUsed();
+    });
+  }
+
   return output;
 }
 
@@ -190,11 +230,6 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
                     .is_stream_finished = is_eos_};
 }
 
-auto MadMp3Decoder::SeekTo(std::size_t target_sample)
-    -> cpp::result<void, Error> {
-  return {};
-}
-
 auto MadMp3Decoder::SkipID3Tags(IStream& stream) -> void {
   // First check that the file actually does start with ID3 tags.
   std::array<std::byte, 3> magic_buf{};
@@ -222,8 +257,8 @@ auto MadMp3Decoder::SkipID3Tags(IStream& stream) -> void {
 }
 
 /*
- * Implementation taken from SDL_mixer and modified. Original is zlib-licensed,
- * copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+ * Implementation taken from SDL_mixer and modified. Original is
+ * zlib-licensed, copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
  */
 auto MadMp3Decoder::GetVbrLength(const mad_header& header)
     -> std::optional<uint32_t> {

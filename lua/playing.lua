@@ -112,12 +112,16 @@ return function(opts)
   }
   playlist:Object({ w = 3, h = 1 }) -- spacer
 
-  local scrubber = screen.root:Bar {
+  local scrubber = screen.root:Slider {
     w = lvgl.PCT(100),
     h = 5,
     range = { min = 0, max = 100 },
     value = 0,
   }
+
+  scrubber:onevent(lvgl.EVENT.RELEASED, function()
+    playback.position:set(scrubber:value())
+  end)
 
   local controls = screen.root:Object {
     flex = {
@@ -182,7 +186,9 @@ return function(opts)
       cur_time:set {
         text = format_time(pos)
       }
-      scrubber:set { value = pos }
+      if not scrubber:is_dragged() then
+        scrubber:set { value = pos }
+      end
     end),
     playback.track:bind(function(track)
       if not track then return end
