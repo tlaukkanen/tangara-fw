@@ -57,8 +57,20 @@ auto BluetoothAudioOutput::GetVolumePct() -> uint_fast8_t {
   return static_cast<uint_fast8_t>(static_cast<int>(volume_) * 100 / 0x7f);
 }
 
+auto BluetoothAudioOutput::SetVolumePct(uint_fast8_t val) -> bool {
+  // TODO
+  ESP_LOGE(kTag, "Not implemented");
+  return false;
+}
+
 auto BluetoothAudioOutput::GetVolumeDb() -> int_fast16_t {
   return 0;
+}
+
+auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t) -> bool {
+  // TODO
+  ESP_LOGE(kTag, "Not implemented");
+  return false;
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {

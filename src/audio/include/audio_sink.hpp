@@ -52,6 +52,9 @@ class IAudioOutput {
   virtual auto GetVolumePct() -> uint_fast8_t = 0;
   virtual auto GetVolumeDb() -> int_fast16_t = 0;
 
+  virtual auto SetVolumePct(uint_fast8_t) -> bool = 0;
+  virtual auto SetVolumeDb(int_fast16_t) -> bool = 0;
+
   virtual auto AdjustVolumeUp() -> bool = 0;
   virtual auto AdjustVolumeDown() -> bool = 0;
 

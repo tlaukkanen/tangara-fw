@@ -98,7 +98,24 @@ void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
 }
 
 void AudioState::react(const SetVolume& ev) {
-  // TODO.
+  if (ev.db.has_value()) {
+    if (sOutput->SetVolumeDb(ev.db.value())) {
+      commitVolume();
+      events::Ui().Dispatch(VolumeChanged{
+          .percent = sOutput->GetVolumePct(),
+          .db = sOutput->GetVolumeDb(),
+      });
+    }
+
+  } else if (ev.percent.has_value()) {
+    if (sOutput->SetVolumePct(ev.percent.value())) {
+      commitVolume();
+      events::Ui().Dispatch(VolumeChanged{
+          .percent = sOutput->GetVolumePct(),
+          .db = sOutput->GetVolumeDb(),
+      });
+    }
+  }
 }
 
 void AudioState::react(const SetVolumeLimit& ev) {
