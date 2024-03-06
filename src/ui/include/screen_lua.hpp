@@ -18,6 +18,9 @@ class Lua : public Screen {
   Lua();
   ~Lua();
 
+  auto onShown() -> void override;
+  auto onHidden() -> void override;
+
   auto SetObjRef(lua_State*) -> void;
 
  private:

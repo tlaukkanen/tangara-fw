@@ -125,21 +125,24 @@ lua::Property UiState::sPlaybackPlaying{
     }};
 
 lua::Property UiState::sPlaybackTrack{};
-lua::Property UiState::sPlaybackPosition{0, [](const lua::LuaValue& val) {
-    int current_val = std::get<int>(sPlaybackPosition.Get());
-    if (!std::holds_alternative<int>(val)) {
-      return false;
-    }
-    int new_val = std::get<int>(val);
-    if (current_val != new_val) {
-      auto track = sPlaybackTrack.Get();
-      if (!std::holds_alternative<audio::Track>(track)) {
+lua::Property UiState::sPlaybackPosition{
+    0, [](const lua::LuaValue& val) {
+      int current_val = std::get<int>(sPlaybackPosition.Get());
+      if (!std::holds_alternative<int>(val)) {
         return false;
       }
-      events::Audio().Dispatch(audio::SeekFile{.offset = (uint32_t)new_val, .filename = std::get<audio::Track>(track).filepath});
-    }
-    return true;
-}};
+      int new_val = std::get<int>(val);
+      if (current_val != new_val) {
+        auto track = sPlaybackTrack.Get();
+        if (!std::holds_alternative<audio::Track>(track)) {
+          return false;
+        }
+        events::Audio().Dispatch(audio::SeekFile{
+            .offset = (uint32_t)new_val,
+            .filename = std::get<audio::Track>(track).filepath});
+      }
+      return true;
+    }};
 
 lua::Property UiState::sQueuePosition{0};
 lua::Property UiState::sQueueSize{0};
@@ -294,21 +297,29 @@ auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
 }
 
 void UiState::PushScreen(std::shared_ptr<Screen> screen) {
+  lv_obj_set_parent(sAlertContainer, screen->alert());
+
   if (sCurrentScreen) {
+    sCurrentScreen->onHidden();
     sScreens.push(sCurrentScreen);
   }
   sCurrentScreen = screen;
-  lv_obj_set_parent(sAlertContainer, sCurrentScreen->alert());
+  sCurrentScreen->onShown();
 }
 
 int UiState::PopScreen() {
   if (sScreens.empty()) {
     return 0;
   }
-  sCurrentScreen = sScreens.top();
-  lv_obj_set_parent(sAlertContainer, sCurrentScreen->alert());
+  lv_obj_set_parent(sAlertContainer, sScreens.top()->alert());
 
+  sCurrentScreen->onHidden();
+
+  sCurrentScreen = sScreens.top();
   sScreens.pop();
+
+  sCurrentScreen->onShown();
+
   return sScreens.size();
 }
 
@@ -539,7 +550,7 @@ void Lua::entry() {
 
 auto Lua::PushLuaScreen(lua_State* s) -> int {
   // Ensure the arg looks right before continuing.
-  luaL_checktype(s, 1, LUA_TFUNCTION);
+  luaL_checktype(s, 1, LUA_TTABLE);
 
   // First, create a new plain old Screen object. We will use its root and
   // group for the Lua screen. Allocate it in external ram so that arbitrarily
@@ -554,10 +565,15 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   lv_group_set_default(new_screen->group());
 
   // Call the constructor for this screen.
-  lua_settop(s, 1);  // Make sure the function is actually at top of stack
-  lua::CallProtected(s, 0, 1);
+  // lua_settop(s, 1);  // Make sure the screen is actually at top of stack
+  lua_pushliteral(s, "createUi");
+  if (lua_gettable(s, 1) == LUA_TFUNCTION) {
+    lua_pushvalue(s, 1);
+    lua::CallProtected(s, 1, 0);
+  }
 
-  // Store the reference for the table the constructor returned.
+  // Store the reference for this screen's table.
+  lua_settop(s, 1);
   new_screen->SetObjRef(s);
 
   // Finally, push the now-initialised screen as if it were a regular C++
@@ -585,7 +601,7 @@ auto Lua::PopLuaScreen(lua_State* s) -> int {
 }
 
 auto Lua::Ticks(lua_State* s) -> int {
-  lua_pushinteger(s, esp_timer_get_time()/1000);
+  lua_pushinteger(s, esp_timer_get_time() / 1000);
   return 1;
 }
 
