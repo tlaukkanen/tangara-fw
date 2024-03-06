@@ -486,7 +486,7 @@ auto TrackQueue::deserialise(const std::string& s) -> void {
   QueueParseClient client{*this};
   const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
   cppbor::parse(data, data + s.size(), &client);
-  notifyChanged(true, Reason::kExplicitUpdate);
+  notifyChanged(true, Reason::kDeserialised);
 }
 
 }  // namespace audio

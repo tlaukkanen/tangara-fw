@@ -229,13 +229,17 @@ auto Database::sizeOnDiskBytes() -> size_t {
 }
 
 auto Database::put(const std::string& key, const std::string& val) -> void {
-  db_->Put(leveldb::WriteOptions{}, kKeyCustom + key, val);
+  if (val.empty()) {
+    db_->Delete(leveldb::WriteOptions{}, kKeyCustom + key);
+  } else {
+    db_->Put(leveldb::WriteOptions{}, kKeyCustom + key, val);
+  }
 }
 
 auto Database::get(const std::string& key) -> std::optional<std::string> {
   std::string val;
   auto res = db_->Get(leveldb::ReadOptions{}, kKeyCustom + key, &val);
-  if (!res.ok()) {
+  if (!res.ok() || val.empty()) {
     return {};
   }
   return val;

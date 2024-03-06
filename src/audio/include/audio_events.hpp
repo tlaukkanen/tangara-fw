@@ -44,6 +44,7 @@ struct QueueUpdate : tinyfsm::Event {
     kExplicitUpdate,
     kRepeatingLastTrack,
     kTrackFinished,
+    kDeserialised,
   };
   Reason reason;
 };
