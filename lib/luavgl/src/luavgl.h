@@ -158,6 +158,11 @@ LUALIB_API int luavgl_obj_getuserdatauv(lua_State *L, int idx);
 LUALIB_API lv_obj_t *luavgl_to_obj(lua_State *L, int idx);
 
 /**
+ * @brief Get lvgl style from stack
+ */
+LUALIB_API lv_style_t *luavgl_to_style(lua_State *L, int idx);
+
+/**
  * @brief Convert value to integer
  *
  * Supported values are: integer, float, boolean
