@@ -60,6 +60,7 @@ static auto set_theme(lua_State* L) -> int {
               ESP_LOGI("DANIEL", "Style was null or malformed??");
               return 0;
             } else {
+              ui::themes::Theme::instance()->AddStyle(class_name, selector, style);
               ESP_LOGI("DANIEL", "Got style for class %s with selector %d", class_name.c_str(), selector);
             }
           }
