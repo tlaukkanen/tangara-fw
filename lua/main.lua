@@ -1,5 +1,6 @@
 local font = require("font")
 local vol = require("volume")
+local theme = require("theme")
 
 -- Set up property bindings that are used across every screen.
 GLOBAL_BINDINGS = {
@@ -33,6 +34,31 @@ GLOBAL_BINDINGS = {
     end)
   end),
 }
+
+local lvgl = require("lvgl")
+local my_theme = {
+  base = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      bg_opa = lvgl.OPA(0),
+      text_font = font.fusion_12,
+      text_color = "#ff0000", -- Red to check it applies
+    }},
+    {lvgl.STATE.FOCUSED, lvgl.Style {
+      bg_opa = lvgl.OPA(100),
+      bg_color = "#0000ff", -- ew
+      text_color = "#ff0000", -- Red to check it applies
+    }},
+  },
+  button = {
+    {lvgl.STATE.FOCUSED, lvgl.Style {
+      bg_color = "#00ff00",
+    }},
+    {lvgl.PART.MAIN, lvgl.Style {
+      bg_color = "#00ff00",
+    }},
+  },
+}
+theme.set(my_theme)
 
 local backstack = require("backstack")
 local main_menu = require("main_menu")

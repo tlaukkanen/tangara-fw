@@ -4,7 +4,7 @@ local database = require("database")
 local backstack = require("backstack")
 local browser = require("browser")
 local playing = require("playing")
-local theme = require("theme")
+local styles = require("styles")
 
 return function()
   local menu = widgets.MenuScreen({})
@@ -19,7 +19,7 @@ return function()
   now_playing:onClicked(function()
     backstack.push(playing)
   end)
-  now_playing:add_style(theme.list_item)
+  now_playing:add_style(styles.list_item)
 
   local indexes = database.indexes()
   for _, idx in ipairs(indexes) do
@@ -32,14 +32,14 @@ return function()
         }
       end)
     end)
-    btn:add_style(theme.list_item)
+    btn:add_style(styles.list_item)
   end
 
   local settings = menu.list:add_btn(nil, "Settings")
   settings:onClicked(function()
     backstack.push(require("settings").root)
   end)
-  settings:add_style(theme.list_item)
+  settings:add_style(styles.list_item)
 
   return menu
 end

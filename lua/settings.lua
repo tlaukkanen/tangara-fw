@@ -1,7 +1,7 @@
 local lvgl = require("lvgl")
 local backstack = require("backstack")
 local widgets = require("widgets")
-local theme = require("theme")
+local styles = require("styles")
 local volume = require("volume")
 local display = require("display")
 local controls = require("controls")
@@ -55,7 +55,7 @@ function settings.bluetooth()
   menu.content:Label {
     text = "Paired Device",
     pad_bottom = 1,
-  }:add_style(theme.settings_title)
+  }:add_style(styles.settings_title)
 
   local paired_container = menu.content:Object {
     flex = {
@@ -81,7 +81,7 @@ function settings.bluetooth()
   menu.content:Label {
     text = "Nearby Devices",
     pad_bottom = 1,
-  }:add_style(theme.settings_title)
+  }:add_style(styles.settings_title)
 
   local devices = menu.content:List {
     w = lvgl.PCT(100),
@@ -121,7 +121,7 @@ function settings.headphones()
 
   menu.content:Label {
     text = "Maximum volume limit",
-  }:add_style(theme.settings_title)
+  }:add_style(styles.settings_title)
 
   local volume_chooser = menu.content:Dropdown {
     options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
@@ -136,7 +136,7 @@ function settings.headphones()
 
   menu.content:Label {
     text = "Left/Right balance",
-  }:add_style(theme.settings_title)
+  }:add_style(styles.settings_title)
 
   local balance = menu.content:Slider {
     w = lvgl.PCT(100),
@@ -194,7 +194,7 @@ function settings.display()
   }
   brightness_title:Label { text = "Brightness", flex_grow = 1 }
   local brightness_pct = brightness_title:Label {}
-  brightness_pct:add_style(theme.settings_title)
+  brightness_pct:add_style(styles.settings_title)
 
   local brightness = menu.content:Slider {
     w = lvgl.PCT(100),
@@ -220,7 +220,7 @@ function settings.input()
 
   menu.content:Label {
     text = "Control scheme",
-  }:add_style(theme.settings_title)
+  }:add_style(styles.settings_title)
 
   local schemes = controls.schemes()
   local option_to_scheme = {}
@@ -258,7 +258,7 @@ function settings.input()
 
   menu.content:Label {
     text = "Scroll Sensitivity",
-  }:add_style(theme.settings_title)
+  }:add_style(styles.settings_title)
 
   local slider_scale = 4; -- Power steering
   local sensitivity = menu.content:Slider {
@@ -292,7 +292,7 @@ function settings.database()
     pad_top = 4,
     pad_column = 4,
   }
-  actions_container:add_style(theme.list_item)
+  actions_container:add_style(styles.list_item)
 
   local update = actions_container:Button {}
   update:Label { text = "Update" }
@@ -321,7 +321,7 @@ function settings.root()
   }
 
   local function section(name)
-    menu.list:add_text(name):add_style(theme.list_heading)
+    menu.list:add_text(name):add_style(styles.list_heading)
   end
 
   local function submenu(name, fn)
@@ -329,7 +329,7 @@ function settings.root()
     item:onClicked(function()
       backstack.push(fn)
     end)
-    item:add_style(theme.list_item)
+    item:add_style(styles.list_item)
   end
 
   section("Audio")

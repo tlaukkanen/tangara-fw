@@ -3,7 +3,7 @@ local power = require("power")
 local bluetooth = require("bluetooth")
 local font = require("font")
 local backstack = require("backstack")
-local theme = require("theme")
+local styles = require("styles")
 local database = require("database")
 
 local widgets = {}
@@ -41,7 +41,7 @@ function widgets.Row(parent, left, right)
     w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
   }
-  container:add_style(theme.list_item)
+  container:add_style(styles.list_item)
   container:Label { text = left, flex_grow = 1 }
   container:Label { text = right }
 end

@@ -1,7 +1,7 @@
 local lvgl = require("lvgl")
 local font = require("font")
 
-local theme = {
+local styles = {
   list_item = lvgl.Style {
     pad_left = 4,
     pad_right = 4,
@@ -20,4 +20,4 @@ local theme = {
   }
 }
 
-return theme
+return styles
