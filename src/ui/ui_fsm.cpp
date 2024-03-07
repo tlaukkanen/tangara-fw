@@ -457,6 +457,7 @@ void Lua::entry() {
     sAlertTimer = xTimerCreate("ui_alerts", pdMS_TO_TICKS(1000), false, NULL,
                                alert_timer_callback);
     sAlertContainer = lv_obj_create(sCurrentScreen->alert());
+    lv_obj_set_style_bg_opa(sAlertContainer, LV_OPA_TRANSP, 0);
 
     auto& registry = lua::Registry::instance(*sServices);
     sLua = registry.uiThread();
