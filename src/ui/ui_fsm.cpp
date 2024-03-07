@@ -280,6 +280,8 @@ lua::Property UiState::sScrollSensitivity{
       return true;
     }};
 
+lua::Property UiState::sLockSwitch{false};
+
 lua::Property UiState::sDatabaseUpdating{false};
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
@@ -326,6 +328,7 @@ int UiState::PopScreen() {
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(!ev.locking);
   sInput->lock(ev.locking);
+  sLockSwitch.Update(ev.locking);
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -516,6 +519,7 @@ void Lua::entry() {
                                {
                                    {"scheme", &sControlsScheme},
                                    {"scroll_sensitivity", &sScrollSensitivity},
+                                   {"lock_switch", &sLockSwitch},
                                });
 
     registry.AddPropertyModule(

@@ -129,6 +129,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static lua::Property sControlsScheme;
   static lua::Property sScrollSensitivity;
+  static lua::Property sLockSwitch;
 
   static lua::Property sDatabaseUpdating;
 };

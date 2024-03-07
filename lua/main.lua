@@ -1,8 +1,13 @@
 local font = require("font")
 local vol = require("volume")
+local controls = require("controls")
+local time = require("time")
+
+local lock_time = time.ticks()
 
 -- Set up property bindings that are used across every screen.
 GLOBAL_BINDINGS = {
+  -- Show an alert with the current volume whenver the volume changes.
   vol.current_pct:bind(function(pct)
     require("alerts").show(function()
       local container = lvgl.Object(nil, {
@@ -31,6 +36,18 @@ GLOBAL_BINDINGS = {
       }
       container:center()
     end)
+  end),
+  -- When the device has been locked for a while, default to showing the now
+  -- playing screen after unlocking.
+  controls.lock_switch:bind(function(locked)
+    if locked then
+      lock_time = time.ticks()
+    elseif time.ticks() - lock_time > 8000 then
+      local queue = require("queue")
+      if queue.size:get() > 0 then
+        require("playing"):pushIfNotShown()
+      end
+    end
   end),
 }
 
