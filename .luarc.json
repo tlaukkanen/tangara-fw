@@ -1,7 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/sumneko/vscode-lua/master/setting/schema.json",
-  "workspace.library": ["lib/luavgl/src", "luals-stubs"],
-  "workspace.ignoreDir": ["ldoc-stubs"],
+  "workspace.library": ["luals-stubs"],
   "runtime.version": "Lua 5.4",
 }
 

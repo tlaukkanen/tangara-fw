@@ -14,6 +14,7 @@ local raw_data = io.read("*all")
 local parsed = json.decode(raw_data)
 
 local definitions_per_module = {}
+local fields_per_class = {}
 
 for _, class in ipairs(parsed) do
   if not class.defines or not class.defines[1] then goto continue end
@@ -26,6 +27,12 @@ for _, class in ipairs(parsed) do
   local module = definitions_per_module[module_name] or {}
   module[class.name] = class
   definitions_per_module[module_name] = module
+
+  local fields = {}
+  for _, field in ipairs(class.fields or {}) do
+    fields[field.name] = true
+  end
+  fields_per_class[class.name] = fields
 
   ::continue::
 end
@@ -72,6 +79,8 @@ local function filterReturns(field)
 end
 
 local function emitField(level, prefix, field)
+  if not field.desc then return end
+
   printHeading(level, "`" .. prefix .. "." .. field.name .. "`")
   print()
   print("`" .. field.extends.view .. "`")
@@ -111,14 +120,64 @@ local function emitField(level, prefix, field)
   end
 end
 
+local function baseClassName(class)
+  for _, define in ipairs(class.defines or {}) do
+    for _, extend in ipairs(define.extends or {}) do
+      if extend.type == "doc.extends.name" then
+        return extend.view
+      end
+    end
+  end
+end
+
+local function isEnum(class)
+  for _, define in pairs(class.defines) do
+    if define.type == "doc.enum" then return true end
+  end
+  return false
+end
+
+local function isAlias(class)
+  for _, define in pairs(class.defines) do
+    if define.type == "doc.alias" then return true end
+  end
+  return false
+end
+
 local function emitClass(level, prefix, class)
   if not class.name then return end
+  if not class.fields then return end
+  if isAlias(class) then return end
+
+  for _, define in ipairs(class.defines or {}) do
+    if define.type == "tablefield" then
+      print(" - " .. class.name)
+      return
+    end
+  end
 
   printHeading(level, "`" .. prefix .. "." .. class.name .. "`")
+  print()
+
+  local base_class = baseClassName(class)
+  local base_class_fields = {}
+  if base_class then
+    base_class_fields = fields_per_class[base_class] or {}
+    print("`" .. class.name .. ":" .. base_class .. "`")
+    print()
+  end
+
   if class.desc then print(class.desc) end
 
-  for _, field in ipairs(class.fields) do
-    emitField(level + 1, class.name, field)
+  for _, field in ipairs(class.fields or {}) do
+    if not base_class_fields[field.name] then
+      emitField(level + 1, class.name, field)
+    end
+  end
+
+  if isEnum(class) then
+    printHeading(level + 1, "Values")
+    print()
   end
 end
 
@@ -130,7 +189,7 @@ for name, module in sortedPairs(definitions_per_module) do
   local top_level_class = module[name]
   if top_level_class then
     if top_level_class.desc then print(top_level_class.desc) end
-    for _, field in ipairs(top_level_class.fields) do
+    for _, field in ipairs(top_level_class.fields or {}) do
       emitField(initial_level + 1, name, field)
     end
   end
