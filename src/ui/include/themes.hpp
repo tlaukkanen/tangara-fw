@@ -22,7 +22,7 @@ class Theme {
  public:
   void Apply(void);
   void Callback(lv_obj_t* obj);
-  void ApplyStyle(lv_obj_t* obj, Style style);
+  void ApplyStyle(lv_obj_t* obj, std::string style_key);
 
   void AddStyle(std::string key, int selector, lv_style_t* style);
 

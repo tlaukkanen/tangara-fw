@@ -5,6 +5,7 @@ local font = require("font")
 local backstack = require("backstack")
 local styles = require("styles")
 local database = require("database")
+local theme = require("theme")
 
 local widgets = {}
 
@@ -66,10 +67,7 @@ function widgets.StatusBar(parent, opts)
   }
 
   if not opts.transparent_bg then
-    status_bar.root:set {
-      bg_opa = lvgl.OPA(100),
-      bg_color = "#fafafa",
-    }
+    theme.set_style(status_bar.root, "header");
   end
 
   if opts.back_cb then

@@ -8,13 +8,16 @@
 
 #include "core/lv_obj_tree.h"
 #include "lua.hpp"
+#include "themes.hpp"
 
 #include "luavgl.h"
 
 namespace ui {
 namespace screens {
 
-Lua::Lua() : s_(nullptr), obj_ref_() {}
+Lua::Lua() : s_(nullptr), obj_ref_() {
+  themes::Theme::instance()->ApplyStyle(root_, "root");
+}
 
 Lua::~Lua() {
   if (s_ && obj_ref_) {

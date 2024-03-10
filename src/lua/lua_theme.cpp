@@ -22,17 +22,19 @@
 
 namespace lua {
 
+static auto set_style(lua_State* L) -> int {
+  // Get the object and class name from the stack
+  if (lua_type(L, -1) == LUA_TSTRING) {
+    std::string class_name = lua_tostring(L, -1);
+    lv_obj_t* obj = luavgl_to_obj(L, -2);
+    if (obj != NULL) {
+      ui::themes::Theme::instance()->ApplyStyle(obj, class_name);
+    }
+  }
+  return 0;
+}
+
 static auto set_theme(lua_State* L) -> int {
-  // lv_style_t* style = luavgl_to_style(L, -1);
-  // if (style == NULL) {
-  //   ESP_LOGI("DANIEL", "Style was null or malformed??");
-  //   return 0;
-  // }
-
-  // ESP_LOGI("DANIEL", "GOT ONE!");
-  // themes::Theme::instance()->...;
-
-  /* table is in the stack at index 't' */
   std::string class_name;
   lua_pushnil(L);  /* first key */
   while (lua_next(L, -2) != 0) {
@@ -61,7 +63,6 @@ static auto set_theme(lua_State* L) -> int {
               return 0;
             } else {
               ui::themes::Theme::instance()->AddStyle(class_name, selector, style);
-              ESP_LOGI("DANIEL", "Got style for class %s with selector %d", class_name.c_str(), selector);
             }
           }
           lua_pop(L, 1); 
@@ -75,7 +76,7 @@ static auto set_theme(lua_State* L) -> int {
   return 0;
 }
 
-static const struct luaL_Reg kThemeFuncs[] = {{"set", set_theme}, {NULL, NULL}};
+static const struct luaL_Reg kThemeFuncs[] = {{"set", set_theme}, {"set_style", set_style}, {NULL, NULL}};
 
 static auto lua_theme(lua_State* L) -> int {
   luaL_newlib(L, kThemeFuncs);

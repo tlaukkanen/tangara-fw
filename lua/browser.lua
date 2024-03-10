@@ -6,6 +6,7 @@ local queue = require("queue")
 local playing = require("playing")
 local styles = require("styles")
 local playback = require("playback")
+local theme = require("theme")
 
 local browser = {}
 
@@ -43,9 +44,10 @@ function browser.create(opts)
       pad_right = 4,
       pad_bottom = 2,
       bg_opa = lvgl.OPA(100),
-      bg_color = "#fafafa",
       scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
     }
+    theme.set_style(header, "header")
+
 
     header:Label {
       text = opts.breadcrumb,
