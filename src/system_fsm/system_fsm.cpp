@@ -84,10 +84,8 @@ void SystemState::react(const internal::SamdInterrupt&) {
   auto charge_status = samd.GetChargeStatus();
   auto usb_status = samd.GetUsbStatus();
 
-  if (charge_status != prev_charge_status) {
-    ChargingStatusChanged ev{};
-    events::System().Dispatch(ev);
-    events::Ui().Dispatch(ev);
+  if (charge_status != prev_charge_status && sServices) {
+    sServices->battery().Update();
   }
   if (usb_status != prev_usb_status) {
     ESP_LOGI(kTag, "usb status changed");
