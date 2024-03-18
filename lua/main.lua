@@ -35,7 +35,7 @@ GLOBAL_BINDINGS = {
   end),
 }
 
-local theme_light = require("theme_dark")
+local theme_light = require("theme_light")
 theme.set(theme_light)
 
 local backstack = require("backstack")

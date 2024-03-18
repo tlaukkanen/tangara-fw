@@ -6,6 +6,7 @@ local volume = require("volume")
 local display = require("display")
 local controls = require("controls")
 local bluetooth = require("bluetooth")
+local theme = require("theme")
 local database = require("database")
 
 local settings = {}
@@ -23,7 +24,7 @@ local function SettingsScreen(title)
       align_items = "flex-start",
       align_content = "flex-start",
     },
-    w = lvgl.PCT(100),
+    w = lvgl.PCT(90),
     flex_grow = 1,
     pad_left = 4,
     pad_right = 4,
@@ -52,10 +53,10 @@ function settings.bluetooth()
     bluetooth.enabled:set(enabled)
   end)
 
-  menu.content:Label {
+  theme.set_style(menu.content:Label {
     text = "Paired Device",
     pad_bottom = 1,
-  }:add_style(styles.settings_title)
+  }, "settings_title")
 
   local paired_container = menu.content:Object {
     flex = {
@@ -78,10 +79,10 @@ function settings.bluetooth()
     bluetooth.paired_device:set()
   end)
 
-  menu.content:Label {
+  theme.set_style(menu.content:Label {
     text = "Nearby Devices",
     pad_bottom = 1,
-  }:add_style(styles.settings_title)
+  }, "settings_title")
 
   local devices = menu.content:List {
     w = lvgl.PCT(100),
@@ -119,9 +120,9 @@ end
 function settings.headphones()
   local menu = SettingsScreen("Headphones")
 
-  menu.content:Label {
-    text = "Maximum volume limit",
-  }:add_style(styles.settings_title)
+  theme.set_style(menu.content:Label {
+    text = "Maxiumum volume limit",
+  }, "settings_title")
 
   local volume_chooser = menu.content:Dropdown {
     options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
@@ -134,9 +135,9 @@ function settings.headphones()
     volume.limit_db:set(limits[selection])
   end)
 
-  menu.content:Label {
+  theme.set_style(menu.content:Label {
     text = "Left/Right balance",
-  }:add_style(styles.settings_title)
+  }, "settings_title")
 
   local balance = menu.content:Slider {
     w = lvgl.PCT(100),
@@ -191,10 +192,11 @@ function settings.display()
     },
     w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
+
   }
   brightness_title:Label { text = "Brightness", flex_grow = 1 }
   local brightness_pct = brightness_title:Label {}
-  brightness_pct:add_style(styles.settings_title)
+  theme.set_style(brightness_pct, "settings_title")
 
   local brightness = menu.content:Slider {
     w = lvgl.PCT(100),
@@ -218,9 +220,9 @@ end
 function settings.input()
   local menu = SettingsScreen("Input Method")
 
-  menu.content:Label {
+  theme.set_style(menu.content:Label {
     text = "Control scheme",
-  }:add_style(styles.settings_title)
+  }, "settings_title")
 
   local schemes = controls.schemes()
   local option_to_scheme = {}
@@ -256,9 +258,9 @@ function settings.input()
     controls.scheme:set(scheme)
   end)
 
-  menu.content:Label {
+  theme.set_style(menu.content:Label {
     text = "Scroll Sensitivity",
-  }:add_style(styles.settings_title)
+  }, "settings_title")
 
   local slider_scale = 4; -- Power steering
   local sensitivity = menu.content:Slider {
@@ -321,7 +323,11 @@ function settings.root()
   }
 
   local function section(name)
-    menu.list:add_text(name):add_style(styles.list_heading)
+    local elem = menu.list:Label {
+      text = name,
+      pad_left = 4,
+    }
+    theme.set_style(elem, "settings_title")
   end
 
   local function submenu(name, fn)

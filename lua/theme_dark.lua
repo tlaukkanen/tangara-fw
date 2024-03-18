@@ -1,9 +1,9 @@
 local lvgl = require("lvgl")
 local font = require("font")
 
-local background_color = "#242933"
+local background_color = "#1c1c1c"
 local background_muted = "#353c4b"
-local text_color = "#fefefe"
+local text_color = "#eeeeee"
 local highlight_color = "#ff0077"
 
 local theme_dark = {
@@ -11,13 +11,13 @@ local theme_dark = {
     {lvgl.PART.MAIN, lvgl.Style {
       bg_opa = lvgl.OPA(0),
       text_font = font.fusion_12,
-      text_color = text_color,
     }},
   },
   root = {
     {lvgl.PART.MAIN, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       bg_color = background_color, -- Root background color
+      text_color = text_color
     }},
   },
   header = {
@@ -121,7 +121,18 @@ local theme_dark = {
       bg_opa = lvgl.OPA(100),
       bg_color = background_color
     }},
-  }
+    {lvgl.PART.SELECTED | lvgl.STATE.CHECKED, lvgl.Style {
+      bg_color = highlight_color,
+    }},
+  },
+  settings_title = {
+   {lvgl.PART.MAIN, lvgl.Style {
+      pad_top = 2,
+      pad_bottom = 4,
+      text_font = font.fusion_10,
+      text_color = highlight_color,
+    }},
+  },
 }
 
 return theme_dark

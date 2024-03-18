@@ -13,11 +13,6 @@ local styles = {
     text_font = font.fusion_10,
     text_align = lvgl.ALIGN.CENTER,
   },
-  settings_title = lvgl.Style {
-    pad_top = 2,
-    pad_bottom = 4,
-    text_font = font.fusion_10,
-  }
 }
 
 return styles
