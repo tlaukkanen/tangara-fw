@@ -40,8 +40,8 @@
 [[maybe_unused]] static const char* kTag = "DISPLAY";
 
 // TODO(jacqueline): Encode width and height variations in the init data.
-static const uint8_t kDisplayHeight = 128 + 2;
-static const uint8_t kDisplayWidth = 160 + 1;
+static const uint8_t kDisplayHeight = 128;
+static const uint8_t kDisplayWidth = 160;
 static const uint8_t kTransactionQueueSize = 2;
 
 static const gpio_num_t kDisplayDr = GPIO_NUM_33;
