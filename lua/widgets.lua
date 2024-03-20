@@ -6,6 +6,20 @@ local backstack = require("backstack")
 local theme = require("theme")
 local database = require("database")
 
+local img = {
+  db = lvgl.ImgData("//lua/img/db.png"),
+  chg = lvgl.ImgData("//lua/img/bat/chg.png"),
+  bat_100 = lvgl.ImgData("//lua/img/bat/100.png"),
+  bat_80 = lvgl.ImgData("//lua/img/bat/80.png"),
+  bat_60 = lvgl.ImgData("//lua/img/bat/60.png"),
+  bat_40 = lvgl.ImgData("//lua/img/bat/40.png"),
+  bat_20 = lvgl.ImgData("//lua/img/bat/20.png"),
+  bat_0 = lvgl.ImgData("//lua/img/bat/0.png"),
+  bat_0chg = lvgl.ImgData("//lua/img/bat/0chg.png"),
+  bt_conn = lvgl.ImgData("//lua/assets/bt_conn.png"),
+  bt = lvgl.ImgData("//lua/assets/bt.png")
+}
+
 local widgets = {}
 
 function widgets.MenuScreen(opts)
@@ -93,14 +107,10 @@ function widgets.StatusBar(parent, opts)
     status_bar.title:set { text = opts.title }
   end
 
-  status_bar.db_updating = status_bar.root:Image {
-    src = "//lua/img/db.png"
-  }
+  status_bar.db_updating = status_bar.root:Image { src = img.db }
   status_bar.bluetooth = status_bar.root:Image {}
   status_bar.battery = status_bar.root:Image {}
-  status_bar.chg = status_bar.battery:Image {
-    src = "//lua/img/bat/chg.png"
-  }
+  status_bar.chg = status_bar.battery:Image { src = img.chg }
   status_bar.chg:center()
 
   local is_charging = nil
@@ -110,20 +120,20 @@ function widgets.StatusBar(parent, opts)
     if is_charging == nil or percent == nil then return end
     local src
     if percent >= 95 then
-      src = "100.png"
+      src = img.bat_100
     elseif percent >= 75 then
-      src = "80.png"
+      src = img.bat_80
     elseif percent >= 55 then
-      src = "60.png"
+      src = img.bat_60
     elseif percent >= 35 then
-      src = "40.png"
+      src = img.bat_40
     elseif percent >= 15 then
-      src = "20.png"
+      src = img.bat_20
     else
       if is_charging then
-        src = "0chg.png"
+        src = img.bat_0chg
       else
-        src = "0.png"
+        src = img.bat_0
       end
     end
     if is_charging then
@@ -131,7 +141,7 @@ function widgets.StatusBar(parent, opts)
     else
       status_bar.chg:add_flag(lvgl.FLAG.HIDDEN)
     end
-    status_bar.battery:set_src("//lua/img/bat/" .. src)
+    status_bar.battery:set_src(src)
   end
 
   status_bar.bindings = {
@@ -159,9 +169,9 @@ function widgets.StatusBar(parent, opts)
     end),
     bluetooth.connected:bind(function(connected)
       if connected then
-        status_bar.bluetooth:set_src("//lua/assets/bt_conn.png")
+        status_bar.bluetooth:set_src(img.bt_conn)
       else
-        status_bar.bluetooth:set_src("//lua/assets/bt.png")
+        status_bar.bluetooth:set_src(img.bt)
       end
     end),
   }

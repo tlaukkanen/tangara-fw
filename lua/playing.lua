@@ -7,16 +7,16 @@ local queue = require("queue")
 local screen = require("screen")
 
 local img = {
-  play = "//lua/img/play.png",
-  pause = "//lua/img/pause.png",
-  next = "//lua/img/next.png",
-  next_disabled = "//lua/img/next_disabled.png",
-  prev = "//lua/img/prev.png",
-  prev_disabled = "//lua/img/prev_disabled.png",
-  shuffle = "//lua/img/shuffle.png",
-  shuffle_disabled = "//lua/img/shuffle_disabled.png",
-  repeat_enabled = "//lua/img/repeat.png",
-  repeat_disabled = "//lua/img/repeat_disabled.png",
+  play = lvgl.ImgData("//lua/img/play.png"),
+  pause = lvgl.ImgData("//lua/img/pause.png"),
+  next = lvgl.ImgData("//lua/img/next.png"),
+  next_disabled = lvgl.ImgData("//lua/img/next_disabled.png"),
+  prev = lvgl.ImgData("//lua/img/prev.png"),
+  prev_disabled = lvgl.ImgData("//lua/img/prev_disabled.png"),
+  shuffle = lvgl.ImgData("//lua/img/shuffle.png"),
+  shuffle_disabled = lvgl.ImgData("//lua/img/shuffle_disabled.png"),
+  repeat_enabled = lvgl.ImgData("//lua/img/repeat.png"),
+  repeat_disabled = lvgl.ImgData("//lua/img/repeat_disabled.png"),
 }
 
 local is_now_playing_shown = false
