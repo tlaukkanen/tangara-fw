@@ -63,8 +63,8 @@ constexpr std::pair<uint8_t, uint8_t> unpack(uint16_t ba) {
 
 static constexpr gpio_num_t kIntPin = GPIO_NUM_34;
 
-auto Gpios::Create() -> Gpios* {
-  Gpios* instance = new Gpios();
+auto Gpios::Create(bool invert_lock) -> Gpios* {
+  Gpios* instance = new Gpios(invert_lock);
   // Read and write initial values on initialisation so that we do not have a
   // strange partially-initialised state.
   if (!instance->Flush() || !instance->Read()) {
@@ -73,7 +73,10 @@ auto Gpios::Create() -> Gpios* {
   return instance;
 }
 
-Gpios::Gpios() : ports_(pack(kPortADefault, kPortBDefault)), inputs_(0) {
+Gpios::Gpios(bool invert_lock)
+    : ports_(pack(kPortADefault, kPortBDefault)),
+      inputs_(0),
+      invert_lock_switch_(invert_lock) {
   gpio_set_direction(kIntPin, GPIO_MODE_INPUT);
 }
 
@@ -106,6 +109,15 @@ auto Gpios::Flush() -> bool {
 
 auto Gpios::Get(Pin pin) const -> bool {
   return (inputs_ & (1 << static_cast<int>(pin))) > 0;
+}
+
+auto Gpios::IsLocked() const -> bool {
+  bool pin = Get(Pin::kKeyLock);
+  if (invert_lock_switch_) {
+    return pin;
+  } else {
+    return !pin;
+  }
 }
 
 auto Gpios::Read() -> bool {

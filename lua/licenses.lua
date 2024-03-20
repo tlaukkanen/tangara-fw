@@ -2,20 +2,23 @@ local backstack = require("backstack")
 local widgets = require("widgets")
 local font = require("font")
 local styles = require("styles")
+local screen = require("screen")
 
 local function show_license(text)
-  backstack.push(function()
-    local screen = widgets.MenuScreen {
-      show_back = true,
-      title = "Licenses",
-    }
-    screen.root:Label {
-      w = lvgl.PCT(100),
-      h = lvgl.SIZE_CONTENT,
-      text_font = font.fusion_10,
-      text = text,
-    }
-  end)
+  backstack.push(screen:new {
+    createUi = function(self)
+      self.menu = widgets.MenuScreen {
+        show_back = true,
+        title = "Licenses",
+      }
+      self.menu.root:Label {
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT,
+        text_font = font.fusion_10,
+        text = text,
+      }
+    end
+  })
 end
 
 local function gpl(copyright)
@@ -175,4 +178,6 @@ return function()
   library("tremor", "bsd", function()
     xiphbsd("Copyright (c) 2002, Xiph.org Foundation")
   end)
+
+  return menu
 end

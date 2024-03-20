@@ -79,12 +79,12 @@ class IGpios {
    */
   virtual auto Get(Pin) const -> bool = 0;
 
-  virtual auto IsLocked() const -> bool { return Get(Pin::kKeyLock); }
+  virtual auto IsLocked() const -> bool = 0;
 };
 
 class Gpios : public IGpios {
  public:
-  static auto Create() -> Gpios*;
+  static auto Create(bool invert_lock_switch) -> Gpios*;
   ~Gpios();
 
   /*
@@ -106,6 +106,8 @@ class Gpios : public IGpios {
 
   auto Get(Pin) const -> bool override;
 
+  auto IsLocked() const -> bool override;
+
   /**
    * Reads from the GPIO expander, populating `inputs` with the most recent
    * values.
@@ -118,10 +120,11 @@ class Gpios : public IGpios {
   Gpios& operator=(const Gpios&) = delete;
 
  private:
-  Gpios();
+  Gpios(bool invert_lock);
 
   std::atomic<uint16_t> ports_;
   std::atomic<uint16_t> inputs_;
+  const bool invert_lock_switch_;
 };
 
 }  // namespace drivers

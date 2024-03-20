@@ -13,6 +13,8 @@
 
 #include "audio_sink.hpp"
 #include "bluetooth_types.hpp"
+#include "cppbor.h"
+#include "cppbor_parse.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -57,6 +59,8 @@ StreamBufferHandle_t AudioState::sDrainBuffer;
 
 std::optional<database::TrackId> AudioState::sCurrentTrack;
 bool AudioState::sIsPlaybackAllowed;
+
+static std::optional<std::pair<std::string, uint32_t>> sLastTrackUpdate;
 
 void AudioState::react(const system_fsm::BluetoothEvent& ev) {
   if (ev.event != drivers::bluetooth::Event::kConnectionStateChanged) {
@@ -310,11 +314,15 @@ void Standby::react(const QueueUpdate& ev) {
   if (!current_track || (sCurrentTrack && (*sCurrentTrack == *current_track))) {
     return;
   }
+  if (ev.reason == QueueUpdate::Reason::kDeserialised && sLastTrackUpdate) {
+    return;
+  }
   clearDrainBuffer();
   playTrack(*current_track);
 }
 
 static const char kQueueKey[] = "audio:queue";
+static const char kCurrentFileKey[] = "audio:current";
 
 void Standby::react(const system_fsm::KeyLockChanged& ev) {
   if (!ev.locking) {
@@ -332,6 +340,14 @@ void Standby::react(const system_fsm::KeyLockChanged& ev) {
       return;
     }
     db->put(kQueueKey, queue.serialise());
+
+    if (sLastTrackUpdate) {
+      cppbor::Array current_track{
+          cppbor::Tstr{sLastTrackUpdate->first},
+          cppbor::Uint{sLastTrackUpdate->second},
+      };
+      db->put(kCurrentFileKey, current_track.toString());
+    }
   });
 }
 
@@ -341,13 +357,32 @@ void Standby::react(const system_fsm::StorageMounted& ev) {
     if (!db) {
       return;
     }
-    auto res = db->get(kQueueKey);
-    if (res) {
+
+    // Restore the currently playing file before restoring the queue. This way,
+    // we can fall back to restarting the queue's current track if there's any
+    // issue restoring the current file.
+    auto current = db->get(kCurrentFileKey);
+    if (current) {
+      // Again, ensure we don't boot-loop by trying to play a track that causes
+      // a crash over and over again.
+      db->put(kCurrentFileKey, "");
+      auto [parsed, unused, err] = cppbor::parse(
+          reinterpret_cast<uint8_t*>(current->data()), current->size());
+      if (parsed->type() == cppbor::ARRAY) {
+        std::string filename = parsed->asArray()->get(0)->asTstr()->value();
+        uint32_t pos = parsed->asArray()->get(1)->asUint()->value();
+        sLastTrackUpdate = std::make_pair(filename, pos);
+        sFileSource->SetPath(filename, pos);
+      }
+    }
+
+    auto queue = db->get(kQueueKey);
+    if (queue) {
       // Don't restore the same queue again. This ideally should do nothing,
       // but guards against bad edge cases where restoring the queue ends up
       // causing a crash.
       db->put(kQueueKey, "");
-      sServices->track_queue().deserialise(*res);
+      sServices->track_queue().deserialise(*queue);
     }
   });
 }
@@ -399,6 +434,7 @@ void Playback::react(const QueueUpdate& ev) {
 void Playback::react(const PlaybackUpdate& ev) {
   ESP_LOGI(kTag, "elapsed: %lu, total: %lu", ev.seconds_elapsed,
            ev.track->duration);
+  sLastTrackUpdate = std::make_pair(ev.track->filepath, ev.seconds_elapsed);
 }
 
 void Playback::react(const internal::InputFileOpened& ev) {}
@@ -407,6 +443,7 @@ void Playback::react(const internal::InputFileClosed& ev) {}
 
 void Playback::react(const internal::InputFileFinished& ev) {
   ESP_LOGI(kTag, "finished playing file");
+  sLastTrackUpdate.reset();
   sServices->track_queue().finish();
   if (!sServices->track_queue().current()) {
     for (int i = 0; i < 20; i++) {

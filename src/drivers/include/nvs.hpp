@@ -71,6 +71,11 @@ class NvsStorage {
   auto LockPolarity() -> bool;
   auto LockPolarity(bool) -> void;
 
+  auto DisplaySize()
+      -> std::pair<std::optional<uint16_t>, std::optional<uint16_t>>;
+  auto DisplaySize(std::pair<std::optional<uint16_t>, std::optional<uint16_t>>)
+      -> void;
+
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> void;
 
@@ -120,6 +125,9 @@ class NvsStorage {
   nvs_handle_t handle_;
 
   Setting<uint8_t> lock_polarity_;
+  Setting<uint16_t> display_cols_;
+  Setting<uint16_t> display_rows_;
+
   Setting<uint8_t> brightness_;
   Setting<uint8_t> sensitivity_;
   Setting<uint16_t> amp_max_vol_;

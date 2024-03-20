@@ -77,29 +77,16 @@ auto Samd::UpdateChargeStatus() -> void {
     return;
   }
 
+  // FIXME: Ideally we should be using the three 'charge status' bits to work
+  // out whether we're actually charging, or if we've got a full charge,
+  // critically low charge, etc.
   uint8_t usb_state = raw_res & 0b11;
-  uint8_t charge_state = (raw_res >> 2) & 0b111;
-  switch (charge_state) {
-    case 0b000:
-    case 0b011:
-      charge_status_ = ChargeStatus::kNoBattery;
-      break;
-    case 0b001:
-      charge_status_ = usb_state == 1 ? ChargeStatus::kChargingRegular
-                                      : ChargeStatus::kChargingFast;
-      break;
-    case 0b010:
-      charge_status_ = ChargeStatus::kFullCharge;
-      break;
-    case 0b100:
-      charge_status_ = ChargeStatus::kBatteryCritical;
-      break;
-    case 0b101:
-      charge_status_ = ChargeStatus::kDischarging;
-      break;
-    default:
-      charge_status_ = {};
-      break;
+  if (usb_state == 0) {
+    charge_status_ = ChargeStatus::kDischarging;
+  } else if (usb_state == 1) {
+    charge_status_ = ChargeStatus::kChargingRegular;
+  } else {
+    charge_status_ = ChargeStatus::kChargingFast;
   }
 }
 

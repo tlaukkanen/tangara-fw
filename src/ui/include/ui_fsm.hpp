@@ -36,7 +36,7 @@ namespace ui {
 
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
-  static auto InitBootSplash(drivers::IGpios&) -> bool;
+  static auto InitBootSplash(drivers::IGpios&, drivers::NvsStorage&) -> bool;
 
   virtual ~UiState() {}
 
@@ -129,6 +129,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static lua::Property sControlsScheme;
   static lua::Property sScrollSensitivity;
+  static lua::Property sLockSwitch;
 
   static lua::Property sDatabaseUpdating;
 };
