@@ -610,6 +610,9 @@ auto Lua::QueuePrevious(lua_State*) -> int {
 }
 
 auto Lua::PopLuaScreen(lua_State* s) -> int {
+  if (!sCurrentScreen->canPop()) {
+    return 0;
+  }
   PopScreen();
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());

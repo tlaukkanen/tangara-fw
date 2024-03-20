@@ -58,6 +58,25 @@ auto Lua::onHidden() -> void {
   lua_pop(s_, 1);
 }
 
+auto Lua::canPop() -> bool {
+  if (!s_ || !obj_ref_) {
+    return true;
+  }
+  lua_rawgeti(s_, LUA_REGISTRYINDEX, *obj_ref_);
+  lua_pushliteral(s_, "canPop");
+
+  if (lua_gettable(s_, -2) == LUA_TFUNCTION) {
+    // If we got a callback instead of a value, then invoke it to turn it into
+    // value.
+    lua_pushvalue(s_, -2);
+    lua::CallProtected(s_, 1, 1);
+  }
+  bool ret = lua_toboolean(s_, -1);
+
+  lua_pop(s_, 2);
+  return ret;
+}
+
 auto Lua::SetObjRef(lua_State* s) -> void {
   assert(s_ == nullptr);
   s_ = s;

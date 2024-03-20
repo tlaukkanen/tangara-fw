@@ -50,11 +50,15 @@ static auto screen_noop(lua_State* state) -> int {
   return 0;
 }
 
-static const struct luaL_Reg kScreenFuncs[] = {{"new", screen_new},
-                                               {"createUi", screen_noop},
-                                               {"onShown", screen_noop},
-                                               {"onHidden", screen_noop},
-                                               {NULL, NULL}};
+static auto screen_true(lua_State* state) -> int {
+  lua_pushboolean(state, true);
+  return 1;
+}
+
+static const struct luaL_Reg kScreenFuncs[] = {
+    {"new", screen_new},      {"createUi", screen_noop},
+    {"onShown", screen_noop}, {"onHidden", screen_noop},
+    {"canPop", screen_true},  {NULL, NULL}};
 
 static auto lua_screen(lua_State* state) -> int {
   luaL_newlib(state, kScreenFuncs);
