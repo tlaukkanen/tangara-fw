@@ -1,10 +1,10 @@
 local lvgl = require("lvgl")
 local font = require("font")
 
-local background_color = "#1c1c1c"
-local background_muted = "#353c4b"
+local background_color = "#5a5474"
+local background_muted = "#464258"
 local text_color = "#eeeeee"
-local highlight_color = "#ff0077"
+local highlight_color = "#9773d3"
 
 local theme_dark = {
   base = {
@@ -65,7 +65,7 @@ local theme_dark = {
     {lvgl.PART.KNOB, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       pad_all = 2,
-      bg_color = background_color,
+      bg_color = background_muted,
       shadow_width = 5,
       shadow_opa = lvgl.OPA(100)
     }},
@@ -75,16 +75,18 @@ local theme_dark = {
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
     }},
+    {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
+      bg_color = highlight_color,
+    }},
   },
   switch = {
     {lvgl.PART.MAIN, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       width = 28,
-      height = 12,
+      height = 8,
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
-    }},
-    {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = background_muted,
+      border_color = highlight_color,
     }},
     {lvgl.PART.INDICATOR, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
@@ -97,7 +99,10 @@ local theme_dark = {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       pad_all = 2,
       bg_opa = lvgl.OPA(100),
-      bg_color = text_color,
+      bg_color = background_muted,
+    }},
+    {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
+      bg_color = highlight_color,
     }},
   },
   dropdown = {
@@ -105,8 +110,9 @@ local theme_dark = {
       radius = 2, 
       pad_all = 2,
       border_width = 1,
-      border_color = text_color,
+      border_color = background_muted,
       border_side = 15, -- LV_BORDER_SIDE_FULL
+      bg_color = background_color,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       border_color = highlight_color,
@@ -117,7 +123,7 @@ local theme_dark = {
       radius = 2, 
       pad_all = 2,
       border_width = 1,
-      border_color = text_color,
+      border_color = highlight_color,
       bg_opa = lvgl.OPA(100),
       bg_color = background_color
     }},
