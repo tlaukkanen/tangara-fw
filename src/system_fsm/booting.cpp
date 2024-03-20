@@ -57,14 +57,19 @@ auto Booting::entry() -> void {
   sServices.reset(new ServiceLocator());
 
   ESP_LOGI(kTag, "installing early drivers");
+  // NVS is needed first because it contains information about what specific
+  // hardware configuration we're running on.
+  sServices->nvs(
+      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
+
+  // HACK: fix up the switch polarity on newer dev units
+  sServices->nvs().LockPolarity(false);
+
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
   ESP_ERROR_CHECK(drivers::init_spi());
-  sServices->gpios(std::unique_ptr<drivers::Gpios>(drivers::Gpios::Create()));
-
-  // NVS is needed early so that we can correctly initialise the display.
-  sServices->nvs(
-      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
+  sServices->gpios(std::unique_ptr<drivers::Gpios>(
+      drivers::Gpios::Create(sServices->nvs().LockPolarity())));
 
   ESP_LOGI(kTag, "starting ui");
   if (!ui::UiState::InitBootSplash(sServices->gpios(), sServices->nvs())) {
@@ -101,8 +106,6 @@ auto Booting::entry() -> void {
     ESP_LOGI(kTag, "enabling bluetooth");
     sServices->bluetooth().Enable();
   }
-
-  sServices->nvs().LockPolarity(false);
 
   BootComplete ev{.services = sServices};
   events::Audio().Dispatch(ev);
