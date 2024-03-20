@@ -17,6 +17,8 @@ local theme_dark = {
     {lvgl.PART.MAIN, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       bg_color = background_color, -- Root background color
+      bg_grad_dir = 1,
+      bg_grad_color = "#1d0e38",
       text_color = text_color
     }},
   },
@@ -33,11 +35,13 @@ local theme_dark = {
       pad_top = 1,
       pad_bottom = 1,
       bg_color = background_color,
+      img_opa = 180,
       radius = 5,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       bg_color = highlight_color,
+      img_opa = 255,
     }},
   },
   listbutton = {
@@ -129,6 +133,12 @@ local theme_dark = {
     }},
     {lvgl.PART.SELECTED | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,
+    }},
+  },
+  database_indicator = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      img_recolor_opa = 180,
+      img_recolor = highlight_color,
     }},
   },
   settings_title = {

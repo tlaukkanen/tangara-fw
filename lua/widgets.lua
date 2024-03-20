@@ -94,6 +94,8 @@ function widgets.StatusBar(parent, opts)
   status_bar.db_updating = status_bar.root:Image {
     src = "//lua/img/db.png"
   }
+  theme.set_style(status_bar.db_updating, "database_indicator")
+
   status_bar.bluetooth = status_bar.root:Image {}
   status_bar.battery = status_bar.root:Image {}
   status_bar.chg = status_bar.battery:Image {
