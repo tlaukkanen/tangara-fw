@@ -62,8 +62,12 @@ auto Booting::entry() -> void {
   ESP_ERROR_CHECK(drivers::init_spi());
   sServices->gpios(std::unique_ptr<drivers::Gpios>(drivers::Gpios::Create()));
 
+  // NVS is needed early so that we can correctly initialise the display.
+  sServices->nvs(
+      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
+
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::InitBootSplash(sServices->gpios())) {
+  if (!ui::UiState::InitBootSplash(sServices->gpios(), sServices->nvs())) {
     events::System().Dispatch(FatalError{});
     return;
   }
@@ -74,8 +78,6 @@ auto Booting::entry() -> void {
   ESP_LOGI(kTag, "installing remaining drivers");
   drivers::spiffs_mount();
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
-  sServices->nvs(
-      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
   sServices->touchwheel(
       std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
   sServices->haptics(std::make_unique<drivers::Haptics>());

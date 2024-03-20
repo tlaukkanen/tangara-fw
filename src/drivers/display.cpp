@@ -39,9 +39,6 @@
 
 [[maybe_unused]] static const char* kTag = "DISPLAY";
 
-// TODO(jacqueline): Encode width and height variations in the init data.
-static const uint8_t kDisplayHeight = 128;
-static const uint8_t kDisplayWidth = 160;
 static const uint8_t kTransactionQueueSize = 2;
 
 static const gpio_num_t kDisplayDr = GPIO_NUM_33;
@@ -51,9 +48,11 @@ static const gpio_num_t kDisplayCs = GPIO_NUM_22;
 /*
  * The size of each of our two display buffers. This is fundamentally a balance
  * between performance and memory usage. LVGL docs recommend a buffer 1/10th the
- * size of the screen is the best tradeoff
+ * size of the screen is the best tradeoff.
+ 8
+ * The 160x128 is the nominal size of our standard faceplate's display.
  */
-static const int kDisplayBufferSize = kDisplayWidth * kDisplayHeight / 10;
+static const int kDisplayBufferSize = 160 * 128 / 10;
 DMA_ATTR static lv_color_t kDisplayBuffer[kDisplayBufferSize];
 
 namespace drivers {
@@ -154,10 +153,8 @@ auto Display::Create(IGpios& expander,
 
   lv_disp_drv_init(&display->driver_);
   display->driver_.draw_buf = &display->buffers_;
-  display->driver_.hor_res = kDisplayWidth;
-  display->driver_.ver_res = kDisplayHeight;
-  // display->driver_.sw_rotate = 1;
-  // display->driver_.rotated = LV_DISP_ROT_270;
+  display->driver_.hor_res = init_data.width;
+  display->driver_.ver_res = init_data.height;
   display->driver_.sw_rotate = 0;
   display->driver_.rotated = LV_DISP_ROT_NONE;
   display->driver_.antialiasing = 0;

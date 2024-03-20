@@ -12,6 +12,7 @@
 
 #include "bluetooth_types.hpp"
 #include "db_events.hpp"
+#include "display_init.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "lua.h"
@@ -284,10 +285,21 @@ lua::Property UiState::sLockSwitch{false};
 
 lua::Property UiState::sDatabaseUpdating{false};
 
-auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
+auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
+    -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
-  sDisplay.reset(drivers::Display::Create(gpios, drivers::displays::kST7735R));
+
+  drivers::displays::InitialisationData init_data = drivers::displays::kST7735R;
+
+  // HACK: correct the display size for our prototypes.
+  // nvs.DisplaySize({161, 130});
+
+  auto actual_size = nvs.DisplaySize();
+  init_data.width = actual_size.first.value_or(init_data.width);
+  init_data.height = actual_size.second.value_or(init_data.height);
+
+  sDisplay.reset(drivers::Display::Create(gpios, init_data));
   if (sDisplay == nullptr) {
     return false;
   }

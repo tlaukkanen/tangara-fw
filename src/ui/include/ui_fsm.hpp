@@ -36,7 +36,7 @@ namespace ui {
 
 class UiState : public tinyfsm::Fsm<UiState> {
  public:
-  static auto InitBootSplash(drivers::IGpios&) -> bool;
+  static auto InitBootSplash(drivers::IGpios&, drivers::NvsStorage&) -> bool;
 
   virtual ~UiState() {}
 
