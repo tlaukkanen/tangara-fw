@@ -63,7 +63,7 @@ auto Booting::entry() -> void {
       std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
 
   // HACK: fix up the switch polarity on newer dev units
-  sServices->nvs().LockPolarity(false);
+  // sServices->nvs().LockPolarity(false);
 
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
