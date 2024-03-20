@@ -1,9 +1,14 @@
 local font = require("font")
 local vol = require("volume")
 local theme = require("theme")
+local controls = require("controls")
+local time = require("time")
+
+local lock_time = time.ticks()
 
 -- Set up property bindings that are used across every screen.
 GLOBAL_BINDINGS = {
+  -- Show an alert with the current volume whenever the volume changes
   vol.current_pct:bind(function(pct)
     require("alerts").show(function()
       local container = lvgl.Object(nil, {
