@@ -64,9 +64,8 @@ void Idle::react(const internal::IdleTimeout& ev) {
     transit<Running>();
     return;
   }
-  auto s = static_cast<int>(sServices->samd().GetUsbStatus());
-  ESP_LOGI(kTag, "usb status is %i", s);
-  if (sServices->samd().GetUsbStatus() != drivers::Samd::UsbStatus::kDetached) {
+  if (sServices->samd().GetChargeStatus() !=
+      drivers::Samd::ChargeStatus::kDischarging) {
     // Stay powered on if we're plugged in, in order to charge faster, sync
     // files, flash updates, etc.
     return;
