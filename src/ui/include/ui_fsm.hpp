@@ -132,6 +132,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sLockSwitch;
 
   static lua::Property sDatabaseUpdating;
+
+  static lua::Property sUsbMassStorageEnabled;
 };
 
 namespace states {

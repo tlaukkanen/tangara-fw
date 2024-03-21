@@ -285,6 +285,17 @@ lua::Property UiState::sLockSwitch{false};
 
 lua::Property UiState::sDatabaseUpdating{false};
 
+lua::Property UiState::sUsbMassStorageEnabled{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      bool enable = std::get<bool>(val);
+      // FIXME: Check for system busy.
+      events::System().Dispatch(system_fsm::SamdUsbMscChanged{.en = enable});
+      return true;
+    }};
+
 auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
     -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
@@ -553,6 +564,10 @@ void Lua::entry() {
     registry.AddPropertyModule("database", {
                                                {"updating", &sDatabaseUpdating},
                                            });
+    registry.AddPropertyModule("usb",
+                               {
+                                   {"msc_enabled", &sUsbMassStorageEnabled},
+                               });
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());

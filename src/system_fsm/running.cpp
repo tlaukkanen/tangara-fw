@@ -41,7 +41,11 @@ void Running::entry() {
     sUnmountTimer = xTimerCreate("unmount_timeout", kTicksBeforeUnmount, false,
                                  NULL, timer_callback);
   }
-  mountStorage();
+  // Only mount our storage immediately if we know it's not currently in use
+  // by the SAMD.
+  if (!sServices->samd().UsbMassStorage()) {
+    mountStorage();
+  }
 }
 
 void Running::exit() {
