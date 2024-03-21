@@ -8,6 +8,7 @@ local controls = require("controls")
 local bluetooth = require("bluetooth")
 local database = require("database")
 local screen = require("screen")
+local usb = require("usb")
 
 local function SettingsScreen(title)
   local menu = widgets.MenuScreen {
@@ -301,7 +302,6 @@ local MassStorageSettings = screen:new {
     enable_container:Label { text = "Enable", flex_grow = 1 }
     local enable_sw = enable_container:Switch {}
 
-    local usb = require("usb")
     local bind_switch = function()
       if usb.msc_enabled:get() then
         enable_sw:add_state(lvgl.STATE.CHECKED)
@@ -319,7 +319,9 @@ local MassStorageSettings = screen:new {
       usb.msc_enabled:bind(bind_switch),
     }
   end,
-  canPop = true
+  canPop = function()
+    return not usb.msc_enabled:get()
+  end
 }
 
 local DatabaseSettings = screen:new {
