@@ -35,7 +35,7 @@
 
 namespace database {
 
-const uint8_t kCurrentDbVersion = 5;
+const uint8_t kCurrentDbVersion = 6;
 
 struct SearchKey;
 class Record;
@@ -106,9 +106,6 @@ class Database {
            IFileGatherer& file_gatherer,
            ITagParser& tag_parser,
            locale::ICollator& collator);
-
-  auto dbGetLastUpdate() -> std::pair<uint16_t, uint16_t>;
-  auto dbSetLastUpdate(std::pair<uint16_t, uint16_t>) -> void;
 
   auto dbMintNewTrackId() -> TrackId;
 

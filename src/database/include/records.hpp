@@ -21,6 +21,8 @@
 
 namespace database {
 
+auto EncodePathKey(std::string_view path) -> std::string;
+
 /*
  * Returns the prefix added to every TrackData key. This can be used to iterate
  * over every data record in the database.

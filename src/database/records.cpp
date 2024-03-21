@@ -47,15 +47,30 @@ namespace database {
 
 [[maybe_unused]] static const char* kTag = "RECORDS";
 
+static const char kPathPrefix = 'P';
 static const char kDataPrefix = 'D';
 static const char kHashPrefix = 'H';
-[[maybe_unused]] static const char kTagHashPrefix = 'T';
+static const char kTagHashPrefix = 'T';
 static const char kIndexPrefix = 'I';
 static const char kFieldSeparator = '\0';
 
+static constexpr auto makePrefix(char p) -> std::string {
+  std::string str;
+  str += p;
+  str += kFieldSeparator;
+  return str;
+}
+
+auto EncodePathKey(std::string_view path) -> std::string {
+  std::stringstream out{};
+  out << makePrefix(kPathPrefix);
+  out << path;
+  return out.str();
+}
+
 /* 'D/' */
 auto EncodeDataPrefix() -> std::string {
-  return {kDataPrefix, kFieldSeparator};
+  return makePrefix(kDataPrefix);
 }
 
 /* 'D/ 0xACAB' */
@@ -116,8 +131,7 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
 
 /* 'H/ 0xBEEF' */
 auto EncodeHashKey(const uint64_t& hash) -> std::string {
-  return std::string{kHashPrefix, kFieldSeparator} +
-         cppbor::Uint{hash}.toString();
+  return makePrefix(kHashPrefix) + cppbor::Uint{hash}.toString();
 }
 
 auto ParseHashValue(const leveldb::Slice& slice) -> std::optional<TrackId> {
@@ -130,18 +144,17 @@ auto EncodeHashValue(TrackId id) -> std::string {
 
 /* 'T/ 0xBEEF' */
 auto EncodeTagHashKey(const uint64_t& hash) -> std::string {
-  return std::string{kTagHashPrefix, kFieldSeparator} +
-         cppbor::Uint{hash}.toString();
+  return makePrefix(kTagHashPrefix) + cppbor::Uint{hash}.toString();
 }
 
 /* 'I/' */
 auto EncodeAllIndexesPrefix() -> std::string {
-  return {kIndexPrefix, kFieldSeparator};
+  return makePrefix(kIndexPrefix);
 }
 
 auto EncodeIndexPrefix(const IndexKey::Header& header) -> std::string {
   std::ostringstream out;
-  out.put(kIndexPrefix).put(kFieldSeparator);
+  out << makePrefix(kIndexPrefix);
   cppbor::Array val{
       cppbor::Uint{header.id},
       cppbor::Uint{header.depth},
