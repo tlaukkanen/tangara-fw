@@ -136,7 +136,7 @@ auto TrackQueue::insert(Item i, size_t index) -> void {
   {
     const std::shared_lock<std::shared_mutex> lock(mutex_);
     was_queue_empty = pos_ == tracks_.size();
-    current_changed = pos_ == was_queue_empty || index == pos_;
+    current_changed = was_queue_empty || index == pos_;
   }
 
   auto update_shuffler = [=, this]() {

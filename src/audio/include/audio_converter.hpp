@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <memory>
 
@@ -40,6 +41,8 @@ class SampleConverter {
   auto SetTargetFormat(const IAudioOutput::Format& format) -> void;
   auto HandleSamples(cpp::span<sample::Sample>, bool) -> size_t;
 
+  auto SendToSink(cpp::span<sample::Sample>) -> void;
+
   struct Args {
     IAudioOutput::Format format;
     size_t samples_available;
@@ -59,6 +62,8 @@ class SampleConverter {
   IAudioOutput::Format source_format_;
   IAudioOutput::Format target_format_;
   size_t leftover_bytes_;
+
+  uint32_t samples_sunk_;
 };
 
 }  // namespace audio

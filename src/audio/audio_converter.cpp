@@ -5,14 +5,17 @@
  */
 
 #include "audio_converter.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 
+#include "audio_events.hpp"
 #include "audio_sink.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "event_queue.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "i2s_dac.hpp"
@@ -35,7 +38,9 @@ SampleConverter::SampleConverter()
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
                                           sizeof(sample::Sample) * 2,
-                                          MALLOC_CAP_DMA)) {
+                                          MALLOC_CAP_DMA)),
+      leftover_bytes_(0),
+      samples_sunk_(0) {
   input_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
           kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_DMA)),
@@ -107,6 +112,19 @@ auto SampleConverter::Main() -> void {
         sink_->Configure(new_target);
       }
       target_format_ = new_target;
+
+      // Send a final sample count for the previous sample rate.
+      if (samples_sunk_ > 0) {
+        events::Audio().Dispatch(internal::ConverterProgress{
+            .samples_sunk = samples_sunk_,
+        });
+      }
+
+      samples_sunk_ = 0;
+      events::Audio().Dispatch(internal::ConverterConfigurationChanged{
+          .src_format = source_format_,
+          .dst_format = target_format_,
+      });
     }
 
     // Loop until we finish reading all the bytes indicated. There might be
@@ -154,9 +172,8 @@ auto SampleConverter::HandleSamples(cpp::span<sample::Sample> input,
   if (source_format_ == target_format_) {
     // The happiest possible case: the input format matches the output
     // format already.
-    std::size_t bytes_sent = xStreamBufferSend(
-        sink_->stream(), input.data(), input.size_bytes(), portMAX_DELAY);
-    return bytes_sent / sizeof(sample::Sample);
+    SendToSink(input);
+    return input.size();
   }
 
   size_t samples_used = 0;
@@ -186,16 +203,26 @@ auto SampleConverter::HandleSamples(cpp::span<sample::Sample> input,
       samples_used = input.size();
     }
 
-    size_t bytes_sent = 0;
-    size_t bytes_to_send = output_source.size_bytes();
-    while (bytes_sent < bytes_to_send) {
-      bytes_sent += xStreamBufferSend(
-          sink_->stream(),
-          reinterpret_cast<std::byte*>(output_source.data()) + bytes_sent,
-          bytes_to_send - bytes_sent, portMAX_DELAY);
-    }
+    SendToSink(output_source);
   }
   return samples_used;
+}
+
+auto SampleConverter::SendToSink(cpp::span<sample::Sample> samples) -> void {
+  // Update the number of samples sunk so far *before* actually sinking them,
+  // since writing to the stream buffer will block when the buffer gets full.
+  samples_sunk_ += samples.size();
+  if (samples_sunk_ >=
+      target_format_.sample_rate * target_format_.num_channels) {
+    events::Audio().Dispatch(internal::ConverterProgress{
+        .samples_sunk = samples_sunk_,
+    });
+    samples_sunk_ = 0;
+  }
+
+  xStreamBufferSend(sink_->stream(),
+                    reinterpret_cast<std::byte*>(samples.data()),
+                    samples.size_bytes(), portMAX_DELAY);
 }
 
 }  // namespace audio

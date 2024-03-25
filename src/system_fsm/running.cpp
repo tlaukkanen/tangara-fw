@@ -56,7 +56,7 @@ void Running::react(const KeyLockChanged& ev) {
   checkIdle();
 }
 
-void Running::react(const audio::PlaybackStopped& ev) {
+void Running::react(const audio::PlaybackUpdate& ev) {
   checkIdle();
 }
 

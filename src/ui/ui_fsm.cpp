@@ -114,14 +114,11 @@ lua::Property UiState::sBluetoothDevices{
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
-      bool current_val = std::get<bool>(sPlaybackPlaying.Get());
       if (!std::holds_alternative<bool>(val)) {
         return false;
       }
       bool new_val = std::get<bool>(val);
-      if (current_val != new_val) {
-        events::Audio().Dispatch(audio::TogglePlayPause{});
-      }
+      events::Audio().Dispatch(audio::TogglePlayPause{.set_to = new_val});
       return true;
     }};
 
@@ -135,12 +132,13 @@ lua::Property UiState::sPlaybackPosition{
       int new_val = std::get<int>(val);
       if (current_val != new_val) {
         auto track = sPlaybackTrack.Get();
-        if (!std::holds_alternative<audio::Track>(track)) {
+        if (!std::holds_alternative<audio::TrackInfo>(track)) {
           return false;
         }
-        events::Audio().Dispatch(audio::SeekFile{
-            .offset = (uint32_t)new_val,
-            .filename = std::get<audio::Track>(track).filepath});
+        events::Audio().Dispatch(audio::SetTrack{
+            .new_track = std::get<audio::TrackInfo>(track).uri,
+            .seek_to_second = (uint32_t)new_val,
+        });
       }
       return true;
     }};
@@ -393,17 +391,10 @@ void UiState::react(const audio::QueueUpdate&) {
   sQueueReplay.Update(queue.replay());
 }
 
-void UiState::react(const audio::PlaybackStarted& ev) {
-  sPlaybackPlaying.Update(true);
-}
-
 void UiState::react(const audio::PlaybackUpdate& ev) {
-  sPlaybackTrack.Update(*ev.track);
-  sPlaybackPosition.Update(static_cast<int>(ev.seconds_elapsed));
-}
-
-void UiState::react(const audio::PlaybackStopped&) {
-  sPlaybackPlaying.Update(false);
+  sPlaybackTrack.Update(*ev.current_track);
+  sPlaybackPlaying.Update(!ev.paused);
+  sPlaybackPosition.Update(static_cast<int>(ev.track_position.value_or(0)));
 }
 
 void UiState::react(const audio::VolumeChanged& ev) {

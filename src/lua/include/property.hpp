@@ -23,7 +23,7 @@ using LuaValue = std::variant<std::monostate,
                               int,
                               bool,
                               std::string,
-                              audio::Track,
+                              audio::TrackInfo,
                               drivers::bluetooth::Device,
                               std::vector<drivers::bluetooth::Device>>;
 
