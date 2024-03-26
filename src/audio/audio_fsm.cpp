@@ -60,38 +60,58 @@ constexpr size_t kDrainBufferSize =
     sizeof(sample::Sample) * kDrainLatencySamples;
 
 StreamBufferHandle_t AudioState::sDrainBuffer;
+std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 
 std::shared_ptr<TrackInfo> AudioState::sCurrentTrack;
 uint64_t AudioState::sCurrentSamples;
-std::optional<IAudioOutput::Format> AudioState::sCurrentFormat;
+bool AudioState::sCurrentTrackIsFromQueue;
 
 std::shared_ptr<TrackInfo> AudioState::sNextTrack;
 uint64_t AudioState::sNextTrackCueSamples;
+bool AudioState::sNextTrackIsFromQueue;
 
 bool AudioState::sIsResampling;
 bool AudioState::sIsPaused = true;
 
 auto AudioState::currentPositionSeconds() -> std::optional<uint32_t> {
-  if (!sCurrentTrack || !sCurrentFormat) {
+  if (!sCurrentTrack || !sDrainFormat) {
     return {};
   }
   return sCurrentSamples /
-         (sCurrentFormat->num_channels * sCurrentFormat->sample_rate);
+         (sDrainFormat->num_channels * sDrainFormat->sample_rate);
 }
 
 void AudioState::react(const QueueUpdate& ev) {
-  if (!ev.current_changed && ev.reason != QueueUpdate::kRepeatingLastTrack) {
-    return;
+  SetTrack cmd{
+      .new_track = std::monostate{},
+      .seek_to_second = {},
+      .transition = SetTrack::Transition::kHardCut,
+  };
+
+  auto current = sServices->track_queue().current();
+  if (current) {
+    cmd.new_track = *current;
   }
 
-  SetTrack::Transition transition;
   switch (ev.reason) {
     case QueueUpdate::kExplicitUpdate:
-      transition = SetTrack::Transition::kHardCut;
+      if (!ev.current_changed) {
+        return;
+      }
+      sNextTrackIsFromQueue = true;
+      cmd.transition = SetTrack::Transition::kHardCut;
       break;
     case QueueUpdate::kRepeatingLastTrack:
+      sNextTrackIsFromQueue = true;
+      cmd.transition = SetTrack::Transition::kGapless;
+      break;
     case QueueUpdate::kTrackFinished:
-      transition = SetTrack::Transition::kGapless;
+      if (!ev.current_changed) {
+        cmd.new_track = std::monostate{};
+      } else {
+        sNextTrackIsFromQueue = true;
+      }
+      cmd.transition = SetTrack::Transition::kGapless;
       break;
     case QueueUpdate::kDeserialised:
     default:
@@ -100,23 +120,27 @@ void AudioState::react(const QueueUpdate& ev) {
       return;
   }
 
-  SetTrack cmd{
-      .new_track = {},
-      .seek_to_second = 0,
-      .transition = transition,
-  };
-
-  auto current = sServices->track_queue().current();
-  if (current) {
-    cmd.new_track = *current;
-  }
-
   tinyfsm::FsmList<AudioState>::dispatch(cmd);
 }
 
 void AudioState::react(const SetTrack& ev) {
   if (ev.transition == SetTrack::Transition::kHardCut) {
+    sCurrentTrack.reset();
+    sCurrentSamples = 0;
+    sCurrentTrackIsFromQueue = false;
     clearDrainBuffer();
+  }
+
+  if (std::holds_alternative<std::monostate>(ev.new_track)) {
+    ESP_LOGI(kTag, "playback finished, awaiting drain");
+    sFileSource->SetPath();
+    awaitEmptyDrainBuffer();
+    sCurrentTrack.reset();
+    sDrainFormat.reset();
+    sCurrentSamples = 0;
+    sCurrentTrackIsFromQueue = false;
+    transit<states::Standby>();
+    return;
   }
 
   // Move the rest of the work to a background worker, since it may require db
@@ -152,46 +176,56 @@ void AudioState::react(const TogglePlayPause& ev) {
 }
 
 void AudioState::react(const internal::StreamStarted& ev) {
-  sCurrentFormat = ev.dst_format;
+  sDrainFormat = ev.dst_format;
   sIsResampling = ev.src_format != ev.dst_format;
+
   sNextTrack = ev.track;
-  sNextTrackCueSamples = sCurrentSamples + kDrainLatencySamples;
+  sNextTrackCueSamples = sCurrentSamples + (kDrainLatencySamples / 2);
 
   ESP_LOGI(kTag, "new stream %s %u ch @ %lu hz (resample=%i)",
-           ev.track->uri.c_str(), sCurrentFormat->num_channels,
-           sCurrentFormat->sample_rate, sIsResampling);
+           ev.track->uri.c_str(), sDrainFormat->num_channels,
+           sDrainFormat->sample_rate, sIsResampling);
 }
 
 void AudioState::react(const internal::StreamEnded&) {
   ESP_LOGI(kTag, "stream ended");
-  // FIXME: only when we were playing the current track
-  sServices->track_queue().finish();
+
+  if (sCurrentTrackIsFromQueue) {
+    sServices->track_queue().finish();
+  } else {
+    tinyfsm::FsmList<AudioState>::dispatch(SetTrack{
+        .new_track = std::monostate{},
+        .seek_to_second = {},
+        .transition = SetTrack::Transition::kGapless,
+    });
+  }
 }
 
 void AudioState::react(const internal::StreamUpdate& ev) {
-  ESP_LOGI(kTag, "sample converter sunk %lu samples", ev.samples_sunk);
   sCurrentSamples += ev.samples_sunk;
 
   if (sNextTrack && sCurrentSamples >= sNextTrackCueSamples) {
     ESP_LOGI(kTag, "next track is now sinking");
     sCurrentTrack = sNextTrack;
     sCurrentSamples -= sNextTrackCueSamples;
-    sCurrentSamples +=
-        sNextTrack->start_offset.value_or(0) *
-        (sCurrentFormat->num_channels * sCurrentFormat->sample_rate);
+    sCurrentSamples += sNextTrack->start_offset.value_or(0) *
+                       (sDrainFormat->num_channels * sDrainFormat->sample_rate);
+    sCurrentTrackIsFromQueue = sNextTrackIsFromQueue;
 
     sNextTrack.reset();
     sNextTrackCueSamples = 0;
+    sNextTrackIsFromQueue = false;
   }
 
-  PlaybackUpdate event{
-      .current_track = sCurrentTrack,
-      .track_position = currentPositionSeconds(),
-      .paused = !is_in_state<states::Playback>(),
-  };
-
-  events::System().Dispatch(event);
-  events::Ui().Dispatch(event);
+  if (sCurrentTrack) {
+    PlaybackUpdate event{
+        .current_track = sCurrentTrack,
+        .track_position = currentPositionSeconds(),
+        .paused = !is_in_state<states::Playback>(),
+    };
+    events::System().Dispatch(event);
+    events::Ui().Dispatch(event);
+  }
 
   if (sCurrentTrack && !sIsPaused && !is_in_state<states::Playback>()) {
     ESP_LOGI(kTag, "ready to play!");
@@ -318,6 +352,17 @@ auto AudioState::clearDrainBuffer() -> void {
       // Try to quickly discard the rest.
       xStreamBufferReset(sDrainBuffer);
     }
+  }
+}
+
+auto AudioState::awaitEmptyDrainBuffer() -> void {
+  if (is_in_state<states::Playback>()) {
+    for (int i = 0; i < 10 && !xStreamBufferIsEmpty(sDrainBuffer); i++) {
+      vTaskDelay(pdMS_TO_TICKS(250));
+    }
+  }
+  if (!xStreamBufferIsEmpty(sDrainBuffer)) {
+    clearDrainBuffer();
   }
 }
 

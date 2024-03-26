@@ -67,6 +67,8 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
  protected:
   auto clearDrainBuffer() -> void;
+  auto awaitEmptyDrainBuffer() -> void;
+
   auto playTrack(database::TrackId id) -> void;
   auto commitVolume() -> void;
 
@@ -83,10 +85,12 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   static std::shared_ptr<TrackInfo> sCurrentTrack;
   static uint64_t sCurrentSamples;
-  static std::optional<IAudioOutput::Format> sCurrentFormat;
+  static std::optional<IAudioOutput::Format> sDrainFormat;
+  static bool sCurrentTrackIsFromQueue;
 
   static std::shared_ptr<TrackInfo> sNextTrack;
   static uint64_t sNextTrackCueSamples;
+  static bool sNextTrackIsFromQueue;
 
   static bool sIsResampling;
   static bool sIsPaused;

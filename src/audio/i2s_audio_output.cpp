@@ -152,9 +152,6 @@ auto I2SAudioOutput::Configure(const Format& fmt) -> void {
     return;
   }
 
-  ESP_LOGI(kTag, "incoming audio stream: %u ch %u bpp @ %lu Hz",
-           fmt.num_channels, fmt.bits_per_sample, fmt.sample_rate);
-
   drivers::I2SDac::Channels ch;
   switch (fmt.num_channels) {
     case 1:

@@ -241,6 +241,7 @@ auto SampleConverter::handleEndStream() -> void {
     });
     samples_sunk_ = 0;
   }
+  leftover_bytes_ = 0;
 
   events::Audio().Dispatch(internal::StreamEnded{});
 }
