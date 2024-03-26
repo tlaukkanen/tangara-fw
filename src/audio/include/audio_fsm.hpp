@@ -46,12 +46,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const SetTrack&);
   void react(const TogglePlayPause&);
 
-  void react(const internal::DecoderOpened&);
-  void react(const internal::DecoderClosed&);
-  void react(const internal::DecoderError&);
-
-  void react(const internal::ConverterConfigurationChanged&);
-  void react(const internal::ConverterProgress&);
+  void react(const internal::StreamStarted&);
+  void react(const internal::StreamUpdate&);
+  void react(const internal::StreamEnded&);
 
   void react(const StepUpVolume&);
   void react(const StepDownVolume&);

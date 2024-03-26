@@ -392,7 +392,11 @@ void UiState::react(const audio::QueueUpdate&) {
 }
 
 void UiState::react(const audio::PlaybackUpdate& ev) {
-  sPlaybackTrack.Update(*ev.current_track);
+  if (ev.current_track) {
+    sPlaybackTrack.Update(*ev.current_track);
+  } else {
+    sPlaybackTrack.Update(std::monostate{});
+  }
   sPlaybackPlaying.Update(!ev.paused);
   sPlaybackPosition.Update(static_cast<int>(ev.track_position.value_or(0)));
 }

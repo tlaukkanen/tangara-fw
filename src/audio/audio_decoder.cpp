@@ -72,7 +72,6 @@ void Decoder::Main() {
   for (;;) {
     if (source_->HasNewStream() || !stream_) {
       std::shared_ptr<TaggedStream> new_stream = source_->NextStream();
-      ESP_LOGI(kTag, "decoder has new stream");
       if (new_stream && BeginDecoding(new_stream)) {
         stream_ = new_stream;
       } else {
@@ -91,8 +90,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   codec_.reset();
   codec_.reset(codecs::CreateCodecForType(stream->type()).value_or(nullptr));
   if (!codec_) {
-    ESP_LOGE(kTag, "no codec found");
-    events::Audio().Dispatch(internal::DecoderError{});
+    ESP_LOGE(kTag, "no codec found for stream");
     return false;
   }
 
@@ -100,7 +98,6 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   if (open_res.has_error()) {
     ESP_LOGE(kTag, "codec failed to start: %s",
              codecs::ICodec::ErrorString(open_res.error()).c_str());
-    events::Audio().Dispatch(internal::DecoderError{});
     return false;
   }
   stream->SetPreambleFinished();
@@ -110,24 +107,21 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
       .bits_per_sample = 16,
   };
 
-  ESP_LOGI(kTag, "stream started ok");
-
   std::optional<uint32_t> duration;
   if (open_res->total_samples) {
     duration = open_res->total_samples.value() / open_res->num_channels /
                open_res->sample_rate_hz;
   }
 
-  events::Audio().Dispatch(internal::DecoderOpened{
-      .track = std::make_shared<TrackInfo>(TrackInfo{
-          .tags = stream->tags(),
-          .uri = stream->Filepath(),
-          .duration = duration,
-          .start_offset = stream->Offset(),
-          .bitrate_kbps = open_res->sample_rate_hz,
-          .encoding = stream->type(),
-      }),
-  });
+  converter_->beginStream(std::make_shared<TrackInfo>(TrackInfo{
+      .tags = stream->tags(),
+      .uri = stream->Filepath(),
+      .duration = duration,
+      .start_offset = stream->Offset(),
+      .bitrate_kbps = open_res->sample_rate_hz,
+      .encoding = stream->type(),
+      .format = *current_sink_format_,
+  }));
 
   return true;
 }
@@ -135,18 +129,16 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
 auto Decoder::ContinueDecoding() -> bool {
   auto res = codec_->DecodeTo(codec_buffer_);
   if (res.has_error()) {
-    events::Audio().Dispatch(internal::DecoderError{});
+    converter_->endStream();
     return true;
   }
 
   if (res->samples_written > 0) {
-    converter_->ConvertSamples(codec_buffer_.first(res->samples_written),
-                               current_sink_format_.value(),
-                               res->is_stream_finished);
+    converter_->continueStream(codec_buffer_.first(res->samples_written));
   }
 
   if (res->is_stream_finished) {
-    events::Audio().Dispatch(internal::DecoderClosed{});
+    converter_->endStream();
     codec_.reset();
   }
 

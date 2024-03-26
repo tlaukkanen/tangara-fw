@@ -51,6 +51,8 @@ struct TrackInfo {
 
   /* The encoded format of the this track. */
   codecs::StreamType encoding;
+
+  IAudioOutput::Format format;
 };
 
 /*
@@ -136,22 +138,17 @@ struct OutputModeChanged : tinyfsm::Event {};
 
 namespace internal {
 
-struct DecoderOpened : tinyfsm::Event {
+struct StreamStarted : tinyfsm::Event {
   std::shared_ptr<TrackInfo> track;
-};
-
-struct DecoderClosed : tinyfsm::Event {};
-
-struct DecoderError : tinyfsm::Event {};
-
-struct ConverterConfigurationChanged : tinyfsm::Event {
   IAudioOutput::Format src_format;
   IAudioOutput::Format dst_format;
 };
 
-struct ConverterProgress : tinyfsm::Event {
+struct StreamUpdate : tinyfsm::Event {
   uint32_t samples_sunk;
 };
+
+struct StreamEnded : tinyfsm::Event {};
 
 }  // namespace internal
 

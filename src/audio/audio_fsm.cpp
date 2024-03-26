@@ -55,9 +55,9 @@ std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 // Two seconds of samples for two channels, at a representative sample rate.
-constexpr size_t kDrainLatencySamples = 48000;
+constexpr size_t kDrainLatencySamples = 48000 * 2 * 2;
 constexpr size_t kDrainBufferSize =
-    sizeof(sample::Sample) * kDrainLatencySamples * 4;
+    sizeof(sample::Sample) * kDrainLatencySamples;
 
 StreamBufferHandle_t AudioState::sDrainBuffer;
 
@@ -151,33 +151,24 @@ void AudioState::react(const TogglePlayPause& ev) {
   }
 }
 
-void AudioState::react(const internal::DecoderOpened& ev) {
-  ESP_LOGI(kTag, "decoder opened %s", ev.track->uri.c_str());
-  sNextTrack = ev.track;
-  sNextTrackCueSamples = sCurrentSamples + kDrainLatencySamples;
-}
-
-void AudioState::react(const internal::DecoderClosed&) {
-  ESP_LOGI(kTag, "decoder closed");
-  // FIXME: only when we were playing the current track
-  sServices->track_queue().finish();
-}
-
-void AudioState::react(const internal::DecoderError&) {
-  ESP_LOGW(kTag, "decoder errored");
-  // FIXME: only when we were playing the current track
-  sServices->track_queue().finish();
-}
-
-void AudioState::react(const internal::ConverterConfigurationChanged& ev) {
+void AudioState::react(const internal::StreamStarted& ev) {
   sCurrentFormat = ev.dst_format;
   sIsResampling = ev.src_format != ev.dst_format;
-  ESP_LOGI(kTag, "output format now %u ch @ %lu hz (resample=%i)",
-           sCurrentFormat->num_channels, sCurrentFormat->sample_rate,
-           sIsResampling);
+  sNextTrack = ev.track;
+  sNextTrackCueSamples = sCurrentSamples + kDrainLatencySamples;
+
+  ESP_LOGI(kTag, "new stream %s %u ch @ %lu hz (resample=%i)",
+           ev.track->uri.c_str(), sCurrentFormat->num_channels,
+           sCurrentFormat->sample_rate, sIsResampling);
 }
 
-void AudioState::react(const internal::ConverterProgress& ev) {
+void AudioState::react(const internal::StreamEnded&) {
+  ESP_LOGI(kTag, "stream ended");
+  // FIXME: only when we were playing the current track
+  sServices->track_queue().finish();
+}
+
+void AudioState::react(const internal::StreamUpdate& ev) {
   ESP_LOGI(kTag, "sample converter sunk %lu samples", ev.samples_sunk);
   sCurrentSamples += ev.samples_sunk;
 

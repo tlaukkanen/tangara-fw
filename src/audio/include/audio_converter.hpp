@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "audio_events.hpp"
 #include "audio_sink.hpp"
 #include "audio_source.hpp"
 #include "codec.hpp"
@@ -31,20 +32,23 @@ class SampleConverter {
 
   auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
 
-  auto ConvertSamples(cpp::span<sample::Sample>,
-                      const IAudioOutput::Format& format,
-                      bool is_eos) -> void;
+  auto beginStream(std::shared_ptr<TrackInfo>) -> void;
+  auto continueStream(cpp::span<sample::Sample>) -> void;
+  auto endStream() -> void;
 
  private:
   auto Main() -> void;
 
-  auto SetTargetFormat(const IAudioOutput::Format& format) -> void;
-  auto HandleSamples(cpp::span<sample::Sample>, bool) -> size_t;
+  auto handleBeginStream(std::shared_ptr<TrackInfo>) -> void;
+  auto handleContinueStream(size_t samples_available) -> void;
+  auto handleEndStream() -> void;
 
-  auto SendToSink(cpp::span<sample::Sample>) -> void;
+  auto handleSamples(cpp::span<sample::Sample>) -> size_t;
+
+  auto sendToSink(cpp::span<sample::Sample>) -> void;
 
   struct Args {
-    IAudioOutput::Format format;
+    std::shared_ptr<TrackInfo>* track;
     size_t samples_available;
     bool is_end_of_stream;
   };
