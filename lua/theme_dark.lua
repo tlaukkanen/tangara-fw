@@ -5,6 +5,8 @@ local background_color = "#5a5474"
 local background_muted = "#464258"
 local text_color = "#eeeeee"
 local highlight_color = "#9773d3"
+local icon_enabled_color = "#eeeeee"
+local icon_disabled_color = "#6d6d69"
 
 local theme_dark = {
   base = {
@@ -28,6 +30,12 @@ local theme_dark = {
       bg_color = background_muted,
     }},
   },
+  pop_up = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      bg_opa = lvgl.OPA(100),
+      bg_color = background_muted,
+    }},
+  },
   button = {
     {lvgl.PART.MAIN, lvgl.Style {
       pad_left = 2,
@@ -35,13 +43,14 @@ local theme_dark = {
       pad_top = 1,
       pad_bottom = 1,
       bg_color = background_color,
-      img_opa = 180,
+      img_recolor_opa = 180,
+      img_recolor = highlight_color,
       radius = 5,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       bg_color = highlight_color,
-      img_opa = 255,
+      img_recolor_opa = 0,
     }},
   },
   listbutton = {
@@ -149,6 +158,19 @@ local theme_dark = {
       text_color = highlight_color,
     }},
   },
+  icon_disabled = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      img_recolor_opa = 180,
+      img_recolor = icon_disabled_color,
+    }},
+  },
+  icon_enabled = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      img_recolor_opa = 180,
+      img_recolor = icon_enabled_color,
+    }},
+  },
+
 }
 
 return theme_dark

@@ -6,6 +6,9 @@ local time = require("time")
 
 local lock_time = time.ticks()
 
+local theme_dark = require("theme_dark")
+theme.set(theme_dark)
+
 -- Set up property bindings that are used across every screen.
 GLOBAL_BINDINGS = {
   -- Show an alert with the current volume whenever the volume changes
@@ -20,11 +23,10 @@ GLOBAL_BINDINGS = {
           align_items = "center",
           align_content = "center",
         },
-        bg_opa = lvgl.OPA(100),
-        bg_color = "#fafafa",
         radius = 8,
         pad_all = 2,
       })
+      theme.set_style(container, "pop_up")
       container:Label {
         text = string.format("Volume %i%%", pct),
         text_font = font.fusion_10
@@ -51,9 +53,6 @@ GLOBAL_BINDINGS = {
     end
   end),
 }
-
-local theme_dark = require("theme_dark")
-theme.set(theme_dark)
 
 local backstack = require("backstack")
 local main_menu = require("main_menu")
