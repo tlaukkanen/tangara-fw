@@ -441,8 +441,8 @@ void btc_a2dp_source_setup_codec(void)
 
     osi_mutex_global_lock();
 
-    /* for now hardcode 44.1 khz 16 bit stereo PCM format */
-    media_feeding.cfg.pcm.sampling_freq = 44100;
+    /* for now hardcode 48 khz 16 bit stereo PCM format */
+    media_feeding.cfg.pcm.sampling_freq = 48000;
     media_feeding.cfg.pcm.bit_per_sample = 16;
     media_feeding.cfg.pcm.num_channel = 2;
     media_feeding.format = BTC_AV_CODEC_PCM;

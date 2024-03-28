@@ -70,7 +70,7 @@ const UINT8 bta_av_co_cp_scmst[BTA_AV_CP_INFO_LEN] = "\x02\x02\x00";
 
 /* SBC SRC codec capabilities */
 const tA2D_SBC_CIE bta_av_co_sbc_caps = {
-    (A2D_SBC_IE_SAMP_FREQ_44), /* samp_freq */
+    (A2D_SBC_IE_SAMP_FREQ_44 | A2D_SBC_IE_SAMP_FREQ_48), /* samp_freq */
     (A2D_SBC_IE_CH_MD_MONO | A2D_SBC_IE_CH_MD_STEREO | A2D_SBC_IE_CH_MD_JOINT | A2D_SBC_IE_CH_MD_DUAL), /* ch_mode */
     (A2D_SBC_IE_BLOCKS_16 | A2D_SBC_IE_BLOCKS_12 | A2D_SBC_IE_BLOCKS_8 | A2D_SBC_IE_BLOCKS_4), /* block_len */
     (A2D_SBC_IE_SUBBAND_4 | A2D_SBC_IE_SUBBAND_8), /* num_subbands */
@@ -91,7 +91,7 @@ const tA2D_SBC_CIE bta_av_co_sbc_sink_caps = {
 };
 
 #if !defined(BTC_AV_SBC_DEFAULT_SAMP_FREQ)
-#define BTC_AV_SBC_DEFAULT_SAMP_FREQ A2D_SBC_IE_SAMP_FREQ_44
+#define BTC_AV_SBC_DEFAULT_SAMP_FREQ A2D_SBC_IE_SAMP_FREQ_48
 #endif
 
 /* Default SBC codec configuration */
