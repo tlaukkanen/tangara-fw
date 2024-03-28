@@ -24,12 +24,10 @@ namespace lua {
 
 static auto set_style(lua_State* L) -> int {
   // Get the object and class name from the stack
-  if (lua_type(L, -1) == LUA_TSTRING) {
-    std::string class_name = lua_tostring(L, -1);
-    lv_obj_t* obj = luavgl_to_obj(L, -2);
-    if (obj != NULL) {
-      ui::themes::Theme::instance()->ApplyStyle(obj, class_name);
-    }
+  std::string class_name = luaL_checkstring(L, -1);
+  lv_obj_t* obj = luavgl_to_obj(L, -2);
+  if (obj != NULL) {
+    ui::themes::Theme::instance()->ApplyStyle(obj, class_name);
   }
   return 0;
 }
