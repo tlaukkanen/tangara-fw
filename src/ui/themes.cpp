@@ -70,6 +70,7 @@ void Theme::Callback(lv_obj_t* obj) {
 void Theme::ApplyStyle(lv_obj_t* obj, std::string style_key) {
   if (auto search = style_map.find(style_key); search != style_map.end()) {
       for (const auto& pair : search->second) {
+        lv_obj_remove_style(obj, pair.second, pair.first);
         lv_obj_add_style(obj, pair.second, pair.first);
       }
   }
