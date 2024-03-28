@@ -57,8 +57,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const system_fsm::StorageMounted&) {}
 
   void react(const system_fsm::BatteryStateChanged&);
-  void react(const audio::PlaybackStarted&);
-  void react(const audio::PlaybackStopped&);
   void react(const audio::PlaybackUpdate&);
   void react(const audio::QueueUpdate&);
 
@@ -132,6 +130,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sLockSwitch;
 
   static lua::Property sDatabaseUpdating;
+
+  static lua::Property sUsbMassStorageEnabled;
 };
 
 namespace states {

@@ -9,6 +9,7 @@ local bluetooth = require("bluetooth")
 local theme = require("theme")
 local database = require("database")
 local screen = require("screen")
+local usb = require("usb")
 
 local function SettingsScreen(title)
   local menu = widgets.MenuScreen {
@@ -277,6 +278,54 @@ local InputSettings = screen:new {
   end
 }
 
+local MassStorageSettings = screen:new {
+  createUi = function(self)
+    self.menu = SettingsScreen("USB Storage")
+    local version = require("version").samd()
+    if tonumber(version) < 2 then
+      self.menu.content:Label {
+        w = lvgl.PCT(100),
+        text = "Usb Mass Storage requires a SAMD21 firmware version >=2."
+      }
+      return
+    end
+
+    local enable_container = self.menu.content:Object {
+      flex = {
+        flex_direction = "row",
+        justify_content = "flex-start",
+        align_items = "content",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      pad_bottom = 1,
+    }
+    enable_container:Label { text = "Enable", flex_grow = 1 }
+    local enable_sw = enable_container:Switch {}
+
+    local bind_switch = function()
+      if usb.msc_enabled:get() then
+        enable_sw:add_state(lvgl.STATE.CHECKED)
+      else
+        enable_sw:clear_state(lvgl.STATE.CHECKED)
+      end
+    end
+
+    enable_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      usb.msc_enabled:set(enable_sw:enabled())
+      bind_switch()
+    end)
+
+    self.bindings = {
+      usb.msc_enabled:bind(bind_switch),
+    }
+  end,
+  canPop = function()
+    return not usb.msc_enabled:get()
+  end
+}
+
 local DatabaseSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Database")
@@ -357,6 +406,9 @@ return screen:new {
     section("Interface")
     submenu("Display", DisplaySettings)
     submenu("Input Method", InputSettings)
+
+    section("USB")
+    submenu("Storage", MassStorageSettings)
 
     section("System")
     submenu("Database", DatabaseSettings)

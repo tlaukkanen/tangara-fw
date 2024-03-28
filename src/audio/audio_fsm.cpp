@@ -31,11 +31,11 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
-#include "idf_additions.h"
 #include "nvs.hpp"
 #include "sample.hpp"
 #include "service_locator.hpp"
 #include "system_events.hpp"
+#include "tinyfsm.hpp"
 #include "track.hpp"
 #include "track_queue.hpp"
 #include "wm8523.hpp"
@@ -54,13 +54,183 @@ std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 // Two seconds of samples for two channels, at a representative sample rate.
-constexpr size_t kDrainBufferSize = sizeof(sample::Sample) * 48000 * 4;
+constexpr size_t kDrainLatencySamples = 48000 * 2 * 2;
+constexpr size_t kDrainBufferSize =
+    sizeof(sample::Sample) * kDrainLatencySamples;
+
 StreamBufferHandle_t AudioState::sDrainBuffer;
+std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 
-std::optional<database::TrackId> AudioState::sCurrentTrack;
-bool AudioState::sIsPlaybackAllowed;
+std::shared_ptr<TrackInfo> AudioState::sCurrentTrack;
+uint64_t AudioState::sCurrentSamples;
+bool AudioState::sCurrentTrackIsFromQueue;
 
-static std::optional<std::pair<std::string, uint32_t>> sLastTrackUpdate;
+std::shared_ptr<TrackInfo> AudioState::sNextTrack;
+uint64_t AudioState::sNextTrackCueSamples;
+bool AudioState::sNextTrackIsFromQueue;
+
+bool AudioState::sIsResampling;
+bool AudioState::sIsPaused = true;
+
+auto AudioState::currentPositionSeconds() -> std::optional<uint32_t> {
+  if (!sCurrentTrack || !sDrainFormat) {
+    return {};
+  }
+  return sCurrentSamples /
+         (sDrainFormat->num_channels * sDrainFormat->sample_rate);
+}
+
+void AudioState::react(const QueueUpdate& ev) {
+  SetTrack cmd{
+      .new_track = std::monostate{},
+      .seek_to_second = {},
+      .transition = SetTrack::Transition::kHardCut,
+  };
+
+  auto current = sServices->track_queue().current();
+  if (current) {
+    cmd.new_track = *current;
+  }
+
+  switch (ev.reason) {
+    case QueueUpdate::kExplicitUpdate:
+      if (!ev.current_changed) {
+        return;
+      }
+      sNextTrackIsFromQueue = true;
+      cmd.transition = SetTrack::Transition::kHardCut;
+      break;
+    case QueueUpdate::kRepeatingLastTrack:
+      sNextTrackIsFromQueue = true;
+      cmd.transition = SetTrack::Transition::kGapless;
+      break;
+    case QueueUpdate::kTrackFinished:
+      if (!ev.current_changed) {
+        cmd.new_track = std::monostate{};
+      } else {
+        sNextTrackIsFromQueue = true;
+      }
+      cmd.transition = SetTrack::Transition::kGapless;
+      break;
+    case QueueUpdate::kDeserialised:
+    default:
+      // The current track is deserialised separately in order to retain seek
+      // position.
+      return;
+  }
+
+  tinyfsm::FsmList<AudioState>::dispatch(cmd);
+}
+
+void AudioState::react(const SetTrack& ev) {
+  if (ev.transition == SetTrack::Transition::kHardCut) {
+    sCurrentTrack.reset();
+    sCurrentSamples = 0;
+    sCurrentTrackIsFromQueue = false;
+    clearDrainBuffer();
+  }
+
+  if (std::holds_alternative<std::monostate>(ev.new_track)) {
+    ESP_LOGI(kTag, "playback finished, awaiting drain");
+    sFileSource->SetPath();
+    awaitEmptyDrainBuffer();
+    sCurrentTrack.reset();
+    sDrainFormat.reset();
+    sCurrentSamples = 0;
+    sCurrentTrackIsFromQueue = false;
+    transit<states::Standby>();
+    return;
+  }
+
+  // Move the rest of the work to a background worker, since it may require db
+  // lookups to resolve a track id into a path.
+  auto new_track = ev.new_track;
+  uint32_t seek_to = ev.seek_to_second.value_or(0);
+  sServices->bg_worker().Dispatch<void>([=]() {
+    std::optional<std::string> path;
+    if (std::holds_alternative<database::TrackId>(new_track)) {
+      auto db = sServices->database().lock();
+      if (db) {
+        path = db->getTrackPath(std::get<database::TrackId>(new_track));
+      }
+    } else if (std::holds_alternative<std::string>(new_track)) {
+      path = std::get<std::string>(new_track);
+    }
+
+    if (path) {
+      sFileSource->SetPath(*path, seek_to);
+    } else {
+      sFileSource->SetPath();
+    }
+  });
+}
+
+void AudioState::react(const TogglePlayPause& ev) {
+  sIsPaused = !ev.set_to.value_or(sIsPaused);
+  if (!sIsPaused && is_in_state<states::Standby>() && sCurrentTrack) {
+    transit<states::Playback>();
+  } else if (sIsPaused && is_in_state<states::Playback>()) {
+    transit<states::Standby>();
+  }
+}
+
+void AudioState::react(const internal::StreamStarted& ev) {
+  sDrainFormat = ev.dst_format;
+  sIsResampling = ev.src_format != ev.dst_format;
+
+  sNextTrack = ev.track;
+  sNextTrackCueSamples = sCurrentSamples + (kDrainLatencySamples / 2);
+
+  ESP_LOGI(kTag, "new stream %s %u ch @ %lu hz (resample=%i)",
+           ev.track->uri.c_str(), sDrainFormat->num_channels,
+           sDrainFormat->sample_rate, sIsResampling);
+}
+
+void AudioState::react(const internal::StreamEnded&) {
+  ESP_LOGI(kTag, "stream ended");
+
+  if (sCurrentTrackIsFromQueue) {
+    sServices->track_queue().finish();
+  } else {
+    tinyfsm::FsmList<AudioState>::dispatch(SetTrack{
+        .new_track = std::monostate{},
+        .seek_to_second = {},
+        .transition = SetTrack::Transition::kGapless,
+    });
+  }
+}
+
+void AudioState::react(const internal::StreamUpdate& ev) {
+  sCurrentSamples += ev.samples_sunk;
+
+  if (sNextTrack && sCurrentSamples >= sNextTrackCueSamples) {
+    ESP_LOGI(kTag, "next track is now sinking");
+    sCurrentTrack = sNextTrack;
+    sCurrentSamples -= sNextTrackCueSamples;
+    sCurrentSamples += sNextTrack->start_offset.value_or(0) *
+                       (sDrainFormat->num_channels * sDrainFormat->sample_rate);
+    sCurrentTrackIsFromQueue = sNextTrackIsFromQueue;
+
+    sNextTrack.reset();
+    sNextTrackCueSamples = 0;
+    sNextTrackIsFromQueue = false;
+  }
+
+  if (sCurrentTrack) {
+    PlaybackUpdate event{
+        .current_track = sCurrentTrack,
+        .track_position = currentPositionSeconds(),
+        .paused = !is_in_state<states::Playback>(),
+    };
+    events::System().Dispatch(event);
+    events::Ui().Dispatch(event);
+  }
+
+  if (sCurrentTrack && !sIsPaused && !is_in_state<states::Playback>()) {
+    ESP_LOGI(kTag, "ready to play!");
+    transit<states::Playback>();
+  }
+}
 
 void AudioState::react(const system_fsm::BluetoothEvent& ev) {
   if (ev.event != drivers::bluetooth::Event::kConnectionStateChanged) {
@@ -184,15 +354,15 @@ auto AudioState::clearDrainBuffer() -> void {
   }
 }
 
-auto AudioState::playTrack(database::TrackId id) -> void {
-  sCurrentTrack = id;
-  sServices->bg_worker().Dispatch<void>([=]() {
-    auto db = sServices->database().lock();
-    if (!db) {
-      return;
+auto AudioState::awaitEmptyDrainBuffer() -> void {
+  if (is_in_state<states::Playback>()) {
+    for (int i = 0; i < 10 && !xStreamBufferIsEmpty(sDrainBuffer); i++) {
+      vTaskDelay(pdMS_TO_TICKS(250));
     }
-    sFileSource->SetPath(db->getTrackPath(id));
-  });
+  }
+  if (!xStreamBufferIsEmpty(sDrainBuffer)) {
+    clearDrainBuffer();
+  }
 }
 
 auto AudioState::commitVolume() -> void {
@@ -206,23 +376,6 @@ auto AudioState::commitVolume() -> void {
       return;
     }
     sServices->nvs().BluetoothVolume(dev->mac, vol);
-  }
-}
-
-auto AudioState::readyToPlay() -> bool {
-  return sCurrentTrack.has_value() && sIsPlaybackAllowed;
-}
-
-void AudioState::react(const TogglePlayPause& ev) {
-  sIsPlaybackAllowed = !sIsPlaybackAllowed;
-  if (readyToPlay()) {
-    if (!is_in_state<states::Playback>()) {
-      transit<states::Playback>();
-    }
-  } else {
-    if (!is_in_state<states::Standby>()) {
-      transit<states::Standby>();
-    }
   }
 }
 
@@ -283,44 +436,6 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   transit<Standby>();
 }
 
-void Standby::react(const PlayFile& ev) {
-  sCurrentTrack = 0;
-  sIsPlaybackAllowed = true;
-  sFileSource->SetPath(ev.filename);
-}
-
-void Playback::react(const PlayFile& ev) {
-  sFileSource->SetPath(ev.filename);
-}
-
-void Standby::react(const SeekFile& ev) {
-  clearDrainBuffer();
-  sFileSource->SetPath(ev.filename, ev.offset);
-}
-
-void Playback::react(const SeekFile& ev) {
-  clearDrainBuffer();
-  sFileSource->SetPath(ev.filename, ev.offset);
-}
-
-void Standby::react(const internal::InputFileOpened& ev) {
-  if (readyToPlay()) {
-    transit<Playback>();
-  }
-}
-
-void Standby::react(const QueueUpdate& ev) {
-  auto current_track = sServices->track_queue().current();
-  if (!current_track || (sCurrentTrack && (*sCurrentTrack == *current_track))) {
-    return;
-  }
-  if (ev.reason == QueueUpdate::Reason::kDeserialised && sLastTrackUpdate) {
-    return;
-  }
-  clearDrainBuffer();
-  playTrack(*current_track);
-}
-
 static const char kQueueKey[] = "audio:queue";
 static const char kCurrentFileKey[] = "audio:current";
 
@@ -328,7 +443,7 @@ void Standby::react(const system_fsm::KeyLockChanged& ev) {
   if (!ev.locking) {
     return;
   }
-  sServices->bg_worker().Dispatch<void>([]() {
+  sServices->bg_worker().Dispatch<void>([this]() {
     auto db = sServices->database().lock();
     if (!db) {
       return;
@@ -341,10 +456,10 @@ void Standby::react(const system_fsm::KeyLockChanged& ev) {
     }
     db->put(kQueueKey, queue.serialise());
 
-    if (sLastTrackUpdate) {
+    if (sCurrentTrack) {
       cppbor::Array current_track{
-          cppbor::Tstr{sLastTrackUpdate->first},
-          cppbor::Uint{sLastTrackUpdate->second},
+          cppbor::Tstr{sCurrentTrack->uri},
+          cppbor::Uint{currentPositionSeconds().value_or(0)},
       };
       db->put(kCurrentFileKey, current_track.toString());
     }
@@ -371,8 +486,12 @@ void Standby::react(const system_fsm::StorageMounted& ev) {
       if (parsed->type() == cppbor::ARRAY) {
         std::string filename = parsed->asArray()->get(0)->asTstr()->value();
         uint32_t pos = parsed->asArray()->get(1)->asUint()->value();
-        sLastTrackUpdate = std::make_pair(filename, pos);
-        sFileSource->SetPath(filename, pos);
+
+        events::Audio().Dispatch(SetTrack{
+            .new_track = filename,
+            .seek_to_second = pos,
+            .transition = SetTrack::Transition::kHardCut,
+        });
       }
     }
 
@@ -388,76 +507,31 @@ void Standby::react(const system_fsm::StorageMounted& ev) {
 }
 
 void Playback::entry() {
-  ESP_LOGI(kTag, "beginning playback");
+  ESP_LOGI(kTag, "audio output resumed");
   sOutput->mode(IAudioOutput::Modes::kOnPlaying);
 
-  events::System().Dispatch(PlaybackStarted{});
-  events::Ui().Dispatch(PlaybackStarted{});
+  PlaybackUpdate event{
+      .current_track = sCurrentTrack,
+      .track_position = currentPositionSeconds(),
+      .paused = false,
+  };
+
+  events::System().Dispatch(event);
+  events::Ui().Dispatch(event);
 }
 
 void Playback::exit() {
-  ESP_LOGI(kTag, "finishing playback");
+  ESP_LOGI(kTag, "audio output paused");
   sOutput->mode(IAudioOutput::Modes::kOnPaused);
 
-  // Stash the current volume now, in case it changed during playback, since
-  // we might be powering off soon.
-  commitVolume();
+  PlaybackUpdate event{
+      .current_track = sCurrentTrack,
+      .track_position = currentPositionSeconds(),
+      .paused = true,
+  };
 
-  events::System().Dispatch(PlaybackStopped{});
-  events::Ui().Dispatch(PlaybackStopped{});
-}
-
-void Playback::react(const system_fsm::HasPhonesChanged& ev) {
-  if (!ev.has_headphones) {
-    transit<Standby>();
-  }
-}
-
-void Playback::react(const QueueUpdate& ev) {
-  if (!ev.current_changed) {
-    return;
-  }
-  // Cut the current track immediately.
-  if (ev.reason == QueueUpdate::Reason::kExplicitUpdate) {
-    clearDrainBuffer();
-  }
-  auto current_track = sServices->track_queue().current();
-  if (!current_track) {
-    sFileSource->SetPath();
-    sCurrentTrack.reset();
-    transit<Standby>();
-    return;
-  }
-  playTrack(*current_track);
-}
-
-void Playback::react(const PlaybackUpdate& ev) {
-  ESP_LOGI(kTag, "elapsed: %lu, total: %lu", ev.seconds_elapsed,
-           ev.track->duration);
-  sLastTrackUpdate = std::make_pair(ev.track->filepath, ev.seconds_elapsed);
-}
-
-void Playback::react(const internal::InputFileOpened& ev) {}
-
-void Playback::react(const internal::InputFileClosed& ev) {}
-
-void Playback::react(const internal::InputFileFinished& ev) {
-  ESP_LOGI(kTag, "finished playing file");
-  sLastTrackUpdate.reset();
-  sServices->track_queue().finish();
-  if (!sServices->track_queue().current()) {
-    for (int i = 0; i < 20; i++) {
-      if (xStreamBufferIsEmpty(sDrainBuffer)) {
-        break;
-      }
-      vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    transit<Standby>();
-  }
-}
-
-void Playback::react(const internal::AudioPipelineIdle& ev) {
-  transit<Standby>();
+  events::System().Dispatch(event);
+  events::Ui().Dispatch(event);
 }
 
 }  // namespace states

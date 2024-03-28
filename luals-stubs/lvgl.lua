@@ -427,6 +427,13 @@ end
 function lvgl.Font(family, size, weight)
 end
 
+--- Decodes an image from the filesystem and pins it into RAM, returning a
+--- lightuserdata that can be passed to `img:set_src`.
+--- @param path? string path to the encoded image
+--- @return ImgData
+function lvgl.ImgData(path)
+end
+
 --- Create a new style that can be applied to objects via `obj:add_style`.
 --- @param p? StyleProp Style properties that will be applied by this style.
 --- @return Style
@@ -1247,6 +1254,12 @@ Font is a light userdata that can be uset to set style text_font.
 ---
 
 local font = {}
+
+
+--- Decoded image data that is pinned to memory.
+--- @class ImgData
+
+local ImgData = {}
 
 ---
 --- @class Style : lightuserdata

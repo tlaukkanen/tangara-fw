@@ -22,4 +22,9 @@ function screen:onShown() end
 --- been popped off of the stack.
 function screen:onHidden() end
 
+--- Called when this screen is about to be popped off of the stack. If this
+--- returns false, it will not be popped. May be a function, or any boolean
+--- convertable value.
+function screen:canPop() end
+
 return screen

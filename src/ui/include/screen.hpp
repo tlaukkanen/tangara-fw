@@ -43,6 +43,8 @@ class Screen {
     return group_;
   }
 
+  virtual auto canPop() -> bool = 0;
+
  protected:
   lv_obj_t* const root_;
   lv_obj_t* content_;

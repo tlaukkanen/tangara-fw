@@ -5,6 +5,7 @@
  */
 
 #include "audio_decoder.hpp"
+#include <stdint.h>
 
 #include <cstdint>
 #include <cstdlib>
@@ -50,39 +51,6 @@ namespace audio {
 static constexpr std::size_t kCodecBufferLength =
     drivers::kI2SBufferLengthFrames * sizeof(sample::Sample);
 
-Timer::Timer(std::shared_ptr<Track> t,
-             const codecs::ICodec::OutputFormat& format,
-             uint32_t current_seconds)
-    : track_(t),
-      current_seconds_(current_seconds),
-      current_sample_in_second_(0),
-      samples_per_second_(format.sample_rate_hz * format.num_channels),
-      total_duration_seconds_(format.total_samples.value_or(0) /
-                              format.num_channels / format.sample_rate_hz) {
-  track_->duration = total_duration_seconds_;
-}
-
-auto Timer::AddSamples(std::size_t samples) -> void {
-  bool incremented = false;
-  current_sample_in_second_ += samples;
-  while (current_sample_in_second_ >= samples_per_second_) {
-    current_seconds_++;
-    current_sample_in_second_ -= samples_per_second_;
-    incremented = true;
-  }
-
-  if (incremented) {
-    if (total_duration_seconds_ < current_seconds_) {
-      total_duration_seconds_ = current_seconds_;
-      track_->duration = total_duration_seconds_;
-    }
-
-    PlaybackUpdate ev{.seconds_elapsed = current_seconds_, .track = track_};
-    events::Audio().Dispatch(ev);
-    events::Ui().Dispatch(ev);
-  }
-}
-
 auto Decoder::Start(std::shared_ptr<IAudioSource> source,
                     std::shared_ptr<SampleConverter> sink) -> Decoder* {
   Decoder* task = new Decoder(source, sink);
@@ -92,11 +60,7 @@ auto Decoder::Start(std::shared_ptr<IAudioSource> source,
 
 Decoder::Decoder(std::shared_ptr<IAudioSource> source,
                  std::shared_ptr<SampleConverter> mixer)
-    : source_(source),
-      converter_(mixer),
-      codec_(),
-      timer_(),
-      current_format_() {
+    : source_(source), converter_(mixer), codec_(), current_format_() {
   ESP_LOGI(kTag, "allocating codec buffer, %u KiB", kCodecBufferLength / 1024);
   codec_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
@@ -108,7 +72,6 @@ void Decoder::Main() {
   for (;;) {
     if (source_->HasNewStream() || !stream_) {
       std::shared_ptr<TaggedStream> new_stream = source_->NextStream();
-      ESP_LOGI(kTag, "decoder has new stream");
       if (new_stream && BeginDecoding(new_stream)) {
         stream_ = new_stream;
       } else {
@@ -117,7 +80,6 @@ void Decoder::Main() {
     }
 
     if (ContinueDecoding()) {
-      events::Audio().Dispatch(internal::InputFileFinished{});
       stream_.reset();
     }
   }
@@ -128,7 +90,7 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
   codec_.reset();
   codec_.reset(codecs::CreateCodecForType(stream->type()).value_or(nullptr));
   if (!codec_) {
-    ESP_LOGE(kTag, "no codec found");
+    ESP_LOGE(kTag, "no codec found for stream");
     return false;
   }
 
@@ -145,21 +107,21 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
       .bits_per_sample = 16,
   };
 
-  ESP_LOGI(kTag, "stream started ok");
-  events::Audio().Dispatch(internal::InputFileOpened{});
+  std::optional<uint32_t> duration;
+  if (open_res->total_samples) {
+    duration = open_res->total_samples.value() / open_res->num_channels /
+               open_res->sample_rate_hz;
+  }
 
-  auto tags = std::make_shared<Track>(Track{
+  converter_->beginStream(std::make_shared<TrackInfo>(TrackInfo{
       .tags = stream->tags(),
-      .db_info = {},
+      .uri = stream->Filepath(),
+      .duration = duration,
+      .start_offset = stream->Offset(),
       .bitrate_kbps = open_res->sample_rate_hz,
       .encoding = stream->type(),
-      .filepath = stream->Filepath(),
-  });
-  timer_.reset(new Timer(tags, open_res.value(), stream->Offset()));
-
-  PlaybackUpdate ev{.seconds_elapsed = stream->Offset(), .track = tags};
-  events::Audio().Dispatch(ev);
-  events::Ui().Dispatch(ev);
+      .format = *current_sink_format_,
+  }));
 
   return true;
 }
@@ -167,20 +129,16 @@ auto Decoder::BeginDecoding(std::shared_ptr<TaggedStream> stream) -> bool {
 auto Decoder::ContinueDecoding() -> bool {
   auto res = codec_->DecodeTo(codec_buffer_);
   if (res.has_error()) {
+    converter_->endStream();
     return true;
   }
 
   if (res->samples_written > 0) {
-    converter_->ConvertSamples(codec_buffer_.first(res->samples_written),
-                               current_sink_format_.value(),
-                               res->is_stream_finished);
-  }
-
-  if (timer_) {
-    timer_->AddSamples(res->samples_written);
+    converter_->continueStream(codec_buffer_.first(res->samples_written));
   }
 
   if (res->is_stream_finished) {
+    converter_->endStream();
     codec_.reset();
   }
 

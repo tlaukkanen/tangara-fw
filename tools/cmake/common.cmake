@@ -5,7 +5,7 @@
 # For more information about build system see
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
 
-set(PROJECT_VER "0.7.1")
+set(PROJECT_VER "0.7.2")
 
 # esp-idf sets the C++ standard weird. Set cmake vars to match.
 set(CMAKE_CXX_STANDARD 23)
@@ -15,6 +15,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 set(COMPONENTS "")
 
 # External dependencies
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/bt")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/catch2")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/cbor")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/esp-idf-lua")
@@ -45,7 +46,8 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 set(EXTRA_WARNINGS "-Wshadow" "-Wnon-virtual-dtor" "-Wunused"
   "-Woverloaded-virtual" "-Wmisleading-indentation" "-Wduplicated-cond"
   "-Wduplicated-branches" "-Wlogical-op" "-Wnull-dereference"
-  "-Wdouble-promotion" "-Wformat=2" "-Wimplicit-fallthrough")
+  "-Wdouble-promotion" "-Wformat=2" "-Wimplicit-fallthrough"
+  "-Wno-deprecated-enum-enum-conversion" "-Wno-array-bounds")
 
 # Extra build flags that should apply to the entire build. This should mostly
 # just be used to setting flags that our external dependencies requires.

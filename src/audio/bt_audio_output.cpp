@@ -83,7 +83,7 @@ auto BluetoothAudioOutput::PrepareFormat(const Format& orig) -> Format {
   // ESP-IDF's current Bluetooth implementation currently handles SBC encoding,
   // but requires a fixed input format.
   return Format{
-      .sample_rate = 44100,
+      .sample_rate = 48000,
       .num_channels = 2,
       .bits_per_sample = 16,
   };

@@ -3,3 +3,4 @@ idf_component_register(
   s3m.c tags.c utf16.c vorbis.c wav.c xm.c
   INCLUDE_DIRS .
 )
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-array-bounds)

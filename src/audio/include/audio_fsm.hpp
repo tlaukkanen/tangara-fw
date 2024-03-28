@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <deque>
 #include <memory>
 #include <vector>
@@ -41,6 +42,14 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  void react(const QueueUpdate&);
+  void react(const SetTrack&);
+  void react(const TogglePlayPause&);
+
+  void react(const internal::StreamStarted&);
+  void react(const internal::StreamUpdate&);
+  void react(const internal::StreamEnded&);
+
   void react(const StepUpVolume&);
   void react(const StepDownVolume&);
   virtual void react(const system_fsm::HasPhonesChanged&);
@@ -56,19 +65,10 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const system_fsm::StorageMounted&) {}
   virtual void react(const system_fsm::BluetoothEvent&);
 
-  virtual void react(const PlayFile&) {}
-  virtual void react(const SeekFile&) {}
-  virtual void react(const QueueUpdate&) {}
-  virtual void react(const PlaybackUpdate&) {}
-  void react(const TogglePlayPause&);
-
-  virtual void react(const internal::InputFileOpened&) {}
-  virtual void react(const internal::InputFileClosed&) {}
-  virtual void react(const internal::InputFileFinished&) {}
-  virtual void react(const internal::AudioPipelineIdle&) {}
-
  protected:
   auto clearDrainBuffer() -> void;
+  auto awaitEmptyDrainBuffer() -> void;
+
   auto playTrack(database::TrackId id) -> void;
   auto commitVolume() -> void;
 
@@ -83,10 +83,19 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   static StreamBufferHandle_t sDrainBuffer;
 
-  static std::optional<database::TrackId> sCurrentTrack;
+  static std::shared_ptr<TrackInfo> sCurrentTrack;
+  static uint64_t sCurrentSamples;
+  static std::optional<IAudioOutput::Format> sDrainFormat;
+  static bool sCurrentTrackIsFromQueue;
 
-  auto readyToPlay() -> bool;
-  static bool sIsPlaybackAllowed;
+  static std::shared_ptr<TrackInfo> sNextTrack;
+  static uint64_t sNextTrackCueSamples;
+  static bool sNextTrackIsFromQueue;
+
+  static bool sIsResampling;
+  static bool sIsPaused;
+
+  auto currentPositionSeconds() -> std::optional<uint32_t>;
 };
 
 namespace states {
@@ -94,7 +103,6 @@ namespace states {
 class Uninitialised : public AudioState {
  public:
   void react(const system_fsm::BootComplete&) override;
-
   void react(const system_fsm::BluetoothEvent&) override{};
 
   using AudioState::react;
@@ -102,10 +110,6 @@ class Uninitialised : public AudioState {
 
 class Standby : public AudioState {
  public:
-  void react(const PlayFile&) override;
-  void react(const SeekFile&) override;
-  void react(const internal::InputFileOpened&) override;
-  void react(const QueueUpdate&) override;
   void react(const system_fsm::KeyLockChanged&) override;
   void react(const system_fsm::StorageMounted&) override;
 
@@ -116,18 +120,6 @@ class Playback : public AudioState {
  public:
   void entry() override;
   void exit() override;
-
-  void react(const system_fsm::HasPhonesChanged&) override;
-
-  void react(const PlayFile&) override;
-  void react(const SeekFile&) override;
-  void react(const QueueUpdate&) override;
-  void react(const PlaybackUpdate&) override;
-
-  void react(const internal::InputFileOpened&) override;
-  void react(const internal::InputFileClosed&) override;
-  void react(const internal::InputFileFinished&) override;
-  void react(const internal::AudioPipelineIdle&) override;
 
   using AudioState::react;
 };

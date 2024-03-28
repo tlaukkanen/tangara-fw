@@ -114,14 +114,11 @@ lua::Property UiState::sBluetoothDevices{
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
-      bool current_val = std::get<bool>(sPlaybackPlaying.Get());
       if (!std::holds_alternative<bool>(val)) {
         return false;
       }
       bool new_val = std::get<bool>(val);
-      if (current_val != new_val) {
-        events::Audio().Dispatch(audio::TogglePlayPause{});
-      }
+      events::Audio().Dispatch(audio::TogglePlayPause{.set_to = new_val});
       return true;
     }};
 
@@ -135,12 +132,13 @@ lua::Property UiState::sPlaybackPosition{
       int new_val = std::get<int>(val);
       if (current_val != new_val) {
         auto track = sPlaybackTrack.Get();
-        if (!std::holds_alternative<audio::Track>(track)) {
+        if (!std::holds_alternative<audio::TrackInfo>(track)) {
           return false;
         }
-        events::Audio().Dispatch(audio::SeekFile{
-            .offset = (uint32_t)new_val,
-            .filename = std::get<audio::Track>(track).filepath});
+        events::Audio().Dispatch(audio::SetTrack{
+            .new_track = std::get<audio::TrackInfo>(track).uri,
+            .seek_to_second = (uint32_t)new_val,
+        });
       }
       return true;
     }};
@@ -285,6 +283,17 @@ lua::Property UiState::sLockSwitch{false};
 
 lua::Property UiState::sDatabaseUpdating{false};
 
+lua::Property UiState::sUsbMassStorageEnabled{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      bool enable = std::get<bool>(val);
+      // FIXME: Check for system busy.
+      events::System().Dispatch(system_fsm::SamdUsbMscChanged{.en = enable});
+      return true;
+    }};
+
 auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
     -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
@@ -382,17 +391,14 @@ void UiState::react(const audio::QueueUpdate&) {
   sQueueReplay.Update(queue.replay());
 }
 
-void UiState::react(const audio::PlaybackStarted& ev) {
-  sPlaybackPlaying.Update(true);
-}
-
 void UiState::react(const audio::PlaybackUpdate& ev) {
-  sPlaybackTrack.Update(*ev.track);
-  sPlaybackPosition.Update(static_cast<int>(ev.seconds_elapsed));
-}
-
-void UiState::react(const audio::PlaybackStopped&) {
-  sPlaybackPlaying.Update(false);
+  if (ev.current_track) {
+    sPlaybackTrack.Update(*ev.current_track);
+  } else {
+    sPlaybackTrack.Update(std::monostate{});
+  }
+  sPlaybackPlaying.Update(!ev.paused);
+  sPlaybackPosition.Update(static_cast<int>(ev.track_position.value_or(0)));
 }
 
 void UiState::react(const audio::VolumeChanged& ev) {
@@ -554,6 +560,10 @@ void Lua::entry() {
     registry.AddPropertyModule("database", {
                                                {"updating", &sDatabaseUpdating},
                                            });
+    registry.AddPropertyModule("usb",
+                               {
+                                   {"msc_enabled", &sUsbMassStorageEnabled},
+                               });
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());
@@ -611,6 +621,9 @@ auto Lua::QueuePrevious(lua_State*) -> int {
 }
 
 auto Lua::PopLuaScreen(lua_State* s) -> int {
+  if (!sCurrentScreen->canPop()) {
+    return 0;
+  }
   PopScreen();
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());

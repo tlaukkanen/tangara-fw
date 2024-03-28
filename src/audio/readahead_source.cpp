@@ -17,7 +17,6 @@
 #include "audio_source.hpp"
 #include "codec.hpp"
 #include "freertos/portmacro.h"
-#include "idf_additions.h"
 #include "spi.hpp"
 #include "tasks.hpp"
 #include "types.hpp"

@@ -60,7 +60,6 @@ static const char kKeyDbVersion[] = "schema_version";
 static const char kKeyCustom[] = "U\0";
 static const char kKeyCollator[] = "collator";
 static const char kKeyTrackId[] = "next_track_id";
-static const char kKeyLastUpdate[] = "last_update";
 
 static std::atomic<bool> sIsDbOpen(false);
 
@@ -302,10 +301,6 @@ auto Database::updateIndexes() -> void {
   leveldb::ReadOptions read_options;
   read_options.fill_cache = false;
 
-  std::pair<uint16_t, uint16_t> last_update = dbGetLastUpdate();
-  ESP_LOGI(kTag, "last update was at %u,%u", last_update.first,
-           last_update.second);
-
   // Stage 1: verify all existing tracks are still valid.
   ESP_LOGI(kTag, "verifying existing tracks");
   {
@@ -360,6 +355,7 @@ auto Database::updateIndexes() -> void {
         dbRemoveIndexes(track);
         track->is_tombstoned = true;
         dbPutTrackData(*track);
+        db_->Delete(leveldb::WriteOptions{}, EncodePathKey(track->filepath));
         continue;
       }
 
@@ -386,7 +382,6 @@ auto Database::updateIndexes() -> void {
   // Stage 2: search for newly added files.
   ESP_LOGI(kTag, "scanning for new tracks");
   uint64_t num_processed = 0;
-  std::pair<uint16_t, uint16_t> newest_track = last_update;
   file_gatherer_.FindFiles("", [&](std::string_view path, const FILINFO& info) {
     num_processed++;
     events::Ui().Dispatch(event::UpdateProgress{
@@ -394,11 +389,11 @@ auto Database::updateIndexes() -> void {
         .val = num_processed,
     });
 
-    std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
-    if (modified < last_update) {
+    std::string unused;
+    if (db_->Get(read_options, EncodePathKey(path), &unused).ok()) {
+      // This file is already in the database; skip it.
       return;
     }
-    newest_track = std::max(modified, newest_track);
 
     std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
     if (!tags || tags->encoding() == Container::kUnsupported) {
@@ -415,6 +410,7 @@ auto Database::updateIndexes() -> void {
       existing_hash = ParseHashValue(raw_entry);
     }
 
+    std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
     if (!existing_hash) {
       // We've never met this track before! Or we have, but the entry is
       // malformed. Either way, record this as a new track.
@@ -432,6 +428,8 @@ auto Database::updateIndexes() -> void {
       dbPutHash(hash, id);
       auto t = std::make_shared<Track>(data, tags);
       dbCreateIndexesForTrack(*t);
+      db_->Put(leveldb::WriteOptions{}, EncodePathKey(path),
+               TrackIdToBytes(id));
       return;
     }
 
@@ -447,6 +445,8 @@ auto Database::updateIndexes() -> void {
       dbPutTrackData(*new_data);
       auto t = std::make_shared<Track>(new_data, tags);
       dbCreateIndexesForTrack(*t);
+      db_->Put(leveldb::WriteOptions{}, EncodePathKey(path),
+               TrackIdToBytes(new_data->id));
       return;
     }
 
@@ -457,6 +457,8 @@ auto Database::updateIndexes() -> void {
       dbPutTrackData(*existing_data);
       auto t = std::make_shared<Track>(existing_data, tags);
       dbCreateIndexesForTrack(*t);
+      db_->Put(leveldb::WriteOptions{}, EncodePathKey(path),
+               TrackIdToBytes(existing_data->id));
     } else if (existing_data->filepath !=
                std::pmr::string{path.data(), path.size()}) {
       ESP_LOGW(kTag, "hash collision: %s, %s, %s",
@@ -465,40 +467,10 @@ auto Database::updateIndexes() -> void {
                tags->album().value_or("no album").c_str());
     }
   });
-  dbSetLastUpdate(newest_track);
-  ESP_LOGI(kTag, "newest track was at %u,%u", newest_track.first,
-           newest_track.second);
 }
 
 auto Database::isUpdating() -> bool {
   return is_updating_;
-}
-
-auto Database::dbGetLastUpdate() -> std::pair<uint16_t, uint16_t> {
-  std::string raw;
-  if (!db_->Get(leveldb::ReadOptions{}, kKeyLastUpdate, &raw).ok()) {
-    return {0, 0};
-  }
-  auto [res, unused, err] = cppbor::parseWithViews(
-      reinterpret_cast<const uint8_t*>(raw.data()), raw.size());
-  if (!res || res->type() != cppbor::ARRAY) {
-    return {0, 0};
-  }
-  auto as_arr = res->asArray();
-  if (as_arr->size() != 2 || as_arr->get(0)->type() != cppbor::UINT ||
-      as_arr->get(1)->type() != cppbor::UINT) {
-    return {0, 0};
-  }
-  return {as_arr->get(0)->asUint()->unsignedValue(),
-          as_arr->get(1)->asUint()->unsignedValue()};
-}
-
-auto Database::dbSetLastUpdate(std::pair<uint16_t, uint16_t> time) -> void {
-  auto encoding = cppbor::Array{
-      cppbor::Uint{time.first},
-      cppbor::Uint{time.second},
-  };
-  db_->Put(leveldb::WriteOptions{}, kKeyLastUpdate, encoding.toString());
 }
 
 auto Database::dbMintNewTrackId() -> TrackId {
