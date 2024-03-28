@@ -97,7 +97,7 @@ const tA2D_SBC_CIE bta_av_co_sbc_sink_caps = {
 /* Default SBC codec configuration */
 const tA2D_SBC_CIE btc_av_sbc_default_config = {
     BTC_AV_SBC_DEFAULT_SAMP_FREQ,   /* samp_freq */
-    A2D_SBC_IE_CH_MD_JOINT,         /* ch_mode */
+    A2D_SBC_IE_CH_MD_DUAL,          /* ch_mode */
     A2D_SBC_IE_BLOCKS_16,           /* block_len */
     A2D_SBC_IE_SUBBAND_8,           /* num_subbands */
     A2D_SBC_IE_ALLOC_MD_L,          /* alloc_mthd */
