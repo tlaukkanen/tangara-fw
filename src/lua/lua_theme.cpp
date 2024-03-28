@@ -47,7 +47,6 @@ static auto set_theme(lua_State* L) -> int {
       while (lua_next(L, -2) != 0) {
         // Nesting the second
         int selector = -1;
-        lv_style_t* style = NULL;
         lua_pushnil(L); // First key
         while (lua_next(L, -2) != 0) {
           int idx = lua_tointeger(L, -2);
