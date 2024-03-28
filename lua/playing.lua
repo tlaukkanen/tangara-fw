@@ -5,21 +5,21 @@ local font = require("font")
 local playback = require("playback")
 local queue = require("queue")
 local screen = require("screen")
+local theme = require("theme")
 
 local img = {
   play = lvgl.ImgData("//lua/img/play.png"),
   pause = lvgl.ImgData("//lua/img/pause.png"),
   next = lvgl.ImgData("//lua/img/next.png"),
-  next_disabled = lvgl.ImgData("//lua/img/next_disabled.png"),
   prev = lvgl.ImgData("//lua/img/prev.png"),
-  prev_disabled = lvgl.ImgData("//lua/img/prev_disabled.png"),
   shuffle = lvgl.ImgData("//lua/img/shuffle.png"),
-  shuffle_disabled = lvgl.ImgData("//lua/img/shuffle_disabled.png"),
-  repeat_enabled = lvgl.ImgData("//lua/img/repeat.png"),
-  repeat_disabled = lvgl.ImgData("//lua/img/repeat_disabled.png"),
+  repeat_src = lvgl.ImgData("//lua/img/repeat.png"), -- repeat is a reserved word
 }
 
 local is_now_playing_shown = false
+
+local icon_enabled_class = "icon_enabled"
+local icon_disabled_class = "icon_disabled"
 
 return screen:new {
   createUi = function(self)
@@ -146,11 +146,14 @@ return screen:new {
     repeat_btn:onClicked(function()
       queue.repeat_track:set(not queue.repeat_track:get())
     end)
-    local repeat_img = repeat_btn:Image { src = img.repeat_enabled }
+    local repeat_img = repeat_btn:Image { src = img.repeat_src }
+    theme.set_style(repeat_img, icon_enabled_class)
+
 
     local prev_btn = controls:Button {}
     prev_btn:onClicked(queue.previous)
-    local prev_img = prev_btn:Image { src = img.prev_disabled }
+    local prev_img = prev_btn:Image { src = img.prev }
+    theme.set_style(prev_img, icon_disabled_class)
 
     local play_pause_btn = controls:Button {}
     play_pause_btn:onClicked(function()
@@ -158,16 +161,19 @@ return screen:new {
     end)
     play_pause_btn:focus()
     local play_pause_img = play_pause_btn:Image { src = img.pause }
+    theme.set_style(play_pause_img, icon_enabled_class)
 
     local next_btn = controls:Button {}
     next_btn:onClicked(queue.next)
-    local next_img = next_btn:Image { src = img.next_disabled }
+    local next_img = next_btn:Image { src = img.next }
+    theme.set_style(next_img, icon_disabled_class)
 
     local shuffle_btn = controls:Button {}
     shuffle_btn:onClicked(function()
       queue.random:set(not queue.random:get())
     end)
     local shuffle_img = shuffle_btn:Image { src = img.shuffle }
+    theme.set_style(shuffle_img, icon_enabled_class)
 
     controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
@@ -208,26 +214,19 @@ return screen:new {
         if not pos then return end
         playlist_pos:set { text = tostring(pos) }
 
-        next_img:set_src(
-          pos < queue.size:get() and img.next or img.next_disabled
+        theme.set_style(
+          next_img, pos < queue.size:get() and icon_enabled_class or icon_disabled_class
         )
-        prev_img:set_src(
-          pos > 1 and img.prev or img.prev_disabled
+        
+        theme.set_style(
+          prev_img, pos > 1 and icon_enabled_class or icon_disabled_class
         )
       end),
       queue.random:bind(function(shuffling)
-        if shuffling then
-          shuffle_img:set_src(img.shuffle)
-        else
-          shuffle_img:set_src(img.shuffle_disabled)
-        end
+        theme.set_style(shuffle_img, shuffling and icon_enabled_class or icon_disabled_class)
       end),
       queue.repeat_track:bind(function(en)
-        if en then
-          repeat_img:set_src(img.repeat_enabled)
-        else
-          repeat_img:set_src(img.repeat_disabled)
-        end
+        theme.set_style(repeat_img, en and icon_enabled_class or icon_disabled_class)
       end),
       queue.size:bind(function(num)
         if not num then return end

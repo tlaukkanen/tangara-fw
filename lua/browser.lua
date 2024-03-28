@@ -4,8 +4,9 @@ local backstack = require("backstack")
 local font = require("font")
 local queue = require("queue")
 local playing = require("playing")
-local theme = require("theme")
+local styles = require("styles")
 local playback = require("playback")
+local theme = require("theme")
 local screen = require("screen")
 
 return screen:new {
@@ -42,9 +43,10 @@ return screen:new {
         pad_right = 4,
         pad_bottom = 2,
         bg_opa = lvgl.OPA(100),
-        bg_color = "#fafafa",
         scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
       }
+    theme.set_style(header, "header")
+
 
       header:Label {
         text = self.breadcrumb,
@@ -89,7 +91,7 @@ return screen:new {
 
     local back = self.list:add_btn(nil, "< Back")
     back:onClicked(backstack.pop)
-    back:add_style(theme.list_item)
+    back:add_style(styles.list_item)
 
     self.focused_item = 0
     self.last_item = 0
@@ -119,7 +121,7 @@ return screen:new {
           self.add_item(self.iterator())
         end
       end)
-      btn:add_style(theme.list_item)
+      btn:add_style(styles.list_item)
     end
 
     for _ = 1, 8 do

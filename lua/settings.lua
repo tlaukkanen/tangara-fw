@@ -1,11 +1,12 @@
 local lvgl = require("lvgl")
 local backstack = require("backstack")
 local widgets = require("widgets")
-local theme = require("theme")
+local styles = require("styles")
 local volume = require("volume")
 local display = require("display")
 local controls = require("controls")
 local bluetooth = require("bluetooth")
+local theme = require("theme")
 local database = require("database")
 local screen = require("screen")
 local usb = require("usb")
@@ -23,7 +24,7 @@ local function SettingsScreen(title)
       align_items = "flex-start",
       align_content = "flex-start",
     },
-    w = lvgl.PCT(100),
+    w = lvgl.PCT(90),
     flex_grow = 1,
     pad_left = 4,
     pad_right = 4,
@@ -53,10 +54,10 @@ local BluetoothSettings = screen:new {
       bluetooth.enabled:set(enabled)
     end)
 
-    self.menu.content:Label {
-      text = "Paired Device",
-      pad_bottom = 1,
-    }:add_style(theme.settings_title)
+  theme.set_style(self.menu.content:Label {
+    text = "Paired Device",
+    pad_bottom = 1,
+  }, "settings_title")
 
     local paired_container = self.menu.content:Object {
       flex = {
@@ -79,10 +80,10 @@ local BluetoothSettings = screen:new {
       bluetooth.paired_device:set()
     end)
 
-    self.menu.content:Label {
-      text = "Nearby Devices",
-      pad_bottom = 1,
-    }:add_style(theme.settings_title)
+  theme.set_style(self.menu.content:Label {
+    text = "Nearby Devices",
+    pad_bottom = 1,
+  }, "settings_title")
 
     local devices = self.menu.content:List {
       w = lvgl.PCT(100),
@@ -122,9 +123,9 @@ local HeadphonesSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Headphones")
 
-    self.menu.content:Label {
-      text = "Maximum volume limit",
-    }:add_style(theme.settings_title)
+  theme.set_style(self.menu.content:Label {
+    text = "Maxiumum volume limit",
+  }, "settings_title")
 
     local volume_chooser = self.menu.content:Dropdown {
       options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
@@ -137,9 +138,9 @@ local HeadphonesSettings = screen:new {
       volume.limit_db:set(limits[selection])
     end)
 
-    self.menu.content:Label {
-      text = "Left/Right balance",
-    }:add_style(theme.settings_title)
+  theme.set_style(self.menu.content:Label {
+    text = "Left/Right balance",
+  }, "settings_title")
 
     local balance = self.menu.content:Slider {
       w = lvgl.PCT(100),
@@ -185,19 +186,20 @@ local DisplaySettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Display")
 
-    local brightness_title = self.menu.content:Object {
-      flex = {
-        flex_direction = "row",
-        justify_content = "flex-start",
-        align_items = "flex-start",
-        align_content = "flex-start",
-      },
-      w = lvgl.PCT(100),
-      h = lvgl.SIZE_CONTENT,
-    }
-    brightness_title:Label { text = "Brightness", flex_grow = 1 }
-    local brightness_pct = brightness_title:Label {}
-    brightness_pct:add_style(theme.settings_title)
+  local brightness_title = self.menu.content:Object {
+    flex = {
+      flex_direction = "row",
+      justify_content = "flex-start",
+      align_items = "flex-start",
+      align_content = "flex-start",
+    },
+    w = lvgl.PCT(100),
+    h = lvgl.SIZE_CONTENT,
+
+  }
+  brightness_title:Label { text = "Brightness", flex_grow = 1 }
+  local brightness_pct = brightness_title:Label {}
+  theme.set_style(brightness_pct, "settings_title")
 
     local brightness = self.menu.content:Slider {
       w = lvgl.PCT(100),
@@ -221,9 +223,9 @@ local InputSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Input Method")
 
-    self.menu.content:Label {
-      text = "Control scheme",
-    }:add_style(theme.settings_title)
+  theme.set_style(self.menu.content:Label {
+    text = "Control scheme",
+  }, "settings_title")
 
     local schemes = controls.schemes()
     local option_to_scheme = {}
@@ -259,9 +261,9 @@ local InputSettings = screen:new {
       controls.scheme:set(scheme)
     end)
 
-    self.menu.content:Label {
-      text = "Scroll Sensitivity",
-    }:add_style(theme.settings_title)
+  theme.set_style(self.menu.content:Label {
+    text = "Scroll Sensitivity",
+  }, "settings_title")
 
     local slider_scale = 4; -- Power steering
     local sensitivity = self.menu.content:Slider {
@@ -331,19 +333,19 @@ local DatabaseSettings = screen:new {
     widgets.Row(self.menu.content, "Schema version", db.version())
     widgets.Row(self.menu.content, "Size on disk", string.format("%.1f KiB", db.size() / 1024))
 
-    local actions_container = self.menu.content:Object {
-      w = lvgl.PCT(100),
-      h = lvgl.SIZE_CONTENT,
-      flex = {
-        flex_direction = "row",
-        justify_content = "center",
-        align_items = "space-evenly",
-        align_content = "center",
-      },
-      pad_top = 4,
-      pad_column = 4,
-    }
-    actions_container:add_style(theme.list_item)
+  local actions_container = self.menu.content:Object {
+    w = lvgl.PCT(100),
+    h = lvgl.SIZE_CONTENT,
+    flex = {
+      flex_direction = "row",
+      justify_content = "center",
+      align_items = "space-evenly",
+      align_content = "center",
+    },
+    pad_top = 4,
+    pad_column = 4,
+  }
+  actions_container:add_style(styles.list_item)
 
     local update = actions_container:Button {}
     update:Label { text = "Update" }
@@ -381,16 +383,20 @@ return screen:new {
       flex_grow = 1,
     }
 
-    local function section(name)
-      self.list:add_text(name):add_style(theme.list_heading)
-    end
+  local function section(name)
+    local elem = self.list:Label {
+      text = name,
+      pad_left = 4,
+    }
+    theme.set_style(elem, "settings_title")
+  end
 
     local function submenu(name, class)
       local item = self.list:add_btn(nil, name)
       item:onClicked(function()
         backstack.push(class:new())
       end)
-      item:add_style(theme.list_item)
+      item:add_style(styles.list_item)
     end
 
     section("Audio")

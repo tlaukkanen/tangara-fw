@@ -3,8 +3,9 @@ local power = require("power")
 local bluetooth = require("bluetooth")
 local font = require("font")
 local backstack = require("backstack")
-local theme = require("theme")
+local styles = require("styles")
 local database = require("database")
+local theme = require("theme")
 
 local img = {
   db = lvgl.ImgData("//lua/img/db.png"),
@@ -55,7 +56,7 @@ function widgets.Row(parent, left, right)
     w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
   }
-  container:add_style(theme.list_item)
+  container:add_style(styles.list_item)
   container:Label { text = left, flex_grow = 1 }
   container:Label { text = right }
 end
@@ -80,10 +81,7 @@ function widgets.StatusBar(parent, opts)
   }
 
   if not opts.transparent_bg then
-    status_bar.root:set {
-      bg_opa = lvgl.OPA(100),
-      bg_color = "#fafafa",
-    }
+    theme.set_style(status_bar.root, "header");
   end
 
   if opts.back_cb then
@@ -108,6 +106,7 @@ function widgets.StatusBar(parent, opts)
   end
 
   status_bar.db_updating = status_bar.root:Image { src = img.db }
+  theme.set_style(status_bar.db_updating, "database_indicator")
   status_bar.bluetooth = status_bar.root:Image {}
   status_bar.battery = status_bar.root:Image {}
   status_bar.chg = status_bar.battery:Image { src = img.chg }

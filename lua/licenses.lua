@@ -1,7 +1,7 @@
 local backstack = require("backstack")
 local widgets = require("widgets")
 local font = require("font")
-local theme = require("theme")
+local styles = require("styles")
 local screen = require("screen")
 
 local function show_license(text)
@@ -103,7 +103,7 @@ return function()
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
     }
-    row:add_style(theme.list_item)
+    row:add_style(styles.list_item)
     row:Label { text = name, flex_grow = 1 }
     local button = row:Button {}
     button:Label { text = license, text_font = font.fusion_10 }
