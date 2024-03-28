@@ -59,7 +59,7 @@ static auto set_theme(lua_State* L) -> int {
             // Style
             lv_style_t* style = luavgl_to_style(L, -1);
             if (style == NULL) {
-              ESP_LOGI(kTag, "Style was null or malformed");
+              ESP_LOGI("lua_theme", "Style was null or malformed");
               return 0;
             } else {
               ui::themes::Theme::instance()->AddStyle(class_name, selector, style);
