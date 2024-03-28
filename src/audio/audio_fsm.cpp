@@ -31,7 +31,6 @@
 #include "future_fetcher.hpp"
 #include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
-#include "idf_additions.h"
 #include "nvs.hpp"
 #include "sample.hpp"
 #include "service_locator.hpp"

@@ -19,7 +19,6 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "i2s_dac.hpp"
-#include "idf_additions.h"
 
 #include "resample.hpp"
 #include "sample.hpp"

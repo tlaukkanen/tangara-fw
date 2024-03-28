@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 
 #include "i2c.hpp"

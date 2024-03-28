@@ -45,7 +45,8 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 set(EXTRA_WARNINGS "-Wshadow" "-Wnon-virtual-dtor" "-Wunused"
   "-Woverloaded-virtual" "-Wmisleading-indentation" "-Wduplicated-cond"
   "-Wduplicated-branches" "-Wlogical-op" "-Wnull-dereference"
-  "-Wdouble-promotion" "-Wformat=2" "-Wimplicit-fallthrough")
+  "-Wdouble-promotion" "-Wformat=2" "-Wimplicit-fallthrough"
+  "-Wno-deprecated-enum-enum-conversion" "-Wno-array-bounds")
 
 # Extra build flags that should apply to the entire build. This should mostly
 # just be used to setting flags that our external dependencies requires.

@@ -22,7 +22,6 @@
 #include "ff.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
-#include "idf_additions.h"
 #include "readahead_source.hpp"
 #include "span.hpp"
 
