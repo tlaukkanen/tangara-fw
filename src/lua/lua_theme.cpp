@@ -36,6 +36,7 @@ static auto set_style(lua_State* L) -> int {
 
 static auto set_theme(lua_State* L) -> int {
   std::string class_name;
+  luaL_checktype(L, -1, LUA_TTABLE);
   lua_pushnil(L);  /* first key */
   while (lua_next(L, -2) != 0) {
     /* uses 'key' (at index -2) and 'value' (at index -1) */
