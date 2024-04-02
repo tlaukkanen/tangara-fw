@@ -1,21 +1,24 @@
 local backstack = require("backstack")
 local widgets = require("widgets")
 local font = require("font")
-local theme = require("theme")
+local styles = require("styles")
+local screen = require("screen")
 
 local function show_license(text)
-  backstack.push(function()
-    local screen = widgets.MenuScreen {
-      show_back = true,
-      title = "Licenses",
-    }
-    screen.root:Label {
-      w = lvgl.PCT(100),
-      h = lvgl.SIZE_CONTENT,
-      text_font = font.fusion_10,
-      text = text,
-    }
-  end)
+  backstack.push(screen:new {
+    createUi = function(self)
+      self.menu = widgets.MenuScreen {
+        show_back = true,
+        title = "Licenses",
+      }
+      self.menu.root:Label {
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT,
+        text_font = font.fusion_10,
+        text = text,
+      }
+    end
+  })
 end
 
 local function gpl(copyright)
@@ -100,7 +103,7 @@ return function()
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
     }
-    row:add_style(theme.list_item)
+    row:add_style(styles.list_item)
     row:Label { text = name, flex_grow = 1 }
     local button = row:Button {}
     button:Label { text = license, text_font = font.fusion_10 }
@@ -149,9 +152,6 @@ return function()
   library("MillerShuffle", "Apache 2.0", function()
     apache("Copyright 2022 Ronald Ross Miller")
   end)
-  library("miniflac", "BSD", function()
-    bsd("Copyright (C) 2022 John Regan <john@jrjrtech.com>")
-  end)
   library("ogg", "BSD", function()
     xiphbsd("Copyright (c) 2002, Xiph.org Foundation")
   end)
@@ -178,4 +178,6 @@ return function()
   library("tremor", "bsd", function()
     xiphbsd("Copyright (c) 2002, Xiph.org Foundation")
   end)
+
+  return menu
 end

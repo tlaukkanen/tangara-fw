@@ -19,7 +19,9 @@
 #include "lua_controls.hpp"
 #include "lua_database.hpp"
 #include "lua_queue.hpp"
+#include "lua_screen.hpp"
 #include "lua_version.hpp"
+#include "lua_theme.hpp"
 #include "lvgl.h"
 
 #include "font/lv_font_loader.h"
@@ -84,6 +86,8 @@ auto Bridge::installBaseModules(lua_State* L) -> void {
   RegisterDatabaseModule(L);
   RegisterQueueModule(L);
   RegisterVersionModule(L);
+  RegisterThemeModule(L);
+  RegisterScreenModule(L);
 }
 
 auto Bridge::installLvgl(lua_State* L) -> void {

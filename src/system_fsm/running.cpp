@@ -41,7 +41,11 @@ void Running::entry() {
     sUnmountTimer = xTimerCreate("unmount_timeout", kTicksBeforeUnmount, false,
                                  NULL, timer_callback);
   }
-  mountStorage();
+  // Only mount our storage immediately if we know it's not currently in use
+  // by the SAMD.
+  if (!sServices->samd().UsbMassStorage()) {
+    mountStorage();
+  }
 }
 
 void Running::exit() {
@@ -52,7 +56,7 @@ void Running::react(const KeyLockChanged& ev) {
   checkIdle();
 }
 
-void Running::react(const audio::PlaybackStopped& ev) {
+void Running::react(const audio::PlaybackUpdate& ev) {
   checkIdle();
 }
 

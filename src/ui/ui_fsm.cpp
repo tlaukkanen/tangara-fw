@@ -12,6 +12,7 @@
 
 #include "bluetooth_types.hpp"
 #include "db_events.hpp"
+#include "display_init.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "lua.h"
@@ -113,19 +114,34 @@ lua::Property UiState::sBluetoothDevices{
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
-      bool current_val = std::get<bool>(sPlaybackPlaying.Get());
       if (!std::holds_alternative<bool>(val)) {
         return false;
       }
       bool new_val = std::get<bool>(val);
-      if (current_val != new_val) {
-        events::Audio().Dispatch(audio::TogglePlayPause{});
-      }
+      events::Audio().Dispatch(audio::TogglePlayPause{.set_to = new_val});
       return true;
     }};
 
 lua::Property UiState::sPlaybackTrack{};
-lua::Property UiState::sPlaybackPosition{0};
+lua::Property UiState::sPlaybackPosition{
+    0, [](const lua::LuaValue& val) {
+      int current_val = std::get<int>(sPlaybackPosition.Get());
+      if (!std::holds_alternative<int>(val)) {
+        return false;
+      }
+      int new_val = std::get<int>(val);
+      if (current_val != new_val) {
+        auto track = sPlaybackTrack.Get();
+        if (!std::holds_alternative<audio::TrackInfo>(track)) {
+          return false;
+        }
+        events::Audio().Dispatch(audio::SetTrack{
+            .new_track = std::get<audio::TrackInfo>(track).uri,
+            .seek_to_second = (uint32_t)new_val,
+        });
+      }
+      return true;
+    }};
 
 lua::Property UiState::sQueuePosition{0};
 lua::Property UiState::sQueueSize{0};
@@ -263,12 +279,36 @@ lua::Property UiState::sScrollSensitivity{
       return true;
     }};
 
+lua::Property UiState::sLockSwitch{false};
+
 lua::Property UiState::sDatabaseUpdating{false};
 
-auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
+lua::Property UiState::sUsbMassStorageEnabled{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      bool enable = std::get<bool>(val);
+      // FIXME: Check for system busy.
+      events::System().Dispatch(system_fsm::SamdUsbMscChanged{.en = enable});
+      return true;
+    }};
+
+auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
+    -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
-  sDisplay.reset(drivers::Display::Create(gpios, drivers::displays::kST7735R));
+
+  drivers::displays::InitialisationData init_data = drivers::displays::kST7735R;
+
+  // HACK: correct the display size for our prototypes.
+  // nvs.DisplaySize({161, 130});
+
+  auto actual_size = nvs.DisplaySize();
+  init_data.width = actual_size.first.value_or(init_data.width);
+  init_data.height = actual_size.second.value_or(init_data.height);
+
+  sDisplay.reset(drivers::Display::Create(gpios, init_data));
   if (sDisplay == nullptr) {
     return false;
   }
@@ -280,27 +320,36 @@ auto UiState::InitBootSplash(drivers::IGpios& gpios) -> bool {
 }
 
 void UiState::PushScreen(std::shared_ptr<Screen> screen) {
+  lv_obj_set_parent(sAlertContainer, screen->alert());
+
   if (sCurrentScreen) {
+    sCurrentScreen->onHidden();
     sScreens.push(sCurrentScreen);
   }
   sCurrentScreen = screen;
-  lv_obj_set_parent(sAlertContainer, sCurrentScreen->alert());
+  sCurrentScreen->onShown();
 }
 
 int UiState::PopScreen() {
   if (sScreens.empty()) {
     return 0;
   }
-  sCurrentScreen = sScreens.top();
-  lv_obj_set_parent(sAlertContainer, sCurrentScreen->alert());
+  lv_obj_set_parent(sAlertContainer, sScreens.top()->alert());
 
+  sCurrentScreen->onHidden();
+
+  sCurrentScreen = sScreens.top();
   sScreens.pop();
+
+  sCurrentScreen->onShown();
+
   return sScreens.size();
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(!ev.locking);
   sInput->lock(ev.locking);
+  sLockSwitch.Update(ev.locking);
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -342,17 +391,14 @@ void UiState::react(const audio::QueueUpdate&) {
   sQueueReplay.Update(queue.replay());
 }
 
-void UiState::react(const audio::PlaybackStarted& ev) {
-  sPlaybackPlaying.Update(true);
-}
-
 void UiState::react(const audio::PlaybackUpdate& ev) {
-  sPlaybackTrack.Update(*ev.track);
-  sPlaybackPosition.Update(static_cast<int>(ev.seconds_elapsed));
-}
-
-void UiState::react(const audio::PlaybackStopped&) {
-  sPlaybackPlaying.Update(false);
+  if (ev.current_track) {
+    sPlaybackTrack.Update(*ev.current_track);
+  } else {
+    sPlaybackTrack.Update(std::monostate{});
+  }
+  sPlaybackPlaying.Update(!ev.paused);
+  sPlaybackPosition.Update(static_cast<int>(ev.track_position.value_or(0)));
 }
 
 void UiState::react(const audio::VolumeChanged& ev) {
@@ -443,6 +489,7 @@ void Lua::entry() {
     sAlertTimer = xTimerCreate("ui_alerts", pdMS_TO_TICKS(1000), false, NULL,
                                alert_timer_callback);
     sAlertContainer = lv_obj_create(sCurrentScreen->alert());
+    lv_obj_set_style_bg_opa(sAlertContainer, LV_OPA_TRANSP, 0);
 
     auto& registry = lua::Registry::instance(*sServices);
     sLua = registry.uiThread();
@@ -491,6 +538,7 @@ void Lua::entry() {
                                {
                                    {"scheme", &sControlsScheme},
                                    {"scroll_sensitivity", &sScrollSensitivity},
+                                   {"lock_switch", &sLockSwitch},
                                });
 
     registry.AddPropertyModule(
@@ -512,6 +560,10 @@ void Lua::entry() {
     registry.AddPropertyModule("database", {
                                                {"updating", &sDatabaseUpdating},
                                            });
+    registry.AddPropertyModule("usb",
+                               {
+                                   {"msc_enabled", &sUsbMassStorageEnabled},
+                               });
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());
@@ -525,7 +577,7 @@ void Lua::entry() {
 
 auto Lua::PushLuaScreen(lua_State* s) -> int {
   // Ensure the arg looks right before continuing.
-  luaL_checktype(s, 1, LUA_TFUNCTION);
+  luaL_checktype(s, 1, LUA_TTABLE);
 
   // First, create a new plain old Screen object. We will use its root and
   // group for the Lua screen. Allocate it in external ram so that arbitrarily
@@ -540,10 +592,15 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   lv_group_set_default(new_screen->group());
 
   // Call the constructor for this screen.
-  lua_settop(s, 1);  // Make sure the function is actually at top of stack
-  lua::CallProtected(s, 0, 1);
+  // lua_settop(s, 1);  // Make sure the screen is actually at top of stack
+  lua_pushliteral(s, "createUi");
+  if (lua_gettable(s, 1) == LUA_TFUNCTION) {
+    lua_pushvalue(s, 1);
+    lua::CallProtected(s, 1, 0);
+  }
 
-  // Store the reference for the table the constructor returned.
+  // Store the reference for this screen's table.
+  lua_settop(s, 1);
   new_screen->SetObjRef(s);
 
   // Finally, push the now-initialised screen as if it were a regular C++
@@ -564,6 +621,9 @@ auto Lua::QueuePrevious(lua_State*) -> int {
 }
 
 auto Lua::PopLuaScreen(lua_State* s) -> int {
+  if (!sCurrentScreen->canPop()) {
+    return 0;
+  }
   PopScreen();
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
@@ -571,7 +631,7 @@ auto Lua::PopLuaScreen(lua_State* s) -> int {
 }
 
 auto Lua::Ticks(lua_State* s) -> int {
-  lua_pushinteger(s, esp_timer_get_time()/1000);
+  lua_pushinteger(s, esp_timer_get_time() / 1000);
   return 1;
 }
 

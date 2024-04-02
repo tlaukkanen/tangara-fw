@@ -58,7 +58,7 @@ I2SAudioOutput::~I2SAudioOutput() {
   dac_->SetSource(nullptr);
 }
 
-auto I2SAudioOutput::SetMode(Modes mode) -> void {
+auto I2SAudioOutput::changeMode(Modes mode) -> void {
   if (mode == current_mode_) {
     return;
   }
@@ -165,9 +165,6 @@ auto I2SAudioOutput::Configure(const Format& fmt) -> void {
     ESP_LOGI(kTag, "ignoring unchanged format");
     return;
   }
-
-  ESP_LOGI(kTag, "incoming audio stream: %u ch %u bpp @ %lu Hz",
-           fmt.num_channels, fmt.bits_per_sample, fmt.sample_rate);
 
   drivers::I2SDac::Channels ch;
   switch (fmt.num_channels) {

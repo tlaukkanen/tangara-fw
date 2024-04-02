@@ -27,6 +27,9 @@ class Screen {
   Screen();
   virtual ~Screen();
 
+  virtual auto onShown() -> void {}
+  virtual auto onHidden() -> void {}
+
   auto root() -> lv_obj_t* { return root_; }
   auto content() -> lv_obj_t* { return content_; }
   auto alert() -> lv_obj_t* { return alert_; }
@@ -39,6 +42,8 @@ class Screen {
     }
     return group_;
   }
+
+  virtual auto canPop() -> bool = 0;
 
  protected:
   lv_obj_t* const root_;

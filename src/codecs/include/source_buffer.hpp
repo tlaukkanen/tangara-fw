@@ -24,6 +24,7 @@ class SourceBuffer {
   auto Refill(IStream* src) -> bool;
   auto AddBytes(std::function<size_t(cpp::span<std::byte>)> writer) -> void;
   auto ConsumeBytes(std::function<size_t(cpp::span<std::byte>)> reader) -> void;
+  auto Empty() -> void;
 
   SourceBuffer(const SourceBuffer&) = delete;
   SourceBuffer& operator=(const SourceBuffer&) = delete;

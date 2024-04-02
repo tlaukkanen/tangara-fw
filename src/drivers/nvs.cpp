@@ -37,6 +37,8 @@ static constexpr char kKeyAmpLeftBias[] = "hp_bias";
 static constexpr char kKeyPrimaryInput[] = "in_pri";
 static constexpr char kKeyScrollSensitivity[] = "scroll";
 static constexpr char kKeyLockPolarity[] = "lockpol";
+static constexpr char kKeyDisplayCols[] = "dispcols";
+static constexpr char kKeyDisplayRows[] = "disprows";
 
 static auto nvs_get_string(nvs_handle_t nvs, const char* key)
     -> std::optional<std::string> {
@@ -161,6 +163,8 @@ auto NvsStorage::OpenSync() -> NvsStorage* {
 NvsStorage::NvsStorage(nvs_handle_t handle)
     : handle_(handle),
       lock_polarity_(kKeyLockPolarity),
+      display_cols_(kKeyDisplayCols),
+      display_rows_(kKeyDisplayRows),
       brightness_(kKeyBrightness),
       sensitivity_(kKeyScrollSensitivity),
       amp_max_vol_(kKeyAmpMaxVolume),
@@ -180,6 +184,8 @@ NvsStorage::~NvsStorage() {
 auto NvsStorage::Read() -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   lock_polarity_.read(handle_);
+  display_cols_.read(handle_);
+  display_rows_.read(handle_);
   brightness_.read(handle_);
   sensitivity_.read(handle_);
   amp_max_vol_.read(handle_);
@@ -194,6 +200,8 @@ auto NvsStorage::Read() -> void {
 auto NvsStorage::Write() -> bool {
   std::lock_guard<std::mutex> lock{mutex_};
   lock_polarity_.write(handle_);
+  display_cols_.write(handle_);
+  display_rows_.write(handle_);
   brightness_.write(handle_);
   sensitivity_.write(handle_);
   amp_max_vol_.write(handle_);
@@ -229,6 +237,19 @@ auto NvsStorage::LockPolarity() -> bool {
 auto NvsStorage::LockPolarity(bool p) -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   lock_polarity_.set(p);
+}
+
+auto NvsStorage::DisplaySize()
+    -> std::pair<std::optional<uint16_t>, std::optional<uint16_t>> {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return std::make_pair(display_cols_.get(), display_rows_.get());
+}
+
+auto NvsStorage::DisplaySize(
+    std::pair<std::optional<uint16_t>, std::optional<uint16_t>> size) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  display_cols_.set(std::move(size.first));
+  display_rows_.set(std::move(size.second));
 }
 
 auto NvsStorage::PreferredBluetoothDevice()

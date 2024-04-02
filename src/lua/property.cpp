@@ -221,7 +221,7 @@ static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
       val);
 }
 
-static void pushTrack(lua_State* L, const audio::Track& track) {
+static void pushTrack(lua_State* L, const audio::TrackInfo& track) {
   lua_newtable(L);
 
   for (const auto& tag : track.tags->allPresent()) {
@@ -229,19 +229,18 @@ static void pushTrack(lua_State* L, const audio::Track& track) {
     pushTagValue(L, track.tags->get(tag));
     lua_settable(L, -3);
   }
-  if (track.db_info) {
-    lua_pushliteral(L, "id");
-    lua_pushinteger(L, track.db_info->id);
+
+  if (track.duration) {
+    lua_pushliteral(L, "duration");
+    lua_pushinteger(L, track.duration.value());
     lua_settable(L, -3);
   }
 
-  lua_pushliteral(L, "duration");
-  lua_pushinteger(L, track.duration);
-  lua_settable(L, -3);
-
-  lua_pushliteral(L, "bitrate_kbps");
-  lua_pushinteger(L, track.bitrate_kbps);
-  lua_settable(L, -3);
+  if (track.bitrate_kbps) {
+    lua_pushliteral(L, "bitrate_kbps");
+    lua_pushinteger(L, track.bitrate_kbps.value());
+    lua_settable(L, -3);
+  }
 
   lua_pushliteral(L, "encoding");
   lua_pushstring(L, codecs::StreamTypeToString(track.encoding).c_str());
@@ -289,7 +288,7 @@ auto Property::PushValue(lua_State& s) -> int {
           lua_pushboolean(&s, arg);
         } else if constexpr (std::is_same_v<T, std::string>) {
           lua_pushstring(&s, arg.c_str());
-        } else if constexpr (std::is_same_v<T, audio::Track>) {
+        } else if constexpr (std::is_same_v<T, audio::TrackInfo>) {
           pushTrack(&s, arg);
         } else if constexpr (std::is_same_v<T, drivers::bluetooth::Device>) {
           pushDevice(&s, arg);

@@ -92,9 +92,11 @@ const uint8_t _lv_style_builtin_prop_flag_lookup_table[_LV_STYLE_NUM_BUILT_IN_PR
     [LV_STYLE_SHADOW_COLOR] = 0,
     [LV_STYLE_SHADOW_OPA] =                LV_STYLE_PROP_EXT_DRAW,
 
-    [LV_STYLE_IMG_OPA] = 0,
-    [LV_STYLE_IMG_RECOLOR] = 0,
-    [LV_STYLE_IMG_RECOLOR_OPA] = 0,
+    // Image style inheritance
+    // https://github.com/lvgl/lvgl/pull/4664
+    [LV_STYLE_IMG_OPA] =                   LV_STYLE_PROP_INHERIT,
+    [LV_STYLE_IMG_RECOLOR] =               LV_STYLE_PROP_INHERIT,
+    [LV_STYLE_IMG_RECOLOR_OPA] =           LV_STYLE_PROP_INHERIT,
 
     [LV_STYLE_LINE_WIDTH] =                LV_STYLE_PROP_EXT_DRAW,
     [LV_STYLE_LINE_DASH_WIDTH] = 0,

@@ -57,13 +57,22 @@ auto Booting::entry() -> void {
   sServices.reset(new ServiceLocator());
 
   ESP_LOGI(kTag, "installing early drivers");
+  // NVS is needed first because it contains information about what specific
+  // hardware configuration we're running on.
+  sServices->nvs(
+      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
+
+  // HACK: fix up the switch polarity on newer dev units
+  // sServices->nvs().LockPolarity(false);
+
   // I2C and SPI are both always needed. We can't even power down or show an
   // error without these.
   ESP_ERROR_CHECK(drivers::init_spi());
-  sServices->gpios(std::unique_ptr<drivers::Gpios>(drivers::Gpios::Create()));
+  sServices->gpios(std::unique_ptr<drivers::Gpios>(
+      drivers::Gpios::Create(sServices->nvs().LockPolarity())));
 
   ESP_LOGI(kTag, "starting ui");
-  if (!ui::UiState::InitBootSplash(sServices->gpios())) {
+  if (!ui::UiState::InitBootSplash(sServices->gpios(), sServices->nvs())) {
     events::System().Dispatch(FatalError{});
     return;
   }
@@ -74,8 +83,6 @@ auto Booting::entry() -> void {
   ESP_LOGI(kTag, "installing remaining drivers");
   drivers::spiffs_mount();
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
-  sServices->nvs(
-      std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
   sServices->touchwheel(
       std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
   sServices->haptics(std::make_unique<drivers::Haptics>());
@@ -99,8 +106,6 @@ auto Booting::entry() -> void {
     ESP_LOGI(kTag, "enabling bluetooth");
     sServices->bluetooth().Enable();
   }
-
-  sServices->nvs().LockPolarity(true);
 
   BootComplete ev{.services = sServices};
   events::Audio().Dispatch(ev);

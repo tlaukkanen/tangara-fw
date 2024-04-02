@@ -7,6 +7,7 @@
 #include "font.c"
 #include "fs.c"
 #include "group.c"
+#include "imgdata.c"
 #include "indev.c"
 #include "obj.c"
 #include "timer.c"
@@ -17,6 +18,7 @@ static const struct luaL_Reg luavgl_methods[] = {
     {"Font",  luavgl_font_create }, /* font.c */
     {"Style", luavgl_style_create}, /* style.c */
     {"Anim",  luavgl_anim_create }, /* anim.c */
+    {"ImgData",  luavgl_imgdata_create}, /* imgdata.c */
 
     {NULL,    NULL               },
 };

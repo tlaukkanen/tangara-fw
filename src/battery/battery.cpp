@@ -73,7 +73,10 @@ auto Battery::Update() -> void {
   } else {
     is_charging = *charge_state == ChargeStatus::kChargingRegular ||
                   *charge_state == ChargeStatus::kChargingFast ||
-                  *charge_state == ChargeStatus::kFullCharge;
+                  *charge_state == ChargeStatus::kFullCharge ||
+                  // Treat 'no battery' as charging because, for UI purposes,
+                  // we're *kind of* at full charge if u think about it.
+                  *charge_state == ChargeStatus::kNoBattery;
   }
 
   if (state_ && state_->is_charging == is_charging &&

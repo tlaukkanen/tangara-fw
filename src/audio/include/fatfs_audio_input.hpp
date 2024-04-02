@@ -39,7 +39,7 @@ class FatfsAudioInput : public IAudioSource {
    * given file path.
    */
   auto SetPath(std::optional<std::string>) -> void;
-  auto SetPath(const std::string&) -> void;
+  auto SetPath(const std::string&,uint32_t offset = 0) -> void;
   auto SetPath() -> void;
 
   auto HasNewStream() -> bool override;
@@ -49,7 +49,7 @@ class FatfsAudioInput : public IAudioSource {
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
-  auto OpenFile(const std::string& path) -> bool;
+  auto OpenFile(const std::string& path,uint32_t offset) -> bool;
 
   auto ContainerToStreamType(database::Container)
       -> std::optional<codecs::StreamType>;

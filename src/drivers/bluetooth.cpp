@@ -515,7 +515,7 @@ static void timeoutCallback(TimerHandle_t) {
 }
 
 void Connecting::entry() {
-  sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(5000), false, NULL,
+  sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
                                timeoutCallback);
   xTimerStart(sTimeoutTimer, portMAX_DELAY);
 
@@ -568,8 +568,9 @@ void Connecting::react(const events::internal::Gap& ev) {
       transit<Idle>();
       break;
     case ESP_BT_GAP_CFM_REQ_EVT:
-      ESP_LOGW(kTag, "user needs to do cfm. idk man.");
-      transit<Idle>();
+      // FIXME: Expose a UI for this instead of auto-accepting.
+      ESP_LOGW(kTag, "CFM request, PIN is: %lu", ev.param->cfm_req.num_val);
+      esp_bt_gap_ssp_confirm_reply(ev.param->cfm_req.bda, true);
       break;
     case ESP_BT_GAP_KEY_NOTIF_EVT:
       ESP_LOGW(kTag, "the device is telling us a password??");

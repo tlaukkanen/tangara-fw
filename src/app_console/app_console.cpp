@@ -53,10 +53,15 @@ namespace console {
 std::shared_ptr<system_fsm::ServiceLocator> AppConsole::sServices;
 
 int CmdVersion(int argc, char** argv) {
-  std::cout << "firmware-version=" << esp_app_get_description()->version << std::endl;
-  std::cout << "samd-version=" << AppConsole::sServices->samd().Version() << std::endl;
-  std::cout << "collation=" << AppConsole::sServices->collator().Describe().value_or("") << std::endl;
-  std::cout << "database-schema=" << uint32_t(database::kCurrentDbVersion) << std::endl;
+  std::cout << "firmware-version=" << esp_app_get_description()->version
+            << std::endl;
+  std::cout << "samd-version=" << AppConsole::sServices->samd().Version()
+            << std::endl;
+  std::cout << "collation="
+            << AppConsole::sServices->collator().Describe().value_or("")
+            << std::endl;
+  std::cout << "database-schema=" << uint32_t(database::kCurrentDbVersion)
+            << std::endl;
   return 0;
 }
 
@@ -148,7 +153,7 @@ int CmdPlayFile(int argc, char** argv) {
     database::TrackId id = std::atoi(argv[1]);
     AppConsole::sServices->track_queue().append(id);
   } else {
-    std::pmr::string path{&memory::kSpiRamResource};
+    std::string path;
     path += '/';
     path += argv[1];
     for (int i = 2; i < argc; i++) {
@@ -156,8 +161,7 @@ int CmdPlayFile(int argc, char** argv) {
       path += argv[i];
     }
 
-    events::Audio().Dispatch(
-        audio::PlayFile{.filename = {path.data(), path.size()}});
+    events::Audio().Dispatch(audio::SetTrack{.new_track = path});
   }
 
   return 0;

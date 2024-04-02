@@ -26,13 +26,11 @@ class TremorVorbisDecoder : public ICodec {
   TremorVorbisDecoder();
   ~TremorVorbisDecoder();
 
-  auto OpenStream(std::shared_ptr<IStream> input)
+  auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
   auto DecodeTo(cpp::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
-
-  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
 
   TremorVorbisDecoder(const TremorVorbisDecoder&) = delete;
   TremorVorbisDecoder& operator=(const TremorVorbisDecoder&) = delete;

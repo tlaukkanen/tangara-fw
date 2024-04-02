@@ -272,6 +272,17 @@ LUALIB_API lv_obj_t *luavgl_to_obj(lua_State *L, int idx)
   return lobj->obj;
 }
 
+LUALIB_API lv_style_t *luavgl_to_style(lua_State *L, int idx)
+{
+  luavgl_style_t *lsty = luavgl_check_style(L, idx);
+  if (lsty == NULL) {
+    luaL_argerror(L, idx, "expect lua lvgl style, got null");
+    return NULL;
+  }
+
+  return &lsty->style;
+}
+
 LUALIB_API int luavgl_tointeger(lua_State *L, int idx)
 {
   int v = 0;

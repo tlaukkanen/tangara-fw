@@ -13,6 +13,7 @@
 
 #include "audio_fsm.hpp"
 #include "event_queue.hpp"
+#include "samd.hpp"
 #include "storage.hpp"
 #include "system_events.hpp"
 #include "system_fsm.hpp"
@@ -40,7 +41,7 @@ void Idle::entry() {
   events::Audio().Dispatch(OnIdle{});
   events::Ui().Dispatch(OnIdle{});
 
-  sIdleTimeout = xTimerCreate("idle_timeout", kTicksBeforeSleep, false, NULL,
+  sIdleTimeout = xTimerCreate("idle_timeout", kTicksBeforeSleep, true, NULL,
                               timer_callback);
   xTimerStart(sIdleTimeout, portMAX_DELAY);
 }
@@ -61,6 +62,12 @@ void Idle::react(const internal::IdleTimeout& ev) {
   if (!IdleCondition()) {
     // Defensively ensure that we didn't miss an idle-ending event.
     transit<Running>();
+    return;
+  }
+  if (sServices->samd().GetChargeStatus() !=
+      drivers::Samd::ChargeStatus::kDischarging) {
+    // Stay powered on if we're plugged in, in order to charge faster, sync
+    // files, flash updates, etc.
     return;
   }
   ESP_LOGI(kTag, "system shutting down");

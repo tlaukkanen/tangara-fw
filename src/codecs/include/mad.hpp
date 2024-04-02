@@ -26,13 +26,11 @@ class MadMp3Decoder : public ICodec {
   MadMp3Decoder();
   ~MadMp3Decoder();
 
-  auto OpenStream(std::shared_ptr<IStream> input)
+  auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
   auto DecodeTo(cpp::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
-
-  auto SeekTo(std::size_t target_sample) -> cpp::result<void, Error> override;
 
   MadMp3Decoder(const MadMp3Decoder&) = delete;
   MadMp3Decoder& operator=(const MadMp3Decoder&) = delete;

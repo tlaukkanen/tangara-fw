@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <map>
+#include <vector>
 #include "lvgl.h"
 
 namespace ui {
@@ -19,31 +22,17 @@ class Theme {
  public:
   void Apply(void);
   void Callback(lv_obj_t* obj);
-  void ApplyStyle(lv_obj_t* obj, Style style);
+  void ApplyStyle(lv_obj_t* obj, std::string style_key);
+
+  void AddStyle(std::string key, int selector, lv_style_t* style);
 
   static auto instance() -> Theme*;
 
  private:
   Theme();
-
-  lv_style_t base_style_;
-  lv_style_t base_focused_style_;
-
-  lv_style_t button_style_;
-  lv_style_t bar_style_;
-  lv_style_t dropdown_style_;
-  lv_style_t dropdown_list_style_;
-
-  lv_style_t slider_indicator_style_;
-  lv_style_t slider_knob_style_;
-  lv_style_t slider_knob_focused_style_;
-
-  lv_style_t switch_style_;
-  lv_style_t switch_indicator_style_;
-  lv_style_t switch_indicator_checked_style_;
-  lv_style_t switch_knob_style_;
-
+  std::map<std::string, std::vector<std::pair<int, lv_style_t*>>> style_map;
   lv_theme_t theme_;
+
 };
 }  // namespace themes
 }  // namespace ui

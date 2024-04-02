@@ -6,10 +6,11 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <initializer_list>
 #include <mutex>
 #include <optional>
+#include <string>
 
 namespace drivers {
 

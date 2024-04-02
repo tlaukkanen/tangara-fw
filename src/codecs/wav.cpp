@@ -84,7 +84,7 @@ WavDecoder::WavDecoder() : input_(), buffer_() {}
 
 WavDecoder::~WavDecoder() {}
 
-auto WavDecoder::OpenStream(std::shared_ptr<IStream> input)
+auto WavDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     -> cpp::result<OutputFormat, Error> {
   input_ = input;
 
@@ -199,8 +199,10 @@ auto WavDecoder::OpenStream(std::shared_ptr<IStream> input)
     return cpp::fail(Error::kUnsupportedFormat);
   }
 
+  int64_t data_offset = offset * samples_per_second * bytes_per_sample_;
+
   // Seek track to start of data
-  input->SeekTo(data_chunk_index + 8, IStream::SeekFrom::kStartOfStream);
+  input->SeekTo(data_chunk_index + 8 + data_offset, IStream::SeekFrom::kStartOfStream);
 
   output_format_ = {.num_channels = (uint8_t)num_channels_,
                     .sample_rate_hz = samples_per_second,
@@ -241,12 +243,9 @@ auto WavDecoder::DecodeTo(cpp::span<sample::Sample> output)
     return samples_written * bytes_per_sample_;
   });
 
+
   return OutputInfo{.samples_written = samples_written,
                     .is_stream_finished = samples_written == 0 && is_eof};
-}
-
-auto WavDecoder::SeekTo(size_t target) -> cpp::result<void, Error> {
-  return {};
 }
 
 auto codecs::WavDecoder::GetFormat() const -> uint16_t {
