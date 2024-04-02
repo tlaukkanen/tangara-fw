@@ -35,7 +35,9 @@ class BluetoothAudioOutput : public IAudioOutput {
   auto GetVolume() -> uint16_t override;
 
   auto GetVolumePct() -> uint_fast8_t override;
+  auto SetVolumePct(uint_fast8_t val) -> bool override;
   auto GetVolumeDb() -> int_fast16_t override;
+  auto SetVolumeDb(int_fast16_t) -> bool override;
 
   auto AdjustVolumeUp() -> bool override;
   auto AdjustVolumeDown() -> bool override;
