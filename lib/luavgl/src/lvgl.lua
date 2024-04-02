@@ -1379,7 +1379,7 @@ end
 --- @field pad_gap? integer
 --- @field bg_color? integer | string text color in hex integer or #RGB or #RRGGBB format
 --- @field bg_opa? integer
---- @field bg_grad_color? integer
+--- @field bg_grad_color? integer | string text color in hex integer or #RGB or #RRGGBB format
 --- @field bg_grad_dir? integer
 --- @field bg_main_stop? integer
 --- @field bg_grad_stop? integer
