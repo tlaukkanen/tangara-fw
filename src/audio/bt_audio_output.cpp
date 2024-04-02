@@ -55,26 +55,30 @@ auto BluetoothAudioOutput::GetVolume() -> uint16_t {
 }
 
 auto BluetoothAudioOutput::GetVolumePct() -> uint_fast8_t {
-  return static_cast<uint_fast8_t>(static_cast<int>(volume_) * 100 / 0x7f);
+  return static_cast<uint_fast8_t>(round(static_cast<int>(volume_) * 100.0 / 0x7f));
 }
 
 auto BluetoothAudioOutput::SetVolumePct(uint_fast8_t val) -> bool {
-  if (val < 100) {
+  if (val > 100) {
     return false;
   }
-  SetVolume(val / 100 * 0x7f);
+  uint16_t vol = (val * (0x7f))/100;
+  SetVolume(vol);
   return true;
 }
 
 auto BluetoothAudioOutput::GetVolumeDb() -> int_fast16_t {
-  return log(GetVolumePct()/100) * 20;
+  double pct = GetVolumePct()/100.0;
+  if (pct <= 0) {
+    pct = 0.01;
+  }
+  int_fast16_t db = log(pct) * 20;
+  return db;
 }
 
 auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
-  auto pct = pow(2, val / 20.0) * 100;
-  ESP_LOGI("Audio", "Bluetooth audio pct: %d", (int)pct);
-  SetVolumePct(pct);
-  return true;
+  double pct = exp(val / 20.0) * 100;
+  return SetVolumePct(pct);
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
