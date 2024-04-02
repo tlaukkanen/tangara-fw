@@ -166,13 +166,15 @@ auto Running::mountStorage() -> bool {
 
   // Tell the database to refresh so that we pick up any changes from the newly
   // mounted card.
-  sServices->bg_worker().Dispatch<void>([&]() {
-    auto db = sServices->database().lock();
-    if (!db) {
-      return;
-    }
-    db->updateIndexes();
-  });
+  if (sServices->nvs().DbAutoIndex()) {
+    sServices->bg_worker().Dispatch<void>([&]() {
+      auto db = sServices->database().lock();
+      if (!db) {
+        return;
+      }
+      db->updateIndexes();
+    });
+  }
 
   return true;
 }

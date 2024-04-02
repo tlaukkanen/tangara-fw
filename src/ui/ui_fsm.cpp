@@ -282,6 +282,14 @@ lua::Property UiState::sScrollSensitivity{
 lua::Property UiState::sLockSwitch{false};
 
 lua::Property UiState::sDatabaseUpdating{false};
+lua::Property UiState::sDatabaseAutoUpdate{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      sServices->nvs().DbAutoIndex(std::get<bool>(val));
+      return true;
+    }};
 
 lua::Property UiState::sUsbMassStorageEnabled{
     false, [](const lua::LuaValue& val) {
@@ -557,13 +565,17 @@ void Lua::entry() {
         "time", {
                     {"ticks", [&](lua_State* s) { return Ticks(s); }},
                 });
-    registry.AddPropertyModule("database", {
-                                               {"updating", &sDatabaseUpdating},
-                                           });
+    registry.AddPropertyModule("database",
+                               {
+                                   {"updating", &sDatabaseUpdating},
+                                   {"auto_update", &sDatabaseAutoUpdate},
+                               });
     registry.AddPropertyModule("usb",
                                {
                                    {"msc_enabled", &sUsbMassStorageEnabled},
                                });
+
+    sDatabaseAutoUpdate.Update(sServices->nvs().DbAutoIndex());
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());

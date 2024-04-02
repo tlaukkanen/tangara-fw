@@ -39,6 +39,7 @@ static constexpr char kKeyScrollSensitivity[] = "scroll";
 static constexpr char kKeyLockPolarity[] = "lockpol";
 static constexpr char kKeyDisplayCols[] = "dispcols";
 static constexpr char kKeyDisplayRows[] = "disprows";
+static constexpr char kKeyDbAutoIndex[] = "dbautoindex";
 
 static auto nvs_get_string(nvs_handle_t nvs, const char* key)
     -> std::optional<std::string> {
@@ -173,6 +174,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
       input_mode_(kKeyPrimaryInput),
       output_mode_(kKeyOutput),
       bt_preferred_(kKeyBluetoothPreferred),
+      db_auto_index_(kKeyDbAutoIndex),
       bt_volumes_(),
       bt_volumes_dirty_(false) {}
 
@@ -194,6 +196,7 @@ auto NvsStorage::Read() -> void {
   input_mode_.read(handle_);
   output_mode_.read(handle_);
   bt_preferred_.read(handle_);
+  db_auto_index_.read(handle_);
   readBtVolumes();
 }
 
@@ -210,6 +213,7 @@ auto NvsStorage::Write() -> bool {
   input_mode_.write(handle_);
   output_mode_.write(handle_);
   bt_preferred_.write(handle_);
+  db_auto_index_.write(handle_);
   writeBtVolumes();
   return nvs_commit(handle_) == ESP_OK;
 }
@@ -368,6 +372,16 @@ auto NvsStorage::PrimaryInput() -> InputModes {
 auto NvsStorage::PrimaryInput(InputModes mode) -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   input_mode_.set(static_cast<uint8_t>(mode));
+}
+
+auto NvsStorage::DbAutoIndex() -> bool {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return db_auto_index_.get().value_or(true);
+}
+
+auto NvsStorage::DbAutoIndex(bool en) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  db_auto_index_.set(static_cast<uint8_t>(en));
 }
 
 class VolumesParseClient : public cppbor::ParseClient {
