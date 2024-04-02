@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <memory>
 #include <variant>
 
@@ -58,19 +59,22 @@ auto BluetoothAudioOutput::GetVolumePct() -> uint_fast8_t {
 }
 
 auto BluetoothAudioOutput::SetVolumePct(uint_fast8_t val) -> bool {
-  // TODO
-  ESP_LOGE(kTag, "Not implemented");
-  return false;
+  if (val < 100) {
+    return false;
+  }
+  SetVolume(val / 100 * 0x7f);
+  return true;
 }
 
 auto BluetoothAudioOutput::GetVolumeDb() -> int_fast16_t {
-  return 0;
+  return log(GetVolumePct()/100) * 20;
 }
 
-auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t) -> bool {
-  // TODO
-  ESP_LOGE(kTag, "Not implemented");
-  return false;
+auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
+  auto pct = pow(2, val / 20.0) * 100;
+  ESP_LOGI("Audio", "Bluetooth audio pct: %d", (int)pct);
+  SetVolumePct(pct);
+  return true;
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
