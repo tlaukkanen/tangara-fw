@@ -63,16 +63,21 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
     return;
   }
   if (mode == Modes::kOff) {
-    dac_->Stop();
-    dac_.reset();
+    if (dac_) {
+      dac_->Stop();
+      dac_.reset();
+    }
     return;
-  } else if (current_mode_ == Modes::kOff) {
-    auto instance = drivers::I2SDac::create(expander_);
-    if (!instance) {
-      return;
+  }
+  if (current_mode_ == Modes::kOff) {
+    if (!dac_) {
+      auto instance = drivers::I2SDac::create(expander_);
+      if (!instance) {
+        return;
+      }
+      dac_.reset(*instance);
     }
     SetVolume(GetVolume());
-    dac_.reset(*instance);
     dac_->SetSource(stream());
     dac_->Start();
   }
