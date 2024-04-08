@@ -24,7 +24,7 @@ local function SettingsScreen(title)
       align_items = "flex-start",
       align_content = "flex-start",
     },
-    w = lvgl.PCT(90),
+    w = lvgl.PCT(100),
     flex_grow = 1,
     pad_left = 4,
     pad_right = 4,
@@ -40,7 +40,7 @@ local BluetoothSettings = screen:new {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
-        align_items = "content",
+        align_items = "center",
         align_content = "flex-start",
       },
       w = lvgl.PCT(100),
@@ -294,7 +294,7 @@ local MassStorageSettings = screen:new {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
-        align_items = "content",
+        align_items = "center",
         align_content = "flex-start",
       },
       w = lvgl.PCT(100),
