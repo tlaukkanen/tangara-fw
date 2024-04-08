@@ -139,14 +139,14 @@ auto Database::Open(IFileGatherer& gatherer,
           [&]() -> cpp::result<Database*, DatabaseError> {
             leveldb::DB* db;
             std::unique_ptr<leveldb::Cache> cache{
-                leveldb::NewLRUCache(4 * 1024)};
+                leveldb::NewLRUCache(256 * 1024)};
 
             leveldb::Options options;
             options.env = sEnv.env();
             options.write_buffer_size = 4 * 1024;
-            options.max_file_size = 32;
+            options.max_file_size = 16 * 1024;
             options.block_cache = cache.get();
-            options.block_size = 512;
+            options.block_size = 2048;
 
             auto status = leveldb::DB::Open(options, kDbPath, &db);
             if (!status.ok()) {
@@ -299,7 +299,7 @@ auto Database::updateIndexes() -> void {
   UpdateNotifier notifier{is_updating_};
 
   leveldb::ReadOptions read_options;
-  read_options.fill_cache = false;
+  read_options.fill_cache = true;
 
   // Stage 1: verify all existing tracks are still valid.
   ESP_LOGI(kTag, "verifying existing tracks");

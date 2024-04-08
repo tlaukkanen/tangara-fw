@@ -48,8 +48,8 @@ class Samd {
     // There is a compatible usb host attached, but USB MSC is not currently
     // in use by the SAMD.
     kAttachedIdle,
-    // The SAMD is currently exposing the SD card via USB MSC.
-    kAttachedMounted,
+    // The SAMD is currently writing to the SD card via USB MSC.
+    kAttachedBusy,
   };
 
   auto GetUsbStatus() -> UsbStatus;

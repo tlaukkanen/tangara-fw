@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "esp_heap_caps.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/hash.h"
@@ -157,7 +158,9 @@ class LRUCache {
   void SetCapacity(size_t capacity) { capacity_ = capacity; }
 
   // Like Cache methods, but with an extra "hash" parameter.
-  Cache::Handle* Insert(const Slice& key, uint32_t hash, void* value,
+  Cache::Handle* Insert(const Slice& key,
+                        uint32_t hash,
+                        void* value,
                         size_t charge,
                         void (*deleter)(const Slice& key, void* value));
   Cache::Handle* Lookup(const Slice& key, uint32_t hash);
@@ -264,14 +267,16 @@ void LRUCache::Release(Cache::Handle* handle) {
   Unref(reinterpret_cast<LRUHandle*>(handle));
 }
 
-Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
+Cache::Handle* LRUCache::Insert(const Slice& key,
+                                uint32_t hash,
+                                void* value,
                                 size_t charge,
                                 void (*deleter)(const Slice& key,
                                                 void* value)) {
   MutexLock l(&mutex_);
 
-  LRUHandle* e =
-      reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+  LRUHandle* e = reinterpret_cast<LRUHandle*>(
+      heap_caps_malloc(sizeof(LRUHandle) - 1 + key.size(), MALLOC_CAP_SPIRAM));
   e->value = value;
   e->deleter = deleter;
   e->charge = charge;
@@ -356,7 +361,9 @@ class ShardedLRUCache : public Cache {
     }
   }
   ~ShardedLRUCache() override {}
-  Handle* Insert(const Slice& key, void* value, size_t charge,
+  Handle* Insert(const Slice& key,
+                 void* value,
+                 size_t charge,
                  void (*deleter)(const Slice& key, void* value)) override {
     const uint32_t hash = HashSlice(key);
     return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
@@ -396,6 +403,8 @@ class ShardedLRUCache : public Cache {
 
 }  // end anonymous namespace
 
-Cache* NewLRUCache(size_t capacity) { return new ShardedLRUCache(capacity); }
+Cache* NewLRUCache(size_t capacity) {
+  return new ShardedLRUCache(capacity);
+}
 
 }  // namespace leveldb

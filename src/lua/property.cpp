@@ -379,22 +379,22 @@ auto Property::Update(const LuaValue& v) -> void {
   for (int i = bindings_.size() - 1; i >= 0; i--) {
     auto& b = bindings_[i];
 
+    int top = lua_gettop(b.first);
+
     lua_pushstring(b.first, kBindingsTable);
     lua_gettable(b.first, LUA_REGISTRYINDEX);       // REGISTRY[kBindingsTable]
     int type = lua_rawgeti(b.first, -1, b.second);  // push bindings[i]
 
     // Has closure has been GCed?
     if (type == LUA_TNIL) {
-      // Clean up after ourselves.
-      lua_pop(b.first, 1);
       // Remove the binding.
       bindings_.erase(bindings_.begin() + i);
-      continue;
+    } else {
+      PushValue(*b.first);           // push the argument
+      CallProtected(b.first, 1, 0);  // invoke the closure
     }
 
-    PushValue(*b.first);           // push the argument
-    CallProtected(b.first, 1, 0);  // invoke the closure
-    lua_pop(b.first, 1);           // pop the bindings table
+    lua_settop(b.first, top);  // clean up after ourselves
   }
 }
 

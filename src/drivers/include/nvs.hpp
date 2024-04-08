@@ -114,6 +114,9 @@ class NvsStorage {
   auto PrimaryInput() -> InputModes;
   auto PrimaryInput(InputModes) -> void;
 
+  auto DbAutoIndex() -> bool;
+  auto DbAutoIndex(bool) -> void;
+
   explicit NvsStorage(nvs_handle_t);
   ~NvsStorage();
 
@@ -136,6 +139,7 @@ class NvsStorage {
   Setting<uint8_t> input_mode_;
   Setting<uint8_t> output_mode_;
   Setting<bluetooth::MacAndName> bt_preferred_;
+  Setting<uint8_t> db_auto_index_;
 
   util::LruCache<10, bluetooth::mac_addr_t, uint8_t> bt_volumes_;
   bool bt_volumes_dirty_;

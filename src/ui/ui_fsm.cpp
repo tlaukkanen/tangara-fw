@@ -43,6 +43,7 @@
 #include "nvs.hpp"
 #include "property.hpp"
 #include "relative_wheel.hpp"
+#include "samd.hpp"
 #include "screen.hpp"
 #include "screen_lua.hpp"
 #include "screen_splash.hpp"
@@ -282,6 +283,14 @@ lua::Property UiState::sScrollSensitivity{
 lua::Property UiState::sLockSwitch{false};
 
 lua::Property UiState::sDatabaseUpdating{false};
+lua::Property UiState::sDatabaseAutoUpdate{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      sServices->nvs().DbAutoIndex(std::get<bool>(val));
+      return true;
+    }};
 
 lua::Property UiState::sUsbMassStorageEnabled{
     false, [](const lua::LuaValue& val) {
@@ -293,6 +302,8 @@ lua::Property UiState::sUsbMassStorageEnabled{
       events::System().Dispatch(system_fsm::SamdUsbMscChanged{.en = enable});
       return true;
     }};
+
+lua::Property UiState::sUsbMassStorageBusy{false};
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
     -> bool {
@@ -350,6 +361,11 @@ void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(!ev.locking);
   sInput->lock(ev.locking);
   sLockSwitch.Update(ev.locking);
+}
+
+void UiState::react(const system_fsm::SamdUsbStatusChanged& ev) {
+  sUsbMassStorageBusy.Update(ev.new_status ==
+                             drivers::Samd::UsbStatus::kAttachedBusy);
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -557,13 +573,18 @@ void Lua::entry() {
         "time", {
                     {"ticks", [&](lua_State* s) { return Ticks(s); }},
                 });
-    registry.AddPropertyModule("database", {
-                                               {"updating", &sDatabaseUpdating},
-                                           });
+    registry.AddPropertyModule("database",
+                               {
+                                   {"updating", &sDatabaseUpdating},
+                                   {"auto_update", &sDatabaseAutoUpdate},
+                               });
     registry.AddPropertyModule("usb",
                                {
                                    {"msc_enabled", &sUsbMassStorageEnabled},
+                                   {"msc_busy", &sUsbMassStorageBusy},
                                });
+
+    sDatabaseAutoUpdate.Update(sServices->nvs().DbAutoIndex());
 
     auto bt = sServices->bluetooth();
     sBluetoothEnabled.Update(bt.IsEnabled());

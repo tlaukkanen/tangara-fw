@@ -63,16 +63,21 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
     return;
   }
   if (mode == Modes::kOff) {
-    dac_->Stop();
-    dac_.reset();
+    if (dac_) {
+      dac_->Stop();
+      dac_.reset();
+    }
     return;
-  } else if (current_mode_ == Modes::kOff) {
-    auto instance = drivers::I2SDac::create(expander_);
-    if (!instance) {
-      return;
+  }
+  if (current_mode_ == Modes::kOff) {
+    if (!dac_) {
+      auto instance = drivers::I2SDac::create(expander_);
+      if (!instance) {
+        return;
+      }
+      dac_.reset(*instance);
     }
     SetVolume(GetVolume());
-    dac_.reset(*instance);
     dac_->SetSource(stream());
     dac_->Start();
   }
@@ -111,11 +116,25 @@ auto I2SAudioOutput::GetVolumePct() -> uint_fast8_t {
   return (current_volume_ - kMinVolume) * 100 / (max_volume_ - kMinVolume);
 }
 
+auto I2SAudioOutput::SetVolumePct(uint_fast8_t val) -> bool {
+  if (val > 100) {
+    return false;
+  }
+  uint16_t vol = (val * (max_volume_ - kMinVolume))/100 + kMinVolume;
+  SetVolume(vol);
+  return true;
+}
+
 auto I2SAudioOutput::GetVolumeDb() -> int_fast16_t {
   // Add two before dividing in order to round correctly.
   return (static_cast<int>(current_volume_) -
           static_cast<int>(drivers::wm8523::kLineLevelReferenceVolume) + 2) /
          4;
+}
+
+auto I2SAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
+  SetVolume(val * 4 + static_cast<int>(drivers::wm8523::kLineLevelReferenceVolume) - 2);
+  return true;
 }
 
 auto I2SAudioOutput::AdjustVolumeUp() -> bool {

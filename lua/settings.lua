@@ -24,7 +24,7 @@ local function SettingsScreen(title)
       align_items = "flex-start",
       align_content = "flex-start",
     },
-    w = lvgl.PCT(90),
+    w = lvgl.PCT(100),
     flex_grow = 1,
     pad_left = 4,
     pad_right = 4,
@@ -40,7 +40,7 @@ local BluetoothSettings = screen:new {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
-        align_items = "content",
+        align_items = "center",
         align_content = "flex-start",
       },
       w = lvgl.PCT(100),
@@ -54,10 +54,10 @@ local BluetoothSettings = screen:new {
       bluetooth.enabled:set(enabled)
     end)
 
-  theme.set_style(self.menu.content:Label {
-    text = "Paired Device",
-    pad_bottom = 1,
-  }, "settings_title")
+    theme.set_style(self.menu.content:Label {
+      text = "Paired Device",
+      pad_bottom = 1,
+    }, "settings_title")
 
     local paired_container = self.menu.content:Object {
       flex = {
@@ -80,10 +80,10 @@ local BluetoothSettings = screen:new {
       bluetooth.paired_device:set()
     end)
 
-  theme.set_style(self.menu.content:Label {
-    text = "Nearby Devices",
-    pad_bottom = 1,
-  }, "settings_title")
+    theme.set_style(self.menu.content:Label {
+      text = "Nearby Devices",
+      pad_bottom = 1,
+    }, "settings_title")
 
     local devices = self.menu.content:List {
       w = lvgl.PCT(100),
@@ -123,9 +123,9 @@ local HeadphonesSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Headphones")
 
-  theme.set_style(self.menu.content:Label {
-    text = "Maxiumum volume limit",
-  }, "settings_title")
+    theme.set_style(self.menu.content:Label {
+      text = "Maxiumum volume limit",
+    }, "settings_title")
 
     local volume_chooser = self.menu.content:Dropdown {
       options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
@@ -138,9 +138,9 @@ local HeadphonesSettings = screen:new {
       volume.limit_db:set(limits[selection])
     end)
 
-  theme.set_style(self.menu.content:Label {
-    text = "Left/Right balance",
-  }, "settings_title")
+    theme.set_style(self.menu.content:Label {
+      text = "Left/Right balance",
+    }, "settings_title")
 
     local balance = self.menu.content:Slider {
       w = lvgl.PCT(100),
@@ -186,20 +186,20 @@ local DisplaySettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Display")
 
-  local brightness_title = self.menu.content:Object {
-    flex = {
-      flex_direction = "row",
-      justify_content = "flex-start",
-      align_items = "flex-start",
-      align_content = "flex-start",
-    },
-    w = lvgl.PCT(100),
-    h = lvgl.SIZE_CONTENT,
+    local brightness_title = self.menu.content:Object {
+      flex = {
+        flex_direction = "row",
+        justify_content = "flex-start",
+        align_items = "flex-start",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
 
-  }
-  brightness_title:Label { text = "Brightness", flex_grow = 1 }
-  local brightness_pct = brightness_title:Label {}
-  theme.set_style(brightness_pct, "settings_title")
+    }
+    brightness_title:Label { text = "Brightness", flex_grow = 1 }
+    local brightness_pct = brightness_title:Label {}
+    theme.set_style(brightness_pct, "settings_title")
 
     local brightness = self.menu.content:Slider {
       w = lvgl.PCT(100),
@@ -223,9 +223,9 @@ local InputSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("Input Method")
 
-  theme.set_style(self.menu.content:Label {
-    text = "Control scheme",
-  }, "settings_title")
+    theme.set_style(self.menu.content:Label {
+      text = "Control scheme",
+    }, "settings_title")
 
     local schemes = controls.schemes()
     local option_to_scheme = {}
@@ -261,9 +261,9 @@ local InputSettings = screen:new {
       controls.scheme:set(scheme)
     end)
 
-  theme.set_style(self.menu.content:Label {
-    text = "Scroll Sensitivity",
-  }, "settings_title")
+    theme.set_style(self.menu.content:Label {
+      text = "Scroll Sensitivity",
+    }, "settings_title")
 
     local slider_scale = 4; -- Power steering
     local sensitivity = self.menu.content:Slider {
@@ -282,10 +282,10 @@ local MassStorageSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("USB Storage")
     local version = require("version").samd()
-    if tonumber(version) < 2 then
+    if tonumber(version) < 3 then
       self.menu.content:Label {
         w = lvgl.PCT(100),
-        text = "Usb Mass Storage requires a SAMD21 firmware version >=2."
+        text = "Usb Mass Storage requires a SAMD21 firmware version >=3."
       }
       return
     end
@@ -294,7 +294,7 @@ local MassStorageSettings = screen:new {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
-        align_items = "content",
+        align_items = "center",
         align_content = "flex-start",
       },
       w = lvgl.PCT(100),
@@ -303,6 +303,12 @@ local MassStorageSettings = screen:new {
     }
     enable_container:Label { text = "Enable", flex_grow = 1 }
     local enable_sw = enable_container:Switch {}
+
+    local busy_text = self.menu.content:Label {
+      w = lvgl.PCT(100),
+      text = "USB is currently busy. Do not unplug or remove the SD card.",
+      long_mode = lvgl.LABEL.LONG_WRAP,
+    }
 
     local bind_switch = function()
       if usb.msc_enabled:get() then
@@ -313,12 +319,21 @@ local MassStorageSettings = screen:new {
     end
 
     enable_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
-      usb.msc_enabled:set(enable_sw:enabled())
+      if not usb.msc_busy:get() then
+        usb.msc_enabled:set(enable_sw:enabled())
+      end
       bind_switch()
     end)
 
     self.bindings = {
       usb.msc_enabled:bind(bind_switch),
+      usb.msc_busy:bind(function(busy)
+        if busy then
+          busy_text:clear_flag(lvgl.FLAG.HIDDEN)
+        else
+          busy_text:add_flag(lvgl.FLAG.HIDDEN)
+        end
+      end)
     }
   end,
   canPop = function()
@@ -333,25 +348,53 @@ local DatabaseSettings = screen:new {
     widgets.Row(self.menu.content, "Schema version", db.version())
     widgets.Row(self.menu.content, "Size on disk", string.format("%.1f KiB", db.size() / 1024))
 
-  local actions_container = self.menu.content:Object {
-    w = lvgl.PCT(100),
-    h = lvgl.SIZE_CONTENT,
-    flex = {
-      flex_direction = "row",
-      justify_content = "center",
-      align_items = "space-evenly",
-      align_content = "center",
-    },
-    pad_top = 4,
-    pad_column = 4,
-  }
-  actions_container:add_style(styles.list_item)
+    local auto_update_container = self.menu.content:Object {
+      flex = {
+        flex_direction = "row",
+        justify_content = "flex-start",
+        align_items = "flex-start",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+    }
+    auto_update_container:add_style(styles.list_item)
+    auto_update_container:Label { text = "Auto update", flex_grow = 1 }
+    local auto_update_sw = auto_update_container:Switch {}
+
+    auto_update_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      database.auto_update:set(auto_update_sw:enabled())
+    end)
+
+    local actions_container = self.menu.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    actions_container:add_style(styles.list_item)
 
     local update = actions_container:Button {}
-    update:Label { text = "Update" }
+    update:Label { text = "Update now" }
     update:onClicked(function()
       database.update()
     end)
+
+    self.bindings = {
+      database.auto_update:bind(function(en)
+        if en then
+          auto_update_sw:add_state(lvgl.STATE.CHECKED)
+        else
+          auto_update_sw:clear_state(lvgl.STATE.CHECKED)
+        end
+      end),
+    }
   end
 }
 
@@ -383,13 +426,13 @@ return screen:new {
       flex_grow = 1,
     }
 
-  local function section(name)
-    local elem = self.list:Label {
-      text = name,
-      pad_left = 4,
-    }
-    theme.set_style(elem, "settings_title")
-  end
+    local function section(name)
+      local elem = self.list:Label {
+        text = name,
+        pad_left = 4,
+      }
+      theme.set_style(elem, "settings_title")
+    end
 
     local function submenu(name, class)
       local item = self.list:add_btn(nil, name)
