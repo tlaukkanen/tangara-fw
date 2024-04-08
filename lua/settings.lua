@@ -282,10 +282,10 @@ local MassStorageSettings = screen:new {
   createUi = function(self)
     self.menu = SettingsScreen("USB Storage")
     local version = require("version").samd()
-    if tonumber(version) < 2 then
+    if tonumber(version) < 3 then
       self.menu.content:Label {
         w = lvgl.PCT(100),
-        text = "Usb Mass Storage requires a SAMD21 firmware version >=2."
+        text = "Usb Mass Storage requires a SAMD21 firmware version >=3."
       }
       return
     end
@@ -304,6 +304,12 @@ local MassStorageSettings = screen:new {
     enable_container:Label { text = "Enable", flex_grow = 1 }
     local enable_sw = enable_container:Switch {}
 
+    local busy_text = self.menu.content:Label {
+      w = lvgl.PCT(100),
+      text = "USB is currently busy. Do not unplug or remove the SD card.",
+      long_mode = lvgl.LABEL.LONG_WRAP,
+    }
+
     local bind_switch = function()
       if usb.msc_enabled:get() then
         enable_sw:add_state(lvgl.STATE.CHECKED)
@@ -313,12 +319,21 @@ local MassStorageSettings = screen:new {
     end
 
     enable_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
-      usb.msc_enabled:set(enable_sw:enabled())
+      if not usb.msc_busy:get() then
+        usb.msc_enabled:set(enable_sw:enabled())
+      end
       bind_switch()
     end)
 
     self.bindings = {
       usb.msc_enabled:bind(bind_switch),
+      usb.msc_busy:bind(function(busy)
+        if busy then
+          busy_text:clear_flag(lvgl.FLAG.HIDDEN)
+        else
+          busy_text:add_flag(lvgl.FLAG.HIDDEN)
+        end
+      end)
     }
   end,
   canPop = function()

@@ -43,6 +43,7 @@
 #include "nvs.hpp"
 #include "property.hpp"
 #include "relative_wheel.hpp"
+#include "samd.hpp"
 #include "screen.hpp"
 #include "screen_lua.hpp"
 #include "screen_splash.hpp"
@@ -302,6 +303,8 @@ lua::Property UiState::sUsbMassStorageEnabled{
       return true;
     }};
 
+lua::Property UiState::sUsbMassStorageBusy{false};
+
 auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
     -> bool {
   // Init LVGL first, since the display driver registers itself with LVGL.
@@ -358,6 +361,11 @@ void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(!ev.locking);
   sInput->lock(ev.locking);
   sLockSwitch.Update(ev.locking);
+}
+
+void UiState::react(const system_fsm::SamdUsbStatusChanged& ev) {
+  sUsbMassStorageBusy.Update(ev.new_status ==
+                             drivers::Samd::UsbStatus::kAttachedBusy);
 }
 
 void UiState::react(const internal::ControlSchemeChanged&) {
@@ -573,6 +581,7 @@ void Lua::entry() {
     registry.AddPropertyModule("usb",
                                {
                                    {"msc_enabled", &sUsbMassStorageEnabled},
+                                   {"msc_busy", &sUsbMassStorageBusy},
                                });
 
     sDatabaseAutoUpdate.Update(sServices->nvs().DbAutoIndex());

@@ -113,7 +113,7 @@ auto Samd::UpdateUsbStatus() -> void {
     usb_status_ = UsbStatus::kDetached;
   }
   usb_status_ =
-      (raw_res & 0b10) ? UsbStatus::kAttachedMounted : UsbStatus::kAttachedIdle;
+      (raw_res & 0b10) ? UsbStatus::kAttachedBusy : UsbStatus::kAttachedIdle;
 }
 
 auto Samd::ResetToFlashSamd() -> void {

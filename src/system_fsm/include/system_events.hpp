@@ -12,6 +12,7 @@
 #include "bluetooth_types.hpp"
 #include "database.hpp"
 #include "haptics.hpp"
+#include "samd.hpp"
 #include "service_locator.hpp"
 #include "tinyfsm.hpp"
 
@@ -55,6 +56,9 @@ struct SdDetectChanged : tinyfsm::Event {
 
 struct SamdUsbMscChanged : tinyfsm::Event {
   bool en;
+};
+struct SamdUsbStatusChanged : tinyfsm::Event {
+  drivers::Samd::UsbStatus new_status;
 };
 
 struct BatteryStateChanged : tinyfsm::Event {

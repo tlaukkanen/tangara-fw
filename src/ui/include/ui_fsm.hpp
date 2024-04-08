@@ -65,6 +65,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const audio::VolumeLimitChanged&);
 
   void react(const system_fsm::KeyLockChanged&);
+  void react(const system_fsm::SamdUsbStatusChanged&);
 
   void react(const internal::DismissAlerts&);
   void react(const internal::ControlSchemeChanged&);
@@ -133,6 +134,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sDatabaseAutoUpdate;
 
   static lua::Property sUsbMassStorageEnabled;
+  static lua::Property sUsbMassStorageBusy;
 };
 
 namespace states {
