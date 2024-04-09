@@ -27,8 +27,8 @@ esp_err_t init_i2c(void) {
       .mode = I2C_MODE_MASTER,
       .sda_io_num = kI2CSdaPin,
       .scl_io_num = kI2CSclPin,
-      .sda_pullup_en = GPIO_PULLUP_ENABLE,
-      .scl_pullup_en = GPIO_PULLUP_ENABLE,
+      .sda_pullup_en = false,
+      .scl_pullup_en = false,
       .master =
           {
               .clk_speed = kI2CClkSpeed,

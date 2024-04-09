@@ -44,6 +44,7 @@ auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
       .dma_desc_num = 2,
       .dma_frame_num = kI2SBufferLengthFrames,
       .auto_clear = false,
+      .intr_priority = 0,
   };
 
   ESP_ERROR_CHECK(i2s_new_channel(&channel_config, &i2s_handle, NULL));
