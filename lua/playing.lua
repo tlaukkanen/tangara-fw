@@ -151,9 +151,15 @@ return screen:new {
 
 
     local prev_btn = controls:Button {}
-    prev_btn:onClicked(queue.previous)
+    prev_btn:onClicked(function()
+      if playback.position:get() > 1 or queue.position:get() == 1 then
+        playback.position:set(0)
+      else
+        queue.previous()
+      end
+    end)
     local prev_img = prev_btn:Image { src = img.prev }
-    theme.set_style(prev_img, icon_disabled_class)
+    theme.set_style(prev_img, icon_enabled_class)
 
     local play_pause_btn = controls:Button {}
     play_pause_btn:onClicked(function()
@@ -216,10 +222,6 @@ return screen:new {
 
         theme.set_style(
           next_img, pos < queue.size:get() and icon_enabled_class or icon_disabled_class
-        )
-        
-        theme.set_style(
-          prev_img, pos > 1 and icon_enabled_class or icon_disabled_class
         )
       end),
       queue.random:bind(function(shuffling)
