@@ -36,7 +36,7 @@
 /* This option switches f_mkfs() function. (0:Disable or 1:Enable) */
 
 
-#define FF_USE_FASTSEEK	1
+#define FF_USE_FASTSEEK	CONFIG_FATFS_USE_FASTSEEK
 /* This option switches fast seek function. (0:Disable or 1:Enable) */
 
 
@@ -296,7 +296,7 @@
 
 
 #define FF_FS_REENTRANT	1
-#define FF_FS_TIMEOUT	(portMAX_DELAY)
+#define FF_FS_TIMEOUT	(CONFIG_FATFS_TIMEOUT_MS / portTICK_PERIOD_MS)
 /* The option FF_FS_REENTRANT switches the re-entrancy (thread safe) of the FatFs
 /  module itself. Note that regardless of this option, file access to different
 /  volume is always re-entrant and volume control functions, f_mount(), f_mkfs()
