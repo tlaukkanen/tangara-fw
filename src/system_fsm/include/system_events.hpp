@@ -11,6 +11,7 @@
 #include "battery.hpp"
 #include "bluetooth_types.hpp"
 #include "database.hpp"
+#include "ff.h"
 #include "haptics.hpp"
 #include "samd.hpp"
 #include "service_locator.hpp"
@@ -42,7 +43,9 @@ struct OnIdle : tinyfsm::Event {};
  */
 struct StorageMounted : tinyfsm::Event {};
 
-struct StorageError : tinyfsm::Event {};
+struct StorageError : tinyfsm::Event {
+  FRESULT error;
+};
 
 struct KeyLockChanged : tinyfsm::Event {
   bool locking;

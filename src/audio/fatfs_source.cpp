@@ -12,11 +12,13 @@
 #include <memory>
 
 #include "esp_log.h"
+#include "event_queue.hpp"
 #include "ff.h"
 
 #include "audio_source.hpp"
 #include "codec.hpp"
 #include "spi.hpp"
+#include "system_events.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -39,7 +41,7 @@ auto FatfsSource::Read(cpp::span<std::byte> dest) -> ssize_t {
   UINT bytes_read = 0;
   FRESULT res = f_read(file_.get(), dest.data(), dest.size(), &bytes_read);
   if (res != FR_OK) {
-    ESP_LOGE(kTag, "error reading from file");
+    events::System().Dispatch(system_fsm::StorageError{.error = res});
     return -1;
   }
   return bytes_read;

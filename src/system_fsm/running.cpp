@@ -8,6 +8,7 @@
 #include "audio_events.hpp"
 #include "database.hpp"
 #include "db_events.hpp"
+#include "ff.h"
 #include "file_gatherer.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -116,6 +117,13 @@ void Running::react(const SamdUsbMscChanged& ev) {
 
     // Now it's ready for us.
     mountStorage();
+  }
+}
+
+void Running::react(const StorageError& ev) {
+  ESP_LOGE(kTag, "storage error %u", ev.error);
+  if (ev.error == FR_DISK_ERR || ev.error == FR_INVALID_OBJECT) {
+    unmountStorage();
   }
 }
 

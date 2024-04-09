@@ -105,6 +105,7 @@ class Running : public SystemState {
   void react(const database::event::UpdateFinished&) override;
   void react(const SamdUsbMscChanged&) override;
   void react(const internal::UnmountTimeout&) override;
+  void react(const StorageError&) override;
 
   using SystemState::react;
 
