@@ -30,19 +30,18 @@
 #include "lauxlib.h"
 #include "lua_thread.hpp"
 #include "luavgl.h"
+#include "lvgl_input_driver.hpp"
 #include "memory_resource.hpp"
 #include "misc/lv_gc.h"
 
 #include "audio_events.hpp"
 #include "display.hpp"
-#include "encoder_input.hpp"
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "lua_registry.hpp"
 #include "lvgl_task.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
-#include "relative_wheel.hpp"
 #include "samd.hpp"
 #include "screen.hpp"
 #include "screen_lua.hpp"
@@ -63,7 +62,7 @@ namespace ui {
 std::unique_ptr<UiTask> UiState::sTask;
 std::shared_ptr<system_fsm::ServiceLocator> UiState::sServices;
 std::unique_ptr<drivers::Display> UiState::sDisplay;
-std::shared_ptr<EncoderInput> UiState::sInput;
+std::shared_ptr<input::LvglInputDriver> UiState::sInput;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
@@ -234,51 +233,58 @@ lua::Property UiState::sDisplayBrightness{
       return true;
     }};
 
-lua::Property UiState::sControlsScheme{
-    0, [](const lua::LuaValue& val) {
-      if (!std::holds_alternative<int>(val)) {
-        return false;
-      }
-      drivers::NvsStorage::InputModes mode;
-      switch (std::get<int>(val)) {
-        case 0:
-          mode = drivers::NvsStorage::InputModes::kButtonsOnly;
-          break;
-        case 1:
-          mode = drivers::NvsStorage::InputModes::kButtonsWithWheel;
-          break;
-        case 2:
-          mode = drivers::NvsStorage::InputModes::kDirectionalWheel;
-          break;
-        case 3:
-          mode = drivers::NvsStorage::InputModes::kRotatingWheel;
-          break;
-        default:
-          return false;
-      }
-      sServices->nvs().PrimaryInput(mode);
-      sInput->mode(mode);
-      return true;
-    }};
+lua::Property UiState::sControlsScheme{0, [](const lua::LuaValue& val) {
+                                         /*
+                                         if (!std::holds_alternative<int>(val))
+                                         { return false;
+                                         }
+                                         drivers::NvsStorage::InputModes mode;
+                                         switch (std::get<int>(val)) {
+                                           case 0:
+                                             mode =
+                                         drivers::NvsStorage::InputModes::kButtonsOnly;
+                                             break;
+                                           case 1:
+                                             mode =
+                                         drivers::NvsStorage::InputModes::kButtonsWithWheel;
+                                             break;
+                                           case 2:
+                                             mode =
+                                         drivers::NvsStorage::InputModes::kDirectionalWheel;
+                                             break;
+                                           case 3:
+                                             mode =
+                                         drivers::NvsStorage::InputModes::kRotatingWheel;
+                                             break;
+                                           default:
+                                             return false;
+                                         }
+                                         sServices->nvs().PrimaryInput(mode);
+                                         sInput->mode(mode);
+                                         */
+                                         return true;
+                                       }};
 
-lua::Property UiState::sScrollSensitivity{
-    0, [](const lua::LuaValue& val) {
-      std::optional<int> sensitivity = 0;
-      std::visit(
-          [&](auto&& v) {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, int>) {
-              sensitivity = v;
-            }
-          },
-          val);
-      if (!sensitivity) {
-        return false;
-      }
-      sInput->scroll_sensitivity(*sensitivity);
-      sServices->nvs().ScrollSensitivity(*sensitivity);
-      return true;
-    }};
+lua::Property UiState::sScrollSensitivity{0, [](const lua::LuaValue& val) {
+                                            /*
+                                            std::optional<int> sensitivity = 0;
+                                            std::visit(
+                                                [&](auto&& v) {
+                                                  using T =
+                                            std::decay_t<decltype(v)>; if
+                                            constexpr (std::is_same_v<T, int>) {
+                                                    sensitivity = v;
+                                                  }
+                                                },
+                                                val);
+                                            if (!sensitivity) {
+                                              return false;
+                                            }
+                                            sInput->scroll_sensitivity(*sensitivity);
+                                            sServices->nvs().ScrollSensitivity(*sensitivity);
+                                            */
+                                            return true;
+                                          }};
 
 lua::Property UiState::sLockSwitch{false};
 
@@ -372,7 +378,7 @@ void UiState::react(const internal::ControlSchemeChanged&) {
   if (!sInput) {
     return;
   }
-  sInput->mode(sServices->nvs().PrimaryInput());
+  // sInput->mode(sServices->nvs().PrimaryInput());
 }
 
 void UiState::react(const database::event::UpdateStarted&) {
@@ -478,22 +484,8 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   sDisplayBrightness.Update(brightness);
   sDisplay->SetBrightness(brightness);
 
-  auto touchwheel = sServices->touchwheel();
-  if (touchwheel) {
-    sInput = std::make_shared<EncoderInput>(sServices->gpios(), **touchwheel);
-
-    auto mode = sServices->nvs().PrimaryInput();
-    sInput->mode(mode);
-    sControlsScheme.Update(static_cast<int>(mode));
-
-    auto sensitivity = sServices->nvs().ScrollSensitivity();
-    sInput->scroll_sensitivity(sensitivity);
-    sScrollSensitivity.Update(static_cast<int>(sensitivity));
-
-    sTask->input(sInput);
-  } else {
-    ESP_LOGE(kTag, "no input devices initialised!");
-  }
+  sInput = std::make_shared<input::LvglInputDriver>(sServices);
+  sTask->input(sInput);
 }
 
 void Splash::react(const system_fsm::StorageMounted&) {

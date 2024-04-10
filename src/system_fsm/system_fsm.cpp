@@ -9,7 +9,6 @@
 #include "driver/gpio.h"
 #include "event_queue.hpp"
 #include "gpios.hpp"
-#include "relative_wheel.hpp"
 #include "service_locator.hpp"
 #include "system_events.hpp"
 #include "tag_parser.hpp"

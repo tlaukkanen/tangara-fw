@@ -14,14 +14,13 @@
 #include "battery.hpp"
 #include "db_events.hpp"
 #include "display.hpp"
-#include "encoder_input.hpp"
 #include "gpios.hpp"
 #include "lua_thread.hpp"
+#include "lvgl_input_driver.hpp"
 #include "lvgl_task.hpp"
 #include "modal.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
-#include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "service_locator.hpp"
 #include "storage.hpp"
@@ -92,7 +91,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::unique_ptr<UiTask> sTask;
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
   static std::unique_ptr<drivers::Display> sDisplay;
-  static std::shared_ptr<EncoderInput> sInput;
+  static std::shared_ptr<input::LvglInputDriver> sInput;
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
