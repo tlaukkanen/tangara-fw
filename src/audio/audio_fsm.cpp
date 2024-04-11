@@ -123,6 +123,16 @@ void AudioState::react(const QueueUpdate& ev) {
 }
 
 void AudioState::react(const SetTrack& ev) {
+  // Remember the current track if there is one, since we need to preserve some
+  // of the state if it turns out this SetTrack event corresponds to seeking
+  // within the current track.
+  std::string prev_uri;
+  bool prev_from_queue = false;
+  if (sCurrentTrack) {
+    prev_uri = sCurrentTrack->uri;
+    prev_from_queue = sCurrentTrackIsFromQueue;
+  }
+
   if (ev.transition == SetTrack::Transition::kHardCut) {
     sCurrentTrack.reset();
     sCurrentSamples = 0;
@@ -158,6 +168,11 @@ void AudioState::react(const SetTrack& ev) {
     }
 
     if (path) {
+      if (*path == prev_uri) {
+        // This was a seek or replay within the same track; don't forget where
+        // the track originally came from.
+        sNextTrackIsFromQueue = prev_from_queue;
+      }
       sFileSource->SetPath(*path, seek_to);
     } else {
       sFileSource->SetPath();
