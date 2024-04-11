@@ -15,8 +15,7 @@
 #include "freertos/timers.h"
 
 #include "display.hpp"
-#include "encoder_input.hpp"
-#include "relative_wheel.hpp"
+#include "lvgl_input_driver.hpp"
 #include "screen.hpp"
 #include "themes.hpp"
 #include "touchwheel.hpp"
@@ -28,14 +27,14 @@ class UiTask {
   static auto Start() -> UiTask*;
   ~UiTask();
 
-  auto input(std::shared_ptr<EncoderInput> input) -> void;
+  auto input(std::shared_ptr<input::LvglInputDriver> input) -> void;
 
  private:
   UiTask();
 
   auto Main() -> void;
 
-  std::shared_ptr<EncoderInput> input_;
+  std::shared_ptr<input::LvglInputDriver> input_;
   std::shared_ptr<Screen> current_screen_;
 };
 

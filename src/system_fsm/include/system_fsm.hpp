@@ -17,7 +17,6 @@
 #include "display.hpp"
 #include "gpios.hpp"
 #include "nvs.hpp"
-#include "relative_wheel.hpp"
 #include "samd.hpp"
 #include "service_locator.hpp"
 #include "storage.hpp"

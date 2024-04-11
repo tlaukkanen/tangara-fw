@@ -13,15 +13,18 @@
 #include "audio_events.hpp"
 #include "battery.hpp"
 #include "db_events.hpp"
+#include "device_factory.hpp"
 #include "display.hpp"
-#include "encoder_input.hpp"
+#include "feedback_haptics.hpp"
 #include "gpios.hpp"
+#include "input_touch_wheel.hpp"
+#include "input_volume_buttons.hpp"
 #include "lua_thread.hpp"
+#include "lvgl_input_driver.hpp"
 #include "lvgl_task.hpp"
 #include "modal.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
-#include "relative_wheel.hpp"
 #include "screen.hpp"
 #include "service_locator.hpp"
 #include "storage.hpp"
@@ -68,7 +71,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const system_fsm::SamdUsbStatusChanged&);
 
   void react(const internal::DismissAlerts&);
-  void react(const internal::ControlSchemeChanged&);
 
   void react(const database::event::UpdateStarted&);
   void react(const database::event::UpdateProgress&){};
@@ -92,7 +94,9 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static std::unique_ptr<UiTask> sTask;
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
   static std::unique_ptr<drivers::Display> sDisplay;
-  static std::shared_ptr<EncoderInput> sInput;
+
+  static std::shared_ptr<input::LvglInputDriver> sInput;
+  static std::unique_ptr<input::DeviceFactory> sDeviceFactory;
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
@@ -126,8 +130,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static lua::Property sDisplayBrightness;
 
-  static lua::Property sControlsScheme;
-  static lua::Property sScrollSensitivity;
   static lua::Property sLockSwitch;
 
   static lua::Property sDatabaseUpdating;
