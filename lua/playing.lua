@@ -16,6 +16,11 @@ local img = {
   repeat_src = lvgl.ImgData("//lua/img/repeat.png"), -- repeat is a reserved word
 }
 
+local format_time = function(time)
+  time = math.floor(time)
+  return string.format("%d:%02d", time // 60, time % 60)
+end
+
 local is_now_playing_shown = false
 
 local icon_enabled_class = "icon_enabled"
@@ -128,6 +133,16 @@ return screen:new {
       if not track.duration then return end
       playback.position:set(scrubber:value() / 100 * track.duration)
     end)
+    scrubber:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      if scrubber:is_dragged() then
+        local track = playback.track:get()
+        if not track then return end
+        if not track.duration then return end
+        cur_time:set {
+          text = format_time(scrubber:value() / 100 * track.duration)
+        }
+      end
+    end)
 
     local controls = self.root:Object {
       flex = {
@@ -141,7 +156,6 @@ return screen:new {
       pad_column = 8,
       pad_all = 2,
     }
-
 
     controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
@@ -187,10 +201,6 @@ return screen:new {
     controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
 
-    local format_time = function(time)
-      return string.format("%d:%02d", time // 60, time % 60)
-    end
-
     self.bindings = {
       playback.playing:bind(function(playing)
         if playing then
@@ -201,10 +211,10 @@ return screen:new {
       end),
       playback.position:bind(function(pos)
         if not pos then return end
-        cur_time:set {
-          text = format_time(pos)
-        }
         if not scrubber:is_dragged() then
+          cur_time:set {
+            text = format_time(pos)
+          }
           local track = playback.track:get()
           if not track then return end
           if not track.duration then return end
