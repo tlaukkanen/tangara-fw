@@ -123,7 +123,10 @@ return screen:new {
     }
 
     scrubber:onevent(lvgl.EVENT.RELEASED, function()
-      playback.position:set(scrubber:value())
+      local track = playback.track:get()
+      if not track then return end
+      if not track.duration then return end
+      playback.position:set(scrubber:value() / 100 * track.duration)
     end)
 
     local controls = self.root:Object {
@@ -202,7 +205,10 @@ return screen:new {
           text = format_time(pos)
         }
         if not scrubber:is_dragged() then
-          scrubber:set { value = pos }
+          local track = playback.track:get()
+          if not track then return end
+          if not track.duration then return end
+          scrubber:set { value = pos / track.duration * 100 }
         end
       end),
       playback.track:bind(function(track)
@@ -212,9 +218,6 @@ return screen:new {
         }
         title:set { text = track.title }
         artist:set { text = track.artist }
-        scrubber:set {
-          range = { min = 0, max = track.duration }
-        }
       end),
       queue.position:bind(function(pos)
         if not pos then return end
