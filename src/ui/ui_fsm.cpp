@@ -592,6 +592,7 @@ void Lua::entry() {
     sBluetoothDevices.Update(bt.KnownDevices());
 
     sCurrentScreen.reset();
+    sLua->RunScript("/sdcard/config.lua");
     sLua->RunScript("/lua/main.lua");
   }
 }
