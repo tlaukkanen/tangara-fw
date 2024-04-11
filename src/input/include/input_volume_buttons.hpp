@@ -13,6 +13,7 @@
 
 #include "haptics.hpp"
 #include "input_device.hpp"
+#include "input_trigger.hpp"
 #include "touchwheel.hpp"
 
 namespace input {
@@ -25,6 +26,9 @@ class VolumeButtons : public IInputDevice {
 
  private:
   drivers::IGpios& gpios_;
+
+  Trigger up_;
+  Trigger down_;
 };
 
 }  // namespace input

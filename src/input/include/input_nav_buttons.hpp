@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <cstdint>
 
+#include "gpios.hpp"
 #include "hal/lv_hal_indev.h"
 
 #include "haptics.hpp"
@@ -18,19 +18,17 @@
 
 namespace input {
 
-class TouchDPad : public IInputDevice {
+class NavButtons : public IInputDevice {
  public:
-  TouchDPad(drivers::TouchWheel&);
+  NavButtons(drivers::IGpios&);
 
   auto read(lv_indev_data_t* data) -> void override;
 
  private:
-  drivers::TouchWheel& wheel_;
+  drivers::IGpios& gpios_;
 
   Trigger up_;
-  Trigger right_;
   Trigger down_;
-  Trigger left_;
 };
 
 }  // namespace input

@@ -5,6 +5,7 @@
  */
 
 #include "input_volume_buttons.hpp"
+#include "event_queue.hpp"
 #include "gpios.hpp"
 
 namespace input {
@@ -13,13 +14,21 @@ VolumeButtons::VolumeButtons(drivers::IGpios& gpios) : gpios_(gpios) {}
 
 auto VolumeButtons::read(lv_indev_data_t* data) -> void {
   bool vol_up = gpios_.Get(drivers::IGpios::Pin::kKeyUp);
-  if (!vol_up) {
-    ESP_LOGI("volume", "vol up");
+  switch (up_.update(!vol_up)) {
+    case Trigger::State::kNone:
+      break;
+    default:
+      events::Audio().Dispatch(audio::StepUpVolume{});
+      break;
   }
 
   bool vol_down = gpios_.Get(drivers::IGpios::Pin::kKeyDown);
-  if (!vol_down) {
-    ESP_LOGI("volume", "vol down");
+  switch (down_.update(!vol_down)) {
+    case Trigger::State::kNone:
+      break;
+    default:
+      events::Audio().Dispatch(audio::StepDownVolume{});
+      break;
   }
 }
 

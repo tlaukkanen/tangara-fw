@@ -32,7 +32,6 @@ struct DumpLuaStack : tinyfsm::Event {};
 
 namespace internal {
 
-struct ControlSchemeChanged : tinyfsm::Event {};
 struct ReindexDatabase : tinyfsm::Event {};
 
 struct BackPressed : tinyfsm::Event {};

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "hal/lv_hal_indev.h"
+#include "property.hpp"
 
 namespace input {
 
@@ -28,6 +29,11 @@ class IInputDevice {
 
   // TODO: Add hooks and configuration (or are hooks just one kind of
   // configuration?)
+
+  virtual auto settings()
+      -> std::vector<std::pair<std::string, lua::Property>> {
+    return {};
+  }
 };
 
 }  // namespace input

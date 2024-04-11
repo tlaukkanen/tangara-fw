@@ -24,6 +24,10 @@ struct TouchWheelData {
 
 class TouchWheel {
  public:
+  static auto isAngleWithin(int16_t wheel_angle,
+                            int16_t target_angle,
+                            int threshold) -> bool;
+
   static auto Create() -> TouchWheel* { return new TouchWheel(); }
   TouchWheel();
   ~TouchWheel();

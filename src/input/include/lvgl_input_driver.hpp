@@ -6,19 +6,20 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <set>
 
 #include "core/lv_group.h"
+#include "device_factory.hpp"
 #include "feedback_device.hpp"
 #include "gpios.hpp"
 #include "hal/lv_hal_indev.h"
 
 #include "input_device.hpp"
 #include "nvs.hpp"
-#include "service_locator.hpp"
+#include "property.hpp"
 #include "touchwheel.hpp"
 
 namespace input {
@@ -30,7 +31,9 @@ namespace input {
  */
 class LvglInputDriver {
  public:
-  LvglInputDriver(std::shared_ptr<system_fsm::ServiceLocator>);
+  LvglInputDriver(drivers::NvsStorage& nvs, DeviceFactory&);
+
+  auto mode() -> lua::Property& { return mode_; }
 
   auto read(lv_indev_data_t* data) -> void;
   auto feedback(uint8_t) -> void;
@@ -39,13 +42,15 @@ class LvglInputDriver {
   auto lock(bool l) -> void { is_locked_ = l; }
 
  private:
-  std::shared_ptr<system_fsm::ServiceLocator> services_;
+  drivers::NvsStorage& nvs_;
+  DeviceFactory& factory_;
 
+  lua::Property mode_;
   lv_indev_drv_t driver_;
   lv_indev_t* registration_;
 
-  std::vector<std::unique_ptr<IInputDevice>> inputs_;
-  std::vector<std::unique_ptr<IFeedbackDevice>> feedbacks_;
+  std::vector<std::shared_ptr<IInputDevice>> inputs_;
+  std::vector<std::shared_ptr<IFeedbackDevice>> feedbacks_;
 
   bool is_locked_;
 };

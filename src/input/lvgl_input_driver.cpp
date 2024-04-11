@@ -9,12 +9,16 @@
 
 #include <cstdint>
 #include <memory>
+#include <variant>
 
+#include "device_factory.hpp"
 #include "feedback_haptics.hpp"
 #include "input_touch_wheel.hpp"
+#include "input_trigger.hpp"
 #include "input_volume_buttons.hpp"
 #include "lvgl.h"
-#include "service_locator.hpp"
+#include "nvs.hpp"
+#include "property.hpp"
 
 [[maybe_unused]] static constexpr char kTag[] = "input";
 
@@ -32,33 +36,52 @@ static void feedback_cb(lv_indev_drv_t* drv, uint8_t event) {
   instance->feedback(event);
 }
 
-LvglInputDriver::LvglInputDriver(
-    std::shared_ptr<system_fsm::ServiceLocator> services)
-    : services_(services),
+auto intToMode(int raw) -> std::optional<drivers::NvsStorage::InputModes> {
+  switch (raw) {
+    case 0:
+      return drivers::NvsStorage::InputModes::kButtonsOnly;
+    case 1:
+      return drivers::NvsStorage::InputModes::kButtonsWithWheel;
+    case 2:
+      return drivers::NvsStorage::InputModes::kDirectionalWheel;
+    case 3:
+      return drivers::NvsStorage::InputModes::kRotatingWheel;
+    default:
+      return {};
+  }
+}
+
+LvglInputDriver::LvglInputDriver(drivers::NvsStorage& nvs,
+                                 DeviceFactory& factory)
+    : nvs_(nvs),
+      factory_(factory),
+      mode_(static_cast<int>(nvs.PrimaryInput()),
+            [&](const lua::LuaValue& val) {
+              if (!std::holds_alternative<int>(val)) {
+                return false;
+              }
+              auto mode = intToMode(std::get<int>(val));
+              if (!mode) {
+                return false;
+              }
+              nvs.PrimaryInput(*mode);
+              inputs_ = factory.createInputs(*mode);
+              return true;
+            }),
       driver_(),
       registration_(nullptr),
-      inputs_(),
-      feedbacks_(),
+      inputs_(factory.createInputs(nvs.PrimaryInput())),
+      feedbacks_(factory.createFeedbacks()),
       is_locked_(false) {
   lv_indev_drv_init(&driver_);
   driver_.type = LV_INDEV_TYPE_ENCODER;
   driver_.read_cb = read_cb;
   driver_.feedback_cb = feedback_cb;
   driver_.user_data = this;
+  driver_.long_press_time = kLongPressDelayMs;
+  driver_.long_press_repeat_time = kRepeatDelayMs;
 
   registration_ = lv_indev_drv_register(&driver_);
-
-  // TODO: Make these devices configurable. I'm thinking each device gets an id
-  // and then we have:
-  //  - a factory to create instance given an id
-  //  - add/remove device methods on LvglInputDriver that operate on ids
-  //  - the user's enabled devices (+ their configuration) stored in NVS.
-  auto touchwheel = services_->touchwheel();
-  if (touchwheel) {
-    inputs_.push_back(std::make_unique<TouchWheel>(**touchwheel));
-  }
-  inputs_.push_back(std::make_unique<VolumeButtons>(services_->gpios()));
-  feedbacks_.push_back(std::make_unique<Haptics>(services_->haptics()));
 }
 
 auto LvglInputDriver::read(lv_indev_data_t* data) -> void {

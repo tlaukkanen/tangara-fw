@@ -28,6 +28,13 @@ namespace drivers {
 static const uint8_t kTouchWheelAddress = 0x1C;
 static const gpio_num_t kIntPin = GPIO_NUM_25;
 
+auto TouchWheel::isAngleWithin(int16_t wheel_angle,
+                               int16_t target_angle,
+                               int threshold) -> bool {
+  int16_t difference = (wheel_angle - target_angle + 127 + 255) % 255 - 127;
+  return difference <= threshold && difference >= -threshold;
+}
+
 TouchWheel::TouchWheel() {
   gpio_config_t int_config{
       .pin_bit_mask = 1ULL << kIntPin,
