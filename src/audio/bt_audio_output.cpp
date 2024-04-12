@@ -29,6 +29,8 @@
 
 namespace audio {
 
+static constexpr uint16_t kVolumeRange = 60;
+
 BluetoothAudioOutput::BluetoothAudioOutput(StreamBufferHandle_t s,
                                            drivers::Bluetooth& bt,
                                            tasks::WorkerPool& p)
@@ -51,7 +53,8 @@ auto BluetoothAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
 auto BluetoothAudioOutput::SetVolume(uint16_t v) -> void {
   volume_ = std::clamp<uint16_t>(v, 0, 100);
   bg_worker_.Dispatch<void>([&]() {
-    float factor = volume_ / 100.;
+    float factor =
+        pow(10, static_cast<double>(kVolumeRange) * (volume_ - 100) / 100 / 20);
     bluetooth_.SetVolumeFactor(factor);
   });
 }
