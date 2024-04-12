@@ -7,9 +7,9 @@
 #include "bt_audio_output.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cmath>
 #include <memory>
 #include <variant>
 
@@ -32,7 +32,7 @@ namespace audio {
 BluetoothAudioOutput::BluetoothAudioOutput(StreamBufferHandle_t s,
                                            drivers::Bluetooth& bt,
                                            tasks::WorkerPool& p)
-    : IAudioOutput(s), bluetooth_(bt), bg_worker_(p), volume_(10) {}
+    : IAudioOutput(s), bluetooth_(bt), bg_worker_(p), volume_() {}
 
 BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
@@ -44,10 +44,16 @@ auto BluetoothAudioOutput::changeMode(Modes mode) -> void {
   }
 }
 
-auto BluetoothAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {}
+auto BluetoothAudioOutput::SetVolumeImbalance(int_fast8_t balance) -> void {
+  // FIXME: Support two separate scaling factors in the bluetooth driver.
+}
 
 auto BluetoothAudioOutput::SetVolume(uint16_t v) -> void {
-  volume_ = std::clamp<uint16_t>(v, 0, 0x7f);
+  volume_ = std::clamp<uint16_t>(v, 0, 100);
+  bg_worker_.Dispatch<void>([&]() {
+    float factor = volume_ / 100.;
+    bluetooth_.SetVolumeFactor(factor);
+  });
 }
 
 auto BluetoothAudioOutput::GetVolume() -> uint16_t {
@@ -55,20 +61,19 @@ auto BluetoothAudioOutput::GetVolume() -> uint16_t {
 }
 
 auto BluetoothAudioOutput::GetVolumePct() -> uint_fast8_t {
-  return static_cast<uint_fast8_t>(round(static_cast<int>(volume_) * 100.0 / 0x7f));
+  return static_cast<uint_fast8_t>(round(static_cast<int>(volume_)));
 }
 
 auto BluetoothAudioOutput::SetVolumePct(uint_fast8_t val) -> bool {
   if (val > 100) {
     return false;
   }
-  uint16_t vol = (val * (0x7f))/100;
-  SetVolume(vol);
+  SetVolume(val);
   return true;
 }
 
 auto BluetoothAudioOutput::GetVolumeDb() -> int_fast16_t {
-  double pct = GetVolumePct()/100.0;
+  double pct = GetVolumePct() / 100.0;
   if (pct <= 0) {
     pct = 0.01;
   }
@@ -82,11 +87,11 @@ auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
-  if (volume_ == 0x7f) {
+  if (volume_ == 100) {
     return false;
   }
   volume_++;
-  bg_worker_.Dispatch<void>([&]() { bluetooth_.SetVolume(volume_); });
+  SetVolume(volume_);
   return true;
 }
 
@@ -95,7 +100,7 @@ auto BluetoothAudioOutput::AdjustVolumeDown() -> bool {
     return false;
   }
   volume_--;
-  bg_worker_.Dispatch<void>([&]() { bluetooth_.SetVolume(volume_); });
+  SetVolume(volume_);
   return true;
 }
 

@@ -54,7 +54,8 @@ class BluetoothAudioOutput : public IAudioOutput {
  private:
   drivers::Bluetooth& bluetooth_;
   tasks::WorkerPool& bg_worker_;
-  uint8_t volume_;
+
+  uint16_t volume_;
 };
 
 }  // namespace audio

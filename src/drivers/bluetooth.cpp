@@ -25,6 +25,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
+#include "sample.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
 #include "bluetooth_types.hpp"
@@ -37,6 +38,8 @@ namespace drivers {
 [[maybe_unused]] static constexpr char kTag[] = "bluetooth";
 
 DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
+DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
+
 static tasks::WorkerPool* sBgWorker;
 
 auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
@@ -69,7 +72,16 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   if (stream == nullptr) {
     return 0;
   }
-  return xStreamBufferReceive(stream, buf, buf_size, 0);
+  size_t bytes_received = xStreamBufferReceive(stream, buf, buf_size, 0);
+
+  // Apply software volume scaling.
+  int16_t* samples = reinterpret_cast<int16_t*>(buf);
+  float factor = sVolumeFactor.load();
+  for (size_t i = 0; i < bytes_received / 2; i++) {
+    samples[i] *= factor;
+  }
+
+  return bytes_received;
 }
 
 Bluetooth::Bluetooth(NvsStorage& storage, tasks::WorkerPool& bg_worker) {
@@ -150,10 +162,8 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
       bluetooth::events::SourceChanged{});
 }
 
-auto Bluetooth::SetVolume(uint8_t vol) -> void {
-  auto lock = bluetooth::BluetoothState::lock();
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::ChangeVolume{.volume = vol});
+auto Bluetooth::SetVolumeFactor(float f) -> void {
+  sVolumeFactor = f;
 }
 
 auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
@@ -651,17 +661,6 @@ void Connected::react(const events::SourceChanged& ev) {
     esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY);
   } else {
     esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_STOP);
-  }
-}
-
-void Connected::react(const events::ChangeVolume& ev) {
-  esp_err_t err = esp_avrc_ct_send_set_absolute_volume_cmd(
-      transaction_num_++, std::clamp<uint8_t>(ev.volume, 0, 0x7f));
-  if (err != ESP_OK) {
-    ESP_LOGW(kTag, "send vol failed %u", err);
-  }
-  if (transaction_num_ > ESP_AVRC_TRANS_LABEL_MAX) {
-    transaction_num_ = 0;
   }
 }
 
