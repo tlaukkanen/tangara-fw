@@ -7,29 +7,16 @@
 #include "input_volume_buttons.hpp"
 #include "event_queue.hpp"
 #include "gpios.hpp"
+#include "input_hook_actions.hpp"
 
 namespace input {
 
-VolumeButtons::VolumeButtons(drivers::IGpios& gpios) : gpios_(gpios) {}
+VolumeButtons::VolumeButtons(drivers::IGpios& gpios)
+    : gpios_(gpios), up_(actions::volumeUp), down_(actions::volumeDown) {}
 
 auto VolumeButtons::read(lv_indev_data_t* data) -> void {
-  bool vol_up = gpios_.Get(drivers::IGpios::Pin::kKeyUp);
-  switch (up_.update(!vol_up)) {
-    case Trigger::State::kNone:
-      break;
-    default:
-      events::Audio().Dispatch(audio::StepUpVolume{});
-      break;
-  }
-
-  bool vol_down = gpios_.Get(drivers::IGpios::Pin::kKeyDown);
-  switch (down_.update(!vol_down)) {
-    case Trigger::State::kNone:
-      break;
-    default:
-      events::Audio().Dispatch(audio::StepDownVolume{});
-      break;
-  }
+  up_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyUp), data);
+  down_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyDown), data);
 }
 
 }  // namespace input

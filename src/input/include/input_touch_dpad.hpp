@@ -6,13 +6,13 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <cstdint>
 
 #include "hal/lv_hal_indev.h"
 
 #include "haptics.hpp"
 #include "input_device.hpp"
+#include "input_hook.hpp"
 #include "input_trigger.hpp"
 #include "touchwheel.hpp"
 
@@ -27,10 +27,11 @@ class TouchDPad : public IInputDevice {
  private:
   drivers::TouchWheel& wheel_;
 
-  Trigger up_;
-  Trigger right_;
-  Trigger down_;
-  Trigger left_;
+  TriggerHooks centre_;
+  TriggerHooks up_;
+  TriggerHooks right_;
+  TriggerHooks down_;
+  TriggerHooks left_;
 };
 
 }  // namespace input

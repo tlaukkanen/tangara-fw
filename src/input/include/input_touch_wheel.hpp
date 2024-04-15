@@ -13,6 +13,7 @@
 
 #include "haptics.hpp"
 #include "input_device.hpp"
+#include "input_hook.hpp"
 #include "input_trigger.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
@@ -37,10 +38,11 @@ class TouchWheel : public IInputDevice {
 
   lua::Property sensitivity_;
 
-  Trigger up_;
-  Trigger right_;
-  Trigger down_;
-  Trigger left_;
+  TriggerHooks centre_;
+  TriggerHooks up_;
+  TriggerHooks right_;
+  TriggerHooks down_;
+  TriggerHooks left_;
 
   bool is_scrolling_;
   uint8_t threshold_;

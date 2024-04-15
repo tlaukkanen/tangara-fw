@@ -5,16 +5,16 @@
  */
 
 #include "input_touch_wheel.hpp"
-#include <stdint.h>
 
 #include <cstdint>
 #include <variant>
 
-#include "event_queue.hpp"
 #include "hal/lv_hal_indev.h"
 
+#include "event_queue.hpp"
 #include "haptics.hpp"
 #include "input_device.hpp"
+#include "input_hook_actions.hpp"
 #include "input_trigger.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
@@ -39,6 +39,11 @@ TouchWheel::TouchWheel(drivers::NvsStorage& nvs, drivers::TouchWheel& wheel)
                      threshold_ = calculateThreshold(int_val);
                      return true;
                    }),
+      centre_(actions::select, {}, {}),
+      up_({}, actions::scrollToTop, actions::scrollUp),
+      right_({}, {}, {}),
+      down_({}, actions::scrollToBottom, actions::scrollDown),
+      left_({}, actions::goBack, {}),
       is_scrolling_(false),
       threshold_(calculateThreshold(nvs.ScrollSensitivity())),
       is_first_read_(true),
@@ -63,45 +68,24 @@ auto TouchWheel::read(lv_indev_data_t* data) -> void {
     data->enc_diff = 0;
   }
 
-  if (!is_scrolling_ && wheel_data.is_button_touched) {
-    data->state = LV_INDEV_STATE_PRESSED;
-  } else {
-    data->state = LV_INDEV_STATE_RELEASED;
-  }
+  centre_.update(!is_scrolling_ && wheel_data.is_button_touched, data);
 
   // If the user is touching the wheel but not scrolling, then they may be
   // clicking on one of the wheel's cardinal directions.
   bool pressing = wheel_data.is_wheel_touched && !is_scrolling_;
 
-  switch (up_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                                     wheel_data.wheel_position, 0, 32))) {
-    case Trigger::State::kLongPress:
-      data->enc_diff = INT16_MIN;
-      break;
-    default:
-      break;
-  }
-  switch (right_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                                        wheel_data.wheel_position, 192, 32))) {
-    default:
-      break;
-  }
-  switch (down_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                                       wheel_data.wheel_position, 128, 32))) {
-    case Trigger::State::kLongPress:
-      data->enc_diff = INT16_MAX;
-      break;
-    default:
-      break;
-  }
-  switch (left_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                                       wheel_data.wheel_position, 64, 32))) {
-    case Trigger::State::kLongPress:
-      events::Ui().Dispatch(ui::internal::BackPressed{});
-      break;
-    default:
-      break;
-  }
+  up_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                             wheel_data.wheel_position, 0, 32),
+             data);
+  right_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                                wheel_data.wheel_position, 192, 32),
+                data);
+  down_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                               wheel_data.wheel_position, 128, 32),
+               data);
+  left_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                               wheel_data.wheel_position, 64, 32),
+               data);
 }
 
 auto TouchWheel::sensitivity() -> lua::Property& {

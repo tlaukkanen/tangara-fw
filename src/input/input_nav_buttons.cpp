@@ -9,36 +9,18 @@
 #include "event_queue.hpp"
 #include "gpios.hpp"
 #include "hal/lv_hal_indev.h"
+#include "input_hook_actions.hpp"
 
 namespace input {
 
-NavButtons::NavButtons(drivers::IGpios& gpios) : gpios_(gpios) {}
+NavButtons::NavButtons(drivers::IGpios& gpios)
+    : gpios_(gpios),
+      up_(actions::scrollUp, actions::select, {}),
+      down_(actions::scrollDown, actions::select, {}) {}
 
 auto NavButtons::read(lv_indev_data_t* data) -> void {
-  bool vol_up = gpios_.Get(drivers::IGpios::Pin::kKeyUp);
-  switch (up_.update(!vol_up)) {
-    case Trigger::State::kClick:
-      data->enc_diff = -1;
-      break;
-    case Trigger::State::kLongPress:
-      events::Ui().Dispatch(ui::internal::BackPressed{});
-      break;
-    default:
-      break;
-  }
-
-  bool vol_down = gpios_.Get(drivers::IGpios::Pin::kKeyDown);
-  switch (down_.update(!vol_down)) {
-    case Trigger::State::kClick:
-      data->enc_diff = 1;
-      break;
-    case Trigger::State::kLongPress:
-      data->state = LV_INDEV_STATE_PRESSED;
-      break;
-    default:
-      data->state = LV_INDEV_STATE_RELEASED;
-      break;
-  }
+  up_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyUp), data);
+  down_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyDown), data);
 }
 
 }  // namespace input

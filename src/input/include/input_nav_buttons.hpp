@@ -13,6 +13,7 @@
 
 #include "haptics.hpp"
 #include "input_device.hpp"
+#include "input_hook.hpp"
 #include "input_trigger.hpp"
 #include "touchwheel.hpp"
 
@@ -27,8 +28,8 @@ class NavButtons : public IInputDevice {
  private:
   drivers::IGpios& gpios_;
 
-  Trigger up_;
-  Trigger down_;
+  TriggerHooks up_;
+  TriggerHooks down_;
 };
 
 }  // namespace input
