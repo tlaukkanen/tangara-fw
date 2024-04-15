@@ -273,7 +273,7 @@ auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac) -> uint8_t {
   // Note we don't set the dirty flag here, even though it's an LRU cache, so
   // that we can avoid constantly re-writing this setting to flash when the
   // user hasn't actually been changing their volume.
-  return bt_volumes_.Get(mac).value_or(10);
+  return bt_volumes_.Get(mac).value_or(50);
 }
 
 auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac, uint8_t vol)
@@ -405,7 +405,7 @@ class VolumesParseClient : public cppbor::ParseClient {
       std::copy(data.begin(), data.end(), mac_->begin());
     } else if (item->type() == cppbor::UINT && state_ == State::kPair) {
       vol_ =
-          std::clamp<uint64_t>(item->asUint()->unsignedValue(), 0, UINT8_MAX);
+          std::clamp<uint64_t>(item->asUint()->unsignedValue(), 0, UINT16_MAX);
     }
     return this;
   }
@@ -470,7 +470,7 @@ auto NvsStorage::writeBtVolumes() -> void {
                           cppbor::Uint{vol->second}});
   }
   std::string encoded = enc.toString();
-  nvs_set_str(handle_, kKeyBluetoothVolumes, encoded.c_str());
+  nvs_set_blob(handle_, kKeyBluetoothVolumes, encoded.data(), encoded.size());
 }
 
 }  // namespace drivers

@@ -90,7 +90,7 @@ auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
-  if (volume_ == 100) {
+  if (volume_ == 100 || !bluetooth_.IsConnected()) {
     return false;
   }
   volume_++;
@@ -99,7 +99,7 @@ auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
 }
 
 auto BluetoothAudioOutput::AdjustVolumeDown() -> bool {
-  if (volume_ == 0) {
+  if (volume_ == 0 || !bluetooth_.IsConnected()) {
     return false;
   }
   volume_--;
