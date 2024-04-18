@@ -29,8 +29,27 @@ namespace lua {
 
 static const char kPropertyMetatable[] = "property";
 static const char kFunctionMetatable[] = "c_func";
+static const char kBindingMetatable[] = "binding";
 static const char kBindingsTable[] = "bindings";
 static const char kBinderKey[] = "binder";
+
+auto Binding::get(lua_State* L, int idx) -> Binding* {
+  return reinterpret_cast<Binding*>(luaL_testudata(L, idx, kBindingMetatable));
+}
+
+auto Binding::apply(lua_State* L, int idx) -> bool {
+  Binding* b = get(L, idx);
+  if (b->dirty && b->active) {
+    b->dirty = false;
+    // The binding needs to be reapplied. Push the Lua callback, then its arg.
+    lua_getiuservalue(L, idx, 1);
+    b->property->pushValue(*L);
+
+    // Invoke the callback.
+    return CallProtected(L, 1, 0) == LUA_OK;
+  }
+  return true;
+}
 
 static auto check_property(lua_State* state) -> Property* {
   void* data = luaL_checkudata(state, 1, kPropertyMetatable);
@@ -40,14 +59,14 @@ static auto check_property(lua_State* state) -> Property* {
 
 static auto property_get(lua_State* state) -> int {
   Property* p = check_property(state);
-  p->PushValue(*state);
+  p->pushValue(*state);
   return 1;
 }
 
 static auto property_set(lua_State* state) -> int {
   Property* p = check_property(state);
-  luaL_argcheck(state, p->IsTwoWay(), 1, "property is read-only");
-  bool valid = p->PopValue(*state);
+  luaL_argcheck(state, p->isTwoWay(), 1, "property is read-only");
+  bool valid = p->popValue(*state);
   lua_pushboolean(state, valid);
   return 1;
 }
@@ -56,35 +75,40 @@ static auto property_bind(lua_State* state) -> int {
   Property* p = check_property(state);
   luaL_checktype(state, 2, LUA_TFUNCTION);
 
-  // Copy the function, as we need to invoke it then store our reference.
-  lua_pushvalue(state, 2);
-  // ...and another copy, since we return the original closure.
-  lua_pushvalue(state, 2);
-
-  p->PushValue(*state);
-  CallProtected(state, 1, 0);  // Invoke the initial binding.
-
+  // Fetch the table of live bindings.
   lua_pushstring(state, kBindingsTable);
   lua_gettable(state, LUA_REGISTRYINDEX);  // REGISTRY[kBindingsTable]
-  lua_insert(state, -2);          // Move bindings to the bottom, with fn above.
-  int ref = luaL_ref(state, -2);  // bindings[ref] = fn
 
-  p->AddLuaBinding(state, ref);
+  // Create the userdata holding the new binding's metadata.
+  Binding* binding =
+      reinterpret_cast<Binding*>(lua_newuserdatauv(state, sizeof(Binding), 1));
+  *binding = Binding{.property = p, .active = true, .dirty = true};
+  luaL_setmetatable(state, kBindingMetatable);
 
-  // Pop the bindings table, leaving one of the copies of the callback fn at
-  // the top of the stack.
-  lua_pop(state, 1);
+  // Associate the callback function with the new binding.
+  lua_pushvalue(state, 2);
+  lua_setiuservalue(state, -2, 1);
 
+  // Put a reference to the binding into the bindings table, so that we can
+  // look it up later.
+  lua_pushvalue(state, -1);
+  int binding_ref = luaL_ref(state, 3);
+
+  // Tell the property about the new binding. This was also perform the initial
+  // bind.
+  p->addLuaBinding(state, binding_ref);
+
+  // Return the only remaining strong reference to the new Binding.
   return 1;
 }
 
 static auto property_tostring(lua_State* state) -> int {
   Property* p = check_property(state);
-  p->PushValue(*state);
+  p->pushValue(*state);
 
   std::stringstream str{};
   str << "property { " << luaL_tolstring(state, -1, NULL);
-  if (!p->IsTwoWay()) {
+  if (!p->isTwoWay()) {
     str << ", read-only";
   }
   str << " }";
@@ -138,6 +162,11 @@ auto PropertyBindings::install(lua_State* L) -> void {
   luaL_setfuncs(L, kPropertyBindingFuncs, 0);
 
   // We've finished setting up the metatable, so pop it.
+  lua_pop(L, 1);
+
+  // Create the metatable responsible for each Binding. This metatable is empty
+  // as it's only used for identification.
+  luaL_newmetatable(L, kBindingMetatable);
   lua_pop(L, 1);
 
   // Create a weak table in the registry to hold live bindings.
@@ -197,6 +226,19 @@ Property::Property(const LuaValue& val,
     : value_(memory::SpiRamAllocator<LuaValue>().new_object<LuaValue>(val)),
       cb_(cb),
       bindings_(&memory::kSpiRamResource) {}
+
+auto Property::setDirect(const LuaValue& val) -> void {
+  *value_ = val;
+  reapplyAll();
+}
+
+auto Property::set(const LuaValue& val) -> bool {
+  if (cb_ && !std::invoke(*cb_, val)) {
+    return false;
+  }
+  setDirect(val);
+  return true;
+}
 
 static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
   std::visit(
@@ -276,7 +318,7 @@ static void pushDevice(lua_State* L, const drivers::bluetooth::Device& dev) {
   lua_rawset(L, -3);
 }
 
-auto Property::PushValue(lua_State& s) -> int {
+auto Property::pushValue(lua_State& s) -> int {
   std::visit(
       [&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
@@ -336,7 +378,7 @@ auto popRichType(lua_State* L) -> LuaValue {
   return std::monostate{};
 }
 
-auto Property::PopValue(lua_State& s) -> bool {
+auto Property::popValue(lua_State& s) -> bool {
   LuaValue new_val;
   switch (lua_type(&s, 2)) {
     case LUA_TNIL:
@@ -366,40 +408,53 @@ auto Property::PopValue(lua_State& s) -> bool {
       }
   }
 
-  if (cb_ && std::invoke(*cb_, new_val)) {
-    Update(new_val);
-    return true;
-  }
-  return false;
+  return set(new_val);
 }
 
-auto Property::Update(const LuaValue& v) -> void {
-  *value_ = v;
-
+auto Property::reapplyAll() -> void {
   for (int i = bindings_.size() - 1; i >= 0; i--) {
     auto& b = bindings_[i];
-
-    int top = lua_gettop(b.first);
-
-    lua_pushstring(b.first, kBindingsTable);
-    lua_gettable(b.first, LUA_REGISTRYINDEX);       // REGISTRY[kBindingsTable]
-    int type = lua_rawgeti(b.first, -1, b.second);  // push bindings[i]
-
-    // Has closure has been GCed?
-    if (type == LUA_TNIL) {
-      // Remove the binding.
+    if (!applySingle(b.first, b.second, true)) {
+      // Remove the binding if we weren't able to apply it. This is usually due
+      // to the binding getting GC'd.
       bindings_.erase(bindings_.begin() + i);
-    } else {
-      PushValue(*b.first);           // push the argument
-      CallProtected(b.first, 1, 0);  // invoke the closure
     }
-
-    lua_settop(b.first, top);  // clean up after ourselves
   }
 }
 
-auto Property::AddLuaBinding(lua_State* state, int ref) -> void {
+auto Property::applySingle(lua_State* L, int ref, bool mark_dirty) -> bool {
+  int top = lua_gettop(L);
+
+  // Push the table of bindings.
+  lua_pushstring(L, kBindingsTable);
+  lua_gettable(L, LUA_REGISTRYINDEX);
+
+  // Resolve the reference.
+  int type = lua_rawgeti(L, -1, ref);
+  if (type == LUA_TNIL) {
+    lua_settop(L, top);
+    return false;
+  }
+
+  // Defensively check that the ref was actually for a Binding.
+  Binding* b = Binding::get(L, -1);
+  if (!b) {
+    lua_settop(L, top);
+    return false;
+  }
+
+  if (mark_dirty) {
+    b->dirty = true;
+  }
+
+  bool ret = Binding::apply(L, -1);
+  lua_settop(L, top);
+  return ret;
+}
+
+auto Property::addLuaBinding(lua_State* state, int ref) -> void {
   bindings_.push_back({state, ref});
+  applySingle(state, ref, true);
 }
 
 }  // namespace lua

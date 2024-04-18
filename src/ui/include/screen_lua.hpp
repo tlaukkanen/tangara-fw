@@ -8,6 +8,7 @@
 
 #include "lua.hpp"
 
+#include "property.hpp"
 #include "screen.hpp"
 
 namespace ui {
@@ -26,6 +27,11 @@ class Lua : public Screen {
   auto SetObjRef(lua_State*) -> void;
 
  private:
+  /* Invokes a method on this screen's Lua counterpart. */
+  auto callMethod(std::string name) -> void;
+  /* Applies fn to each binding in this screen's `bindings` field. */
+  auto forEachBinding(std::function<void(lua::Binding*)> fn) -> void;
+
   lua_State* s_;
   std::optional<int> obj_ref_;
 };

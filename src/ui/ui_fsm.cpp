@@ -132,13 +132,13 @@ lua::Property UiState::sPlaybackPlaying{
 lua::Property UiState::sPlaybackTrack{};
 lua::Property UiState::sPlaybackPosition{
     0, [](const lua::LuaValue& val) {
-      int current_val = std::get<int>(sPlaybackPosition.Get());
+      int current_val = std::get<int>(sPlaybackPosition.get());
       if (!std::holds_alternative<int>(val)) {
         return false;
       }
       int new_val = std::get<int>(val);
       if (current_val != new_val) {
-        auto track = sPlaybackTrack.Get();
+        auto track = sPlaybackTrack.get();
         if (!std::holds_alternative<audio::TrackInfo>(track)) {
           return false;
         }
@@ -320,20 +320,20 @@ int UiState::PopScreen() {
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(!ev.locking);
   sInput->lock(ev.locking);
-  sLockSwitch.Update(ev.locking);
+  sLockSwitch.setDirect(ev.locking);
 }
 
 void UiState::react(const system_fsm::SamdUsbStatusChanged& ev) {
-  sUsbMassStorageBusy.Update(ev.new_status ==
-                             drivers::Samd::UsbStatus::kAttachedBusy);
+  sUsbMassStorageBusy.setDirect(ev.new_status ==
+                                drivers::Samd::UsbStatus::kAttachedBusy);
 }
 
 void UiState::react(const database::event::UpdateStarted&) {
-  sDatabaseUpdating.Update(true);
+  sDatabaseUpdating.setDirect(true);
 }
 
 void UiState::react(const database::event::UpdateFinished&) {
-  sDatabaseUpdating.Update(false);
+  sDatabaseUpdating.setDirect(false);
 }
 
 void UiState::react(const internal::DismissAlerts&) {
@@ -341,46 +341,46 @@ void UiState::react(const internal::DismissAlerts&) {
 }
 
 void UiState::react(const system_fsm::BatteryStateChanged& ev) {
-  sBatteryPct.Update(static_cast<int>(ev.new_state.percent));
-  sBatteryMv.Update(static_cast<int>(ev.new_state.millivolts));
-  sBatteryCharging.Update(ev.new_state.is_charging);
+  sBatteryPct.setDirect(static_cast<int>(ev.new_state.percent));
+  sBatteryMv.setDirect(static_cast<int>(ev.new_state.millivolts));
+  sBatteryCharging.setDirect(ev.new_state.is_charging);
 }
 
 void UiState::react(const audio::QueueUpdate&) {
   auto& queue = sServices->track_queue();
-  sQueueSize.Update(static_cast<int>(queue.totalSize()));
+  sQueueSize.setDirect(static_cast<int>(queue.totalSize()));
 
   int current_pos = queue.currentPosition();
   if (queue.current()) {
     current_pos++;
   }
-  sQueuePosition.Update(current_pos);
-  sQueueRandom.Update(queue.random());
-  sQueueRepeat.Update(queue.repeat());
-  sQueueReplay.Update(queue.replay());
+  sQueuePosition.setDirect(current_pos);
+  sQueueRandom.setDirect(queue.random());
+  sQueueRepeat.setDirect(queue.repeat());
+  sQueueReplay.setDirect(queue.replay());
 }
 
 void UiState::react(const audio::PlaybackUpdate& ev) {
   if (ev.current_track) {
-    sPlaybackTrack.Update(*ev.current_track);
+    sPlaybackTrack.setDirect(*ev.current_track);
   } else {
-    sPlaybackTrack.Update(std::monostate{});
+    sPlaybackTrack.setDirect(std::monostate{});
   }
-  sPlaybackPlaying.Update(!ev.paused);
-  sPlaybackPosition.Update(static_cast<int>(ev.track_position.value_or(0)));
+  sPlaybackPlaying.setDirect(!ev.paused);
+  sPlaybackPosition.setDirect(static_cast<int>(ev.track_position.value_or(0)));
 }
 
 void UiState::react(const audio::VolumeChanged& ev) {
-  sVolumeCurrentPct.Update(static_cast<int>(ev.percent));
-  sVolumeCurrentDb.Update(static_cast<int>(ev.db));
+  sVolumeCurrentPct.setDirect(static_cast<int>(ev.percent));
+  sVolumeCurrentDb.setDirect(static_cast<int>(ev.db));
 }
 
 void UiState::react(const audio::VolumeBalanceChanged& ev) {
-  sVolumeLeftBias.Update(ev.left_bias);
+  sVolumeLeftBias.setDirect(ev.left_bias);
 }
 
 void UiState::react(const audio::VolumeLimitChanged& ev) {
-  sVolumeLimit.Update(ev.new_limit_db);
+  sVolumeLimit.setDirect(ev.new_limit_db);
 }
 
 void UiState::react(const system_fsm::BluetoothEvent& ev) {
@@ -388,19 +388,19 @@ void UiState::react(const system_fsm::BluetoothEvent& ev) {
   auto dev = bt.ConnectedDevice();
   switch (ev.event) {
     case drivers::bluetooth::Event::kKnownDevicesChanged:
-      sBluetoothDevices.Update(bt.KnownDevices());
+      sBluetoothDevices.setDirect(bt.KnownDevices());
       break;
     case drivers::bluetooth::Event::kConnectionStateChanged:
-      sBluetoothConnected.Update(bt.IsConnected());
+      sBluetoothConnected.setDirect(bt.IsConnected());
       if (dev) {
-        sBluetoothPairedDevice.Update(drivers::bluetooth::Device{
+        sBluetoothPairedDevice.setDirect(drivers::bluetooth::Device{
             .address = dev->mac,
             .name = {dev->name.data(), dev->name.size()},
             .class_of_device = 0,
             .signal_strength = 0,
         });
       } else {
-        sBluetoothPairedDevice.Update(std::monostate{});
+        sBluetoothPairedDevice.setDirect(std::monostate{});
       }
       break;
     case drivers::bluetooth::Event::kPreferredDeviceChanged:
@@ -428,7 +428,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   themes::Theme::instance()->Apply();
 
   int brightness = sServices->nvs().ScreenBrightness();
-  sDisplayBrightness.Update(brightness);
+  sDisplayBrightness.setDirect(brightness);
   sDisplay->SetBrightness(brightness);
 
   sDeviceFactory = std::make_unique<input::DeviceFactory>(sServices);
@@ -530,12 +530,12 @@ void Lua::entry() {
                                    {"msc_busy", &sUsbMassStorageBusy},
                                });
 
-    sDatabaseAutoUpdate.Update(sServices->nvs().DbAutoIndex());
+    sDatabaseAutoUpdate.setDirect(sServices->nvs().DbAutoIndex());
 
     auto bt = sServices->bluetooth();
-    sBluetoothEnabled.Update(bt.IsEnabled());
-    sBluetoothConnected.Update(bt.IsConnected());
-    sBluetoothDevices.Update(bt.KnownDevices());
+    sBluetoothEnabled.setDirect(bt.IsEnabled());
+    sBluetoothConnected.setDirect(bt.IsConnected());
+    sBluetoothDevices.setDirect(bt.KnownDevices());
 
     sCurrentScreen.reset();
     sLua->RunScript("/sdcard/config.lua");

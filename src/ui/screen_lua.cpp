@@ -9,6 +9,7 @@
 #include "core/lv_obj_tree.h"
 #include "lua.h"
 #include "lua.hpp"
+#include "property.hpp"
 #include "themes.hpp"
 
 #include "lua_thread.hpp"
@@ -28,37 +29,13 @@ Lua::~Lua() {
 }
 
 auto Lua::onShown() -> void {
-  if (!s_ || !obj_ref_) {
-    return;
-  }
-  lua_rawgeti(s_, LUA_REGISTRYINDEX, *obj_ref_);
-  lua_pushliteral(s_, "onShown");
-
-  if (lua_gettable(s_, -2) == LUA_TFUNCTION) {
-    lua_pushvalue(s_, -2);
-    lua::CallProtected(s_, 1, 0);
-  } else {
-    lua_pop(s_, 1);
-  }
-
-  lua_pop(s_, 1);
+  callMethod("onShown");
+  forEachBinding([&](lua::Binding* b) { b->active = true; });
 }
 
 auto Lua::onHidden() -> void {
-  if (!s_ || !obj_ref_) {
-    return;
-  }
-  lua_rawgeti(s_, LUA_REGISTRYINDEX, *obj_ref_);
-  lua_pushliteral(s_, "onHidden");
-
-  if (lua_gettable(s_, -2) == LUA_TFUNCTION) {
-    lua_pushvalue(s_, -2);
-    lua::CallProtected(s_, 1, 0);
-  } else {
-    lua_pop(s_, 1);
-  }
-
-  lua_pop(s_, 1);
+  callMethod("onHidden");
+  forEachBinding([&](lua::Binding* b) { b->active = false; });
 }
 
 auto Lua::canPop() -> bool {
@@ -84,6 +61,47 @@ auto Lua::SetObjRef(lua_State* s) -> void {
   assert(s_ == nullptr);
   s_ = s;
   obj_ref_ = luaL_ref(s, LUA_REGISTRYINDEX);
+}
+
+auto Lua::callMethod(std::string name) -> void {
+  if (!s_ || !obj_ref_) {
+    return;
+  }
+  lua_rawgeti(s_, LUA_REGISTRYINDEX, *obj_ref_);
+  lua_pushlstring(s_, name.data(), name.size());
+
+  if (lua_gettable(s_, -2) == LUA_TFUNCTION) {
+    lua_pushvalue(s_, -2);
+    lua::CallProtected(s_, 1, 0);
+  } else {
+    lua_pop(s_, 1);
+  }
+
+  lua_pop(s_, 1);
+}
+
+auto Lua::forEachBinding(std::function<void(lua::Binding*)> fn) -> void {
+  if (!s_ || !obj_ref_) {
+    return;
+  }
+  lua_rawgeti(s_, LUA_REGISTRYINDEX, *obj_ref_);
+  lua_pushliteral(s_, "bindings");
+
+  if (lua_gettable(s_, -2) != LUA_TTABLE) {
+    lua_pop(s_, 2);
+    return;
+  }
+
+  lua_pushnil(s_);
+  while (lua_next(s_, -2) != 0) {
+    lua::Binding* b = lua::Binding::get(s_, -1);
+    if (b) {
+      std::invoke(fn, b);
+    }
+    lua_pop(s_, 1);
+  }
+
+  lua_pop(s_, 2);
 }
 
 }  // namespace screens
