@@ -8,35 +8,33 @@ local controls = require("controls")
 local bluetooth = require("bluetooth")
 local theme = require("theme")
 local database = require("database")
-local screen = require("screen")
 local usb = require("usb")
 
-local function SettingsScreen(title)
-  local menu = widgets.MenuScreen {
-    show_back = true,
-    title = title,
-  }
-  menu.content = menu.root:Object {
-    flex = {
-      flex_direction = "column",
-      flex_wrap = "nowrap",
-      justify_content = "flex-start",
-      align_items = "flex-start",
-      align_content = "flex-start",
-    },
-    w = lvgl.PCT(100),
-    flex_grow = 1,
-    pad_left = 4,
-    pad_right = 4,
-  }
-  return menu
-end
-
-local BluetoothSettings = screen:new {
+local SettingsScreen = widgets.MenuScreen:new {
+  show_back = true,
   createUi = function(self)
-    self.menu = SettingsScreen("Bluetooth")
+    widgets.MenuScreen.createUi(self)
+    self.content = self.root:Object {
+      flex = {
+        flex_direction = "column",
+        flex_wrap = "nowrap",
+        justify_content = "flex-start",
+        align_items = "flex-start",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      flex_grow = 1,
+      pad_left = 4,
+      pad_right = 4,
+    }
+  end
+}
 
-    local enable_container = self.menu.content:Object {
+local BluetoothSettings = SettingsScreen:new {
+  title = "Bluetooth",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+    local enable_container = self.content:Object {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
@@ -54,12 +52,12 @@ local BluetoothSettings = screen:new {
       bluetooth.enabled:set(enabled)
     end)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Paired Device",
       pad_bottom = 1,
     }, "settings_title")
 
-    local paired_container = self.menu.content:Object {
+    local paired_container = self.content:Object {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
@@ -80,17 +78,17 @@ local BluetoothSettings = screen:new {
       bluetooth.paired_device:set()
     end)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Nearby Devices",
       pad_bottom = 1,
     }, "settings_title")
 
-    local devices = self.menu.content:List {
+    local devices = self.content:List {
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
     }
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       bluetooth.enabled:bind(function(en)
         if en then
           enable_sw:add_state(lvgl.STATE.CHECKED)
@@ -119,15 +117,16 @@ local BluetoothSettings = screen:new {
   end
 }
 
-local HeadphonesSettings = screen:new {
+local HeadphonesSettings = SettingsScreen:new {
+  title = "Headphones",
   createUi = function(self)
-    self.menu = SettingsScreen("Headphones")
+    SettingsScreen.createUi(self)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Maxiumum volume limit",
     }, "settings_title")
 
-    local volume_chooser = self.menu.content:Dropdown {
+    local volume_chooser = self.content:Dropdown {
       options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
       selected = 1,
     }
@@ -138,11 +137,11 @@ local HeadphonesSettings = screen:new {
       volume.limit_db:set(limits[selection])
     end)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Left/Right balance",
     }, "settings_title")
 
-    local balance = self.menu.content:Slider {
+    local balance = self.content:Slider {
       w = lvgl.PCT(100),
       h = 5,
       range = { min = -100, max = 100 },
@@ -152,9 +151,9 @@ local HeadphonesSettings = screen:new {
       volume.left_bias:set(balance:value())
     end)
 
-    local balance_label = self.menu.content:Label {}
+    local balance_label = self.content:Label {}
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       volume.limit_db:bind(function(limit)
         for i = 1, #limits do
           if limits[i] == limit then
@@ -182,11 +181,12 @@ local HeadphonesSettings = screen:new {
   end
 }
 
-local DisplaySettings = screen:new {
+local DisplaySettings = SettingsScreen:new {
+  title = "Display",
   createUi = function(self)
-    self.menu = SettingsScreen("Display")
+    SettingsScreen.createUi(self)
 
-    local brightness_title = self.menu.content:Object {
+    local brightness_title = self.content:Object {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
@@ -201,7 +201,7 @@ local DisplaySettings = screen:new {
     local brightness_pct = brightness_title:Label {}
     theme.set_style(brightness_pct, "settings_title")
 
-    local brightness = self.menu.content:Slider {
+    local brightness = self.content:Slider {
       w = lvgl.PCT(100),
       h = 5,
       range = { min = 0, max = 100 },
@@ -211,7 +211,7 @@ local DisplaySettings = screen:new {
       display.brightness:set(brightness:value())
     end)
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       display.brightness:bind(function(b)
         brightness_pct:set { text = tostring(b) .. "%" }
       end)
@@ -219,11 +219,12 @@ local DisplaySettings = screen:new {
   end
 }
 
-local InputSettings = screen:new {
+local InputSettings = SettingsScreen:new {
+  title = "Input Method",
   createUi = function(self)
-    self.menu = SettingsScreen("Input Method")
+    SettingsScreen.createUi(self)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Control scheme",
     }, "settings_title")
 
@@ -244,11 +245,11 @@ local InputSettings = screen:new {
       option_idx = option_idx + 1
     end
 
-    local controls_chooser = self.menu.content:Dropdown {
+    local controls_chooser = self.content:Dropdown {
       options = options,
     }
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       controls.scheme:bind(function(s)
         local option = scheme_to_option[s]
         controls_chooser:set({ selected = option })
@@ -266,7 +267,7 @@ local InputSettings = screen:new {
     }, "settings_title")
 
     local slider_scale = 4; -- Power steering
-    local sensitivity = self.menu.content:Slider {
+    local sensitivity = self.content:Slider {
       w = lvgl.PCT(90),
       h = 5,
       range = { min = 0, max = 255 / slider_scale },
@@ -278,19 +279,21 @@ local InputSettings = screen:new {
   end
 }
 
-local MassStorageSettings = screen:new {
+local MassStorageSettings = SettingsScreen:new {
+  title = "USB Storage",
   createUi = function(self)
-    self.menu = SettingsScreen("USB Storage")
+    SettingsScreen.createUi(self)
+
     local version = require("version").samd()
     if tonumber(version) < 3 then
-      self.menu.content:Label {
+      self.content:Label {
         w = lvgl.PCT(100),
         text = "Usb Mass Storage requires a SAMD21 firmware version >=3."
       }
       return
     end
 
-    local enable_container = self.menu.content:Object {
+    local enable_container = self.content:Object {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
@@ -304,7 +307,7 @@ local MassStorageSettings = screen:new {
     enable_container:Label { text = "Enable", flex_grow = 1 }
     local enable_sw = enable_container:Switch {}
 
-    local busy_text = self.menu.content:Label {
+    local busy_text = self.content:Label {
       w = lvgl.PCT(100),
       text = "USB is currently busy. Do not unplug or remove the SD card.",
       long_mode = lvgl.LABEL.LONG_WRAP,
@@ -325,7 +328,7 @@ local MassStorageSettings = screen:new {
       bind_switch()
     end)
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       usb.msc_enabled:bind(bind_switch),
       usb.msc_busy:bind(function(busy)
         if busy then
@@ -341,14 +344,16 @@ local MassStorageSettings = screen:new {
   end
 }
 
-local DatabaseSettings = screen:new {
+local DatabaseSettings = SettingsScreen:new {
+  title = "Database",
   createUi = function(self)
-    self.menu = SettingsScreen("Database")
-    local db = require("database")
-    widgets.Row(self.menu.content, "Schema version", db.version())
-    widgets.Row(self.menu.content, "Size on disk", string.format("%.1f KiB", db.size() / 1024))
+    SettingsScreen.createUi(self)
 
-    local auto_update_container = self.menu.content:Object {
+    local db = require("database")
+    widgets.Row(self.content, "Schema version", db.version())
+    widgets.Row(self.content, "Size on disk", string.format("%.1f KiB", db.size() / 1024))
+
+    local auto_update_container = self.content:Object {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
@@ -366,7 +371,7 @@ local DatabaseSettings = screen:new {
       database.auto_update:set(auto_update_sw:enabled())
     end)
 
-    local actions_container = self.menu.content:Object {
+    local actions_container = self.content:Object {
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
       flex = {
@@ -386,7 +391,7 @@ local DatabaseSettings = screen:new {
       database.update()
     end)
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       database.auto_update:bind(function(en)
         if en then
           auto_update_sw:add_state(lvgl.STATE.CHECKED)
@@ -398,36 +403,38 @@ local DatabaseSettings = screen:new {
   end
 }
 
-local FirmwareSettings = screen:new {
+local FirmwareSettings = SettingsScreen:new {
+  title = "Firmware",
   createUi = function(self)
-    self.menu = SettingsScreen("Firmware")
+    SettingsScreen.createUi(self)
     local version = require("version")
-    widgets.Row(self.menu.content, "ESP32", version.esp())
-    widgets.Row(self.menu.content, "SAMD21", version.samd())
-    widgets.Row(self.menu.content, "Collator", version.collator())
+    widgets.Row(self.content, "ESP32", version.esp())
+    widgets.Row(self.content, "SAMD21", version.samd())
+    widgets.Row(self.content, "Collator", version.collator())
   end
 }
 
-local LicensesScreen = screen:new {
+local LicensesScreen = SettingsScreen:new {
+  title = "Licenses",
   createUi = function(self)
-    self.root = require("licenses")()
+    SettingsScreen.createUi(self)
+    self.root = require("licenses")(self)
   end
 }
 
-return screen:new {
+return widgets.MenuScreen:new {
+  show_back = true,
+  title = "Settings",
   createUi = function(self)
-    self.menu = widgets.MenuScreen {
-      show_back = true,
-      title = "Settings",
-    }
-    self.list = self.menu.root:List {
+    widgets.MenuScreen.createUi(self)
+    local list = self.root:List {
       w = lvgl.PCT(100),
       h = lvgl.PCT(100),
       flex_grow = 1,
     }
 
     local function section(name)
-      local elem = self.list:Label {
+      local elem = list:Label {
         text = name,
         pad_left = 4,
       }
@@ -435,7 +442,7 @@ return screen:new {
     end
 
     local function submenu(name, class)
-      local item = self.list:add_btn(nil, name)
+      local item = list:add_btn(nil, name)
       item:onClicked(function()
         backstack.push(class:new())
       end)

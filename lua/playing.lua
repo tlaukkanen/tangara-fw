@@ -41,7 +41,7 @@ return screen:new {
     })
     self.root:center()
 
-    self.status_bar = widgets.StatusBar(self.root, {
+    self.status_bar = widgets.StatusBar(self, {
       back_cb = backstack.pop,
       transparent_bg = true,
     })
@@ -201,7 +201,7 @@ return screen:new {
     controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
 
-    self.bindings = {
+    self.bindings = self.bindings + {
       playback.playing:bind(function(playing)
         if playing then
           play_pause_img:set_src(img.pause)

@@ -24,7 +24,7 @@ return screen:new{
         })
         self.root:center()
 
-        self.status_bar = widgets.StatusBar(self.root, {
+        self.status_bar = widgets.StatusBar(self, {
             back_cb = backstack.pop,
             title = self.title
         })

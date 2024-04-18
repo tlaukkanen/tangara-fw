@@ -6,6 +6,7 @@ local backstack = require("backstack")
 local styles = require("styles")
 local database = require("database")
 local theme = require("theme")
+local screen = require("screen")
 
 local img = {
   db = lvgl.ImgData("//lua/img/db.png"),
@@ -23,27 +24,29 @@ local img = {
 
 local widgets = {}
 
-function widgets.MenuScreen(opts)
-  local screen = {}
-  screen.root = lvgl.Object(nil, {
-    flex = {
-      flex_direction = "column",
-      flex_wrap = "nowrap",
-      justify_content = "flex-start",
-      align_items = "flex-start",
-      align_content = "flex-start",
-    },
-    w = lvgl.PCT(100),
-    h = lvgl.PCT(100),
-  })
-  screen.root:center()
-  screen.status_bar = widgets.StatusBar(screen.root, {
-    back_cb = opts.show_back and backstack.pop or nil,
-    title = opts.title,
-    transparent_bg = true
-  })
-  return screen
-end
+widgets.MenuScreen = screen:new {
+  show_back = false,
+  title = "",
+  createUi = function(self)
+    self.root = lvgl.Object(nil, {
+      flex = {
+        flex_direction = "column",
+        flex_wrap = "nowrap",
+        justify_content = "flex-start",
+        align_items = "flex-start",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      h = lvgl.PCT(100),
+    })
+    self.root:center()
+    self.status_bar = widgets.StatusBar(self, {
+      back_cb = self.show_back and backstack.pop or nil,
+      title = self.title,
+      transparent_bg = true
+    })
+  end
+}
 
 function widgets.Row(parent, left, right)
   local container = parent:Object {
@@ -61,10 +64,14 @@ function widgets.Row(parent, left, right)
   container:Label { text = right }
 end
 
-function widgets.StatusBar(parent, opts)
-  local status_bar = {}
+local bindings_meta = {
+  __add = function(a, b)
+    return table.move(a, 1, #a, #b + 1, b)
+  end
+}
 
-  status_bar.root = parent:Object {
+function widgets.StatusBar(parent, opts)
+  local root = parent.root:Object {
     flex = {
       flex_direction = "row",
       justify_content = "flex-start",
@@ -81,19 +88,19 @@ function widgets.StatusBar(parent, opts)
   }
 
   if not opts.transparent_bg then
-    theme.set_style(status_bar.root, "header");
+    theme.set_style(root, "header");
   end
 
   if opts.back_cb then
-    status_bar.back = status_bar.root:Button {
+    local back = root:Button {
       w = lvgl.SIZE_CONTENT,
       h = 12,
     }
-    status_bar.back:Label({ text = "<", align = lvgl.ALIGN.CENTER })
-    status_bar.back:onClicked(opts.back_cb)
+    back:Label({ text = "<", align = lvgl.ALIGN.CENTER })
+    back:onClicked(opts.back_cb)
   end
 
-  status_bar.title = status_bar.root:Label {
+  local title = root:Label {
     w = lvgl.PCT(100),
     h = lvgl.SIZE_CONTENT,
     text_font = font.fusion_10,
@@ -102,15 +109,15 @@ function widgets.StatusBar(parent, opts)
     flex_grow = 1,
   }
   if opts.title then
-    status_bar.title:set { text = opts.title }
+    title:set { text = opts.title }
   end
 
-  status_bar.db_updating = status_bar.root:Image { src = img.db }
-  theme.set_style(status_bar.db_updating, "database_indicator")
-  status_bar.bluetooth = status_bar.root:Image {}
-  status_bar.battery = status_bar.root:Image {}
-  status_bar.chg = status_bar.battery:Image { src = img.chg }
-  status_bar.chg:center()
+  local db_updating = root:Image { src = img.db }
+  theme.set_style(db_updating, "database_indicator")
+  local bt_icon = root:Image {}
+  local battery_icon = root:Image {}
+  local charge_icon = battery_icon:Image { src = img.chg }
+  charge_icon:center()
 
   local is_charging = nil
   local percent = nil
@@ -136,19 +143,19 @@ function widgets.StatusBar(parent, opts)
       end
     end
     if is_charging then
-      status_bar.chg:clear_flag(lvgl.FLAG.HIDDEN)
+      charge_icon:clear_flag(lvgl.FLAG.HIDDEN)
     else
-      status_bar.chg:add_flag(lvgl.FLAG.HIDDEN)
+      charge_icon:add_flag(lvgl.FLAG.HIDDEN)
     end
-    status_bar.battery:set_src(src)
+    battery_icon:set_src(src)
   end
 
-  status_bar.bindings = {
+  parent.bindings = {
     database.updating:bind(function(yes)
       if yes then
-        status_bar.db_updating:clear_flag(lvgl.FLAG.HIDDEN)
+        db_updating:clear_flag(lvgl.FLAG.HIDDEN)
       else
-        status_bar.db_updating:add_flag(lvgl.FLAG.HIDDEN)
+        db_updating:add_flag(lvgl.FLAG.HIDDEN)
       end
     end),
     power.battery_pct:bind(function(pct)
@@ -161,21 +168,20 @@ function widgets.StatusBar(parent, opts)
     end),
     bluetooth.enabled:bind(function(en)
       if en then
-        status_bar.bluetooth:clear_flag(lvgl.FLAG.HIDDEN)
+        bt_icon:clear_flag(lvgl.FLAG.HIDDEN)
       else
-        status_bar.bluetooth:add_flag(lvgl.FLAG.HIDDEN)
+        bt_icon:add_flag(lvgl.FLAG.HIDDEN)
       end
     end),
     bluetooth.connected:bind(function(connected)
       if connected then
-        status_bar.bluetooth:set_src(img.bt_conn)
+        bt_icon:set_src(img.bt_conn)
       else
-        status_bar.bluetooth:set_src(img.bt)
+        bt_icon:set_src(img.bt)
       end
     end),
   }
-
-  return status_bar
+  setmetatable(parent.bindings, bindings_meta)
 end
 
 function widgets.IconBtn(parent, icon, text)

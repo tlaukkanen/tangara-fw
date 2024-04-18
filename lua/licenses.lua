@@ -5,13 +5,12 @@ local styles = require("styles")
 local screen = require("screen")
 
 local function show_license(text)
-  backstack.push(screen:new {
+  backstack.push(widgets.MenuScreen:new {
+    show_back = true,
+    title = "Licenses",
     createUi = function(self)
-      self.menu = widgets.MenuScreen {
-        show_back = true,
-        title = "Licenses",
-      }
-      self.menu.root:Label {
+      widgets.MenuScreen.createUi(self)
+      self.root:Label {
         w = lvgl.PCT(100),
         h = lvgl.SIZE_CONTENT,
         text_font = font.fusion_10,
@@ -74,13 +73,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 end
 
 
-return function()
-  local menu = widgets.MenuScreen({
-    show_back = true,
-    title = "Licenses"
-  })
-
-  local container = menu.root:Object {
+return function(self)
+  local container = self.root:Object {
     flex = {
       flex_direction = "column",
       flex_wrap = "nowrap",
@@ -178,6 +172,4 @@ return function()
   library("tremor", "bsd", function()
     xiphbsd("Copyright (c) 2002, Xiph.org Foundation")
   end)
-
-  return menu
 end

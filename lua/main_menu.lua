@@ -7,17 +7,17 @@ local playing = require("playing")
 local styles = require("styles")
 local screen = require("screen")
 
-return screen:new {
-  createUi = function()
-    local menu = widgets.MenuScreen({})
+return widgets.MenuScreen:new {
+  createUi = function(self)
+    widgets.MenuScreen.createUi(self)
 
-    menu.list = lvgl.List(menu.root, {
+    local list = lvgl.List(self.root, {
       w = lvgl.PCT(100),
       h = lvgl.PCT(100),
       flex_grow = 1,
     })
 
-    local now_playing = menu.list:add_btn(nil, "Now Playing")
+    local now_playing = list:add_btn(nil, "Now Playing")
     now_playing:onClicked(function()
       backstack.push(playing:new())
     end)
@@ -25,7 +25,7 @@ return screen:new {
 
     local indexes = database.indexes()
     for _, idx in ipairs(indexes) do
-      local btn = menu.list:add_btn(nil, tostring(idx))
+      local btn = list:add_btn(nil, tostring(idx))
       btn:onClicked(function()
         backstack.push(browser:new {
           title = tostring(idx),
@@ -35,12 +35,10 @@ return screen:new {
       btn:add_style(styles.list_item)
     end
 
-    local settings = menu.list:add_btn(nil, "Settings")
+    local settings = list:add_btn(nil, "Settings")
     settings:onClicked(function()
       backstack.push(require("settings"):new())
     end)
     settings:add_style(styles.list_item)
-
-    return menu
   end,
 }
