@@ -214,7 +214,7 @@ class Haptics {
   };
 
   struct ControlMask {
-    // Control1
+    // FeedbackControl
     static constexpr uint8_t kNErmLra = 0b10000000;
     // Control3
     static constexpr uint8_t kErmOpenLoop = 0b00100000;
@@ -257,12 +257,12 @@ class Haptics {
 
     // A bunch of different options, not grouped
     // in any particular sensible way
-    kControl1 = 0x1A,
-    kControl2 = 0x1B,
-    kControl3 = 0x1C,
-    kControl4 = 0x1D,
-    kControl5 = 0x1E,
-    kControl6 = 0x1F,
+    kFeedbackControl = 0x1A,
+    kControl1 = 0x1B,
+    kControl2 = 0x1C,
+    kControl3 = 0x1D,
+    kControl4 = 0x1E,
+    kControl5 = 0x1F,
 
     kSupplyVoltageMonitor = 0x21,  // "VBAT"
     kLraResonancePeriod = 0x22,
@@ -295,12 +295,12 @@ class Haptics {
     kOverdriveClampVoltage = 0x8C,
     kAutoCalibrationCompensationResult = 0x0C,
     kAutoCalibrationBackEmfResult = 0x6C,
-    kControl1 = 0x36,
-    kControl2 = 0x93,
-    kControl3 = 0xF5,
-    kControl4 = 0xA0,
-    kControl5 = 0x20,
-    kControl6 = 0x80,
+    kFeedbackControl = 0x36,
+    kControl1 = 0x93,
+    kControl2 = 0xF5,
+    kControl3 = 0xA0,
+    kControl4 = 0x20,
+    kControl5 = 0x80,
     kSupplyVoltageMonitor = 0,
     kLraResonancePeriod = 0,
   };

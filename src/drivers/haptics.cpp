@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <mutex>
+#include <variant>
 
 #include "assert.h"
 #include "driver/gpio.h"
