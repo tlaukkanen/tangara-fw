@@ -11,13 +11,24 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <variant>
 
 namespace drivers {
 
+typedef std::monostate ErmMotor;
+struct LraMotor {
+  // TODO: fill out with calibration data from https://www.ti.com/lit/ds/symlink/drv2605l.pdf
+  bool hi;
+};
+
 class Haptics {
  public:
-  static auto Create() -> Haptics* { return new Haptics(); }
-  Haptics();
+  static auto Create(const std::variant<ErmMotor, LraMotor>& motor)
+      -> Haptics* {
+    return new Haptics(motor);
+  }
+
+  Haptics(const std::variant<ErmMotor, LraMotor>& motor);
   ~Haptics();
 
   // Not copyable or movable.
@@ -169,11 +180,12 @@ class Haptics {
     B = 2,  // 3V, Rise: 40-60ms,   Brake: 5-15ms
     C = 3,  // 3V, Rise: 60-80ms,   Brake: 10-20ms
     D = 4,  // 3V, Rise: 100-140ms, Brake: 15-25ms
-    E = 5   // 3V, Rise: >140ms,    Brake: >30ms
-    // 6 is LRA-only, 7 is 4.5V+
+    E = 5,  // 3V, Rise: >140ms,    Brake: >30ms
+    LRA = 6
+    // 7 is 4.5V+
   };
 
-  static constexpr Library kDefaultLibrary = Library::C;
+  static constexpr Library kDefaultErmLibrary = Library::C;
 
   auto PowerDown() -> void;
   auto Reset() -> void;
@@ -216,8 +228,10 @@ class Haptics {
   struct ControlMask {
     // FeedbackControl
     static constexpr uint8_t kNErmLra = 0b10000000;
+
     // Control3
     static constexpr uint8_t kErmOpenLoop = 0b00100000;
+    static constexpr uint8_t kLraOpenLoop = 0b00000001;
   };
 
   // §8.6 Register Map
