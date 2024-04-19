@@ -1,4 +1,5 @@
 local lvgl = require("lvgl")
+
 local power = require("power")
 local bluetooth = require("bluetooth")
 local font = require("font")
@@ -9,17 +10,17 @@ local theme = require("theme")
 local screen = require("screen")
 
 local img = {
-  db = lvgl.ImgData("//lua/img/db.png"),
-  chg = lvgl.ImgData("//lua/img/bat/chg.png"),
-  bat_100 = lvgl.ImgData("//lua/img/bat/100.png"),
-  bat_80 = lvgl.ImgData("//lua/img/bat/80.png"),
-  bat_60 = lvgl.ImgData("//lua/img/bat/60.png"),
-  bat_40 = lvgl.ImgData("//lua/img/bat/40.png"),
-  bat_20 = lvgl.ImgData("//lua/img/bat/20.png"),
-  bat_0 = lvgl.ImgData("//lua/img/bat/0.png"),
-  bat_0chg = lvgl.ImgData("//lua/img/bat/0chg.png"),
-  bt_conn = lvgl.ImgData("//lua/assets/bt_conn.png"),
-  bt = lvgl.ImgData("//lua/assets/bt.png")
+    db = lvgl.ImgData("//lua/img/db.png"),
+    chg = lvgl.ImgData("//lua/img/bat/chg.png"),
+    bat_100 = lvgl.ImgData("//lua/img/bat/100.png"),
+    bat_80 = lvgl.ImgData("//lua/img/bat/80.png"),
+    bat_60 = lvgl.ImgData("//lua/img/bat/60.png"),
+    bat_40 = lvgl.ImgData("//lua/img/bat/40.png"),
+    bat_20 = lvgl.ImgData("//lua/img/bat/20.png"),
+    bat_0 = lvgl.ImgData("//lua/img/bat/0.png"),
+    bat_0chg = lvgl.ImgData("//lua/img/bat/0chg.png"),
+    bt_conn = lvgl.ImgData("//lua/assets/bt_conn.png"),
+    bt = lvgl.ImgData("//lua/assets/bt.png")
 }
 
 local widgets = {}
@@ -49,19 +50,24 @@ widgets.MenuScreen = screen:new {
 }
 
 function widgets.Row(parent, left, right)
-  local container = parent:Object {
-    flex = {
-      flex_direction = "row",
-      justify_content = "flex-start",
-      align_items = "flex-start",
-      align_content = "flex-start",
-    },
-    w = lvgl.PCT(100),
-    h = lvgl.SIZE_CONTENT,
-  }
-  container:add_style(styles.list_item)
-  container:Label { text = left, flex_grow = 1 }
-  container:Label { text = right }
+    local container = parent:Object{
+        flex = {
+            flex_direction = "row",
+            justify_content = "flex-start",
+            align_items = "flex-start",
+            align_content = "flex-start"
+        },
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT
+    }
+    container:add_style(styles.list_item)
+    container:Label{
+        text = left,
+        flex_grow = 1
+    }
+    container:Label{
+        text = right
+    }
 end
 
 local bindings_meta = {
@@ -119,8 +125,8 @@ function widgets.StatusBar(parent, opts)
   local charge_icon = battery_icon:Image { src = img.chg }
   charge_icon:center()
 
-  local is_charging = nil
-  local percent = nil
+    local is_charging = nil
+    local percent = nil
 
   local function update_battery_icon()
     if is_charging == nil or percent == nil then return end
@@ -185,23 +191,148 @@ function widgets.StatusBar(parent, opts)
 end
 
 function widgets.IconBtn(parent, icon, text)
-  local btn = parent:Button {
-    flex = {
-      flex_direction = "row",
-      justify_content = "flex-start",
-      align_items = "center",
-      align_content = "center",
-    },
-    w = lvgl.SIZE_CONTENT,
-    h = lvgl.SIZE_CONTENT,
-    pad_top = 1,
-    pad_bottom = 1,
-    pad_left = 1,
-    pad_column = 1,
-  }
-  btn:Image { src = icon }
-  btn:Label { text = text, text_font = font.fusion_10 }
-  return btn
+    local btn = parent:Button{
+        flex = {
+            flex_direction = "row",
+            justify_content = "flex-start",
+            align_items = "center",
+            align_content = "center"
+        },
+        w = lvgl.SIZE_CONTENT,
+        h = lvgl.SIZE_CONTENT,
+        pad_top = 1,
+        pad_bottom = 1,
+        pad_left = 1,
+        pad_column = 1
+    }
+    btn:Image{
+        src = icon
+    }
+    btn:Label{
+        text = text,
+        text_font = font.fusion_10
+    }
+    return btn
+end
+
+function widgets.RecyclerList(parent, iterator, opts)
+    local recycler_list = {}
+
+    recycler_list.root = lvgl.List(parent, {
+        w = lvgl.PCT(100),
+        h = lvgl.PCT(100),
+        flex_grow = 1,
+        scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF
+    })
+
+    local refreshing = false -- Used so that we can ignore focus events during this phase
+    local function refresh_group() 
+        refreshing = true
+        local group = lvgl.group.get_default()
+        local focused_obj = group:get_focused()
+        local num_children = recycler_list.root:get_child_cnt()
+        -- remove all children from the group and re-add them
+        for i = 0, num_children-1 do
+            lvgl.group.remove_obj(recycler_list.root:get_child(i))
+        end
+        for i = 0, num_children-1 do
+            group:add_obj(recycler_list.root:get_child(i))
+        end
+        if (focused_obj) then
+            lvgl.group.focus_obj(focused_obj)
+        end
+        refreshing = false
+    end
+
+    local fwd_iterator = iterator:clone()
+    local bck_iterator = iterator:clone()
+
+    local last_selected = 0
+    local last_index = 0
+    local first_index = 0
+
+    local function remove_top() 
+        local obj = recycler_list.root:get_child(0)
+        obj:delete()
+        first_index = first_index + 1
+        bck_iterator:next()
+    end
+
+    local function remove_last() 
+        local obj = recycler_list.root:get_child(-1)
+        obj:delete()
+        last_index = last_index - 1
+        fwd_iterator:prev()
+    end
+
+    local moving_back = false
+
+    local function add_item(item, index)
+        if not item then
+            return
+        end
+        local this_item = index
+        local add_to_top = false
+        if this_item < first_index then 
+            first_index = this_item 
+            add_to_top = true
+        end
+        if this_item > last_index then last_index = index end
+        local btn = recycler_list.root:add_btn(nil, tostring(item))
+        if add_to_top then
+            btn:move_to_index(0)
+        end
+        -- opts.callback should take an item and return a function matching the arg of onClicked
+        if opts.callback then
+          btn:onClicked(opts.callback(item))
+        end
+        btn:onevent(lvgl.EVENT.FOCUSED, function()
+          if refreshing then return end
+          selected = this_item
+          if this_item > last_selected and this_item > 3 then
+            -- moving forward
+            if moving_back == true then
+                fwd_iterator:next()
+                moving_back = false
+            end
+            local to_add = fwd_iterator:next()
+            if to_add then
+                remove_top()
+                add_item(to_add, last_index+1)
+            end
+          end
+          if this_item < last_selected then
+            -- moving backward
+            if last_index - this_item > 3 then
+                if moving_back == false then
+                    -- Special case for the element we switch on
+                    bck_iterator:prev()
+                    moving_back = true
+                end
+                if (last_index > 10) then
+                    remove_last()
+                end
+                if (first_index > 0) then
+                    add_item(bck_iterator:prev(), first_index-1)
+                end
+            end
+          end
+          last_selected = this_item
+          refresh_group()
+        end)
+        btn:add_style(styles.list_item)
+        return btn
+    end
+
+    for idx = 0, 8 do
+        local val = fwd_iterator()
+        if not val then
+            break
+        end
+        add_item(val, idx)
+    end
+
+    return recycler_list
 end
 
 return widgets

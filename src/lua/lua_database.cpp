@@ -160,6 +160,19 @@ static auto push_iterator(lua_State* state, const database::Iterator& it)
   luaL_setmetatable(state, kDbIteratorMetatable);
 }
 
+static auto db_iterate_prev(lua_State* state) -> int {
+  database::Iterator* it = db_check_iterator(state, 1);
+  std::optional<database::Record> res = (*it)--;
+
+  if (res) {
+    push_lua_record(state, *res);
+  } else {
+    lua_pushnil(state);
+  }
+
+  return 1;
+}
+
 static auto db_iterate(lua_State* state) -> int {
   database::Iterator* it = db_check_iterator(state, 1);
   std::optional<database::Record> res = (*it)++;
@@ -186,6 +199,7 @@ static auto db_iterator_gc(lua_State* state) -> int {
 }
 
 static const struct luaL_Reg kDbIteratorFuncs[] = {{"next", db_iterate},
+                                                   {"prev", db_iterate_prev},
                                                    {"clone", db_iterator_clone},
                                                    {"__call", db_iterate},
                                                    {"__gc", db_iterator_gc},

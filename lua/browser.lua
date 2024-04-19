@@ -78,62 +78,27 @@ return screen:new{
             queue.clear()
             queue.add(original_iterator)
             playback.playing:set(true)
-            backstack.push(playing)
+            backstack.push(playing:new())
         end)
 
-        self.list = lvgl.List(self.root, {
-            w = lvgl.PCT(100),
-            h = lvgl.PCT(100),
-            flex_grow = 1,
-            scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF
+        local recycle_list = widgets.RecyclerList(self.root, self.iterator, {
+            callback = function(item) 
+                return function()
+                    local contents = item:contents()
+                    if type(contents) == "userdata" then
+                        backstack.push(require("browser"):new{
+                            title = self.title,
+                            iterator = contents,
+                            breadcrumb = tostring(item)
+                        })
+                    else
+                        queue.clear()
+                        queue.add(contents)
+                        playback.playing:set(true)
+                        backstack.push(playing:new())
+                    end
+                end
+            end
         })
-
-        -- local back = self.list:add_btn(nil, "< Back")
-        -- back:onClicked(backstack.pop)
-        -- back:add_style(styles.list_item)
-
-        self.focused_item = 0
-        self.last_item = 0
-        self.add_item = function(item)
-            if not item then
-                return
-            end
-            self.last_item = self.last_item + 1
-            local this_item = self.last_item
-            local btn = self.list:add_btn(nil, tostring(item))
-            btn:onClicked(function()
-                local contents = item:contents()
-                if type(contents) == "userdata" then
-                    backstack.push(require("browser"):new{
-                        title = self.title,
-                        iterator = contents,
-                        breadcrumb = tostring(item)
-                    })
-                else
-                    queue.clear()
-                    queue.add(contents)
-                    playback.playing:set(true)
-                    backstack.push(playing:new())
-                end
-            end)
-            btn:onevent(lvgl.EVENT.FOCUSED, function()
-                self.focused_item = this_item
-                if self.last_item - 5 < this_item then
-                    self.add_item(self.iterator())
-                end
-            end)
-            btn:add_style(styles.list_item)
-            if this_item == 1 then 
-              btn:focus()
-            end
-        end
-
-        for _ = 1, 8 do
-            local val = self.iterator()
-            if not val then
-                break
-            end
-            self.add_item(val)
-        end
     end
 }

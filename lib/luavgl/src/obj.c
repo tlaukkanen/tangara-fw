@@ -595,6 +595,14 @@ static int luavgl_obj_focus(lua_State *L) {
   return 0;
 }
 
+static int luavgl_obj_move_to_index(lua_State *L) {
+  lv_obj_t *obj = luavgl_to_obj(L, 1);
+  int idx = luavgl_tointeger(L, 2);
+
+  lv_obj_move_to_index(obj, idx);
+  return 0;
+}
+
 /**
  * Remove all animations associates to this object
  */
@@ -672,6 +680,7 @@ static const luaL_Reg luavgl_obj_methods[] = {
     {"get_coords", luavgl_obj_get_coords},
     {"get_pos", luavgl_obj_get_pos},
     {"focus", luavgl_obj_focus},
+    {"move_to_index", luavgl_obj_move_to_index},
 
     {"onevent", luavgl_obj_on_event},
     {"onPressed", luavgl_obj_on_pressed},
