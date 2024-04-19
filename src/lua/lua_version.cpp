@@ -34,6 +34,13 @@ static auto samd(lua_State* L) -> int {
   return 1;
 }
 
+static auto update_samd(lua_State* L) -> int {
+  Bridge* instance = Bridge::Get(L);
+  auto& samd = instance->services().samd();
+  samd.ResetToFlashSamd();
+  return 0;
+}
+
 static auto collator(lua_State* L) -> int {
   Bridge* instance = Bridge::Get(L);
   auto& collator = instance->services().collator();
@@ -45,6 +52,7 @@ static auto collator(lua_State* L) -> int {
 static const struct luaL_Reg kVersionFuncs[] = {{"esp", esp},
                                                 {"samd", samd},
                                                 {"collator", collator},
+                                                {"update_samd", update_samd},
                                                 {NULL, NULL}};
 
 static auto lua_version(lua_State* L) -> int {
