@@ -18,7 +18,7 @@ static const adc_bitwidth_t kAdcBitWidth = ADC_BITWIDTH_12;
 static const adc_unit_t kAdcUnit = ADC_UNIT_1;
 // Max battery voltage should be a little over 2V due to our divider, so we need
 // the max attenuation to properly handle the full range.
-static const adc_atten_t kAdcAttenuation = ADC_ATTEN_DB_11;
+static const adc_atten_t kAdcAttenuation = ADC_ATTEN_DB_12;
 // Corresponds to SENSOR_VP.
 static const adc_channel_t kAdcChannel = ADC_CHANNEL_0;
 

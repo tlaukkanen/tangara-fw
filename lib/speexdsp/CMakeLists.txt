@@ -10,4 +10,4 @@ libspeexdsp/scal.c libspeexdsp/smallft.c
   PRIV_INCLUDE_DIRS "libspeexdsp"
 )
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -DHAVE_CONFIG_H -Wno-shift-negative-value -Wno-unused-const-variable)
+target_compile_options(${COMPONENT_LIB} PRIVATE -DHAVE_CONFIG_H -Wno-shift-negative-value -Wno-unused-const-variable -Wno-incompatible-pointer-types -Wno-unused-function -Wno-unused-variable)

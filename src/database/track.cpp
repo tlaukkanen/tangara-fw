@@ -234,7 +234,7 @@ auto TrackTags::genres(const std::string_view s) -> void {
   std::string src = {s.data(), s.size()};
   char* token = std::strtok(src.data(), kGenreDelimiters);
 
-  auto trim_and_add = [=](std::string_view s) {
+  auto trim_and_add = [this](std::string_view s) {
     std::string copy = {s.data(), s.size()};
 
     // Trim the left

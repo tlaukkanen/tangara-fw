@@ -438,7 +438,8 @@ void Disabled::react(const events::Enable&) {
     return;
   }
 
-  if ((err = esp_bluedroid_init() != ESP_OK)) {
+  esp_bluedroid_config_t cfg = BT_BLUEDROID_INIT_CONFIG_DEFAULT();
+  if ((err = esp_bluedroid_init_with_cfg(&cfg) != ESP_OK)) {
     ESP_LOGE(kTag, "initialize bluedroid failed %s", esp_err_to_name(err));
     return;
   }

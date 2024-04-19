@@ -43,11 +43,11 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # Additional warnings used when compiling our components.
 # Unable to be used due to issues in ESP-IDF includes are: -Wpedantic
 # -Wuseless-cast -Wconversion -Wold-style-cast -Wsign-conversion -Wcast-align
-set(EXTRA_WARNINGS "-Wshadow" "-Wnon-virtual-dtor" "-Wunused"
-  "-Woverloaded-virtual" "-Wmisleading-indentation" "-Wduplicated-cond"
-  "-Wduplicated-branches" "-Wlogical-op" "-Wnull-dereference"
-  "-Wdouble-promotion" "-Wformat=2" "-Wimplicit-fallthrough"
-  "-Wno-deprecated-enum-enum-conversion" "-Wno-array-bounds")
+set(EXTRA_WARNINGS "-Wnon-virtual-dtor" "-Wunused" "-Woverloaded-virtual"
+  "-Wmisleading-indentation" "-Wduplicated-cond" "-Wduplicated-branches"
+  "-Wlogical-op" "-Wnull-dereference" "-Wdouble-promotion" "-Wformat=2"
+  "-Wimplicit-fallthrough" "-Wno-deprecated-enum-enum-conversion"
+  "-Wno-array-bounds" "-Wno-missing-field-initializers")
 
 # Extra build flags that should apply to the entire build. This should mostly
 # just be used to setting flags that our external dependencies requires.
