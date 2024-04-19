@@ -39,6 +39,7 @@ static constexpr char kKeyScrollSensitivity[] = "scroll";
 static constexpr char kKeyLockPolarity[] = "lockpol";
 static constexpr char kKeyDisplayCols[] = "dispcols";
 static constexpr char kKeyDisplayRows[] = "disprows";
+static constexpr char kKeyHapticMotorType[] = "hapticmtype";
 static constexpr char kKeyDbAutoIndex[] = "dbautoindex";
 
 static auto nvs_get_string(nvs_handle_t nvs, const char* key)
@@ -166,6 +167,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
       lock_polarity_(kKeyLockPolarity),
       display_cols_(kKeyDisplayCols),
       display_rows_(kKeyDisplayRows),
+      haptic_motor_type_(kKeyHapticMotorType),
       brightness_(kKeyBrightness),
       sensitivity_(kKeyScrollSensitivity),
       amp_max_vol_(kKeyAmpMaxVolume),
@@ -188,6 +190,7 @@ auto NvsStorage::Read() -> void {
   lock_polarity_.read(handle_);
   display_cols_.read(handle_);
   display_rows_.read(handle_);
+  haptic_motor_type_.read(handle_),
   brightness_.read(handle_);
   sensitivity_.read(handle_);
   amp_max_vol_.read(handle_);
@@ -205,6 +208,7 @@ auto NvsStorage::Write() -> bool {
   lock_polarity_.write(handle_);
   display_cols_.write(handle_);
   display_rows_.write(handle_);
+  haptic_motor_type_.write(handle_),
   brightness_.write(handle_);
   sensitivity_.write(handle_);
   amp_max_vol_.write(handle_);
@@ -241,6 +245,16 @@ auto NvsStorage::LockPolarity() -> bool {
 auto NvsStorage::LockPolarity(bool p) -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   lock_polarity_.set(p);
+}
+
+auto NvsStorage::HapticMotorIsErm() -> bool {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return haptic_motor_type_.get().value_or(0) > 0;
+}
+
+auto NvsStorage::HapticMotorIsErm(bool p) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  haptic_motor_type_.set(p);
 }
 
 auto NvsStorage::DisplaySize()

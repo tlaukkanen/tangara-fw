@@ -11,13 +11,24 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <variant>
 
 namespace drivers {
 
+typedef std::monostate ErmMotor;
+struct LraMotor {
+  // TODO: fill out with calibration data from https://www.ti.com/lit/ds/symlink/drv2605l.pdf
+  bool hi;
+};
+
 class Haptics {
  public:
-  static auto Create() -> Haptics* { return new Haptics(); }
-  Haptics();
+  static auto Create(const std::variant<ErmMotor, LraMotor>& motor)
+      -> Haptics* {
+    return new Haptics(motor);
+  }
+
+  Haptics(const std::variant<ErmMotor, LraMotor>& motor);
   ~Haptics();
 
   // Not copyable or movable.
@@ -169,11 +180,12 @@ class Haptics {
     B = 2,  // 3V, Rise: 40-60ms,   Brake: 5-15ms
     C = 3,  // 3V, Rise: 60-80ms,   Brake: 10-20ms
     D = 4,  // 3V, Rise: 100-140ms, Brake: 15-25ms
-    E = 5   // 3V, Rise: >140ms,    Brake: >30ms
-    // 6 is LRA-only, 7 is 4.5V+
+    E = 5,  // 3V, Rise: >140ms,    Brake: >30ms
+    LRA = 6
+    // 7 is 4.5V+
   };
 
-  static constexpr Library kDefaultLibrary = Library::C;
+  static constexpr Library kDefaultErmLibrary = Library::C;
 
   auto PowerDown() -> void;
   auto Reset() -> void;
@@ -214,10 +226,12 @@ class Haptics {
   };
 
   struct ControlMask {
-    // Control1
+    // FeedbackControl
     static constexpr uint8_t kNErmLra = 0b10000000;
+
     // Control3
     static constexpr uint8_t kErmOpenLoop = 0b00100000;
+    static constexpr uint8_t kLraOpenLoop = 0b00000001;
   };
 
   // §8.6 Register Map
@@ -257,12 +271,12 @@ class Haptics {
 
     // A bunch of different options, not grouped
     // in any particular sensible way
-    kControl1 = 0x1A,
-    kControl2 = 0x1B,
-    kControl3 = 0x1C,
-    kControl4 = 0x1D,
-    kControl5 = 0x1E,
-    kControl6 = 0x1F,
+    kFeedbackControl = 0x1A,
+    kControl1 = 0x1B,
+    kControl2 = 0x1C,
+    kControl3 = 0x1D,
+    kControl4 = 0x1E,
+    kControl5 = 0x1F,
 
     kSupplyVoltageMonitor = 0x21,  // "VBAT"
     kLraResonancePeriod = 0x22,
@@ -295,12 +309,12 @@ class Haptics {
     kOverdriveClampVoltage = 0x8C,
     kAutoCalibrationCompensationResult = 0x0C,
     kAutoCalibrationBackEmfResult = 0x6C,
-    kControl1 = 0x36,
-    kControl2 = 0x93,
-    kControl3 = 0xF5,
-    kControl4 = 0xA0,
-    kControl5 = 0x20,
-    kControl6 = 0x80,
+    kFeedbackControl = 0x36,
+    kControl1 = 0x93,
+    kControl2 = 0xF5,
+    kControl3 = 0xA0,
+    kControl4 = 0x20,
+    kControl5 = 0x80,
     kSupplyVoltageMonitor = 0,
     kLraResonancePeriod = 0,
   };
