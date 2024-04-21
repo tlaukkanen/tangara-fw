@@ -57,6 +57,20 @@ static int16_t convert_f32_to_16_bit(cpp::span<const std::byte> bytes) {
   return sample::FromDouble(*fval);
 }
 
+static int16_t convert_f64_to_16_bit(cpp::span<const std::byte> bytes) {
+  uint64_t val = 0;
+  val = (uint8_t)bytes[7];
+  val = (val << 8) | (uint8_t)bytes[6];
+  val = (val << 8) | (uint8_t)bytes[5];
+  val = (val << 8) | (uint8_t)bytes[4];
+  val = (val << 8) | (uint8_t)bytes[3];
+  val = (val << 8) | (uint8_t)bytes[2];
+  val = (val << 8) | (uint8_t)bytes[1];
+  val = (val << 8) | (uint8_t)bytes[0];
+  double* fval = reinterpret_cast<double*>(&val);
+  return sample::FromDouble(*fval);
+}
+
 static int16_t convert_to_16_bit(cpp::span<const std::byte> bytes) {
   int depth = bytes.size();
   int32_t val = 0;
@@ -193,12 +207,6 @@ auto WavDecoder::OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
     }
   }
 
-  // 64 bit float is not implemented yet, make sure we're not letting it through
-  if (GetFormat() == kWaveFormatIEEEFloat && bytes_per_sample_ == 8) {
-    ESP_LOGW(kTag, "WAVE 64-Bit Float not supported");
-    return cpp::fail(Error::kUnsupportedFormat);
-  }
-
   int64_t data_offset = offset * samples_per_second * bytes_per_sample_;
 
   // Seek track to start of data
@@ -236,6 +244,9 @@ auto WavDecoder::DecodeTo(cpp::span<sample::Sample> output)
         // 32-Bit Float
         if (bytes_per_sample_ == 4) {
           output[i] = convert_f32_to_16_bit(data);
+        }
+        if (bytes_per_sample_ == 8) {
+          output[i] = convert_f64_to_16_bit(data);
         }
       }
     }
