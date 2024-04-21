@@ -403,6 +403,38 @@ local DatabaseSettings = SettingsScreen:new {
   end
 }
 
+local SamdConfirmation = SettingsScreen:new {
+  title = "Are you sure?",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+    self.content:Label {
+      w = lvgl.PCT(100),
+      text = "After selecting 'flash', copy the new UF2 file onto the USB drive that appears. The screen will be blank until the update is finished.",
+      long_mode = lvgl.LABEL.LONG_WRAP,
+    }
+
+    local button_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    local update = button_container:Button {}
+    update:Label { text = "Flash" }
+    update:onClicked(function()
+      require("version").update_samd()
+    end)
+  end
+}
+
 local FirmwareSettings = SettingsScreen:new {
   title = "Firmware",
   createUi = function(self)
@@ -411,6 +443,26 @@ local FirmwareSettings = SettingsScreen:new {
     widgets.Row(self.content, "ESP32", version.esp())
     widgets.Row(self.content, "SAMD21", version.samd())
     widgets.Row(self.content, "Collator", version.collator())
+
+    local button_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    local update = button_container:Button {}
+    update:Label { text = "Update SAMD21" }
+    update:onClicked(function()
+      backstack.push(SamdConfirmation:new())
+    end)
   end
 }
 

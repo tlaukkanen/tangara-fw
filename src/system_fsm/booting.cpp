@@ -62,6 +62,10 @@ auto Booting::entry() -> void {
   sServices->nvs(
       std::unique_ptr<drivers::NvsStorage>(drivers::NvsStorage::OpenSync()));
 
+  // HACK: tell the unit that it has an ERM motor (we will likely default to
+  //       LRAs in future, but all the current units in the field use ERMs.)
+  sServices->nvs().HapticMotorIsErm(true);
+
   // HACK: fix up the switch polarity on newer dev units
   // sServices->nvs().LockPolarity(false);
 
@@ -85,7 +89,11 @@ auto Booting::entry() -> void {
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
   sServices->touchwheel(
       std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
-  sServices->haptics(std::make_unique<drivers::Haptics>());
+  sServices->haptics(std::make_unique<drivers::Haptics>(
+      sServices->nvs().HapticMotorIsErm()
+          ? std::variant<drivers::ErmMotor, drivers::LraMotor>(
+                drivers::ErmMotor())
+          : drivers::LraMotor()));
 
   auto adc = drivers::AdcBattery::Create();
   sServices->battery(std::make_unique<battery::Battery>(

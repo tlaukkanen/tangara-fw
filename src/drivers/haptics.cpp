@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <mutex>
+#include <variant>
 
 #include "assert.h"
 #include "driver/gpio.h"
@@ -27,24 +28,55 @@ namespace drivers {
 static constexpr char kTag[] = "haptics";
 static constexpr uint8_t kHapticsAddress = 0x5A;
 
-Haptics::Haptics() {
+Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
   PowerUp();
 
-  // Put into ERM Open Loop:
-  // (§8.5.4.1 Programming for ERM Open-Loop Operation)
-  // - Turn off N_ERM_LRA first
-  WriteRegister(Register::kControl1,
-                static_cast<uint8_t>(RegisterDefaults::kControl1) &
-                    (~ControlMask::kNErmLra));
-  // - Turn on ERM_OPEN_LOOP
-  WriteRegister(Register::kControl3,
-                static_cast<uint8_t>(RegisterDefaults::kControl3) |
-                    ControlMask::kErmOpenLoop);
+  // TODO: Break out into helper functions
+  // TODO: Use LRA closed loop instead, loading in calibration data from NVS, or
+  //       running calibration + storing the result first if necessary.
 
-  // Set library
-  // TODO(robin): try the other libraries and test response. C is marginal, D
-  // too much?
-  WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(kDefaultLibrary));
+  if (std::holds_alternative<ErmMotor>(motor)) {
+    ESP_LOGI(kTag, "Setting up ERM motor...");
+
+    // Put into ERM Open Loop:
+    // (§8.5.4.1 Programming for ERM Open-Loop Operation)
+
+    // - Turn off N_ERM_LRA first
+    WriteRegister(Register::kFeedbackControl,
+                  static_cast<uint8_t>(RegisterDefaults::kFeedbackControl) &
+                      (~ControlMask::kNErmLra));
+
+    // - Turn on ERM_OPEN_LOOP
+    WriteRegister(Register::kControl3,
+                  static_cast<uint8_t>(RegisterDefaults::kControl3) |
+                      ControlMask::kErmOpenLoop);
+
+    // Set library
+    // TODO(robin): try the other libraries and test response. C is marginal, D
+    // too much?
+    WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(kDefaultErmLibrary));
+
+  } else if (std::holds_alternative<LraMotor>(motor)) {
+    ESP_LOGI(kTag, "Setting up LRA motor...");
+    // TODO:
+    // auto lraInit = std::get<LraMotor>(motor);
+
+    // Put into LRA Open Loop:
+    // (§8.5.4.1 Programming for LRA Open-Loop Operation)
+
+    // - Turn on N_ERM_LRA first
+    WriteRegister(Register::kFeedbackControl,
+                  static_cast<uint8_t>(RegisterDefaults::kFeedbackControl) &
+                      (ControlMask::kNErmLra));
+
+    // - Turn on LRA_OPEN_LOOP
+    WriteRegister(Register::kControl3,
+                  static_cast<uint8_t>(RegisterDefaults::kControl3) |
+                      ControlMask::kLraOpenLoop);
+
+    // Set library; only option is the LRA one for, well, LRA motors.
+    WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(Library::LRA));
+  }
 
   // Set mode (internal trigger, on writing 1 to Go register)
   WriteRegister(Register::kMode, static_cast<uint8_t>(Mode::kInternalTrigger));
@@ -93,13 +125,13 @@ auto Haptics::SetWaveformEffect(Effect effect) -> void {
 
 
 auto Haptics::TourEffects() -> void {
-  TourEffects(Effect::kFirst, Effect::kLast, kDefaultLibrary);
+  TourEffects(Effect::kFirst, Effect::kLast, kDefaultErmLibrary);
 }
 auto Haptics::TourEffects(Library lib) -> void {
   TourEffects(Effect::kFirst, Effect::kLast, lib);
 }
 auto Haptics::TourEffects(Effect from, Effect to) -> void {
-  TourEffects(from, to, kDefaultLibrary);
+  TourEffects(from, to, kDefaultErmLibrary);
 }
 auto Haptics::TourEffects(Effect from, Effect to, Library lib) -> void {
   ESP_LOGI(kTag, "With library #%u...", static_cast<uint8_t>(lib));

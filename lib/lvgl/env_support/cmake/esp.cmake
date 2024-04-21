@@ -31,6 +31,7 @@ else()
     REQUIRES esp_timer)
 
   target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DLV_CONF_INCLUDE_SIMPLE")
+  target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-missing-field-initializers" "-Wno-incompatible-pointer-types")
 
   if(CONFIG_LV_ATTRIBUTE_FAST_MEM_USE_IRAM)
     target_compile_definitions(${COMPONENT_LIB}

@@ -68,6 +68,7 @@ class NvsStorage {
   auto Read() -> void;
   auto Write() -> bool;
 
+  // Hardware Compatibility
   auto LockPolarity() -> bool;
   auto LockPolarity(bool) -> void;
 
@@ -75,6 +76,10 @@ class NvsStorage {
       -> std::pair<std::optional<uint16_t>, std::optional<uint16_t>>;
   auto DisplaySize(std::pair<std::optional<uint16_t>, std::optional<uint16_t>>)
       -> void;
+
+  auto HapticMotorIsErm() -> bool;
+  auto HapticMotorIsErm(bool) -> void;
+  // /Hardware Compatibility
 
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> void;
@@ -130,6 +135,7 @@ class NvsStorage {
   Setting<uint8_t> lock_polarity_;
   Setting<uint16_t> display_cols_;
   Setting<uint16_t> display_rows_;
+  Setting<uint8_t> haptic_motor_type_;
 
   Setting<uint8_t> brightness_;
   Setting<uint8_t> sensitivity_;
