@@ -70,6 +70,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const system_fsm::KeyLockChanged&);
   void react(const system_fsm::SamdUsbStatusChanged&);
 
+  void react(const internal::InitDisplay&);
   void react(const internal::DismissAlerts&);
 
   void react(const database::event::UpdateStarted&);

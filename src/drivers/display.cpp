@@ -5,6 +5,7 @@
  */
 
 #include "display.hpp"
+#include <stdint.h>
 
 #include <cmath>
 #include <cstdint>
@@ -168,7 +169,11 @@ auto Display::Create(IGpios& expander,
 }
 
 Display::Display(IGpios& gpio, spi_device_handle_t handle)
-    : gpio_(gpio), handle_(handle), display_on_(false), brightness_(0) {}
+    : gpio_(gpio),
+      handle_(handle),
+      first_flush_finished_(false),
+      display_on_(false),
+      brightness_(0) {}
 
 Display::~Display() {
   ledc_fade_func_uninstall();
@@ -176,14 +181,28 @@ Display::~Display() {
 
 auto Display::SetDisplayOn(bool enabled) -> void {
   display_on_ = enabled;
+  if (!first_flush_finished_) {
+    return;
+  }
+
+  if (display_on_) {
+    SendCommandWithData(displays::ST77XX_DISPON, nullptr, 0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+
   int new_duty = display_on_ ? brightness_ : 0;
   SetDutyCycle(new_duty, true);
+
+  if (!display_on_) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+    SendCommandWithData(displays::ST77XX_DISPOFF, nullptr, 0);
+  }
 }
 
 auto Display::SetBrightness(uint_fast8_t percent) -> void {
   brightness_ =
       std::pow(static_cast<double>(percent) / 100.0, 2.8) * 1024.0 + 0.5;
-  if (display_on_) {
+  if (first_flush_finished_ && display_on_) {
     SetDutyCycle(brightness_, false);
   }
 }
@@ -294,6 +313,11 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
   SendCommandWithData(displays::ST77XX_RAMWR,
                       reinterpret_cast<uint8_t*>(color_map), size * 2);
+
+  if (!first_flush_finished_ && lv_disp_flush_is_last(disp_drv)) {
+    first_flush_finished_ = true;
+    SetDisplayOn(display_on_);
+  }
 
   lv_disp_flush_ready(&driver_);
 }

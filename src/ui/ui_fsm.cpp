@@ -267,6 +267,15 @@ lua::Property UiState::sUsbMassStorageBusy{false};
 
 auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
     -> bool {
+  events::Ui().Dispatch(internal::InitDisplay{
+      .gpios = gpios,
+      .nvs = nvs,
+  });
+  sTask.reset(UiTask::Start());
+  return true;
+}
+
+void UiState::react(const internal::InitDisplay& ev) {
   // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
 
@@ -275,19 +284,15 @@ auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
   // HACK: correct the display size for our prototypes.
   // nvs.DisplaySize({161, 130});
 
-  auto actual_size = nvs.DisplaySize();
+  auto actual_size = ev.nvs.DisplaySize();
   init_data.width = actual_size.first.value_or(init_data.width);
   init_data.height = actual_size.second.value_or(init_data.height);
-
-  sDisplay.reset(drivers::Display::Create(gpios, init_data));
-  if (sDisplay == nullptr) {
-    return false;
-  }
+  sDisplay.reset(drivers::Display::Create(ev.gpios, init_data));
 
   sCurrentScreen.reset(new screens::Splash());
-  sTask.reset(UiTask::Start());
-  sDisplay->SetDisplayOn(!gpios.IsLocked());
-  return true;
+
+  // Display will only actually come on after LVGL finishes its first flush.
+  sDisplay->SetDisplayOn(!ev.gpios.IsLocked());
 }
 
 void UiState::PushScreen(std::shared_ptr<Screen> screen) {

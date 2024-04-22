@@ -8,7 +8,9 @@
 
 #include <memory>
 #include "database.hpp"
+#include "gpios.hpp"
 #include "index.hpp"
+#include "nvs.hpp"
 #include "screen.hpp"
 #include "tinyfsm.hpp"
 
@@ -31,6 +33,11 @@ struct OnLuaError : tinyfsm::Event {
 struct DumpLuaStack : tinyfsm::Event {};
 
 namespace internal {
+
+struct InitDisplay : tinyfsm::Event {
+  drivers::IGpios& gpios;
+  drivers::NvsStorage& nvs;
+};
 
 struct ReindexDatabase : tinyfsm::Event {};
 

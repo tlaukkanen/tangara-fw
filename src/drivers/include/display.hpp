@@ -52,6 +52,7 @@ class Display {
   IGpios& gpio_;
   spi_device_handle_t handle_;
 
+  bool first_flush_finished_;
   bool display_on_;
   uint_fast8_t brightness_;
 

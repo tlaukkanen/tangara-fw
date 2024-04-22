@@ -84,7 +84,6 @@ auto UiTask::Main() -> void {
 }
 
 auto UiTask::input(std::shared_ptr<input::LvglInputDriver> input) -> void {
-  assert(current_screen_);
   input_ = input;
 }
 
