@@ -442,6 +442,8 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       drivers::NvsStorage::Output::kHeadphones) {
     sOutput = sI2SOutput;
   } else {
+    // Ensure Bluetooth gets enabled if it's the default sink.
+    sServices->bluetooth().Enable();
     sOutput = sBtOutput;
   }
   sOutput->mode(IAudioOutput::Modes::kOnPaused);

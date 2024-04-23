@@ -109,12 +109,6 @@ auto Booting::entry() -> void {
       sServices->nvs(), sServices->bg_worker()));
   sServices->bluetooth().SetEventHandler(bt_event_cb);
 
-  if (sServices->nvs().OutputMode() ==
-      drivers::NvsStorage::Output::kBluetooth) {
-    ESP_LOGI(kTag, "enabling bluetooth");
-    sServices->bluetooth().Enable();
-  }
-
   BootComplete ev{.services = sServices};
   events::Audio().Dispatch(ev);
   events::Ui().Dispatch(ev);
