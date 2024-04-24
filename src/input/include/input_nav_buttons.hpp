@@ -25,6 +25,9 @@ class NavButtons : public IInputDevice {
 
   auto read(lv_indev_data_t* data) -> void override;
 
+  auto name() -> std::string override;
+  auto hooks() -> std::vector<TriggerHooks> override;
+
  private:
   drivers::IGpios& gpios_;
 

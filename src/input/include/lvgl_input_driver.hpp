@@ -41,6 +41,8 @@ class LvglInputDriver {
   auto registration() -> lv_indev_t* { return registration_; }
   auto lock(bool l) -> void { is_locked_ = l; }
 
+  auto pushHooks(lua_State* L) -> int;
+
  private:
   drivers::NvsStorage& nvs_;
   DeviceFactory& factory_;

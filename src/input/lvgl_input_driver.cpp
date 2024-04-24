@@ -16,6 +16,8 @@
 #include "input_touch_wheel.hpp"
 #include "input_trigger.hpp"
 #include "input_volume_buttons.hpp"
+#include "lauxlib.h"
+#include "lua.h"
 #include "lvgl.h"
 #include "nvs.hpp"
 #include "property.hpp"
@@ -102,6 +104,24 @@ auto LvglInputDriver::feedback(uint8_t event) -> void {
   for (auto&& device : feedbacks_) {
     device->feedback(event);
   }
+}
+
+auto LvglInputDriver::pushHooks(lua_State* L) -> int {
+  lua_newtable(L);
+
+  for (auto& dev : inputs_) {
+    lua_pushlstring(L, dev->name().data(), dev->name().size());
+    lua_newtable(L);
+
+    for (auto& hook : dev->hooks()) {
+      lua_pushlstring(L, hook.name().data(), hook.name().size());
+      hook.pushHooks(L);
+      lua_rawset(L, -3);
+    }
+
+    lua_rawset(L, -3);
+  }
+  return 1;
 }
 
 }  // namespace input

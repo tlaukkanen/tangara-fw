@@ -14,6 +14,7 @@
 #include "db_events.hpp"
 #include "device_factory.hpp"
 #include "display_init.hpp"
+#include "esp_spp_api.h"
 #include "feedback_haptics.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -497,10 +498,13 @@ void Lua::entry() {
                                    {"brightness", &sDisplayBrightness},
                                });
 
-    registry.AddPropertyModule("controls", {
-                                               {"scheme", &sInput->mode()},
-                                               {"lock_switch", &sLockSwitch},
-                                           });
+    registry.AddPropertyModule(
+        "controls",
+        {
+            {"scheme", &sInput->mode()},
+            {"lock_switch", &sLockSwitch},
+            {"hooks", [&](lua_State* L) { return sInput->pushHooks(L); }},
+        });
 
     if (sDeviceFactory->touch_wheel()) {
       registry.AddPropertyModule(

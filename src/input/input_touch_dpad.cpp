@@ -21,11 +21,11 @@ namespace input {
 
 TouchDPad::TouchDPad(drivers::TouchWheel& wheel)
     : wheel_(wheel),
-      centre_(actions::select, {}, {}),
-      up_(actions::scrollUp),
-      right_({}, {}, {}),
-      down_(actions::scrollDown),
-      left_(actions::goBack) {}
+      centre_("centre", actions::select(), {}, {}),
+      up_("up", actions::scrollUp()),
+      right_("right", {}, {}, {}),
+      down_("down", actions::scrollDown()),
+      left_("left", actions::goBack()) {}
 
 auto TouchDPad::read(lv_indev_data_t* data) -> void {
   wheel_.Update();
@@ -49,6 +49,14 @@ auto TouchDPad::read(lv_indev_data_t* data) -> void {
       wheel_data.is_wheel_touched &&
           drivers::TouchWheel::isAngleWithin(wheel_data.wheel_position, 64, 32),
       data);
+}
+
+auto TouchDPad::name() -> std::string {
+  return "dpad";
+}
+
+auto TouchDPad::hooks() -> std::vector<TriggerHooks> {
+  return {centre_, up_, right_, down_, left_};
 }
 
 }  // namespace input

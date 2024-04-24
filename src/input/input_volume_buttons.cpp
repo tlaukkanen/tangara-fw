@@ -12,11 +12,21 @@
 namespace input {
 
 VolumeButtons::VolumeButtons(drivers::IGpios& gpios)
-    : gpios_(gpios), up_(actions::volumeUp), down_(actions::volumeDown) {}
+    : gpios_(gpios),
+      up_("upper", actions::volumeUp()),
+      down_("lower", actions::volumeDown()) {}
 
 auto VolumeButtons::read(lv_indev_data_t* data) -> void {
   up_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyUp), data);
   down_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyDown), data);
+}
+
+auto VolumeButtons::name() -> std::string {
+  return "buttons";
+}
+
+auto VolumeButtons::hooks() -> std::vector<TriggerHooks> {
+  return {up_, down_};
 }
 
 }  // namespace input

@@ -7,22 +7,25 @@
 #pragma once
 
 #include "hal/lv_hal_indev.h"
+#include "input_hook.hpp"
 
 namespace input {
 namespace actions {
 
-auto select(lv_indev_data_t*) -> void;
+auto select() -> HookCallback;
 
-auto scrollUp(lv_indev_data_t*) -> void;
-auto scrollDown(lv_indev_data_t*) -> void;
+auto scrollUp() -> HookCallback;
+auto scrollDown() -> HookCallback;
 
-auto scrollToTop(lv_indev_data_t*) -> void;
-auto scrollToBottom(lv_indev_data_t*) -> void;
+auto scrollToTop() -> HookCallback;
+auto scrollToBottom() -> HookCallback;
 
-auto goBack(lv_indev_data_t*) -> void;
+auto goBack() -> HookCallback;
 
-auto volumeUp(lv_indev_data_t*) -> void;
-auto volumeDown(lv_indev_data_t*) -> void;
+auto volumeUp() -> HookCallback;
+auto volumeDown() -> HookCallback;
+
+auto allActions() -> std::vector<HookCallback>;
 
 }  // namespace actions
 }  // namespace input

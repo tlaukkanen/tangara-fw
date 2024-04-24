@@ -39,11 +39,11 @@ TouchWheel::TouchWheel(drivers::NvsStorage& nvs, drivers::TouchWheel& wheel)
                      threshold_ = calculateThreshold(int_val);
                      return true;
                    }),
-      centre_(actions::select, {}, {}),
-      up_({}, actions::scrollToTop, actions::scrollUp),
-      right_({}, {}, {}),
-      down_({}, actions::scrollToBottom, actions::scrollDown),
-      left_({}, actions::goBack, {}),
+      centre_("centre", actions::select(), {}, {}),
+      up_("up", {}, actions::scrollToTop(), actions::scrollUp()),
+      right_("right", {}, {}, {}),
+      down_("down", {}, actions::scrollToBottom(), actions::scrollDown()),
+      left_("left", {}, actions::goBack(), {}),
       is_scrolling_(false),
       threshold_(calculateThreshold(nvs.ScrollSensitivity())),
       is_first_read_(true),
@@ -86,6 +86,14 @@ auto TouchWheel::read(lv_indev_data_t* data) -> void {
   left_.update(pressing && drivers::TouchWheel::isAngleWithin(
                                wheel_data.wheel_position, 64, 32),
                data);
+}
+
+auto TouchWheel::name() -> std::string {
+  return "wheel";
+}
+
+auto TouchWheel::hooks() -> std::vector<TriggerHooks> {
+  return {centre_, up_, right_, down_, left_};
 }
 
 auto TouchWheel::sensitivity() -> lua::Property& {

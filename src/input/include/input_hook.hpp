@@ -8,35 +8,53 @@
 
 #include <functional>
 #include <optional>
+#include <string>
 
 #include "hal/lv_hal_indev.h"
+#include "lua.hpp"
+
 #include "input_trigger.hpp"
 
 namespace input {
 
-using HookCb = std::optional<std::function<void(lv_indev_data_t*)>>;
+struct HookCallback {
+  std::string name;
+  std::function<void(lv_indev_data_t*)> fn;
+};
 
 class Hook {
  public:
-  Hook(HookCb);
+  Hook(std::string name, std::optional<HookCallback> cb);
 
   auto invoke(lv_indev_data_t*) -> void;
-  auto override(HookCb) -> void;
+  auto override(std::optional<HookCallback>) -> void;
+
+  auto name() const -> const std::string& { return name_; }
+  auto callback() -> std::optional<HookCallback>;
 
  private:
-  HookCb default_;
-  HookCb override_;
+  std::string name_;
+  std::optional<HookCallback> default_;
+  std::optional<HookCallback> override_;
 };
 
 class TriggerHooks {
  public:
-  TriggerHooks(HookCb cb) : TriggerHooks(cb, cb, cb) {}
-  TriggerHooks(HookCb, HookCb, HookCb);
+  TriggerHooks(std::string name, std::optional<HookCallback> cb)
+      : TriggerHooks(name, cb, cb, cb) {}
+  TriggerHooks(std::string name,
+               std::optional<HookCallback> click,
+               std::optional<HookCallback> long_press,
+               std::optional<HookCallback> repeat);
 
   auto update(bool, lv_indev_data_t*) -> void;
-  auto override(Trigger::State, HookCb) -> void;
+  auto override(Trigger::State, std::optional<HookCallback>) -> void;
+
+  auto name() const -> const std::string&;
+  auto pushHooks(lua_State*) -> void;
 
  private:
+  std::string name_;
   Trigger trigger_;
 
   Hook click_;

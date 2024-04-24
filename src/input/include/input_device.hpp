@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "hal/lv_hal_indev.h"
+#include "input_hook.hpp"
 #include "property.hpp"
 
 namespace input {
@@ -27,13 +28,8 @@ class IInputDevice {
 
   virtual auto read(lv_indev_data_t* data) -> void = 0;
 
-  // TODO: Add hooks and configuration (or are hooks just one kind of
-  // configuration?)
-
-  virtual auto settings()
-      -> std::vector<std::pair<std::string, lua::Property>> {
-    return {};
-  }
+  virtual auto name() -> std::string = 0;
+  virtual auto hooks() -> std::vector<TriggerHooks> { return {}; }
 };
 
 }  // namespace input
