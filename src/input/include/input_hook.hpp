@@ -45,9 +45,10 @@ class Hook {
 class TriggerHooks {
  public:
   TriggerHooks(std::string name, std::optional<HookCallback> cb)
-      : TriggerHooks(name, cb, cb, cb) {}
+      : TriggerHooks(name, cb, cb, cb, cb) {}
   TriggerHooks(std::string name,
                std::optional<HookCallback> click,
+               std::optional<HookCallback> double_click,
                std::optional<HookCallback> long_press,
                std::optional<HookCallback> repeat);
 
@@ -66,6 +67,7 @@ class TriggerHooks {
   Trigger trigger_;
 
   Hook click_;
+  Hook double_click_;
   Hook long_press_;
   Hook repeat_;
 };

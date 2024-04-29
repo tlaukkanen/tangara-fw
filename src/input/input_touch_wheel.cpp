@@ -39,11 +39,11 @@ TouchWheel::TouchWheel(drivers::NvsStorage& nvs, drivers::TouchWheel& wheel)
                      threshold_ = calculateThreshold(int_val);
                      return true;
                    }),
-      centre_("centre", actions::select(), {}, {}),
-      up_("up", {}, actions::scrollToTop(), actions::scrollUp()),
-      right_("right", {}, {}, {}),
-      down_("down", {}, actions::scrollToBottom(), actions::scrollDown()),
-      left_("left", {}, actions::goBack(), {}),
+      centre_("centre", actions::select(), {}, {}, {}),
+      up_("up", {}, actions::scrollToTop(), {}, {}),
+      right_("right", {}),
+      down_("down", {}, actions::scrollToBottom(), {}, {}),
+      left_("left", {}, actions::goBack(), {}, {}),
       is_scrolling_(false),
       threshold_(calculateThreshold(nvs.ScrollSensitivity())),
       is_first_read_(true),
@@ -68,7 +68,8 @@ auto TouchWheel::read(lv_indev_data_t* data) -> void {
     data->enc_diff = 0;
   }
 
-  centre_.update(!is_scrolling_ && wheel_data.is_button_touched, data);
+  centre_.update(wheel_data.is_button_touched && !wheel_data.is_wheel_touched,
+                 data);
 
   // If the user is touching the wheel but not scrolling, then they may be
   // clicking on one of the wheel's cardinal directions.

@@ -15,8 +15,8 @@ namespace input {
 
 NavButtons::NavButtons(drivers::IGpios& gpios)
     : gpios_(gpios),
-      up_("upper", actions::scrollUp(), actions::select(), {}),
-      down_("lower", actions::scrollDown(), actions::select(), {}) {}
+      up_("upper", {}, actions::scrollUp(), actions::select(), {}),
+      down_("lower", {}, actions::scrollDown(), actions::select(), {}) {}
 
 auto NavButtons::read(lv_indev_data_t* data) -> void {
   up_.update(!gpios_.Get(drivers::IGpios::Pin::kKeyUp), data);

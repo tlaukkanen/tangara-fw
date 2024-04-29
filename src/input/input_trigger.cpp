@@ -8,34 +8,50 @@
 #include <sys/_stdint.h>
 
 #include <cstdint>
-#include "esp_log.h"
 #include "esp_timer.h"
 
 namespace input {
 
-Trigger::Trigger() : touch_time_ms_(), times_fired_(0) {}
+Trigger::Trigger()
+    : touch_time_ms_(),
+      was_pressed_(false),
+      was_double_click_(false),
+      times_long_pressed_(0) {}
 
 auto Trigger::update(bool is_pressed) -> State {
   // Bail out early if we're in a steady-state of not pressed.
-  if (!is_pressed && !touch_time_ms_) {
+  if (!is_pressed && !was_pressed_) {
+    was_double_click_ = false;
+    times_long_pressed_ = 0;
     return State::kNone;
   }
 
   uint64_t now_ms = esp_timer_get_time() / 1000;
 
-  // Initial press of this key: record the current time, and report that we
-  // haven't triggered yet.
-  if (is_pressed && !touch_time_ms_) {
+  // This key wasn't being pressed, but now it is.
+  if (is_pressed && !was_pressed_) {
+    // Is this a double click?
+    if (now_ms - *touch_time_ms_ < kDoubleClickDelayMs) {
+      // Don't update touch_time_ms_, since we don't want triple clicks to
+      // register as double clicks.
+      was_double_click_ = true;
+      was_pressed_ = true;
+      return State::kDoubleClick;
+    }
+    // Not a double click; update our accounting info and wait for the next
+    // call.
     touch_time_ms_ = now_ms;
-    times_fired_ = 0;
+    was_double_click_ = false;
+    times_long_pressed_ = 0;
+    was_pressed_ = true;
     return State::kNone;
   }
 
   // The key was released. If there were no long-press events fired during the
   // press, then this was a standard click.
-  if (!is_pressed && touch_time_ms_) {
-    touch_time_ms_.reset();
-    if (times_fired_ == 0) {
+  if (!is_pressed && was_pressed_) {
+    was_pressed_ = false;
+    if (!was_double_click_ && times_long_pressed_ == 0) {
       return State::kClick;
     } else {
       return State::kNone;
@@ -43,10 +59,10 @@ auto Trigger::update(bool is_pressed) -> State {
   }
 
   // Now the more complicated case: the user is continuing to press the button.
-  if (times_fired_ == 0) {
+  if (times_long_pressed_ == 0) {
     // We haven't fired yet, so we wait for the long-press event.
     if (now_ms - *touch_time_ms_ >= kLongPressDelayMs) {
-      times_fired_++;
+      times_long_pressed_++;
       return State::kLongPress;
     }
   } else {
@@ -60,8 +76,8 @@ auto Trigger::update(bool is_pressed) -> State {
     // kRepeatDelayMs since the long-press event.
     uint16_t expected_times_fired =
         1 + (time_since_long_press / kRepeatDelayMs);
-    if (times_fired_ < expected_times_fired) {
-      times_fired_++;
+    if (times_long_pressed_ < expected_times_fired) {
+      times_long_pressed_++;
       return State::kRepeatPress;
     }
   }

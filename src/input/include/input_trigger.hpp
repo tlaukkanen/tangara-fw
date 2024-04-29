@@ -13,6 +13,7 @@
 
 namespace input {
 
+const uint16_t kDoubleClickDelayMs = 500;
 const uint16_t kLongPressDelayMs = LV_INDEV_DEF_LONG_PRESS_TIME;
 const uint16_t kRepeatDelayMs = LV_INDEV_DEF_LONG_PRESS_REP_TIME;
 
@@ -21,6 +22,7 @@ class Trigger {
   enum class State {
     kNone,
     kClick,
+    kDoubleClick,
     kLongPress,
     kRepeatPress,
   };
@@ -31,7 +33,10 @@ class Trigger {
 
  private:
   std::optional<uint64_t> touch_time_ms_;
-  uint16_t times_fired_;
+  bool was_pressed_;
+
+  bool was_double_click_;
+  uint16_t times_long_pressed_;
 };
 
 }  // namespace input

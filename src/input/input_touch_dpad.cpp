@@ -21,9 +21,9 @@ namespace input {
 
 TouchDPad::TouchDPad(drivers::TouchWheel& wheel)
     : wheel_(wheel),
-      centre_("centre", actions::select(), {}, {}),
+      centre_("centre", actions::select(), {}, {}, {}),
       up_("up", actions::scrollUp()),
-      right_("right", {}, {}, {}),
+      right_("right", {}),
       down_("down", actions::scrollDown()),
       left_("left", actions::goBack()) {}
 

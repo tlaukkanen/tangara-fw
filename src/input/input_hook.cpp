@@ -39,10 +39,12 @@ auto Hook::callback() -> std::optional<HookCallback> {
 
 TriggerHooks::TriggerHooks(std::string name,
                            std::optional<HookCallback> click,
+                           std::optional<HookCallback> double_click,
                            std::optional<HookCallback> long_press,
                            std::optional<HookCallback> repeat)
     : name_(name),
       click_("click", click),
+      double_click_("double_click", double_click),
       long_press_("long_press", long_press),
       repeat_("repeat", repeat) {}
 
@@ -50,6 +52,9 @@ auto TriggerHooks::update(bool pressed, lv_indev_data_t* d) -> void {
   switch (trigger_.update(pressed)) {
     case Trigger::State::kClick:
       click_.invoke(d);
+      break;
+    case Trigger::State::kDoubleClick:
+      double_click_.invoke(d);
       break;
     case Trigger::State::kLongPress:
       long_press_.invoke(d);
