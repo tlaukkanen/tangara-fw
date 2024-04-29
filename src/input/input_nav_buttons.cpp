@@ -27,7 +27,8 @@ auto NavButtons::name() -> std::string {
   return "buttons";
 }
 
-auto NavButtons::hooks() -> std::vector<TriggerHooks> {
+auto NavButtons::triggers()
+    -> std::vector<std::reference_wrapper<TriggerHooks>> {
   return {up_, down_};
 }
 

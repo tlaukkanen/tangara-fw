@@ -92,7 +92,8 @@ auto TouchWheel::name() -> std::string {
   return "wheel";
 }
 
-auto TouchWheel::hooks() -> std::vector<TriggerHooks> {
+auto TouchWheel::triggers()
+    -> std::vector<std::reference_wrapper<TriggerHooks>> {
   return {centre_, up_, right_, down_, left_};
 }
 

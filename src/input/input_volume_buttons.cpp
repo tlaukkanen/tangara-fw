@@ -25,7 +25,8 @@ auto VolumeButtons::name() -> std::string {
   return "buttons";
 }
 
-auto VolumeButtons::hooks() -> std::vector<TriggerHooks> {
+auto VolumeButtons::triggers()
+    -> std::vector<std::reference_wrapper<TriggerHooks>> {
   return {up_, down_};
 }
 

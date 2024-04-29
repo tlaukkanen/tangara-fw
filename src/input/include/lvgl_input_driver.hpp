@@ -18,6 +18,8 @@
 #include "hal/lv_hal_indev.h"
 
 #include "input_device.hpp"
+#include "input_hook.hpp"
+#include "lua_thread.hpp"
 #include "nvs.hpp"
 #include "property.hpp"
 #include "touchwheel.hpp"
@@ -53,6 +55,56 @@ class LvglInputDriver {
 
   std::vector<std::shared_ptr<IInputDevice>> inputs_;
   std::vector<std::shared_ptr<IFeedbackDevice>> feedbacks_;
+
+  /*
+   * Key for identifying which device, trigger, and specific hook are being
+   * overriden by Lua.
+   */
+  struct OverrideSelector {
+    std::string device_name;
+    std::string trigger_name;
+    std::string hook_name;
+
+    friend bool operator<(const OverrideSelector& l,
+                          const OverrideSelector& r) {
+      return std::tie(l.device_name, l.trigger_name, l.hook_name) <
+             std::tie(r.device_name, r.trigger_name, r.hook_name);
+    }
+  };
+
+  /* Userdata object for tracking the Lua mirror of a TriggerHooks object. */
+  class LuaTrigger {
+   public:
+    LuaTrigger(LvglInputDriver&, IInputDevice&, TriggerHooks&);
+
+    static auto get(lua_State*, int idx) -> LuaTrigger&;
+    static auto luaGc(lua_State*) -> int;
+    static auto luaToString(lua_State*) -> int;
+    static auto luaNewIndex(lua_State*) -> int;
+
+    static constexpr struct luaL_Reg kFuncs[] = {{"__gc", luaGc},
+                                                 {"__tostring", luaToString},
+                                                 {"__newindex", luaNewIndex},
+                                                 {NULL, NULL}};
+
+   private:
+    LvglInputDriver* driver_;
+
+    std::string device_;
+    std::string trigger_;
+    std::map<std::string, std::string> hooks_;
+  };
+
+  /* A hook override implemented as a lua callback */
+  struct LuaOverride {
+    lua_State* L;
+    int ref;
+  };
+
+  std::map<OverrideSelector, LuaOverride> overrides_;
+
+  auto setOverride(lua_State* L, const OverrideSelector&) -> void;
+  auto applyOverride(const OverrideSelector&, LuaOverride&) -> void;
 
   bool is_locked_;
 };

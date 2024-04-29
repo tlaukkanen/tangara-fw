@@ -29,7 +29,9 @@ class IInputDevice {
   virtual auto read(lv_indev_data_t* data) -> void = 0;
 
   virtual auto name() -> std::string = 0;
-  virtual auto hooks() -> std::vector<TriggerHooks> { return {}; }
+  virtual auto triggers() -> std::vector<std::reference_wrapper<TriggerHooks>> {
+    return {};
+  }
 };
 
 }  // namespace input

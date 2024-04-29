@@ -85,23 +85,8 @@ auto TriggerHooks::name() const -> const std::string& {
   return name_;
 }
 
-auto TriggerHooks::pushHooks(lua_State* L) -> void {
-  lua_newtable(L);
-
-  auto add_trigger = [&](Hook& h) {
-    lua_pushlstring(L, h.name().data(), h.name().size());
-    auto cb = h.callback();
-    if (cb) {
-      lua_pushlstring(L, cb->name.data(), cb->name.size());
-    } else {
-      lua_pushnil(L);
-    }
-    lua_rawset(L, -3);
-  };
-
-  add_trigger(click_);
-  add_trigger(long_press_);
-  add_trigger(repeat_);
+auto TriggerHooks::hooks() -> std::vector<std::reference_wrapper<Hook>> {
+  return {click_, long_press_, repeat_};
 }
 
 }  // namespace input

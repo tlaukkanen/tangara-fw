@@ -32,6 +32,10 @@ class Hook {
   auto name() const -> const std::string& { return name_; }
   auto callback() -> std::optional<HookCallback>;
 
+  // Not copyable or movable.
+  Hook(const Hook&) = delete;
+  Hook& operator=(const Hook&) = delete;
+
  private:
   std::string name_;
   std::optional<HookCallback> default_;
@@ -51,7 +55,11 @@ class TriggerHooks {
   auto override(Trigger::State, std::optional<HookCallback>) -> void;
 
   auto name() const -> const std::string&;
-  auto pushHooks(lua_State*) -> void;
+  auto hooks() -> std::vector<std::reference_wrapper<Hook>>;
+
+  // Not copyable or movable.
+  TriggerHooks(const TriggerHooks&) = delete;
+  TriggerHooks& operator=(const TriggerHooks&) = delete;
 
  private:
   std::string name_;
