@@ -76,7 +76,7 @@ auto SampleConverter::beginStream(std::shared_ptr<TrackInfo> track) -> void {
   xQueueSend(commands_, &args, portMAX_DELAY);
 }
 
-auto SampleConverter::continueStream(cpp::span<sample::Sample> input) -> void {
+auto SampleConverter::continueStream(std::span<sample::Sample> input) -> void {
   Args args{
       .track = nullptr,
       .samples_available = input.size(),
@@ -182,7 +182,7 @@ auto SampleConverter::handleContinueStream(size_t samples_available) -> void {
   }
 }
 
-auto SampleConverter::handleSamples(cpp::span<sample::Sample> input) -> size_t {
+auto SampleConverter::handleSamples(std::span<sample::Sample> input) -> size_t {
   if (source_format_ == target_format_) {
     // The happiest possible case: the input format matches the output
     // format already.
@@ -192,7 +192,7 @@ auto SampleConverter::handleSamples(cpp::span<sample::Sample> input) -> size_t {
 
   size_t samples_used = 0;
   while (samples_used < input.size()) {
-    cpp::span<sample::Sample> output_source;
+    std::span<sample::Sample> output_source;
     if (source_format_.sample_rate != target_format_.sample_rate) {
       if (resampler_ == nullptr) {
         ESP_LOGI(kTag, "creating new resampler for %lu -> %lu",
@@ -245,7 +245,7 @@ auto SampleConverter::handleEndStream() -> void {
   events::Audio().Dispatch(internal::StreamEnded{});
 }
 
-auto SampleConverter::sendToSink(cpp::span<sample::Sample> samples) -> void {
+auto SampleConverter::sendToSink(std::span<sample::Sample> samples) -> void {
   // Update the number of samples sunk so far *before* actually sinking them,
   // since writing to the stream buffer will block when the buffer gets full.
   samples_sunk_ += samples.size();

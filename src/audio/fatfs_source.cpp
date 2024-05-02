@@ -33,7 +33,7 @@ FatfsSource::~FatfsSource() {
   f_close(file_.get());
 }
 
-auto FatfsSource::Read(cpp::span<std::byte> dest) -> ssize_t {
+auto FatfsSource::Read(std::span<std::byte> dest) -> ssize_t {
   auto lock = drivers::acquire_spi();
   if (f_eof(file_.get())) {
     return 0;

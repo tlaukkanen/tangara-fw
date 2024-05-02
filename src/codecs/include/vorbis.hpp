@@ -10,12 +10,12 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
 #include "ivorbisfile.h"
 #include "sample.hpp"
-#include "span.hpp"
 
 #include "codec.hpp"
 
@@ -26,10 +26,10 @@ class TremorVorbisDecoder : public ICodec {
   TremorVorbisDecoder();
   ~TremorVorbisDecoder();
 
-  auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
+  auto OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
-  auto DecodeTo(cpp::span<sample::Sample> destination)
+  auto DecodeTo(std::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
 
   TremorVorbisDecoder(const TremorVorbisDecoder&) = delete;

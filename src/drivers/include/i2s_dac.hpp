@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <span>
 
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
@@ -20,7 +21,6 @@
 #include "freertos/portmacro.h"
 #include "freertos/stream_buffer.h"
 #include "result.hpp"
-#include "span.hpp"
 
 #include "gpios.hpp"
 #include "sys/_stdint.h"
@@ -68,7 +68,7 @@ class I2SDac {
 
   auto Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate) -> void;
 
-  auto WriteData(const cpp::span<const std::byte>& data) -> void;
+  auto WriteData(const std::span<const std::byte>& data) -> void;
   auto SetSource(StreamBufferHandle_t buffer) -> void;
 
   // Not copyable or movable.

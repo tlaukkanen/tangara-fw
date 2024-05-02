@@ -8,7 +8,7 @@ idf_component_register(
   "fatfs_source.cpp" "bt_audio_output.cpp" "readahead_source.cpp"
   "audio_source.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "span" "memory" "tinyfsm"
+  REQUIRES "codecs" "drivers" "cbor" "result" "tasks" "memory" "tinyfsm"
   "database" "system_fsm" "speexdsp" "millershuffle" "libcppbor")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

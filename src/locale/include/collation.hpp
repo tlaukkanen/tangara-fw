@@ -9,10 +9,10 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 
 #include "esp_partition.h"
-#include "span.hpp"
 
 #include "strxfrm.h"
 

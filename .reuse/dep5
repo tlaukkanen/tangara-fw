@@ -66,10 +66,6 @@ Files: lib/result/include/*
 Copyright: 2017-2021 Matthew Rodusek
 License: MIT
 
-Files: lib/span/include/*
-Copyright: 2018 Tristan Brindle
-License: BSL-1.0
-
 Files: lib/speexdsp/*
 Copyright: 2002-2008 	Xiph.org Foundation
            2002-2008 	Jean-Marc Valin

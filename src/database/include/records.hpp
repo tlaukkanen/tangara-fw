@@ -80,6 +80,6 @@ auto TrackIdToBytes(TrackId id) -> std::string;
  * Converts a track id encoded via TrackIdToBytes back into a TrackId. May
  * return nullopt if parsing fails.
  */
-auto BytesToTrackId(cpp::span<const char> bytes) -> std::optional<TrackId>;
+auto BytesToTrackId(std::span<const char> bytes) -> std::optional<TrackId>;
 
 }  // namespace database

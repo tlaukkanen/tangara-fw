@@ -7,9 +7,9 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
-#include "span.hpp"
 #include "speex/speex_resampler.h"
 
 #include "sample.hpp"
@@ -24,8 +24,8 @@ class Resampler {
 
   ~Resampler();
 
-  auto Process(cpp::span<sample::Sample> input,
-               cpp::span<sample::Sample> output,
+  auto Process(std::span<sample::Sample> input,
+               std::span<sample::Sample> output,
                bool end_of_data) -> std::pair<size_t, size_t>;
 
  private:

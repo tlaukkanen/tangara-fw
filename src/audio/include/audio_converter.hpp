@@ -33,7 +33,7 @@ class SampleConverter {
   auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
 
   auto beginStream(std::shared_ptr<TrackInfo>) -> void;
-  auto continueStream(cpp::span<sample::Sample>) -> void;
+  auto continueStream(std::span<sample::Sample>) -> void;
   auto endStream() -> void;
 
  private:
@@ -43,9 +43,9 @@ class SampleConverter {
   auto handleContinueStream(size_t samples_available) -> void;
   auto handleEndStream() -> void;
 
-  auto handleSamples(cpp::span<sample::Sample>) -> size_t;
+  auto handleSamples(std::span<sample::Sample>) -> size_t;
 
-  auto sendToSink(cpp::span<sample::Sample>) -> void;
+  auto sendToSink(std::span<sample::Sample>) -> void;
 
   struct Args {
     std::shared_ptr<TrackInfo>* track;
@@ -57,10 +57,10 @@ class SampleConverter {
   std::unique_ptr<Resampler> resampler_;
 
   StreamBufferHandle_t source_;
-  cpp::span<sample::Sample> input_buffer_;
-  cpp::span<std::byte> input_buffer_as_bytes_;
+  std::span<sample::Sample> input_buffer_;
+  std::span<std::byte> input_buffer_as_bytes_;
 
-  cpp::span<sample::Sample> resampled_buffer_;
+  std::span<sample::Sample> resampled_buffer_;
 
   std::shared_ptr<IAudioOutput> sink_;
   IAudioOutput::Format source_format_;

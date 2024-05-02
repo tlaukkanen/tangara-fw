@@ -61,11 +61,11 @@ class Indexer {
 
  private:
   auto handleLevel(const IndexKey::Header& header,
-                   cpp::span<const Tag> components) -> void;
+                   std::span<const Tag> components) -> void;
 
   auto handleItem(const IndexKey::Header& header,
                   std::variant<std::pmr::string, uint32_t> item,
-                  cpp::span<const Tag> components) -> void;
+                  std::span<const Tag> components) -> void;
 
   auto missing_value(Tag tag) -> TagValue {
     switch (tag) {
@@ -111,7 +111,7 @@ auto Indexer::index() -> std::vector<std::pair<IndexKey, std::string>> {
 }
 
 auto Indexer::handleLevel(const IndexKey::Header& header,
-                          cpp::span<const Tag> components) -> void {
+                          std::span<const Tag> components) -> void {
   Tag component = components.front();
   TagValue value = track_.tags().get(component);
   if (std::holds_alternative<std::monostate>(value)) {
@@ -129,7 +129,7 @@ auto Indexer::handleLevel(const IndexKey::Header& header,
         } else if constexpr (std::is_same_v<T, uint32_t>) {
           handleItem(header, arg, components);
         } else if constexpr (std::is_same_v<
-                                 T, cpp::span<const std::pmr::string>>) {
+                                 T, std::span<const std::pmr::string>>) {
           for (const auto& i : arg) {
             handleItem(header, i, components);
           }
@@ -140,7 +140,7 @@ auto Indexer::handleLevel(const IndexKey::Header& header,
 
 auto Indexer::handleItem(const IndexKey::Header& header,
                          std::variant<std::pmr::string, uint32_t> item,
-                         cpp::span<const Tag> components) -> void {
+                         std::span<const Tag> components) -> void {
   IndexKey key{
       .header = header,
       .item = {},

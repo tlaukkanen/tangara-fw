@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory_resource>
+#include <span>
 #include <sstream>
 #include <string>
 
@@ -16,7 +17,6 @@
 #include "komihash.h"
 
 #include "memory_resource.hpp"
-#include "span.hpp"
 
 namespace database {
 
@@ -55,7 +55,7 @@ auto tagHash(const TagValue& t) -> uint64_t {
         } else if constexpr (std::is_same_v<T, uint32_t>) {
           return komihash(&arg, sizeof(arg), 0);
         } else if constexpr (std::is_same_v<
-                                 T, cpp::span<const std::pmr::string>>) {
+                                 T, std::span<const std::pmr::string>>) {
           komihash_stream_t hash;
           komihash_stream_init(&hash, 0);
           for (const auto& i : arg) {
@@ -79,7 +79,7 @@ auto tagToString(const TagValue& val) -> std::string {
         } else if constexpr (std::is_same_v<T, uint32_t>) {
           return std::to_string(arg);
         } else if constexpr (std::is_same_v<
-                                 T, cpp::span<const std::pmr::string>>) {
+                                 T, std::span<const std::pmr::string>>) {
           std::ostringstream builder{};
           for (const auto& str : arg) {
             builder << std::string{str.data(), str.size()} << ",";
@@ -225,7 +225,7 @@ auto TrackTags::albumOrder() const -> uint32_t {
   return (disc_.value_or(0) << 16) | track_.value_or(0);
 }
 
-auto TrackTags::genres() const -> cpp::span<const std::pmr::string> {
+auto TrackTags::genres() const -> std::span<const std::pmr::string> {
   return genres_;
 }
 

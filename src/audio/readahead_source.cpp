@@ -41,7 +41,7 @@ ReadaheadSource::~ReadaheadSource() {
   vStreamBufferDeleteWithCaps(buffer_);
 }
 
-auto ReadaheadSource::Read(cpp::span<std::byte> dest) -> ssize_t {
+auto ReadaheadSource::Read(std::span<std::byte> dest) -> ssize_t {
   size_t bytes_written = 0;
   // Fill the destination from our buffer, until either the buffer is drained
   // or the destination is full.

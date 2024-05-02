@@ -248,7 +248,7 @@ auto TrackIdToBytes(TrackId id) -> std::string {
   return cppbor::Uint{id}.toString();
 }
 
-auto BytesToTrackId(cpp::span<const char> bytes) -> std::optional<TrackId> {
+auto BytesToTrackId(std::span<const char> bytes) -> std::optional<TrackId> {
   auto [res, unused, err] = cppbor::parse(
       reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!res || res->type() != cppbor::UINT) {

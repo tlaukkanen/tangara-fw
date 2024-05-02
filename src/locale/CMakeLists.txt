@@ -6,6 +6,6 @@ idf_component_register(
   SRCS "collation.cpp" "strxfrm_l.c"
   INCLUDE_DIRS "include"
   PRIV_INCLUDE_DIRS "priv_include"
-  REQUIRES "span" "esp_partition" "spi_flash")
+  REQUIRES "esp_partition" "spi_flash")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

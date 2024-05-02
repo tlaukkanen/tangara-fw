@@ -140,7 +140,7 @@ auto XiphOpusDecoder::OpenStream(std::shared_ptr<IStream> input,
   };
 }
 
-auto XiphOpusDecoder::DecodeTo(cpp::span<sample::Sample> output)
+auto XiphOpusDecoder::DecodeTo(std::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
   int samples_written = op_read_stereo(opus_, output.data(), output.size());
 

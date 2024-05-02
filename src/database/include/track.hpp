@@ -6,12 +6,12 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <sys/_stdint.h>
+#include <cstdint>
 
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -19,7 +19,6 @@
 
 #include "leveldb/db.h"
 #include "memory_resource.hpp"
-#include "span.hpp"
 
 namespace database {
 
@@ -62,7 +61,7 @@ enum class Tag {
 using TagValue = std::variant<std::monostate,
                               std::pmr::string,
                               uint32_t,
-                              cpp::span<const std::pmr::string>>;
+                              std::span<const std::pmr::string>>;
 
 auto tagName(Tag) -> std::string;
 auto tagHash(const TagValue&) -> uint64_t;
@@ -112,7 +111,7 @@ class TrackTags {
 
   auto albumOrder() const -> uint32_t;
 
-  auto genres() const -> cpp::span<const std::pmr::string>;
+  auto genres() const -> std::span<const std::pmr::string>;
   auto genres(const std::string_view) -> void;
 
   /*

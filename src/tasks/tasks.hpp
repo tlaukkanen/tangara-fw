@@ -11,6 +11,7 @@
 #include <future>
 #include <memory>
 #include <memory_resource>
+#include <span>
 #include <string>
 
 #include "esp_heap_caps.h"
@@ -19,7 +20,6 @@
 #include "freertos/projdefs.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
-#include "span.hpp"
 
 namespace tasks {
 
@@ -46,7 +46,7 @@ enum class Type {
 template <Type t>
 auto Name() -> std::pmr::string;
 template <Type t>
-auto AllocateStack() -> cpp::span<StackType_t>;
+auto AllocateStack() -> std::span<StackType_t>;
 template <Type t>
 auto Priority() -> UBaseType_t;
 
@@ -56,7 +56,7 @@ template <Type t>
 auto StartPersistent(const std::function<void(void)>& fn) -> void {
   StaticTask_t* task_buffer = static_cast<StaticTask_t*>(heap_caps_malloc(
       sizeof(StaticTask_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-  cpp::span<StackType_t> stack = AllocateStack<t>();
+  std::span<StackType_t> stack = AllocateStack<t>();
   xTaskCreateStatic(&PersistentMain, Name<t>().c_str(), stack.size(),
                     new std::function<void(void)>(fn), Priority<t>(),
                     stack.data(), task_buffer);
@@ -67,7 +67,7 @@ auto StartPersistent(BaseType_t core, const std::function<void(void)>& fn)
     -> void {
   StaticTask_t* task_buffer = static_cast<StaticTask_t*>(heap_caps_malloc(
       sizeof(StaticTask_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-  cpp::span<StackType_t> stack = AllocateStack<t>();
+  std::span<StackType_t> stack = AllocateStack<t>();
   xTaskCreateStaticPinnedToCore(&PersistentMain, Name<t>().c_str(),
                                 stack.size(), new std::function<void(void)>(fn),
                                 Priority<t>(), stack.data(), task_buffer, core);

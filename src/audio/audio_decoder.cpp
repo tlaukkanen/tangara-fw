@@ -5,7 +5,6 @@
  */
 
 #include "audio_decoder.hpp"
-#include <stdint.h>
 
 #include <cstdint>
 #include <cstdlib>
@@ -17,6 +16,7 @@
 #include <cstring>
 #include <deque>
 #include <memory>
+#include <span>
 #include <variant>
 
 #include "cbor.h"
@@ -28,7 +28,6 @@
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
 #include "i2s_dac.hpp"
-#include "span.hpp"
 
 #include "audio_converter.hpp"
 #include "audio_events.hpp"

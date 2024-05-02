@@ -50,7 +50,7 @@ class Decoder {
   std::optional<codecs::ICodec::OutputFormat> current_format_;
   std::optional<IAudioOutput::Format> current_sink_format_;
 
-  cpp::span<sample::Sample> codec_buffer_;
+  std::span<sample::Sample> codec_buffer_;
 };
 
 }  // namespace audio

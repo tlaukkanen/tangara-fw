@@ -23,7 +23,7 @@ class TaggedStream : public codecs::IStream {
 
   auto tags() -> std::shared_ptr<database::TrackTags>;
 
-  auto Read(cpp::span<std::byte> dest) -> ssize_t override;
+  auto Read(std::span<std::byte> dest) -> ssize_t override;
 
   auto CanSeek() -> bool override;
 

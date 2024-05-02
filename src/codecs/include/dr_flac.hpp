@@ -10,13 +10,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
 #include "dr_flac.h"
 #include "sample.hpp"
 #include "source_buffer.hpp"
-#include "span.hpp"
 
 #include "codec.hpp"
 
@@ -27,10 +27,10 @@ class DrFlacDecoder : public ICodec {
   DrFlacDecoder();
   ~DrFlacDecoder();
 
-  auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
+  auto OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
-  auto DecodeTo(cpp::span<sample::Sample> destination)
+  auto DecodeTo(std::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
 
   DrFlacDecoder(const DrFlacDecoder&) = delete;
@@ -38,7 +38,7 @@ class DrFlacDecoder : public ICodec {
 
  private:
   std::shared_ptr<IStream> input_;
-  drflac *flac_;
+  drflac* flac_;
 };
 
 }  // namespace codecs

@@ -30,7 +30,7 @@ class ReadaheadSource : public codecs::IStream {
   ReadaheadSource(tasks::WorkerPool&, std::unique_ptr<codecs::IStream>);
   ~ReadaheadSource();
 
-  auto Read(cpp::span<std::byte> dest) -> ssize_t override;
+  auto Read(std::span<std::byte> dest) -> ssize_t override;
 
   auto CanSeek() -> bool override;
 

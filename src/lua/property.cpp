@@ -247,7 +247,7 @@ static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
         if constexpr (std::is_same_v<T, std::pmr::string>) {
           lua_pushlstring(L, arg.data(), arg.size());
         } else if constexpr (std::is_same_v<
-                                 T, cpp::span<const std::pmr::string>>) {
+                                 T, std::span<const std::pmr::string>>) {
           lua_createtable(L, 0, arg.size());
           for (const auto& i : arg) {
             lua_pushlstring(L, i.data(), i.size());

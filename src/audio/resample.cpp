@@ -38,8 +38,8 @@ Resampler::~Resampler() {
   speex_resampler_destroy(resampler_);
 }
 
-auto Resampler::Process(cpp::span<sample::Sample> input,
-                        cpp::span<sample::Sample> output,
+auto Resampler::Process(std::span<sample::Sample> input,
+                        std::span<sample::Sample> output,
                         bool end_of_data) -> std::pair<size_t, size_t> {
   uint32_t samples_used = input.size() / num_channels_;
   uint32_t samples_produced = output.size() / num_channels_;

@@ -20,7 +20,7 @@ auto TaggedStream::tags() -> std::shared_ptr<database::TrackTags> {
   return tags_;
 }
 
-auto TaggedStream::Read(cpp::span<std::byte> dest) -> ssize_t {
+auto TaggedStream::Read(std::span<std::byte> dest) -> ssize_t {
   return wrapped_->Read(dest);
 }
 

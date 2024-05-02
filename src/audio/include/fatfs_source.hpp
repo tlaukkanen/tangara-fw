@@ -26,7 +26,7 @@ class FatfsSource : public codecs::IStream {
   FatfsSource(codecs::StreamType, std::unique_ptr<FIL> file);
   ~FatfsSource();
 
-  auto Read(cpp::span<std::byte> dest) -> ssize_t override;
+  auto Read(std::span<std::byte> dest) -> ssize_t override;
 
   auto CanSeek() -> bool override;
 

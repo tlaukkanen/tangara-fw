@@ -8,9 +8,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "esp32/himem.h"
-#include "span.hpp"
 
 /*
  * Wrapper around an ESP-IDF himem allocation, which uses RAII to clean up after
@@ -62,14 +62,14 @@ class MappableRegion {
     }
   }
 
-  auto Get() -> cpp::span<std::byte> {
+  auto Get() -> std::span<std::byte> {
     if (bytes_ == nullptr) {
       return {};
     }
     return {bytes_, size};
   }
 
-  auto Map(const HimemAlloc<size>& alloc) -> cpp::span<std::byte> {
+  auto Map(const HimemAlloc<size>& alloc) -> std::span<std::byte> {
     assert(bytes_ == nullptr);
     ESP_ERROR_CHECK(esp_himem_map(alloc.handle, range_handle, 0, 0, size, 0,
                                   reinterpret_cast<void**>(&bytes_)));

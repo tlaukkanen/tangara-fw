@@ -207,7 +207,7 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
   }
 }
 
-auto I2SDac::WriteData(const cpp::span<const std::byte>& data) -> void {
+auto I2SDac::WriteData(const std::span<const std::byte>& data) -> void {
   std::size_t bytes_written = 0;
   esp_err_t err = i2s_channel_write(i2s_handle_, data.data(), data.size_bytes(),
                                     &bytes_written, portMAX_DELAY);

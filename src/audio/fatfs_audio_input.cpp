@@ -14,6 +14,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <variant>
 
@@ -23,7 +24,6 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "readahead_source.hpp"
-#include "span.hpp"
 
 #include "audio_events.hpp"
 #include "audio_fsm.hpp"
@@ -61,7 +61,8 @@ auto FatfsAudioInput::SetPath(std::optional<std::string> path) -> void {
   }
 }
 
-auto FatfsAudioInput::SetPath(const std::string& path,uint32_t offset) -> void {
+auto FatfsAudioInput::SetPath(const std::string& path, uint32_t offset)
+    -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   if (OpenFile(path, offset)) {
     has_new_stream_ = true;
@@ -102,7 +103,8 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<TaggedStream> {
   }
 }
 
-auto FatfsAudioInput::OpenFile(const std::string& path,uint32_t offset) -> bool {
+auto FatfsAudioInput::OpenFile(const std::string& path, uint32_t offset)
+    -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   auto tags = tag_parser_.ReadAndParseTags(path);

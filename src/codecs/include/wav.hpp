@@ -34,7 +34,7 @@ class WavDecoder : public ICodec {
   auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
       -> cpp::result<OutputFormat, Error> override;
 
-  auto DecodeTo(cpp::span<sample::Sample> destination)
+  auto DecodeTo(std::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> override;
 
   WavDecoder(const WavDecoder&) = delete;

@@ -8,14 +8,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <span>
 
 #include "catch2/catch.hpp"
-#include "span.hpp"
 
 #include "test.mp3.hpp"
 
-void load_mp3(cpp::span<std::byte> dest) {
-  cpp::span<std::byte> src(reinterpret_cast<std::byte*>(test_mp3),
+void load_mp3(std::span<std::byte> dest) {
+  std::span<std::byte> src(reinterpret_cast<std::byte*>(test_mp3),
                            test_mp3_len);
   std::copy(src.begin(), src.begin() + dest.size(), dest.begin());
 }
