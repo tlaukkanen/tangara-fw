@@ -12,11 +12,11 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "audio_events.hpp"
+#include "audio/audio_events.hpp"
 #include "cppbor_parse.h"
-#include "database.hpp"
+#include "database/database.hpp"
+#include "database/track.hpp"
 #include "tasks.hpp"
-#include "track.hpp"
 
 namespace audio {
 

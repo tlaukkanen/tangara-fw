@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "property.hpp"
+#include "lua/property.hpp"
 #include <sys/_stdint.h>
 
 #include <cmath>
@@ -15,14 +15,14 @@
 #include <variant>
 
 #include "bluetooth_types.hpp"
+#include "database/track.hpp"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
-#include "lua_thread.hpp"
+#include "lua/lua_thread.hpp"
 #include "lvgl.h"
 #include "memory_resource.hpp"
-#include "service_locator.hpp"
-#include "track.hpp"
+#include "system_fsm/service_locator.hpp"
 #include "types.hpp"
 
 namespace lua {

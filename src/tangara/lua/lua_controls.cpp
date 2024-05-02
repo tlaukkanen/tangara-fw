@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_controls.hpp"
+#include "lua/lua_controls.hpp"
 
 #include <memory>
 #include <string>
@@ -17,7 +17,7 @@
 #include "lvgl.h"
 
 #include "nvs.hpp"
-#include "ui_events.hpp"
+#include "ui/ui_events.hpp"
 
 namespace lua {
 

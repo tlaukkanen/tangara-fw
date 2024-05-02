@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_database.hpp"
+#include "lua/lua_database.hpp"
 
 #include <memory>
 #include <string>
@@ -16,15 +16,15 @@
 #include "lua.h"
 #include "lvgl.h"
 
-#include "bridge.hpp"
-#include "database.hpp"
-#include "event_queue.hpp"
-#include "index.hpp"
-#include "property.hpp"
-#include "service_locator.hpp"
-#include "track.hpp"
-#include "track_queue.hpp"
-#include "ui_events.hpp"
+#include "audio/track_queue.hpp"
+#include "database/database.hpp"
+#include "database/index.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
+#include "lua/bridge.hpp"
+#include "lua/property.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "ui/ui_events.hpp"
 
 namespace lua {
 

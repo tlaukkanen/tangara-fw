@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "hal/lv_hal_indev.h"
-#include "input_hook.hpp"
-#include "property.hpp"
+#include "input/input_hook.hpp"
+#include "lua/property.hpp"
 
 namespace input {
 

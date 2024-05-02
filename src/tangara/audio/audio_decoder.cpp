@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "audio_decoder.hpp"
+#include "audio/audio_decoder.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -25,20 +25,20 @@
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
 
-#include "audio_converter.hpp"
-#include "audio_events.hpp"
-#include "audio_fsm.hpp"
-#include "audio_sink.hpp"
-#include "audio_source.hpp"
+#include "audio/audio_converter.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/audio_fsm.hpp"
+#include "audio/audio_sink.hpp"
+#include "audio/audio_source.hpp"
+#include "audio/fatfs_audio_input.hpp"
 #include "codec.hpp"
-#include "event_queue.hpp"
-#include "fatfs_audio_input.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
 #include "i2s_dac.hpp"
 #include "sample.hpp"
 #include "tasks.hpp"
-#include "track.hpp"
 #include "types.hpp"
-#include "ui_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace audio {
 

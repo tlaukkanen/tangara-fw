@@ -12,8 +12,8 @@
 #include "hal/lv_hal_indev.h"
 
 #include "haptics.hpp"
-#include "input_device.hpp"
-#include "input_hook.hpp"
+#include "input/input_device.hpp"
+#include "input/input_hook.hpp"
 #include "touchwheel.hpp"
 
 namespace input {

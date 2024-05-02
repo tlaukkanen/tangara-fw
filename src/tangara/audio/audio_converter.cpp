@@ -4,23 +4,23 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "audio_converter.hpp"
+#include "audio/audio_converter.hpp"
 #include <stdint.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 
-#include "audio_events.hpp"
-#include "audio_sink.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/audio_sink.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "i2s_dac.hpp"
 
-#include "resample.hpp"
+#include "audio/resample.hpp"
 #include "sample.hpp"
 #include "tasks.hpp"
 

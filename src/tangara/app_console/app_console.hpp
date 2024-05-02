@@ -8,12 +8,12 @@
 
 #include <memory>
 
+#include "audio/track_queue.hpp"
 #include "bluetooth.hpp"
-#include "console.hpp"
-#include "database.hpp"
+#include "dev_console/console.hpp"
+#include "database/database.hpp"
 #include "samd.hpp"
-#include "service_locator.hpp"
-#include "track_queue.hpp"
+#include "system_fsm/service_locator.hpp"
 
 namespace console {
 

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "database.hpp"
+#include "database/database.hpp"
 
 #include <stdint.h>
 #include <iomanip>
@@ -13,14 +13,14 @@
 #include <string>
 
 #include "catch2/catch.hpp"
+#include "database/file_gatherer.hpp"
+#include "database/tag_parser.hpp"
+#include "database/track.hpp"
 #include "driver_cache.hpp"
 #include "esp_log.h"
-#include "file_gatherer.hpp"
 #include "i2c_fixture.hpp"
 #include "leveldb/db.h"
 #include "spi_fixture.hpp"
-#include "tag_parser.hpp"
-#include "track.hpp"
 
 namespace database {
 
@@ -28,8 +28,8 @@ class TestBackends : public IFileGatherer, public ITagParser {
  public:
   std::map<std::pmr::string, TrackTags> tracks;
 
-  auto MakeTrack(const std::pmr::string& path, const std::pmr::string& title)
-      -> void {
+  auto MakeTrack(const std::pmr::string& path,
+                 const std::pmr::string& title) -> void {
     TrackTags tags;
     tags.encoding = Encoding::kMp3;
     tags.title = title;
@@ -44,8 +44,8 @@ class TestBackends : public IFileGatherer, public ITagParser {
     }
   }
 
-  auto ReadAndParseTags(const std::pmr::string& path, TrackTags* out)
-      -> bool override {
+  auto ReadAndParseTags(const std::pmr::string& path,
+                        TrackTags* out) -> bool override {
     if (tracks.contains(path)) {
       *out = tracks.at(path);
       return true;

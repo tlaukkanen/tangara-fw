@@ -13,7 +13,7 @@
 #include "codec.hpp"
 #include "ff.h"
 
-#include "audio_source.hpp"
+#include "audio/audio_source.hpp"
 
 namespace audio {
 

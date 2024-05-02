@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-#include "audio_sink.hpp"
+#include "audio/audio_sink.hpp"
 #include "gpios.hpp"
 #include "i2s_dac.hpp"
 #include "result.hpp"

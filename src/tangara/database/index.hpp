@@ -17,9 +17,9 @@
 #include "leveldb/db.h"
 #include "leveldb/slice.h"
 
+#include "database/track.hpp"
 #include "leveldb/write_batch.h"
 #include "memory_resource.hpp"
-#include "track.hpp"
 
 namespace database {
 
@@ -61,8 +61,9 @@ struct IndexKey {
   std::optional<TrackId> track;
 };
 
-auto Index(locale::ICollator&, const IndexInfo&, const Track&)
-    -> std::vector<std::pair<IndexKey, std::string>>;
+auto Index(locale::ICollator&,
+           const IndexInfo&,
+           const Track&) -> std::vector<std::pair<IndexKey, std::string>>;
 
 auto ExpandHeader(const IndexKey::Header&,
                   const std::optional<std::pmr::string>&) -> IndexKey::Header;

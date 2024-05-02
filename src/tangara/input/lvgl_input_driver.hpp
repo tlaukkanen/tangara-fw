@@ -12,16 +12,16 @@
 #include <set>
 
 #include "core/lv_group.h"
-#include "device_factory.hpp"
-#include "feedback_device.hpp"
 #include "gpios.hpp"
 #include "hal/lv_hal_indev.h"
+#include "input/device_factory.hpp"
+#include "input/feedback_device.hpp"
 
-#include "input_device.hpp"
-#include "input_hook.hpp"
-#include "lua_thread.hpp"
+#include "input/input_device.hpp"
+#include "input/input_hook.hpp"
+#include "lua/lua_thread.hpp"
+#include "lua/property.hpp"
 #include "nvs.hpp"
-#include "property.hpp"
 #include "touchwheel.hpp"
 
 namespace input {

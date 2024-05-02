@@ -5,18 +5,18 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_version.hpp"
+#include "lua/lua_version.hpp"
 
 #include <string>
 
-#include "bridge.hpp"
 #include "lua.hpp"
+#include "lua/bridge.hpp"
 
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "lauxlib.h"
 #include "lua.h"
-#include "lua_thread.hpp"
+#include "lua/lua_thread.hpp"
 
 namespace lua {
 

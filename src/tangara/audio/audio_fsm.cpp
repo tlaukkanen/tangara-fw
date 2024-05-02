@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "audio_fsm.hpp"
+#include "audio/audio_fsm.hpp"
 #include <stdint.h>
 
 #include <future>
 #include <memory>
 #include <variant>
 
-#include "audio_sink.hpp"
+#include "audio/audio_sink.hpp"
 #include "bluetooth_types.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
@@ -21,23 +21,23 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 
-#include "audio_converter.hpp"
-#include "audio_decoder.hpp"
-#include "audio_events.hpp"
+#include "audio/audio_converter.hpp"
+#include "audio/audio_decoder.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/bt_audio_output.hpp"
+#include "audio/fatfs_audio_input.hpp"
+#include "audio/i2s_audio_output.hpp"
+#include "audio/track_queue.hpp"
 #include "bluetooth.hpp"
-#include "bt_audio_output.hpp"
-#include "event_queue.hpp"
-#include "fatfs_audio_input.hpp"
-#include "future_fetcher.hpp"
-#include "i2s_audio_output.hpp"
+#include "database/future_fetcher.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
 #include "i2s_dac.hpp"
 #include "nvs.hpp"
 #include "sample.hpp"
-#include "service_locator.hpp"
-#include "system_events.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "system_fsm/system_events.hpp"
 #include "tinyfsm.hpp"
-#include "track.hpp"
-#include "track_queue.hpp"
 #include "wm8523.hpp"
 
 namespace audio {

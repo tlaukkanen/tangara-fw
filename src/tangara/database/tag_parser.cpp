@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "tag_parser.hpp"
+#include "database/tag_parser.hpp"
 
 #include <cstdint>
 #include <cstdlib>

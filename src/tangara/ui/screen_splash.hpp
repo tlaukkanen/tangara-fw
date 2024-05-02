@@ -10,7 +10,7 @@
 
 #include "lvgl.h"
 
-#include "screen.hpp"
+#include "ui/screen.hpp"
 
 namespace ui {
 namespace screens {

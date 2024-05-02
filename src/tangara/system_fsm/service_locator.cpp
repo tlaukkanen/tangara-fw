@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "service_locator.hpp"
+#include "system_fsm/service_locator.hpp"
 
 #include <memory>
 

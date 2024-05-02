@@ -13,7 +13,7 @@
 #include "hal/lv_hal_indev.h"
 #include "lua.hpp"
 
-#include "input_trigger.hpp"
+#include "input/input_trigger.hpp"
 
 namespace input {
 

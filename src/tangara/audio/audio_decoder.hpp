@@ -9,12 +9,12 @@
 #include <cstdint>
 #include <memory>
 
-#include "audio_converter.hpp"
-#include "audio_events.hpp"
-#include "audio_sink.hpp"
-#include "audio_source.hpp"
+#include "audio/audio_converter.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/audio_sink.hpp"
+#include "audio/audio_source.hpp"
 #include "codec.hpp"
-#include "track.hpp"
+#include "database/track.hpp"
 #include "types.hpp"
 
 namespace audio {

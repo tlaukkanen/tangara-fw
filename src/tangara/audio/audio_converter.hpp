@@ -10,11 +10,11 @@
 #include <cstdint>
 #include <memory>
 
-#include "audio_events.hpp"
-#include "audio_sink.hpp"
-#include "audio_source.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/audio_sink.hpp"
+#include "audio/audio_source.hpp"
+#include "audio/resample.hpp"
 #include "codec.hpp"
-#include "resample.hpp"
 #include "sample.hpp"
 
 namespace audio {

@@ -15,7 +15,7 @@
 #include "ff.h"
 #include "freertos/stream_buffer.h"
 
-#include "audio_source.hpp"
+#include "audio/audio_source.hpp"
 #include "codec.hpp"
 #include "tasks.hpp"
 

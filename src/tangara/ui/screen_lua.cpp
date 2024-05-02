@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "screen_lua.hpp"
+#include "ui/screen_lua.hpp"
 
 #include "core/lv_obj_tree.h"
 #include "lua.h"
 #include "lua.hpp"
-#include "property.hpp"
-#include "themes.hpp"
+#include "lua/property.hpp"
+#include "ui/themes.hpp"
 
-#include "lua_thread.hpp"
+#include "lua/lua_thread.hpp"
 #include "luavgl.h"
 
 namespace ui {

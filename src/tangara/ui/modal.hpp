@@ -13,7 +13,7 @@
 #include "core/lv_obj_tree.h"
 #include "lvgl.h"
 
-#include "screen.hpp"
+#include "ui/screen.hpp"
 
 namespace ui {
 

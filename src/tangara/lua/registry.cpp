@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_registry.hpp"
+#include "lua/lua_registry.hpp"
 
 #include <iostream>
 #include <memory>
@@ -13,11 +13,11 @@
 #include "esp_log.h"
 #include "lua.hpp"
 
-#include "bridge.hpp"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
+#include "lua/bridge.hpp"
 #include "memory_resource.hpp"
-#include "service_locator.hpp"
-#include "ui_events.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "ui/ui_events.hpp"
 
 namespace lua {
 

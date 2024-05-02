@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_thread.hpp"
+#include "lua/lua_thread.hpp"
 
 #include <iostream>
 #include <memory>
@@ -13,11 +13,11 @@
 #include "esp_log.h"
 #include "lua.hpp"
 
-#include "bridge.hpp"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
+#include "lua/bridge.hpp"
 #include "memory_resource.hpp"
-#include "service_locator.hpp"
-#include "ui_events.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "ui/ui_events.hpp"
 
 namespace lua {
 
@@ -42,8 +42,10 @@ class Allocator {
   size_t total_allocated_;
 };
 
-static auto lua_alloc(void* ud, void* ptr, size_t osize, size_t nsize)
-    -> void* {
+static auto lua_alloc(void* ud,
+                      void* ptr,
+                      size_t osize,
+                      size_t nsize) -> void* {
   Allocator* instance = reinterpret_cast<Allocator*>(ud);
   return instance->alloc(ptr, osize, nsize);
 }

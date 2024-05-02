@@ -10,30 +10,30 @@
 #include <memory>
 #include <stack>
 
-#include "audio_events.hpp"
-#include "battery.hpp"
-#include "db_events.hpp"
-#include "device_factory.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/track_queue.hpp"
+#include "battery/battery.hpp"
+#include "database/db_events.hpp"
+#include "database/track.hpp"
 #include "display.hpp"
-#include "feedback_haptics.hpp"
 #include "gpios.hpp"
-#include "input_touch_wheel.hpp"
-#include "input_volume_buttons.hpp"
-#include "lua_thread.hpp"
-#include "lvgl_input_driver.hpp"
-#include "lvgl_task.hpp"
-#include "modal.hpp"
+#include "input/device_factory.hpp"
+#include "input/feedback_haptics.hpp"
+#include "input/input_touch_wheel.hpp"
+#include "input/input_volume_buttons.hpp"
+#include "input/lvgl_input_driver.hpp"
+#include "lua/lua_thread.hpp"
+#include "lua/property.hpp"
 #include "nvs.hpp"
-#include "property.hpp"
-#include "screen.hpp"
-#include "service_locator.hpp"
 #include "storage.hpp"
-#include "system_events.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "system_fsm/system_events.hpp"
 #include "tinyfsm.hpp"
 #include "touchwheel.hpp"
-#include "track.hpp"
-#include "track_queue.hpp"
-#include "ui_events.hpp"
+#include "ui/lvgl_task.hpp"
+#include "ui/modal.hpp"
+#include "ui/screen.hpp"
+#include "ui/ui_events.hpp"
 
 namespace ui {
 
@@ -74,7 +74,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const internal::DismissAlerts&);
 
   void react(const database::event::UpdateStarted&);
-  void react(const database::event::UpdateProgress&){};
+  void react(const database::event::UpdateProgress&) {};
   void react(const database::event::UpdateFinished&);
 
   void react(const system_fsm::BluetoothEvent&);
@@ -86,7 +86,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
     sCurrentModal.reset();
   }
 
-  void react(const internal::ReindexDatabase&){};
+  void react(const internal::ReindexDatabase&) {};
 
  protected:
   void PushScreen(std::shared_ptr<Screen>);

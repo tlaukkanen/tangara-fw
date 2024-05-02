@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <map>
+#include <string>
 #include <vector>
 #include "lvgl.h"
 
@@ -32,7 +32,6 @@ class Theme {
   Theme();
   std::map<std::string, std::vector<std::pair<int, lv_style_t*>>> style_map;
   lv_theme_t theme_;
-
 };
 }  // namespace themes
 }  // namespace ui

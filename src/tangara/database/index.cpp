@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "index.hpp"
+#include "database/index.hpp"
 #include <sys/_stdint.h>
 
 #include <cstdint>
@@ -21,8 +21,8 @@
 #include "komihash.h"
 #include "leveldb/write_batch.h"
 
-#include "records.hpp"
-#include "track.hpp"
+#include "database/records.hpp"
+#include "database/track.hpp"
 
 namespace database {
 
@@ -183,8 +183,9 @@ auto Indexer::handleItem(const IndexKey::Header& header,
   }
 }
 
-auto Index(locale::ICollator& c, const IndexInfo& i, const Track& t)
-    -> std::vector<std::pair<IndexKey, std::string>> {
+auto Index(locale::ICollator& c,
+           const IndexInfo& i,
+           const Track& t) -> std::vector<std::pair<IndexKey, std::string>> {
   Indexer indexer{c, t, i};
   return indexer.index();
 }

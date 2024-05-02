@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "feedback_device.hpp"
 #include "haptics.hpp"
+#include "input/feedback_device.hpp"
 
 namespace input {
 

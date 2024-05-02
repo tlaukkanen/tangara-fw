@@ -10,11 +10,11 @@
 #include <memory>
 #include <string>
 
-#include "audio_events.hpp"
+#include "audio/audio_events.hpp"
 #include "bluetooth_types.hpp"
 #include "lua.hpp"
 #include "lvgl.h"
-#include "service_locator.hpp"
+#include "system_fsm/service_locator.hpp"
 
 namespace lua {
 

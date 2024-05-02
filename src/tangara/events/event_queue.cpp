@@ -6,12 +6,13 @@
 
 #include "events/event_queue.hpp"
 
-#include "audio_fsm.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
-#include "system_fsm.hpp"
-#include "ui_fsm.hpp"
+
+#include "audio/audio_fsm.hpp"
+#include "system_fsm/system_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace events {
 

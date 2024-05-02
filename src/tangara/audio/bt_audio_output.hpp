@@ -13,7 +13,7 @@
 
 #include "result.hpp"
 
-#include "audio_sink.hpp"
+#include "audio/audio_sink.hpp"
 #include "bluetooth.hpp"
 #include "gpios.hpp"
 #include "i2s_dac.hpp"

@@ -8,27 +8,26 @@
 
 #include <memory>
 
-#include "app_console.hpp"
-#include "audio_events.hpp"
-#include "battery.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+
+#include "app_console/app_console.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/track_queue.hpp"
+#include "battery/battery.hpp"
 #include "bluetooth.hpp"
-#include "database.hpp"
-#include "db_events.hpp"
+#include "database/database.hpp"
+#include "database/db_events.hpp"
+#include "database/tag_parser.hpp"
 #include "display.hpp"
 #include "gpios.hpp"
 #include "nvs.hpp"
 #include "samd.hpp"
-#include "service_locator.hpp"
 #include "storage.hpp"
-#include "tag_parser.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "system_fsm/system_events.hpp"
 #include "tinyfsm.hpp"
 #include "touchwheel.hpp"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/timers.h"
-
-#include "system_events.hpp"
-#include "track_queue.hpp"
 
 namespace system_fsm {
 

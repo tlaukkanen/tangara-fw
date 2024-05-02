@@ -19,19 +19,19 @@
 
 #include "collation.hpp"
 #include "cppbor.h"
-#include "file_gatherer.hpp"
-#include "index.hpp"
+#include "database/file_gatherer.hpp"
+#include "database/index.hpp"
+#include "database/records.hpp"
+#include "database/tag_parser.hpp"
+#include "database/track.hpp"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
 #include "memory_resource.hpp"
-#include "records.hpp"
 #include "result.hpp"
-#include "tag_parser.hpp"
 #include "tasks.hpp"
-#include "track.hpp"
 
 namespace database {
 

@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "input_volume_buttons.hpp"
-#include "event_queue.hpp"
+#include "input/input_volume_buttons.hpp"
+#include "events/event_queue.hpp"
 #include "gpios.hpp"
-#include "input_hook_actions.hpp"
+#include "input/input_hook_actions.hpp"
 
 namespace input {
 

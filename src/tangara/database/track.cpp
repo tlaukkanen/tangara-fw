@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "track.hpp"
+#include "database/track.hpp"
 
 #include <iomanip>
 #include <iostream>

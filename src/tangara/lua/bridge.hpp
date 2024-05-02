@@ -10,9 +10,9 @@
 #include <string>
 
 #include "lua.hpp"
+#include "lua/property.hpp"
 #include "lvgl.h"
-#include "property.hpp"
-#include "service_locator.hpp"
+#include "system_fsm/service_locator.hpp"
 
 namespace lua {
 
@@ -39,9 +39,8 @@ class Bridge {
   auto installPropertyModule(
       lua_State* L,
       const std::string&,
-      std::vector<
-          std::pair<std::string, std::variant<LuaFunction, Property*>>>&)
-      -> void;
+      std::vector<std::pair<std::string,
+                            std::variant<LuaFunction, Property*>>>&) -> void;
 
   Bridge(const Bridge&) = delete;
   Bridge& operator=(const Bridge&) = delete;

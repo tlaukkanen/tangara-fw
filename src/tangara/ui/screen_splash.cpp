@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "screen_splash.hpp"
+#include "ui/screen_splash.hpp"
 
 #include "core/lv_obj.h"
 #include "core/lv_obj_style.h"

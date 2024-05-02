@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "readahead_source.hpp"
+#include "audio/readahead_source.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include "esp_log.h"
 #include "ff.h"
 
-#include "audio_source.hpp"
+#include "audio/audio_source.hpp"
 #include "codec.hpp"
 #include "freertos/portmacro.h"
 #include "spi.hpp"

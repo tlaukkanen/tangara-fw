@@ -8,19 +8,19 @@
 
 #include <memory>
 
-#include "battery.hpp"
+#include "audio/track_queue.hpp"
+#include "battery/battery.hpp"
 #include "bluetooth.hpp"
 #include "collation.hpp"
-#include "database.hpp"
+#include "database/database.hpp"
+#include "database/tag_parser.hpp"
 #include "gpios.hpp"
 #include "haptics.hpp"
 #include "nvs.hpp"
 #include "samd.hpp"
 #include "storage.hpp"
-#include "tag_parser.hpp"
 #include "tasks.hpp"
 #include "touchwheel.hpp"
-#include "track_queue.hpp"
 
 namespace system_fsm {
 

@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "system_fsm.hpp"
-#include "audio_fsm.hpp"
+#include "system_fsm/system_fsm.hpp"
+#include "audio/audio_fsm.hpp"
+#include "audio/track_queue.hpp"
+#include "database/tag_parser.hpp"
 #include "driver/gpio.h"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "gpios.hpp"
-#include "service_locator.hpp"
-#include "system_events.hpp"
-#include "tag_parser.hpp"
-#include "track_queue.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "system_fsm/system_events.hpp"
 
 [[maybe_unused]] static const char kTag[] = "system";
 

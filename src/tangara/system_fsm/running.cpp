@@ -4,23 +4,23 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "app_console.hpp"
-#include "audio_events.hpp"
-#include "database.hpp"
-#include "db_events.hpp"
+#include "app_console/app_console.hpp"
+#include "audio/audio_events.hpp"
+#include "database/database.hpp"
+#include "database/db_events.hpp"
+#include "database/file_gatherer.hpp"
 #include "ff.h"
-#include "file_gatherer.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "gpios.hpp"
 #include "result.hpp"
 
-#include "audio_fsm.hpp"
-#include "event_queue.hpp"
+#include "audio/audio_fsm.hpp"
+#include "events/event_queue.hpp"
 #include "storage.hpp"
-#include "system_events.hpp"
-#include "system_fsm.hpp"
-#include "ui_fsm.hpp"
+#include "system_fsm/system_events.hpp"
+#include "system_fsm/system_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace system_fsm {
 namespace states {

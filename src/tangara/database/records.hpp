@@ -15,9 +15,9 @@
 #include "leveldb/db.h"
 #include "leveldb/slice.h"
 
-#include "index.hpp"
+#include "database/index.hpp"
+#include "database/track.hpp"
 #include "memory_resource.hpp"
-#include "track.hpp"
 
 namespace database {
 

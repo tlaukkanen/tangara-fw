@@ -9,7 +9,7 @@
 #include <memory>
 #include <utility>
 
-#include "database.hpp"
+#include "database/database.hpp"
 
 namespace database {
 

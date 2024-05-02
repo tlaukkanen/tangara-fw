@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "records.hpp"
+#include "database/records.hpp"
 
 #include <stdint.h>
 #include <sys/_stdint.h>
@@ -21,10 +21,10 @@
 #include "cppbor_parse.h"
 #include "esp_log.h"
 
-#include "index.hpp"
+#include "database/index.hpp"
+#include "database/track.hpp"
 #include "komihash.h"
 #include "memory_resource.hpp"
-#include "track.hpp"
 
 // As LevelDB is a key-value store, each record in the database consists of a
 // key and an optional value.

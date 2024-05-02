@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "track_queue.hpp"
+#include "audio/track_queue.hpp"
 #include <stdint.h>
 
 #include <algorithm>
@@ -18,16 +18,16 @@
 #include "MillerShuffle.h"
 #include "esp_random.h"
 
-#include "audio_events.hpp"
-#include "audio_fsm.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/audio_fsm.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
-#include "database.hpp"
-#include "event_queue.hpp"
+#include "database/database.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
 #include "memory_resource.hpp"
 #include "tasks.hpp"
-#include "track.hpp"
-#include "ui_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace audio {
 

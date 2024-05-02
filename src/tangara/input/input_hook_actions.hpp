@@ -7,7 +7,7 @@
 #pragma once
 
 #include "hal/lv_hal_indev.h"
-#include "input_hook.hpp"
+#include "input/input_hook.hpp"
 
 namespace input {
 namespace actions {

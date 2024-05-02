@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "i2s_audio_output.hpp"
+#include "audio/i2s_audio_output.hpp"
 #include <stdint.h>
 
 #include <algorithm>
@@ -18,7 +18,7 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 
-#include "audio_sink.hpp"
+#include "audio/audio_sink.hpp"
 #include "gpios.hpp"
 #include "i2c.hpp"
 #include "i2s_dac.hpp"
@@ -120,7 +120,7 @@ auto I2SAudioOutput::SetVolumePct(uint_fast8_t val) -> bool {
   if (val > 100) {
     return false;
   }
-  uint16_t vol = (val * (max_volume_ - kMinVolume))/100 + kMinVolume;
+  uint16_t vol = (val * (max_volume_ - kMinVolume)) / 100 + kMinVolume;
   SetVolume(vol);
   return true;
 }
@@ -133,7 +133,8 @@ auto I2SAudioOutput::GetVolumeDb() -> int_fast16_t {
 }
 
 auto I2SAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
-  SetVolume(val * 4 + static_cast<int>(drivers::wm8523::kLineLevelReferenceVolume) - 2);
+  SetVolume(val * 4 +
+            static_cast<int>(drivers::wm8523::kLineLevelReferenceVolume) - 2);
   return true;
 }
 

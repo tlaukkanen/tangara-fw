@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lvgl_task.hpp"
+#include "ui/lvgl_task.hpp"
 
 #include <dirent.h>
 #include <stdint.h>
@@ -21,7 +21,7 @@
 #include "core/lv_obj_pos.h"
 #include "core/lv_obj_tree.h"
 #include "esp_log.h"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "extra/themes/basic/lv_theme_basic.h"
 #include "font/lv_font.h"
 #include "freertos/portmacro.h"
@@ -30,17 +30,17 @@
 #include "hal/gpio_types.h"
 #include "hal/lv_hal_indev.h"
 #include "hal/spi_types.h"
+#include "input/lvgl_input_driver.hpp"
 #include "lua.h"
 #include "lv_api_map.h"
 #include "lvgl/lvgl.h"
-#include "lvgl_input_driver.hpp"
 #include "misc/lv_color.h"
 #include "misc/lv_style.h"
 #include "misc/lv_timer.h"
-#include "modal.hpp"
 #include "tasks.hpp"
 #include "touchwheel.hpp"
-#include "ui_fsm.hpp"
+#include "ui/modal.hpp"
+#include "ui/ui_fsm.hpp"
 #include "widgets/lv_label.h"
 
 #include "display.hpp"

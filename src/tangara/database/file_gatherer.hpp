@@ -17,20 +17,18 @@ namespace database {
 
 class IFileGatherer {
  public:
-  virtual ~IFileGatherer(){};
+  virtual ~IFileGatherer() {};
 
   virtual auto FindFiles(
       const std::string& root,
-      std::function<void(std::string_view, const FILINFO&)> cb)
-      -> void = 0;
+      std::function<void(std::string_view, const FILINFO&)> cb) -> void = 0;
 };
 
 class FileGathererImpl : public IFileGatherer {
  public:
-  virtual auto FindFiles(
-      const std::string& root,
-      std::function<void(std::string_view, const FILINFO&)> cb)
-      -> void override;
+  virtual auto FindFiles(const std::string& root,
+                         std::function<void(std::string_view, const FILINFO&)>
+                             cb) -> void override;
 };
 
 }  // namespace database

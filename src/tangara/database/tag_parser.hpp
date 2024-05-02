@@ -8,8 +8,8 @@
 
 #include <string>
 
+#include "database/track.hpp"
 #include "lru_cache.hpp"
-#include "track.hpp"
 
 namespace database {
 

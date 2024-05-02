@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "console.hpp"
+#include "dev_console/console.hpp"
 #include <stdio.h>
 #include <string.h>
 

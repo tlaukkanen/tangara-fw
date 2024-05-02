@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "file_gatherer.hpp"
+#include "database/file_gatherer.hpp"
 
 #include <deque>
 #include <functional>

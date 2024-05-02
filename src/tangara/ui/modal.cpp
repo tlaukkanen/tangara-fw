@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "modal.hpp"
+#include "ui/modal.hpp"
 
 #include "misc/lv_color.h"
 
@@ -14,17 +14,17 @@
 
 #include "core/lv_group.h"
 #include "core/lv_obj_pos.h"
-#include "event_queue.hpp"
+#include "database/index.hpp"
+#include "events/event_queue.hpp"
 #include "extra/widgets/list/lv_list.h"
 #include "extra/widgets/menu/lv_menu.h"
 #include "extra/widgets/spinner/lv_spinner.h"
 #include "hal/lv_hal_disp.h"
-#include "index.hpp"
 #include "misc/lv_area.h"
-#include "screen.hpp"
-#include "themes.hpp"
-#include "ui_events.hpp"
-#include "ui_fsm.hpp"
+#include "ui/screen.hpp"
+#include "ui/themes.hpp"
+#include "ui/ui_events.hpp"
+#include "ui/ui_fsm.hpp"
 #include "widgets/lv_label.h"
 
 namespace ui {

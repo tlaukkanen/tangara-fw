@@ -13,13 +13,13 @@
 
 #include "events/event_queue.hpp"
 #include "haptics.hpp"
-#include "input_device.hpp"
-#include "input_hook_actions.hpp"
-#include "input_trigger.hpp"
+#include "input/input_device.hpp"
+#include "input/input_hook_actions.hpp"
+#include "input/input_trigger.hpp"
+#include "lua/property.hpp"
 #include "nvs.hpp"
-#include "property.hpp"
 #include "touchwheel.hpp"
-#include "ui_events.hpp"
+#include "ui/ui_events.hpp"
 
 namespace input {
 

@@ -4,30 +4,30 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_database.hpp"
+#include "lua/lua_database.hpp"
 
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <variant>
 
-#include "bridge.hpp"
 #include "lua.hpp"
+#include "lua/bridge.hpp"
 
 #include "esp_log.h"
 #include "lauxlib.h"
 #include "lua.h"
-#include "lua_thread.hpp"
+#include "lua/lua_thread.hpp"
 #include "lvgl.h"
 
-#include "database.hpp"
-#include "event_queue.hpp"
-#include "index.hpp"
-#include "property.hpp"
-#include "records.hpp"
-#include "service_locator.hpp"
-#include "track.hpp"
-#include "ui_events.hpp"
+#include "database/database.hpp"
+#include "database/index.hpp"
+#include "database/records.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
+#include "lua/property.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "ui/ui_events.hpp"
 
 namespace lua {
 
@@ -152,8 +152,8 @@ auto db_check_iterator(lua_State* L, int stack_pos) -> database::Iterator* {
   return it;
 }
 
-static auto push_iterator(lua_State* state, const database::Iterator& it)
-    -> void {
+static auto push_iterator(lua_State* state,
+                          const database::Iterator& it) -> void {
   database::Iterator** data = reinterpret_cast<database::Iterator**>(
       lua_newuserdata(state, sizeof(uintptr_t)));
   *data = new database::Iterator(it);
@@ -198,12 +198,10 @@ static auto db_iterator_gc(lua_State* state) -> int {
   return 0;
 }
 
-static const struct luaL_Reg kDbIteratorFuncs[] = {{"next", db_iterate},
-                                                   {"prev", db_iterate_prev},
-                                                   {"clone", db_iterator_clone},
-                                                   {"__call", db_iterate},
-                                                   {"__gc", db_iterator_gc},
-                                                   {NULL, NULL}};
+static const struct luaL_Reg kDbIteratorFuncs[] = {
+    {"next", db_iterate},         {"prev", db_iterate_prev},
+    {"clone", db_iterator_clone}, {"__call", db_iterate},
+    {"__gc", db_iterator_gc},     {NULL, NULL}};
 
 static auto record_text(lua_State* state) -> int {
   LuaRecord* data = reinterpret_cast<LuaRecord*>(

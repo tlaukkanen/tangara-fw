@@ -7,7 +7,7 @@
 #include "collation.hpp"
 #include "haptics.hpp"
 #include "spiffs.hpp"
-#include "system_fsm.hpp"
+#include "system_fsm/system_fsm.hpp"
 
 #include <stdint.h>
 #include <memory>
@@ -21,24 +21,24 @@
 #include "freertos/timers.h"
 
 #include "adc.hpp"
-#include "audio_fsm.hpp"
-#include "battery.hpp"
+#include "audio/audio_fsm.hpp"
+#include "audio/track_queue.hpp"
+#include "battery/battery.hpp"
 #include "bluetooth.hpp"
 #include "bluetooth_types.hpp"
+#include "database/tag_parser.hpp"
 #include "display_init.hpp"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "gpios.hpp"
 #include "i2c.hpp"
 #include "nvs.hpp"
 #include "samd.hpp"
-#include "service_locator.hpp"
 #include "spi.hpp"
-#include "system_events.hpp"
-#include "tag_parser.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "system_fsm/system_events.hpp"
 #include "tasks.hpp"
 #include "touchwheel.hpp"
-#include "track_queue.hpp"
-#include "ui_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace system_fsm {
 namespace states {

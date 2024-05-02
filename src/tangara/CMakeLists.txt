@@ -5,8 +5,7 @@
 idf_component_register(
   SRC_DIRS "app_console" "audio" "battery" "database" "dev_console" "events"
   "input" "lua" "system_fsm" "ui"
-  INCLUDE_DIRS "." "app_console" "audio" "battery" "database" "dev_console"
-  "events" "input" "lua" "system_fsm" "ui"
+  INCLUDE_DIRS "."
   REQUIRES "codecs" "drivers" "locale" "memory" "tasks" "util"
   "tinyfsm" "lvgl" "esp_timer" "luavgl" "esp_app_format" "libcppbor" "libtags"
   "komihash" "result" "esp_psram" "fatfs" "millershuffle" "speexdsp" "console"

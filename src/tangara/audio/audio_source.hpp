@@ -8,7 +8,7 @@
 
 #include <memory>
 #include "codec.hpp"
-#include "track.hpp"
+#include "database/track.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -18,8 +18,7 @@ class TaggedStream : public codecs::IStream {
   TaggedStream(std::shared_ptr<database::TrackTags>,
                std::unique_ptr<codecs::IStream> wrapped,
                std::string path,
-               uint32_t offset = 0
-              );
+               uint32_t offset = 0);
 
   auto tags() -> std::shared_ptr<database::TrackTags>;
 

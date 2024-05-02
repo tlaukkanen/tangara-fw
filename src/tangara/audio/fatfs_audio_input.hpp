@@ -15,10 +15,10 @@
 #include "ff.h"
 #include "freertos/portmacro.h"
 
-#include "audio_source.hpp"
+#include "audio/audio_source.hpp"
 #include "codec.hpp"
-#include "future_fetcher.hpp"
-#include "tag_parser.hpp"
+#include "database/future_fetcher.hpp"
+#include "database/tag_parser.hpp"
 #include "tasks.hpp"
 #include "types.hpp"
 
@@ -39,7 +39,7 @@ class FatfsAudioInput : public IAudioSource {
    * given file path.
    */
   auto SetPath(std::optional<std::string>) -> void;
-  auto SetPath(const std::string&,uint32_t offset = 0) -> void;
+  auto SetPath(const std::string&, uint32_t offset = 0) -> void;
   auto SetPath() -> void;
 
   auto HasNewStream() -> bool override;
@@ -49,7 +49,7 @@ class FatfsAudioInput : public IAudioSource {
   FatfsAudioInput& operator=(const FatfsAudioInput&) = delete;
 
  private:
-  auto OpenFile(const std::string& path,uint32_t offset) -> bool;
+  auto OpenFile(const std::string& path, uint32_t offset) -> bool;
 
   auto ContainerToStreamType(database::Container)
       -> std::optional<codecs::StreamType>;

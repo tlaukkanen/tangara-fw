@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "database.hpp"
+#include "database/database.hpp"
 
 #include <stdint.h>
 #include <sys/_stdint.h>
@@ -23,10 +23,10 @@
 #include "collation.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
+#include "database/index.hpp"
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/projdefs.h"
-#include "index.hpp"
 #include "komihash.h"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
@@ -36,17 +36,17 @@
 #include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 
-#include "db_events.hpp"
-#include "env_esp.hpp"
-#include "event_queue.hpp"
-#include "file_gatherer.hpp"
+#include "database/db_events.hpp"
+#include "database/env_esp.hpp"
+#include "database/file_gatherer.hpp"
+#include "database/records.hpp"
+#include "database/tag_parser.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
 #include "memory_resource.hpp"
-#include "records.hpp"
 #include "result.hpp"
 #include "spi.hpp"
-#include "tag_parser.hpp"
 #include "tasks.hpp"
-#include "track.hpp"
 
 namespace database {
 
@@ -63,8 +63,8 @@ static const char kKeyTrackId[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
-static auto CreateNewDatabase(leveldb::Options& options, locale::ICollator& col)
-    -> leveldb::DB* {
+static auto CreateNewDatabase(leveldb::Options& options,
+                              locale::ICollator& col) -> leveldb::DB* {
   Database::Destroy();
   leveldb::DB* db;
   options.create_if_missing = true;

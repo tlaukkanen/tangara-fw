@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "audio_source.hpp"
+#include "audio/audio_source.hpp"
 #include "codec.hpp"
 #include "types.hpp"
 
@@ -14,7 +14,11 @@ TaggedStream::TaggedStream(std::shared_ptr<database::TrackTags> t,
                            std::unique_ptr<codecs::IStream> w,
                            std::string filepath,
                            uint32_t offset)
-    : codecs::IStream(w->type()), tags_(t), wrapped_(std::move(w)), filepath_(filepath), offset_(offset) {}
+    : codecs::IStream(w->type()),
+      tags_(t),
+      wrapped_(std::move(w)),
+      filepath_(filepath),
+      offset_(offset) {}
 
 auto TaggedStream::tags() -> std::shared_ptr<database::TrackTags> {
   return tags_;

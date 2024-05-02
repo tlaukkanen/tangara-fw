@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "battery.hpp"
+#include "battery/battery.hpp"
 
 #include <cstdint>
 
 #include "adc.hpp"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "freertos/portmacro.h"
 #include "samd.hpp"
-#include "system_events.hpp"
+#include "system_fsm/system_events.hpp"
 
 namespace battery {
 

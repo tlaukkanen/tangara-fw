@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "device_factory.hpp"
+#include "input/device_factory.hpp"
 
 #include <memory>
 
-#include "feedback_haptics.hpp"
-#include "input_device.hpp"
-#include "input_nav_buttons.hpp"
-#include "input_touch_dpad.hpp"
-#include "input_touch_wheel.hpp"
-#include "input_volume_buttons.hpp"
+#include "input/feedback_haptics.hpp"
+#include "input/input_device.hpp"
+#include "input/input_nav_buttons.hpp"
+#include "input/input_touch_dpad.hpp"
+#include "input/input_touch_wheel.hpp"
+#include "input/input_volume_buttons.hpp"
 
 namespace input {
 

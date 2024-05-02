@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "env_esp.hpp"
+#include "database/env_esp.hpp"
 
 #include <atomic>
 #include <cerrno>
@@ -41,7 +41,7 @@
 
 namespace leveldb {
 
-tasks::WorkerPool *sBackgroundThread = nullptr;
+tasks::WorkerPool* sBackgroundThread = nullptr;
 
 std::string ErrToStr(FRESULT err) {
   switch (err) {

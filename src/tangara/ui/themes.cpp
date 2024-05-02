@@ -1,4 +1,4 @@
-#include "themes.hpp"
+#include "ui/themes.hpp"
 #include "core/lv_obj.h"
 #include "core/lv_obj_style.h"
 #include "core/lv_obj_tree.h"
@@ -35,9 +35,9 @@ void Theme::Apply(void) {
 void Theme::Callback(lv_obj_t* obj) {
   // Find and apply base styles
   if (auto search = style_map.find("base"); search != style_map.end()) {
-      for (const auto& pair : search->second) {
-        lv_obj_add_style(obj, pair.second, pair.first);
-      }
+    for (const auto& pair : search->second) {
+      lv_obj_add_style(obj, pair.second, pair.first);
+    }
   }
 
   // Determine class name
@@ -60,19 +60,18 @@ void Theme::Callback(lv_obj_t* obj) {
 
   // Apply all styles from class
   if (auto search = style_map.find(class_name); search != style_map.end()) {
-      for (const auto& pair : search->second) {
-        lv_obj_add_style(obj, pair.second, pair.first);
-      }
+    for (const auto& pair : search->second) {
+      lv_obj_add_style(obj, pair.second, pair.first);
+    }
   }
-
 }
 
 void Theme::ApplyStyle(lv_obj_t* obj, std::string style_key) {
   if (auto search = style_map.find(style_key); search != style_map.end()) {
-      for (const auto& pair : search->second) {
-        lv_obj_remove_style(obj, pair.second, pair.first);
-        lv_obj_add_style(obj, pair.second, pair.first);
-      }
+    for (const auto& pair : search->second) {
+      lv_obj_remove_style(obj, pair.second, pair.first);
+      lv_obj_add_style(obj, pair.second, pair.first);
+    }
   }
 }
 
@@ -85,7 +84,7 @@ void Theme::AddStyle(std::string key, int selector, lv_style_t* style) {
   style_map.try_emplace(key, std::vector<std::pair<int, lv_style_t*>>{});
   if (auto search = style_map.find(key); search != style_map.end()) {
     // Key exists
-    auto &vec = search->second;
+    auto& vec = search->second;
     // Add it to the list
     vec.push_back(std::make_pair(selector, style));
   }

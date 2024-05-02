@@ -7,12 +7,12 @@
 #pragma once
 
 #include <memory>
-#include "database.hpp"
+#include "database/database.hpp"
+#include "database/index.hpp"
 #include "gpios.hpp"
-#include "index.hpp"
 #include "nvs.hpp"
-#include "screen.hpp"
 #include "tinyfsm.hpp"
+#include "ui/screen.hpp"
 
 namespace ui {
 

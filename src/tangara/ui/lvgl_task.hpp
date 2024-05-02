@@ -15,10 +15,10 @@
 #include "freertos/timers.h"
 
 #include "display.hpp"
-#include "lvgl_input_driver.hpp"
-#include "screen.hpp"
-#include "themes.hpp"
+#include "input/lvgl_input_driver.hpp"
 #include "touchwheel.hpp"
+#include "ui/screen.hpp"
+#include "ui/themes.hpp"
 
 namespace ui {
 

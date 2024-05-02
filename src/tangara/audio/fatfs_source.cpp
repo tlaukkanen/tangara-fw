@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "fatfs_source.hpp"
+#include "audio/fatfs_source.hpp"
 #include <sys/_stdint.h>
 
 #include <cstddef>
@@ -12,13 +12,13 @@
 #include <memory>
 
 #include "esp_log.h"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "ff.h"
 
-#include "audio_source.hpp"
+#include "audio/audio_source.hpp"
 #include "codec.hpp"
 #include "spi.hpp"
-#include "system_events.hpp"
+#include "system_fsm/system_events.hpp"
 #include "types.hpp"
 
 namespace audio {

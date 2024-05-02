@@ -4,33 +4,33 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "bridge.hpp"
-#include <sys/_stdint.h>
+#include "lua/bridge.hpp"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
-#include "database.hpp"
+#include "database/database.hpp"
+#include "database/index.hpp"
 #include "esp_log.h"
-#include "index.hpp"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
-#include "lua_controls.hpp"
-#include "lua_database.hpp"
-#include "lua_queue.hpp"
-#include "lua_screen.hpp"
-#include "lua_version.hpp"
-#include "lua_theme.hpp"
+#include "lua/lua_controls.hpp"
+#include "lua/lua_database.hpp"
+#include "lua/lua_queue.hpp"
+#include "lua/lua_screen.hpp"
+#include "lua/lua_theme.hpp"
+#include "lua/lua_version.hpp"
 #include "lvgl.h"
 
 #include "font/lv_font_loader.h"
 #include "luavgl.h"
 
-#include "event_queue.hpp"
-#include "property.hpp"
-#include "service_locator.hpp"
-#include "ui_events.hpp"
+#include "events/event_queue.hpp"
+#include "lua/property.hpp"
+#include "system_fsm/service_locator.hpp"
+#include "ui/ui_events.hpp"
 
 extern "C" {
 int luaopen_linenoise(lua_State* L);

@@ -8,13 +8,13 @@
 
 #include <memory>
 
-#include "battery.hpp"
+#include "battery/battery.hpp"
 #include "bluetooth_types.hpp"
-#include "database.hpp"
+#include "database/database.hpp"
 #include "ff.h"
 #include "haptics.hpp"
 #include "samd.hpp"
-#include "service_locator.hpp"
+#include "system_fsm/service_locator.hpp"
 #include "tinyfsm.hpp"
 
 namespace system_fsm {

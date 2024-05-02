@@ -8,8 +8,8 @@
 
 #include "lua.hpp"
 
-#include "property.hpp"
-#include "screen.hpp"
+#include "lua/property.hpp"
+#include "ui/screen.hpp"
 
 namespace ui {
 namespace screens {

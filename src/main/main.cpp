@@ -7,14 +7,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 
-#include "i2c.hpp"
-#include "system_events.hpp"
 #include "tinyfsm.hpp"
 
-#include "audio_fsm.hpp"
-#include "event_queue.hpp"
-#include "system_fsm.hpp"
-#include "ui_fsm.hpp"
+#include "audio/audio_fsm.hpp"
+#include "events/event_queue.hpp"
+#include "i2c.hpp"
+#include "system_fsm/system_events.hpp"
+#include "system_fsm/system_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 extern "C" void app_main(void) {
   ESP_ERROR_CHECK(drivers::init_i2c());

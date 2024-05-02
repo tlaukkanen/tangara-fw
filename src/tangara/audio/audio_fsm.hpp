@@ -11,24 +11,24 @@
 #include <memory>
 #include <vector>
 
-#include "audio_sink.hpp"
-#include "service_locator.hpp"
+#include "audio/audio_sink.hpp"
+#include "system_fsm/service_locator.hpp"
 #include "tinyfsm.hpp"
 
-#include "audio_decoder.hpp"
-#include "audio_events.hpp"
-#include "bt_audio_output.hpp"
-#include "database.hpp"
+#include "audio/audio_decoder.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/bt_audio_output.hpp"
+#include "audio/fatfs_audio_input.hpp"
+#include "audio/i2s_audio_output.hpp"
+#include "audio/track_queue.hpp"
+#include "database/database.hpp"
+#include "database/tag_parser.hpp"
+#include "database/track.hpp"
 #include "display.hpp"
-#include "fatfs_audio_input.hpp"
 #include "gpios.hpp"
-#include "i2s_audio_output.hpp"
 #include "i2s_dac.hpp"
 #include "storage.hpp"
-#include "system_events.hpp"
-#include "tag_parser.hpp"
-#include "track.hpp"
-#include "track_queue.hpp"
+#include "system_fsm/system_events.hpp"
 
 namespace audio {
 
@@ -61,7 +61,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const OutputModeChanged&);
 
   virtual void react(const system_fsm::BootComplete&) {}
-  virtual void react(const system_fsm::KeyLockChanged&){};
+  virtual void react(const system_fsm::KeyLockChanged&) {};
   virtual void react(const system_fsm::StorageMounted&) {}
   virtual void react(const system_fsm::BluetoothEvent&);
 
@@ -103,7 +103,7 @@ namespace states {
 class Uninitialised : public AudioState {
  public:
   void react(const system_fsm::BootComplete&) override;
-  void react(const system_fsm::BluetoothEvent&) override{};
+  void react(const system_fsm::BluetoothEvent&) override {};
 
   using AudioState::react;
 };

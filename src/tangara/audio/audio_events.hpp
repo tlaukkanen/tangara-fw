@@ -12,10 +12,10 @@
 #include <optional>
 #include <string>
 
-#include "audio_sink.hpp"
+#include "audio/audio_sink.hpp"
 #include "tinyfsm.hpp"
 
-#include "track.hpp"
+#include "database/track.hpp"
 #include "types.hpp"
 
 namespace audio {

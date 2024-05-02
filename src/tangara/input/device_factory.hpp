@@ -9,11 +9,11 @@
 #include <cstdint>
 #include <memory>
 
-#include "feedback_device.hpp"
-#include "input_device.hpp"
-#include "input_touch_wheel.hpp"
+#include "input/feedback_device.hpp"
+#include "input/input_device.hpp"
+#include "input/input_touch_wheel.hpp"
 #include "nvs.hpp"
-#include "service_locator.hpp"
+#include "system_fsm/service_locator.hpp"
 
 namespace input {
 

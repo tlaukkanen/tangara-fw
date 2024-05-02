@@ -11,9 +11,9 @@
 
 #include "lua.hpp"
 
-#include "bridge.hpp"
-#include "lua_thread.hpp"
-#include "service_locator.hpp"
+#include "lua/bridge.hpp"
+#include "lua/lua_thread.hpp"
+#include "system_fsm/service_locator.hpp"
 
 namespace lua {
 

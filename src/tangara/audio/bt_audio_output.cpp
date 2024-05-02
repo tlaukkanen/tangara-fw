@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "bt_audio_output.hpp"
+#include "audio/bt_audio_output.hpp"
 
 #include <algorithm>
 #include <cmath>

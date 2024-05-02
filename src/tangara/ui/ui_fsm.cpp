@@ -4,61 +4,61 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "ui_fsm.hpp"
+#include "ui/ui_fsm.hpp"
 
 #include <memory>
 #include <memory_resource>
 #include <variant>
 
 #include "bluetooth_types.hpp"
-#include "db_events.hpp"
-#include "device_factory.hpp"
+#include "database/db_events.hpp"
 #include "display_init.hpp"
 #include "esp_spp_api.h"
-#include "feedback_haptics.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
-#include "input_device.hpp"
-#include "input_touch_wheel.hpp"
-#include "input_volume_buttons.hpp"
+#include "input/device_factory.hpp"
+#include "input/feedback_haptics.hpp"
+#include "input/input_device.hpp"
+#include "input/input_touch_wheel.hpp"
+#include "input/input_volume_buttons.hpp"
 #include "lua.h"
 #include "lua.hpp"
 
-#include "audio_fsm.hpp"
-#include "battery.hpp"
+#include "audio/audio_fsm.hpp"
+#include "battery/battery.hpp"
 #include "core/lv_group.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
-#include "database.hpp"
+#include "database/database.hpp"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "haptics.hpp"
+#include "input/lvgl_input_driver.hpp"
 #include "lauxlib.h"
-#include "lua_thread.hpp"
+#include "lua/lua_thread.hpp"
 #include "luavgl.h"
-#include "lvgl_input_driver.hpp"
 #include "memory_resource.hpp"
 #include "misc/lv_gc.h"
 
-#include "audio_events.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/track_queue.hpp"
 #include "display.hpp"
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "gpios.hpp"
-#include "lua_registry.hpp"
-#include "lvgl_task.hpp"
+#include "lua/lua_registry.hpp"
+#include "lua/property.hpp"
 #include "nvs.hpp"
-#include "property.hpp"
 #include "samd.hpp"
-#include "screen.hpp"
-#include "screen_lua.hpp"
-#include "screen_splash.hpp"
 #include "spiffs.hpp"
 #include "storage.hpp"
-#include "system_events.hpp"
+#include "system_fsm/system_events.hpp"
 #include "tinyfsm.hpp"
 #include "touchwheel.hpp"
-#include "track_queue.hpp"
-#include "ui_events.hpp"
+#include "ui/lvgl_task.hpp"
+#include "ui/screen.hpp"
+#include "ui/screen_lua.hpp"
+#include "ui/screen_splash.hpp"
+#include "ui/ui_events.hpp"
 #include "widgets/lv_label.h"
 
 namespace ui {
@@ -266,8 +266,8 @@ lua::Property UiState::sUsbMassStorageEnabled{
 
 lua::Property UiState::sUsbMassStorageBusy{false};
 
-auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
-    -> bool {
+auto UiState::InitBootSplash(drivers::IGpios& gpios,
+                             drivers::NvsStorage& nvs) -> bool {
   events::Ui().Dispatch(internal::InitDisplay{
       .gpios = gpios,
       .nvs = nvs,

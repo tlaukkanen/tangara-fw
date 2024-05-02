@@ -8,7 +8,7 @@
 
 #include "lua.hpp"
 
-#include "database.hpp"
+#include "database/database.hpp"
 
 namespace lua {
 

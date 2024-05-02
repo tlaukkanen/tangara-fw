@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "fatfs_audio_input.hpp"
+#include "audio/fatfs_audio_input.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -18,24 +18,24 @@
 #include <string>
 #include <variant>
 
+#include "audio/readahead_source.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
-#include "readahead_source.hpp"
 
-#include "audio_events.hpp"
-#include "audio_fsm.hpp"
-#include "audio_source.hpp"
+#include "audio/audio_events.hpp"
+#include "audio/audio_fsm.hpp"
+#include "audio/audio_source.hpp"
+#include "audio/fatfs_source.hpp"
 #include "codec.hpp"
-#include "event_queue.hpp"
-#include "fatfs_source.hpp"
-#include "future_fetcher.hpp"
+#include "database/future_fetcher.hpp"
+#include "database/tag_parser.hpp"
+#include "database/track.hpp"
+#include "events/event_queue.hpp"
 #include "spi.hpp"
-#include "tag_parser.hpp"
 #include "tasks.hpp"
-#include "track.hpp"
 #include "types.hpp"
 
 [[maybe_unused]] static const char* kTag = "SRC";
@@ -61,8 +61,8 @@ auto FatfsAudioInput::SetPath(std::optional<std::string> path) -> void {
   }
 }
 
-auto FatfsAudioInput::SetPath(const std::string& path, uint32_t offset)
-    -> void {
+auto FatfsAudioInput::SetPath(const std::string& path,
+                              uint32_t offset) -> void {
   std::lock_guard<std::mutex> guard{new_stream_mutex_};
   if (OpenFile(path, offset)) {
     has_new_stream_ = true;
@@ -103,8 +103,8 @@ auto FatfsAudioInput::NextStream() -> std::shared_ptr<TaggedStream> {
   }
 }
 
-auto FatfsAudioInput::OpenFile(const std::string& path, uint32_t offset)
-    -> bool {
+auto FatfsAudioInput::OpenFile(const std::string& path,
+                               uint32_t offset) -> bool {
   ESP_LOGI(kTag, "opening file %s", path.c_str());
 
   auto tags = tag_parser_.ReadAndParseTags(path);

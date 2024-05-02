@@ -11,7 +11,7 @@
 
 #include "lua.hpp"
 
-#include "service_locator.hpp"
+#include "system_fsm/service_locator.hpp"
 
 namespace lua {
 

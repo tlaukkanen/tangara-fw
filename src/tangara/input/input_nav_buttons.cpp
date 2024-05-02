@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "input_nav_buttons.hpp"
+#include "input/input_nav_buttons.hpp"
 
-#include "event_queue.hpp"
+#include "events/event_queue.hpp"
 #include "gpios.hpp"
 #include "hal/lv_hal_indev.h"
-#include "input_hook_actions.hpp"
+#include "input/input_hook_actions.hpp"
 
 namespace input {
 
