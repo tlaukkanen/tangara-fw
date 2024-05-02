@@ -33,8 +33,8 @@
 #include "database/future_fetcher.hpp"
 #include "database/tag_parser.hpp"
 #include "database/track.hpp"
+#include "drivers/spi.hpp"
 #include "events/event_queue.hpp"
-#include "spi.hpp"
 #include "tasks.hpp"
 #include "types.hpp"
 

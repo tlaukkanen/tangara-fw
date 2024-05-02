@@ -5,8 +5,8 @@
  */
 
 #include "collation.hpp"
-#include "haptics.hpp"
-#include "spiffs.hpp"
+#include "drivers/haptics.hpp"
+#include "drivers/spiffs.hpp"
 #include "system_fsm/system_fsm.hpp"
 
 #include <stdint.h>
@@ -20,24 +20,24 @@
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
 
-#include "adc.hpp"
 #include "audio/audio_fsm.hpp"
 #include "audio/track_queue.hpp"
 #include "battery/battery.hpp"
-#include "bluetooth.hpp"
-#include "bluetooth_types.hpp"
 #include "database/tag_parser.hpp"
-#include "display_init.hpp"
+#include "drivers/adc.hpp"
+#include "drivers/bluetooth.hpp"
+#include "drivers/bluetooth_types.hpp"
+#include "drivers/display_init.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2c.hpp"
+#include "drivers/nvs.hpp"
+#include "drivers/samd.hpp"
+#include "drivers/spi.hpp"
+#include "drivers/touchwheel.hpp"
 #include "events/event_queue.hpp"
-#include "gpios.hpp"
-#include "i2c.hpp"
-#include "nvs.hpp"
-#include "samd.hpp"
-#include "spi.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
 #include "tasks.hpp"
-#include "touchwheel.hpp"
 #include "ui/ui_fsm.hpp"
 
 namespace system_fsm {

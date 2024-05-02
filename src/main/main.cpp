@@ -10,8 +10,8 @@
 #include "tinyfsm.hpp"
 
 #include "audio/audio_fsm.hpp"
+#include "drivers/i2c.hpp"
 #include "events/event_queue.hpp"
-#include "i2c.hpp"
 #include "system_fsm/system_events.hpp"
 #include "system_fsm/system_fsm.hpp"
 #include "ui/ui_fsm.hpp"

@@ -9,8 +9,8 @@
 #include <memory>
 #include "database/database.hpp"
 #include "database/index.hpp"
-#include "gpios.hpp"
-#include "nvs.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/nvs.hpp"
 #include "tinyfsm.hpp"
 #include "ui/screen.hpp"
 

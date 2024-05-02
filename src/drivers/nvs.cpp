@@ -4,19 +4,19 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "nvs.hpp"
+#include "drivers/nvs.hpp"
 
 #include <cstdint>
 #include <memory>
 
-#include "bluetooth.hpp"
-#include "bluetooth_types.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
+#include "drivers/bluetooth.hpp"
+#include "drivers/bluetooth_types.hpp"
+#include "drivers/wm8523.hpp"
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "wm8523.hpp"
 
 namespace drivers {
 
@@ -39,8 +39,8 @@ static constexpr char kKeyDisplayRows[] = "disprows";
 static constexpr char kKeyHapticMotorType[] = "hapticmtype";
 static constexpr char kKeyDbAutoIndex[] = "dbautoindex";
 
-static auto nvs_get_string(nvs_handle_t nvs, const char* key)
-    -> std::optional<std::string> {
+static auto nvs_get_string(nvs_handle_t nvs,
+                           const char* key) -> std::optional<std::string> {
   size_t len = 0;
   if (nvs_get_blob(nvs, key, NULL, &len) != ESP_OK) {
     return {};
@@ -187,8 +187,7 @@ auto NvsStorage::Read() -> void {
   lock_polarity_.read(handle_);
   display_cols_.read(handle_);
   display_rows_.read(handle_);
-  haptic_motor_type_.read(handle_),
-  brightness_.read(handle_);
+  haptic_motor_type_.read(handle_), brightness_.read(handle_);
   sensitivity_.read(handle_);
   amp_max_vol_.read(handle_);
   amp_cur_vol_.read(handle_);
@@ -205,8 +204,7 @@ auto NvsStorage::Write() -> bool {
   lock_polarity_.write(handle_);
   display_cols_.write(handle_);
   display_rows_.write(handle_);
-  haptic_motor_type_.write(handle_),
-  brightness_.write(handle_);
+  haptic_motor_type_.write(handle_), brightness_.write(handle_);
   sensitivity_.write(handle_);
   amp_max_vol_.write(handle_);
   amp_cur_vol_.write(handle_);
@@ -287,8 +285,8 @@ auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac) -> uint8_t {
   return bt_volumes_.Get(mac).value_or(50);
 }
 
-auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac, uint8_t vol)
-    -> void {
+auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac,
+                                 uint8_t vol) -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   bt_volumes_dirty_ = true;
   bt_volumes_.Put(mac, vol);

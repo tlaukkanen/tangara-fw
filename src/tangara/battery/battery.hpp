@@ -11,8 +11,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 
-#include "adc.hpp"
-#include "samd.hpp"
+#include "drivers/adc.hpp"
+#include "drivers/samd.hpp"
 
 namespace battery {
 

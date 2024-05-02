@@ -12,11 +12,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
 #include <stdint.h>
-#include "bluetooth_types.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "esp_gap_bt_api.h"
-#include "nvs.hpp"
+#include "drivers/nvs.hpp"
 #include "tasks.hpp"
 #include "tinyfsm.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"

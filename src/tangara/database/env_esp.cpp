@@ -36,7 +36,7 @@
 #include "leveldb/slice.h"
 #include "leveldb/status.h"
 
-#include "spi.hpp"
+#include "drivers/spi.hpp"
 #include "tasks.hpp"
 
 namespace leveldb {

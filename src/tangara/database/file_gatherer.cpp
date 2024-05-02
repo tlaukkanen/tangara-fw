@@ -13,8 +13,8 @@
 
 #include "ff.h"
 
+#include "drivers/spi.hpp"
 #include "memory_resource.hpp"
-#include "spi.hpp"
 
 namespace database {
 

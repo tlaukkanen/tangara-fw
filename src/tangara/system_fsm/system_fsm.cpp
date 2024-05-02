@@ -9,8 +9,8 @@
 #include "audio/track_queue.hpp"
 #include "database/tag_parser.hpp"
 #include "driver/gpio.h"
+#include "drivers/gpios.hpp"
 #include "events/event_queue.hpp"
-#include "gpios.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
 

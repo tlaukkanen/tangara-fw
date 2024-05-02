@@ -10,8 +10,8 @@
 
 #include "catch2/catch.hpp"
 
-#include "gpios.hpp"
-#include "i2c.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2c.hpp"
 #include "i2c_fixture.hpp"
 
 namespace drivers {

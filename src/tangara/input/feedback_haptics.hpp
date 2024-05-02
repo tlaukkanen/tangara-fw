@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "haptics.hpp"
+#include "drivers/haptics.hpp"
 #include "input/feedback_device.hpp"
 
 namespace input {

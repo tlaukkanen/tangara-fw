@@ -15,8 +15,8 @@
 #include "result.hpp"
 #include "tasks.hpp"
 
-#include "display_init.hpp"
-#include "gpios.hpp"
+#include "drivers/display_init.hpp"
+#include "drivers/gpios.hpp"
 
 namespace drivers {
 

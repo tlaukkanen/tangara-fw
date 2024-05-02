@@ -9,11 +9,11 @@
 #include <memory>
 
 #include "battery/battery.hpp"
-#include "bluetooth_types.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "database/database.hpp"
 #include "ff.h"
-#include "haptics.hpp"
-#include "samd.hpp"
+#include "drivers/haptics.hpp"
+#include "drivers/samd.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "tinyfsm.hpp"
 

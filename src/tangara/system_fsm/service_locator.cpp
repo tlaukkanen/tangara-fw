@@ -8,9 +8,9 @@
 
 #include <memory>
 
-#include "nvs.hpp"
-#include "storage.hpp"
-#include "touchwheel.hpp"
+#include "drivers/nvs.hpp"
+#include "drivers/storage.hpp"
+#include "drivers/touchwheel.hpp"
 
 namespace system_fsm {
 

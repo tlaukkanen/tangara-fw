@@ -24,10 +24,10 @@
 #include "database/database.hpp"
 #include "database/tag_parser.hpp"
 #include "database/track.hpp"
-#include "display.hpp"
-#include "gpios.hpp"
-#include "i2s_dac.hpp"
-#include "storage.hpp"
+#include "drivers/display.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2s_dac.hpp"
+#include "drivers/storage.hpp"
 #include "system_fsm/system_events.hpp"
 
 namespace audio {

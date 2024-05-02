@@ -10,17 +10,17 @@
 
 #include "audio/track_queue.hpp"
 #include "battery/battery.hpp"
-#include "bluetooth.hpp"
+#include "drivers/bluetooth.hpp"
 #include "collation.hpp"
 #include "database/database.hpp"
 #include "database/tag_parser.hpp"
-#include "gpios.hpp"
-#include "haptics.hpp"
-#include "nvs.hpp"
-#include "samd.hpp"
-#include "storage.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/haptics.hpp"
+#include "drivers/nvs.hpp"
+#include "drivers/samd.hpp"
+#include "drivers/storage.hpp"
 #include "tasks.hpp"
-#include "touchwheel.hpp"
+#include "drivers/touchwheel.hpp"
 
 namespace system_fsm {
 

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "samd.hpp"
+#include "drivers/samd.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -15,7 +15,7 @@
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 
 enum Registers : uint8_t {
   kSamdFirmwareVersion = 0,

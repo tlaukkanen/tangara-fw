@@ -8,10 +8,10 @@
 
 #include <cstdint>
 
-#include "adc.hpp"
+#include "drivers/adc.hpp"
+#include "drivers/samd.hpp"
 #include "events/event_queue.hpp"
 #include "freertos/portmacro.h"
-#include "samd.hpp"
 #include "system_fsm/system_events.hpp"
 
 namespace battery {

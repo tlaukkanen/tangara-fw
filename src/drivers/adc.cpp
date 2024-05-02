@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "adc.hpp"
+#include "drivers/adc.hpp"
 #include <cstdint>
 
 #include "esp_adc/adc_cali.h"

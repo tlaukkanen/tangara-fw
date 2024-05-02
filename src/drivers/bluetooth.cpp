@@ -1,4 +1,4 @@
-#include "bluetooth.hpp"
+#include "drivers/bluetooth.hpp"
 
 #include <stdint.h>
 
@@ -27,9 +27,9 @@
 #include "freertos/timers.h"
 #include "tinyfsm/include/tinyfsm.hpp"
 
-#include "bluetooth_types.hpp"
+#include "drivers/bluetooth_types.hpp"
+#include "drivers/nvs.hpp"
 #include "memory_resource.hpp"
-#include "nvs.hpp"
 #include "tasks.hpp"
 
 namespace drivers {
@@ -47,8 +47,8 @@ auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
       bluetooth::events::internal::Gap{.type = event, .param = param});
 }
 
-auto avrcp_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t* param)
-    -> void {
+auto avrcp_cb(esp_avrc_ct_cb_event_t event,
+              esp_avrc_ct_cb_param_t* param) -> void {
   esp_avrc_ct_cb_param_t copy = *param;
   sBgWorker->Dispatch<void>([=]() {
     auto lock = bluetooth::BluetoothState::lock();

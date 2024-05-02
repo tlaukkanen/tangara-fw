@@ -14,8 +14,8 @@
 #include <string>
 #include <variant>
 
-#include "bluetooth_types.hpp"
 #include "database/track.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"

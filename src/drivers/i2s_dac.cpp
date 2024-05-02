@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "i2s_dac.hpp"
+#include "drivers/i2s_dac.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -25,11 +25,11 @@
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2c.hpp"
+#include "drivers/wm8523.hpp"
 #include "hal/i2s_types.h"
-#include "i2c.hpp"
 #include "soc/clk_tree_defs.h"
-#include "wm8523.hpp"
 
 namespace drivers {
 
@@ -142,8 +142,9 @@ auto I2SDac::SetPaused(bool paused) -> void {
 
 static volatile bool sSwapWords = false;
 
-auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
-    -> void {
+auto I2SDac::Reconfigure(Channels ch,
+                         BitsPerSample bps,
+                         SampleRate rate) -> void {
   std::lock_guard<std::mutex> lock(configure_mutex_);
 
   if (i2s_active_) {

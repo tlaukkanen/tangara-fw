@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "touchwheel.hpp"
+#include "drivers/touchwheel.hpp"
 #include <stdint.h>
 
 #include <cstdint>
@@ -18,7 +18,7 @@
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 
 namespace drivers {
 

@@ -42,10 +42,10 @@
 #include "database/records.hpp"
 #include "database/tag_parser.hpp"
 #include "database/track.hpp"
+#include "drivers/spi.hpp"
 #include "events/event_queue.hpp"
 #include "memory_resource.hpp"
 #include "result.hpp"
-#include "spi.hpp"
 #include "tasks.hpp"
 
 namespace database {

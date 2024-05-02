@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "display.hpp"
+#include "drivers/display.hpp"
 #include <stdint.h>
 
 #include <cmath>
@@ -31,11 +31,11 @@
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
 
-#include "display_init.hpp"
-#include "gpios.hpp"
+#include "drivers/display_init.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/spi.hpp"
 #include "misc/lv_color.h"
 #include "soc/soc.h"
-#include "spi.hpp"
 #include "tasks.hpp"
 
 [[maybe_unused]] static const char* kTag = "DISPLAY";

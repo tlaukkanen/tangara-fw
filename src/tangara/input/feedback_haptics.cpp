@@ -13,7 +13,7 @@
 #include "core/lv_event.h"
 #include "esp_log.h"
 
-#include "haptics.hpp"
+#include "drivers/haptics.hpp"
 
 namespace input {
 

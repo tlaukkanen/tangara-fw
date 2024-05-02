@@ -46,8 +46,9 @@ namespace lua {
 
 static constexpr char kBridgeKey[] = "bridge";
 
-static auto make_font_cb(const char* name, int size, int weight)
-    -> const lv_font_t* {
+static auto make_font_cb(const char* name,
+                         int size,
+                         int weight) -> const lv_font_t* {
   if (std::string{"fusion"} == name) {
     if (size == 12) {
       return &font_fusion_12;

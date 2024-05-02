@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "audio/audio_sink.hpp"
-#include "gpios.hpp"
-#include "i2s_dac.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2s_dac.hpp"
 #include "result.hpp"
 
 namespace audio {

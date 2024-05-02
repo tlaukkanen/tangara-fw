@@ -31,11 +31,11 @@
 #include "ff.h"
 #include "freertos/projdefs.h"
 
-#include "bluetooth.hpp"
-#include "bluetooth_types.hpp"
-#include "haptics.hpp"
+#include "drivers/bluetooth.hpp"
+#include "drivers/bluetooth_types.hpp"
+#include "drivers/haptics.hpp"
+#include "drivers/samd.hpp"
 #include "memory_resource.hpp"
-#include "samd.hpp"
 
 #include "audio/audio_events.hpp"
 #include "audio/audio_fsm.hpp"

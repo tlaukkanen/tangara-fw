@@ -22,7 +22,7 @@
 #include "freertos/stream_buffer.h"
 #include "result.hpp"
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
 #include "sys/_stdint.h"
 
 namespace drivers {

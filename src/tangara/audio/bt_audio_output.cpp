@@ -18,12 +18,12 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 
-#include "gpios.hpp"
-#include "i2c.hpp"
-#include "i2s_dac.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2c.hpp"
+#include "drivers/i2s_dac.hpp"
+#include "drivers/wm8523.hpp"
 #include "result.hpp"
 #include "tasks.hpp"
-#include "wm8523.hpp"
 
 [[maybe_unused]] static const char* kTag = "BTOUT";
 

@@ -20,6 +20,7 @@
 #include "core/lv_obj.h"
 #include "core/lv_obj_pos.h"
 #include "core/lv_obj_tree.h"
+#include "drivers/touchwheel.hpp"
 #include "esp_log.h"
 #include "events/event_queue.hpp"
 #include "extra/themes/basic/lv_theme_basic.h"
@@ -38,13 +39,12 @@
 #include "misc/lv_style.h"
 #include "misc/lv_timer.h"
 #include "tasks.hpp"
-#include "touchwheel.hpp"
 #include "ui/modal.hpp"
 #include "ui/ui_fsm.hpp"
 #include "widgets/lv_label.h"
 
-#include "display.hpp"
-#include "gpios.hpp"
+#include "drivers/display.hpp"
+#include "drivers/gpios.hpp"
 
 namespace ui {
 

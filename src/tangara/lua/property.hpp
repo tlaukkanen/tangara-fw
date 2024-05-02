@@ -11,7 +11,7 @@
 #include <string>
 
 #include "audio/audio_events.hpp"
-#include "bluetooth_types.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "lua.hpp"
 #include "lvgl.h"
 #include "system_fsm/service_locator.hpp"

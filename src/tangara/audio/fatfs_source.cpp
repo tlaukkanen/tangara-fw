@@ -17,7 +17,7 @@
 
 #include "audio/audio_source.hpp"
 #include "codec.hpp"
-#include "spi.hpp"
+#include "drivers/spi.hpp"
 #include "system_fsm/system_events.hpp"
 #include "types.hpp"
 

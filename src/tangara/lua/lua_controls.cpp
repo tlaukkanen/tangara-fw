@@ -16,7 +16,7 @@
 #include "lua.h"
 #include "lvgl.h"
 
-#include "nvs.hpp"
+#include "drivers/nvs.hpp"
 #include "ui/ui_events.hpp"
 
 namespace lua {

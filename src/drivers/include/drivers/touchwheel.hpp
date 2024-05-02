@@ -12,7 +12,7 @@
 #include "esp_err.h"
 #include "result.hpp"
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
 
 namespace drivers {
 

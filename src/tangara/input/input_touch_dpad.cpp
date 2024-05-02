@@ -10,8 +10,8 @@
 
 #include "hal/lv_hal_indev.h"
 
-#include "haptics.hpp"
-#include "touchwheel.hpp"
+#include "drivers/haptics.hpp"
+#include "drivers/touchwheel.hpp"
 
 #include "events/event_queue.hpp"
 #include "input/input_device.hpp"

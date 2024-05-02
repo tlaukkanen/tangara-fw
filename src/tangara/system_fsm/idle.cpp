@@ -6,15 +6,15 @@
 
 #include "app_console/app_console.hpp"
 #include "database/file_gatherer.hpp"
+#include "drivers/gpios.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
-#include "gpios.hpp"
 #include "result.hpp"
 
 #include "audio/audio_fsm.hpp"
+#include "drivers/samd.hpp"
+#include "drivers/storage.hpp"
 #include "events/event_queue.hpp"
-#include "samd.hpp"
-#include "storage.hpp"
 #include "system_fsm/system_events.hpp"
 #include "system_fsm/system_fsm.hpp"
 #include "ui/ui_fsm.hpp"

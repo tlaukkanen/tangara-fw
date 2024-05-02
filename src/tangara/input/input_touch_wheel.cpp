@@ -11,14 +11,14 @@
 
 #include "hal/lv_hal_indev.h"
 
+#include "drivers/haptics.hpp"
+#include "drivers/nvs.hpp"
+#include "drivers/touchwheel.hpp"
 #include "events/event_queue.hpp"
-#include "haptics.hpp"
 #include "input/input_device.hpp"
 #include "input/input_hook_actions.hpp"
 #include "input/input_trigger.hpp"
 #include "lua/property.hpp"
-#include "nvs.hpp"
-#include "touchwheel.hpp"
 #include "ui/ui_events.hpp"
 
 namespace input {

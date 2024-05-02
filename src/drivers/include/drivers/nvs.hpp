@@ -13,7 +13,7 @@
 #include "esp_err.h"
 #include "nvs.h"
 
-#include "bluetooth_types.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "lru_cache.hpp"
 
 namespace drivers {

@@ -16,8 +16,8 @@
 
 #include "audio/audio_source.hpp"
 #include "codec.hpp"
+#include "drivers/spi.hpp"
 #include "freertos/portmacro.h"
-#include "spi.hpp"
 #include "tasks.hpp"
 #include "types.hpp"
 

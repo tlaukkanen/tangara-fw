@@ -13,7 +13,7 @@
 #include "lua.hpp"
 #include "lvgl.h"
 
-#include "nvs.hpp"
+#include "drivers/nvs.hpp"
 
 #include "input/device_factory.hpp"
 #include "input/feedback_haptics.hpp"

@@ -14,9 +14,9 @@
 #include "freertos/task.h"
 #include "freertos/timers.h"
 
-#include "display.hpp"
+#include "drivers/display.hpp"
 #include "input/lvgl_input_driver.hpp"
-#include "touchwheel.hpp"
+#include "drivers/touchwheel.hpp"
 #include "ui/screen.hpp"
 #include "ui/themes.hpp"
 

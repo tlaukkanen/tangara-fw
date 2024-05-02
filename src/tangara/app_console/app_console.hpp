@@ -9,10 +9,10 @@
 #include <memory>
 
 #include "audio/track_queue.hpp"
-#include "bluetooth.hpp"
+#include "drivers/bluetooth.hpp"
 #include "dev_console/console.hpp"
 #include "database/database.hpp"
-#include "samd.hpp"
+#include "drivers/samd.hpp"
 #include "system_fsm/service_locator.hpp"
 
 namespace console {

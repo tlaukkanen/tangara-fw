@@ -5,8 +5,8 @@
  */
 
 #include "input/input_volume_buttons.hpp"
+#include "drivers/gpios.hpp"
 #include "events/event_queue.hpp"
-#include "gpios.hpp"
 #include "input/input_hook_actions.hpp"
 
 namespace input {

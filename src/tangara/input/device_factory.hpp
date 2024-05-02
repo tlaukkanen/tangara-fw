@@ -12,7 +12,7 @@
 #include "input/feedback_device.hpp"
 #include "input/input_device.hpp"
 #include "input/input_touch_wheel.hpp"
-#include "nvs.hpp"
+#include "drivers/nvs.hpp"
 #include "system_fsm/service_locator.hpp"
 
 namespace input {

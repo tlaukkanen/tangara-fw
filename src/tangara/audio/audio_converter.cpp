@@ -13,12 +13,12 @@
 
 #include "audio/audio_events.hpp"
 #include "audio/audio_sink.hpp"
+#include "drivers/i2s_dac.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "events/event_queue.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
-#include "i2s_dac.hpp"
 
 #include "audio/resample.hpp"
 #include "sample.hpp"

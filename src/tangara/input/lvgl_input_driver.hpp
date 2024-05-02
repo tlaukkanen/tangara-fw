@@ -12,7 +12,7 @@
 #include <set>
 
 #include "core/lv_group.h"
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
 #include "hal/lv_hal_indev.h"
 #include "input/device_factory.hpp"
 #include "input/feedback_device.hpp"
@@ -21,8 +21,8 @@
 #include "input/input_hook.hpp"
 #include "lua/lua_thread.hpp"
 #include "lua/property.hpp"
-#include "nvs.hpp"
-#include "touchwheel.hpp"
+#include "drivers/nvs.hpp"
+#include "drivers/touchwheel.hpp"
 
 namespace input {
 

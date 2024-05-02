@@ -11,9 +11,9 @@
 #include <iomanip>
 #include <mutex>
 
+#include "drivers/spi.hpp"
 #include "esp_log.h"
 #include "ff.h"
-#include "spi.hpp"
 #include "tags.h"
 
 #include "memory_resource.hpp"
