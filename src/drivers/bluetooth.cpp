@@ -25,7 +25,6 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
-#include "sample.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
 #include "bluetooth_types.hpp"

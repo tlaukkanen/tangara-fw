@@ -15,7 +15,6 @@
 
 #include "bluetooth_types.hpp"
 #include "lru_cache.hpp"
-#include "tasks.hpp"
 
 namespace drivers {
 

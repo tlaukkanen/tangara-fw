@@ -27,7 +27,6 @@ else()
       ${LVGL_ROOT_DIR}
       ${LVGL_ROOT_DIR}/src
       ${LVGL_ROOT_DIR}/../
-      $ENV{PROJ_PATH}/src/ui/include/
     REQUIRES esp_timer)
 
   target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DLV_CONF_INCLUDE_SIMPLE")

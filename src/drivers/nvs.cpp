@@ -5,8 +5,6 @@
  */
 
 #include "nvs.hpp"
-#include <stdint.h>
-#include <sys/_stdint.h>
 
 #include <cstdint>
 #include <memory>
@@ -18,7 +16,6 @@
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "tasks.hpp"
 #include "wm8523.hpp"
 
 namespace drivers {
