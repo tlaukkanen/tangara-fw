@@ -5,9 +5,9 @@
 idf_component_register(
   SRCS "lua_theme.cpp" "lua_thread.cpp" "bridge.cpp" "property.cpp" "lua_database.cpp"
   "lua_queue.cpp" "lua_version.cpp" "lua_theme.cpp" "lua_controls.cpp" "registry.cpp"
-  "lua_screen.cpp"
+  "lua_screen.cpp" "lua_filesystem.cpp" "file_iterator.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database"
+  REQUIRES "drivers" "lvgl" "tinyfsm" "events" "system_fsm" "database" "fatfs"
   "esp_timer" "battery" "esp-idf-lua" "luavgl" "lua-linenoise" "lua-term"
   "esp_app_format")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})
