@@ -28,6 +28,11 @@ FileIterator::FileIterator(std::string filepath)
   }
 }
 
+FileIterator::~FileIterator() {
+  auto lock = drivers::acquire_spi();
+  f_closedir(&dir_);
+}
+
 auto FileIterator::value() const -> const std::optional<FileEntry>& {
   return current_;
 }

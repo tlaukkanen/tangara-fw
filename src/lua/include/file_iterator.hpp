@@ -25,6 +25,7 @@ struct FileEntry {
 class FileIterator {
  public:
   FileIterator(std::string filepath);
+  ~FileIterator();
 
   auto value() const -> const std::optional<FileEntry>&;
   auto next() -> void;
