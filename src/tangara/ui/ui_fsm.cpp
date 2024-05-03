@@ -10,56 +10,56 @@
 #include <memory_resource>
 #include <variant>
 
-#include "database/db_events.hpp"
-#include "drivers/bluetooth_types.hpp"
-#include "drivers/display_init.hpp"
-#include "esp_spp_api.h"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
-#include "input/device_factory.hpp"
-#include "input/feedback_haptics.hpp"
-#include "input/input_device.hpp"
-#include "input/input_touch_wheel.hpp"
-#include "input/input_volume_buttons.hpp"
-#include "lua.h"
-#include "lua.hpp"
+#include "FreeRTOSConfig.h"
+#include "lvgl.h"
 
-#include "audio/audio_fsm.hpp"
-#include "battery/battery.hpp"
 #include "core/lv_group.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_tree.h"
-#include "database/database.hpp"
-#include "drivers/haptics.hpp"
 #include "esp_heap_caps.h"
+#include "esp_spp_api.h"
 #include "esp_timer.h"
-#include "input/lvgl_input_driver.hpp"
-#include "lauxlib.h"
-#include "lua/lua_thread.hpp"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+#include "lua.hpp"
 #include "luavgl.h"
-#include "memory_resource.hpp"
 #include "misc/lv_gc.h"
+#include "tinyfsm.hpp"
+#include "widgets/lv_label.h"
 
 #include "audio/audio_events.hpp"
+#include "audio/audio_fsm.hpp"
 #include "audio/track_queue.hpp"
+#include "battery/battery.hpp"
+#include "database/database.hpp"
+#include "database/db_events.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "drivers/display.hpp"
+#include "drivers/display_init.hpp"
 #include "drivers/gpios.hpp"
+#include "drivers/haptics.hpp"
 #include "drivers/nvs.hpp"
 #include "drivers/samd.hpp"
 #include "drivers/spiffs.hpp"
 #include "drivers/storage.hpp"
 #include "drivers/touchwheel.hpp"
 #include "events/event_queue.hpp"
+#include "input/device_factory.hpp"
+#include "input/feedback_haptics.hpp"
+#include "input/input_device.hpp"
+#include "input/input_touch_wheel.hpp"
+#include "input/input_volume_buttons.hpp"
+#include "input/lvgl_input_driver.hpp"
 #include "lua/lua_registry.hpp"
+#include "lua/lua_thread.hpp"
 #include "lua/property.hpp"
+#include "memory_resource.hpp"
 #include "system_fsm/system_events.hpp"
-#include "tinyfsm.hpp"
 #include "ui/lvgl_task.hpp"
 #include "ui/screen.hpp"
 #include "ui/screen_lua.hpp"
 #include "ui/screen_splash.hpp"
 #include "ui/ui_events.hpp"
-#include "widgets/lv_label.h"
 
 namespace ui {
 
@@ -253,6 +253,8 @@ lua::Property UiState::sDatabaseAutoUpdate{
       return true;
     }};
 
+lua::Property UiState::sSdMounted{false};
+
 lua::Property UiState::sUsbMassStorageEnabled{
     false, [](const lua::LuaValue& val) {
       if (!std::holds_alternative<bool>(val)) {
@@ -266,8 +268,8 @@ lua::Property UiState::sUsbMassStorageEnabled{
 
 lua::Property UiState::sUsbMassStorageBusy{false};
 
-auto UiState::InitBootSplash(drivers::IGpios& gpios,
-                             drivers::NvsStorage& nvs) -> bool {
+auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
+    -> bool {
   events::Ui().Dispatch(internal::InitDisplay{
       .gpios = gpios,
       .nvs = nvs,
@@ -332,6 +334,10 @@ void UiState::react(const system_fsm::KeyLockChanged& ev) {
 void UiState::react(const system_fsm::SamdUsbStatusChanged& ev) {
   sUsbMassStorageBusy.setDirect(ev.new_status ==
                                 drivers::Samd::UsbStatus::kAttachedBusy);
+}
+
+void UiState::react(const system_fsm::SdStateChanged&) {
+  sSdMounted.setDirect(sServices->sd() == drivers::SdState::kMounted);
 }
 
 void UiState::react(const database::event::UpdateStarted&) {
@@ -444,7 +450,8 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   sTask->input(sInput);
 }
 
-void Splash::react(const system_fsm::StorageMounted&) {
+void Splash::react(const system_fsm::SdStateChanged& ev) {
+  UiState::react(ev);
   transit<Lua>();
 }
 
@@ -517,6 +524,7 @@ void Lua::entry() {
         {
             {"push", [&](lua_State* s) { return PushLuaScreen(s); }},
             {"pop", [&](lua_State* s) { return PopLuaScreen(s); }},
+            {"reset", [&](lua_State* s) { return ResetLuaScreen(s); }},
         });
     registry.AddPropertyModule(
         "alerts", {
@@ -533,6 +541,9 @@ void Lua::entry() {
                                    {"updating", &sDatabaseUpdating},
                                    {"auto_update", &sDatabaseAutoUpdate},
                                });
+    registry.AddPropertyModule("sd_card", {
+                                              {"mounted", &sSdMounted},
+                                          });
     registry.AddPropertyModule("usb",
                                {
                                    {"msc_enabled", &sUsbMassStorageEnabled},
@@ -547,7 +558,9 @@ void Lua::entry() {
     sBluetoothDevices.setDirect(bt.KnownDevices());
 
     sCurrentScreen.reset();
-    sLua->RunScript("/sdcard/config.lua");
+    if (sServices->sd() == drivers::SdState::kMounted) {
+      sLua->RunScript("/sdcard/config.lua");
+    }
     sLua->RunScript("/lua/main.lua");
   }
 }
@@ -587,16 +600,6 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
   return 0;
 }
 
-auto Lua::QueueNext(lua_State*) -> int {
-  sServices->track_queue().next();
-  return 0;
-}
-
-auto Lua::QueuePrevious(lua_State*) -> int {
-  sServices->track_queue().previous();
-  return 0;
-}
-
 auto Lua::PopLuaScreen(lua_State* s) -> int {
   if (!sCurrentScreen->canPop()) {
     return 0;
@@ -604,6 +607,30 @@ auto Lua::PopLuaScreen(lua_State* s) -> int {
   PopScreen();
   luavgl_set_root(s, sCurrentScreen->content());
   lv_group_set_default(sCurrentScreen->group());
+  return 0;
+}
+
+auto Lua::ResetLuaScreen(lua_State* s) -> int {
+  if (sCurrentScreen) {
+    if (!sCurrentScreen->canPop()) {
+      ESP_LOGW(kTag, "ignoring reset as popping is blocked");
+      return 0;
+    }
+    sCurrentScreen->onHidden();
+  }
+  while (!sScreens.empty()) {
+    sScreens.pop();
+  }
+  return PushLuaScreen(s);
+}
+
+auto Lua::QueueNext(lua_State*) -> int {
+  sServices->track_queue().next();
+  return 0;
+}
+
+auto Lua::QueuePrevious(lua_State*) -> int {
+  sServices->track_queue().previous();
   return 0;
 }
 

@@ -15,19 +15,19 @@
 #include "audio/audio_events.hpp"
 #include "audio/track_queue.hpp"
 #include "battery/battery.hpp"
-#include "drivers/bluetooth.hpp"
 #include "database/database.hpp"
 #include "database/db_events.hpp"
 #include "database/tag_parser.hpp"
+#include "drivers/bluetooth.hpp"
 #include "drivers/display.hpp"
 #include "drivers/gpios.hpp"
 #include "drivers/nvs.hpp"
 #include "drivers/samd.hpp"
 #include "drivers/storage.hpp"
+#include "drivers/touchwheel.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
 #include "tinyfsm.hpp"
-#include "drivers/touchwheel.hpp"
 
 namespace system_fsm {
 
@@ -55,7 +55,6 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
 
   virtual void react(const DisplayReady&) {}
   virtual void react(const BootComplete&) {}
-  virtual void react(const StorageMounted&) {}
   virtual void react(const StorageError&) {}
   virtual void react(const KeyLockChanged&) {}
   virtual void react(const SdDetectChanged&) {}
@@ -110,7 +109,8 @@ class Running : public SystemState {
  private:
   auto checkIdle() -> void;
 
-  auto mountStorage() -> bool;
+  auto updateSdState(drivers::SdState) -> void;
+  auto mountStorage() -> void;
   auto unmountStorage() -> void;
 
   bool storage_mounted_;

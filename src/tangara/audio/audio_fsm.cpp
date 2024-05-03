@@ -15,6 +15,7 @@
 #include "cppbor.h"
 #include "cppbor_parse.h"
 #include "drivers/bluetooth_types.hpp"
+#include "drivers/storage.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -500,7 +501,11 @@ void Standby::react(const system_fsm::KeyLockChanged& ev) {
   });
 }
 
-void Standby::react(const system_fsm::StorageMounted& ev) {
+void Standby::react(const system_fsm::SdStateChanged& ev) {
+  auto state = sServices->sd();
+  if (state != drivers::SdState::kMounted) {
+    return;
+  }
   sServices->bg_worker().Dispatch<void>([]() {
     auto db = sServices->database().lock();
     if (!db) {
@@ -566,6 +571,12 @@ void Playback::exit() {
 
   events::System().Dispatch(event);
   events::Ui().Dispatch(event);
+}
+
+void Playback::react(const system_fsm::SdStateChanged& ev) {
+  if (sServices->sd() != drivers::SdState::kMounted) {
+    transit<Standby>();
+  }
 }
 
 }  // namespace states

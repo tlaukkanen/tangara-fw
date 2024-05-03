@@ -10,6 +10,7 @@
 #include "database/db_events.hpp"
 #include "database/file_gatherer.hpp"
 #include "drivers/gpios.hpp"
+#include "drivers/spi.hpp"
 #include "ff.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -42,11 +43,7 @@ void Running::entry() {
     sUnmountTimer = xTimerCreate("unmount_timeout", kTicksBeforeUnmount, false,
                                  NULL, timer_callback);
   }
-  // Only mount our storage immediately if we know it's not currently in use
-  // by the SAMD.
-  if (!sServices->samd().UsbMassStorage()) {
-    mountStorage();
-  }
+  mountStorage();
 }
 
 void Running::exit() {
@@ -80,10 +77,28 @@ void Running::react(const SdDetectChanged& ev) {
   if (ev.has_sd_card && !sStorage) {
     mountStorage();
   }
+
   // Don't automatically unmount, since this event seems to occasionally happen
   // supriously. FIXME: Why?
-  // (It doesn't matter too much; by the time we get this event the SD card has
-  // already been disconnected electrically.)
+  // Instead, check whether or not the card has actually gone away.
+  if (sStorage) {
+    FRESULT res;
+    FF_DIR dir;
+    {
+      auto lock = drivers::acquire_spi();
+      res = f_opendir(&dir, "/");
+    }
+
+    if (res != FR_OK) {
+      ESP_LOGW(kTag, "sd card ejected unsafely!");
+      unmountStorage();
+    }
+
+    {
+      auto lock = drivers::acquire_spi();
+      f_closedir(&dir);
+    }
+  }
 }
 
 void Running::react(const SamdUsbMscChanged& ev) {
@@ -134,25 +149,37 @@ auto Running::checkIdle() -> void {
   }
 }
 
-auto Running::mountStorage() -> bool {
+auto Running::updateSdState(drivers::SdState state) -> void {
+  sServices->sd(state);
+  events::Ui().Dispatch(SdStateChanged{});
+  events::Audio().Dispatch(SdStateChanged{});
+  events::System().Dispatch(SdStateChanged{});
+}
+
+auto Running::mountStorage() -> void {
+  // Only mount our storage if we know it's not currently in use by the SAMD.
+  if (sServices->samd().UsbMassStorage()) {
+    updateSdState(drivers::SdState::kNotMounted);
+    return;
+  }
+
   ESP_LOGI(kTag, "mounting sd card");
   auto storage_res = drivers::SdStorage::Create(sServices->gpios());
   if (storage_res.has_error()) {
     ESP_LOGW(kTag, "failed to mount!");
     switch (storage_res.error()) {
       case drivers::SdStorage::FAILED_TO_MOUNT:
-        sServices->sd(drivers::SdState::kNotFormatted);
+        updateSdState(drivers::SdState::kNotFormatted);
         break;
       case drivers::SdStorage::FAILED_TO_READ:
       default:
-        sServices->sd(drivers::SdState::kNotPresent);
+        updateSdState(drivers::SdState::kNotPresent);
         break;
     }
-    return false;
+    return;
   }
 
   sStorage.reset(storage_res.value());
-  sServices->sd(drivers::SdState::kMounted);
 
   ESP_LOGI(kTag, "opening database");
   sFileGatherer = new database::FileGathererImpl();
@@ -161,16 +188,14 @@ auto Running::mountStorage() -> bool {
                                sServices->collator(), sServices->bg_worker());
   if (database_res.has_error()) {
     unmountStorage();
-    return false;
+    return;
   }
 
   sServices->database(
       std::unique_ptr<database::Database>{database_res.value()});
 
   ESP_LOGI(kTag, "storage loaded okay");
-  events::Ui().Dispatch(StorageMounted{});
-  events::Audio().Dispatch(StorageMounted{});
-  events::System().Dispatch(StorageMounted{});
+  updateSdState(drivers::SdState::kMounted);
 
   // Tell the database to refresh so that we pick up any changes from the newly
   // mounted card.
@@ -183,14 +208,13 @@ auto Running::mountStorage() -> bool {
       db->updateIndexes();
     });
   }
-
-  return true;
 }
 
 auto Running::unmountStorage() -> void {
   ESP_LOGW(kTag, "unmounting storage");
   sServices->database({});
   sStorage.reset();
+  updateSdState(drivers::SdState::kNotMounted);
 }
 
 }  // namespace states

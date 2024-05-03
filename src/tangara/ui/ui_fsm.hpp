@@ -10,6 +10,8 @@
 #include <memory>
 #include <stack>
 
+#include "tinyfsm.hpp"
+
 #include "audio/audio_events.hpp"
 #include "audio/track_queue.hpp"
 #include "battery/battery.hpp"
@@ -17,6 +19,9 @@
 #include "database/track.hpp"
 #include "drivers/display.hpp"
 #include "drivers/gpios.hpp"
+#include "drivers/nvs.hpp"
+#include "drivers/storage.hpp"
+#include "drivers/touchwheel.hpp"
 #include "input/device_factory.hpp"
 #include "input/feedback_haptics.hpp"
 #include "input/input_touch_wheel.hpp"
@@ -24,12 +29,8 @@
 #include "input/lvgl_input_driver.hpp"
 #include "lua/lua_thread.hpp"
 #include "lua/property.hpp"
-#include "drivers/nvs.hpp"
-#include "drivers/storage.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
-#include "tinyfsm.hpp"
-#include "drivers/touchwheel.hpp"
 #include "ui/lvgl_task.hpp"
 #include "ui/modal.hpp"
 #include "ui/screen.hpp"
@@ -57,7 +58,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   virtual void react(const DumpLuaStack&) {}
   virtual void react(const internal::BackPressed&) {}
   virtual void react(const system_fsm::BootComplete&) {}
-  virtual void react(const system_fsm::StorageMounted&) {}
+  virtual void react(const system_fsm::SdStateChanged&);
 
   void react(const system_fsm::BatteryStateChanged&);
   void react(const audio::PlaybackUpdate&);
@@ -74,7 +75,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const internal::DismissAlerts&);
 
   void react(const database::event::UpdateStarted&);
-  void react(const database::event::UpdateProgress&) {};
+  void react(const database::event::UpdateProgress&){};
   void react(const database::event::UpdateFinished&);
 
   void react(const system_fsm::BluetoothEvent&);
@@ -86,7 +87,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
     sCurrentModal.reset();
   }
 
-  void react(const internal::ReindexDatabase&) {};
+  void react(const internal::ReindexDatabase&){};
 
  protected:
   void PushScreen(std::shared_ptr<Screen>);
@@ -136,6 +137,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sDatabaseUpdating;
   static lua::Property sDatabaseAutoUpdate;
 
+  static lua::Property sSdMounted;
+
   static lua::Property sUsbMassStorageEnabled;
   static lua::Property sUsbMassStorageBusy;
 };
@@ -147,7 +150,7 @@ class Splash : public UiState {
   void exit() override;
 
   void react(const system_fsm::BootComplete&) override;
-  void react(const system_fsm::StorageMounted&) override;
+  void react(const system_fsm::SdStateChanged&) override;
 
   using UiState::react;
 };
@@ -166,6 +169,7 @@ class Lua : public UiState {
  private:
   auto PushLuaScreen(lua_State*) -> int;
   auto PopLuaScreen(lua_State*) -> int;
+  auto ResetLuaScreen(lua_State*) -> int;
 
   auto ShowAlert(lua_State*) -> int;
   auto HideAlert(lua_State*) -> int;

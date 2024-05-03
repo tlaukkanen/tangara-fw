@@ -9,11 +9,12 @@
 #include <memory>
 
 #include "battery/battery.hpp"
-#include "drivers/bluetooth_types.hpp"
 #include "database/database.hpp"
-#include "ff.h"
+#include "drivers/bluetooth_types.hpp"
 #include "drivers/haptics.hpp"
 #include "drivers/samd.hpp"
+#include "drivers/storage.hpp"
+#include "ff.h"
 #include "system_fsm/service_locator.hpp"
 #include "tinyfsm.hpp"
 
@@ -38,10 +39,7 @@ struct FatalError : tinyfsm::Event {};
 
 struct OnIdle : tinyfsm::Event {};
 
-/*
- * Sent by SysState when the system storage has been successfully mounted.
- */
-struct StorageMounted : tinyfsm::Event {};
+struct SdStateChanged : tinyfsm::Event {};
 
 struct StorageError : tinyfsm::Event {
   FRESULT error;
