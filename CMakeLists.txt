@@ -16,10 +16,15 @@ list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/src")
 
 project(tangara)
 
+# 'collate' partition on internal flash. Contains collation data for sorting
+# strings across languages (defaults to a generic dataset based on ISO14651).
+get_filename_component(collate_full_path "tools/collate/Generic.LC_COLLATE" ABSOLUTE)
+esptool_py_flash_to_partition(flash "collate" ${collate_full_path})
+
 # /lua partition on internal flash, for storing the lua application
 spiffs_create_partition_image(lua lua FLASH_IN_PROJECT)
 
-# /repl partition on internal flash, for storing the developer repl and its deps.
+# /repl partition on internal flash, for storing the developer repl and its deps
 file(COPY lib/lua-repl/repl DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/repl)
 file(COPY lib/lua-term/term DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/repl)
 spiffs_create_partition_image(repl ${CMAKE_CURRENT_BINARY_DIR}/repl FLASH_IN_PROJECT)
