@@ -62,8 +62,8 @@ auto SourceBuffer::AddBytes(std::function<size_t(std::span<std::byte>)> writer)
 
 auto SourceBuffer::ConsumeBytes(
     std::function<size_t(std::span<std::byte>)> reader) -> void {
-  size_t bytes_consumed = std::invoke(
-      reader, buffer_.subspan(offset_of_bytes_, bytes_in_buffer_));
+  size_t bytes_consumed =
+      std::invoke(reader, buffer_.subspan(offset_of_bytes_, bytes_in_buffer_));
   assert(bytes_consumed <= bytes_in_buffer_);
 
   bytes_in_buffer_ -= bytes_consumed;

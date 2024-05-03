@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "spiffs.hpp"
+#include "drivers/spiffs.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
 
 #include <cstdint>
 
@@ -15,7 +15,7 @@
 #include "esp_intr_alloc.h"
 #include "hal/gpio_types.h"
 
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 
 namespace drivers {
 

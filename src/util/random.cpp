@@ -29,8 +29,8 @@ auto Random::Next() -> std::uint64_t {
   return komirand(&seed1_, &seed2_);
 }
 
-auto Random::RangeInclusive(std::uint64_t lower, std::uint64_t upper)
-    -> std::uint64_t {
+auto Random::RangeInclusive(std::uint64_t lower,
+                            std::uint64_t upper) -> std::uint64_t {
   return (Next() % (upper - lower + 1)) + lower;
 }
 

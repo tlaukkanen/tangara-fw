@@ -3,14 +3,14 @@
  *
  * SPDX-License-Identifier: GPL-3.0-only
  */
-#include "wm8523.hpp"
+#include "drivers/wm8523.hpp"
 
 #include <cstdint>
 
 #include "esp_err.h"
 
+#include "drivers/i2c.hpp"
 #include "hal/i2c_types.h"
-#include "i2c.hpp"
 
 namespace drivers {
 namespace wm8523 {

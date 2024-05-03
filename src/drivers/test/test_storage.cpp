@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "storage.hpp"
+#include "drivers/storage.hpp"
 
 #include <dirent.h>
 
@@ -14,10 +14,10 @@
 
 #include "catch2/catch.hpp"
 
-#include "gpios.hpp"
-#include "i2c.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2c.hpp"
+#include "drivers/spi.hpp"
 #include "i2c_fixture.hpp"
-#include "spi.hpp"
 #include "spi_fixture.hpp"
 
 namespace drivers {
