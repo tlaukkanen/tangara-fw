@@ -88,11 +88,11 @@ static auto fs_iterate(lua_State* state) -> int {
   return 1;
 }
 
-// static auto db_iterator_clone(lua_State* state) -> int {
-//   database::Iterator* it = db_check_iterator(state, 1);
-//   push_iterator(state, *it);
-//   return 1;
-// }
+static auto fs_iterator_clone(lua_State* state) -> int {
+  database::FileIterator* it = check_file_iterator(state, 1);
+  push_iterator(state, *it);
+  return 1;
+}
 
 static auto fs_iterator_gc(lua_State* state) -> int {
   database::FileIterator* it = check_file_iterator(state, 1);
@@ -102,7 +102,7 @@ static auto fs_iterator_gc(lua_State* state) -> int {
 
 static const struct luaL_Reg kFileIteratorFuncs[] = {{"next", fs_iterate},
                                                    {"prev", fs_iterate_prev},
-                                                  //  {"clone", db_iterator_clone},
+                                                   {"clone", fs_iterator_clone},
                                                    {"__call", fs_iterate},
                                                    {"__gc", fs_iterator_gc},
                                                    {NULL, NULL}};
@@ -114,7 +114,31 @@ static auto file_entry_path(lua_State* state) -> int {
   return 1;
 }
 
+static auto file_entry_is_dir(lua_State* state) -> int {
+  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
+      luaL_checkudata(state, 1, kFileEntryMetatable));
+  lua_pushboolean(state, data->isDirectory);
+  return 1;
+}
+
+static auto file_entry_is_hidden(lua_State* state) -> int {
+  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
+      luaL_checkudata(state, 1, kFileEntryMetatable));
+  lua_pushboolean(state, data->isHidden);
+  return 1;
+}
+
+static auto file_entry_is_track(lua_State* state) -> int {
+  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
+      luaL_checkudata(state, 1, kFileEntryMetatable));
+  lua_pushboolean(state, data->isTrack);
+  return 1;
+}
+
 static const struct luaL_Reg kFileEntryFuncs[] = {{"filepath", file_entry_path},
+                                                 {"is_directory", file_entry_is_dir},
+                                                 {"is_hidden", file_entry_is_hidden},
+                                                 {"is_track", file_entry_is_track},
                                                  {"__tostring", file_entry_path},
                                                  {NULL, NULL}};
 

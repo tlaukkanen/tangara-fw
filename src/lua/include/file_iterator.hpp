@@ -36,6 +36,7 @@ class FileIterator {
   std::string original_path_;
 
   std::optional<FileEntry> current_;
+  int offset_;
 
   auto iterate(bool reverse = false) -> bool;
 };

@@ -5,6 +5,7 @@ local backstack = require("backstack")
 local browser = require("browser")
 local playing = require("playing")
 local styles = require("styles")
+local filesystem = require("filesystem")
 local screen = require("screen")
 
 return widgets.MenuScreen:new {
@@ -34,6 +35,15 @@ return widgets.MenuScreen:new {
       end)
       btn:add_style(styles.list_item)
     end
+
+    local files = list:add_btn(nil, "Files")
+    files:onClicked(function()
+      backstack.push(require("file_browser"):new {
+        title = "Files",
+        iterator = filesystem.iterator(""),
+      })
+    end)
+    files:add_style(styles.list_item)
 
     local settings = list:add_btn(nil, "Settings")
     settings:onClicked(function()

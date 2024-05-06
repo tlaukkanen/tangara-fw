@@ -17,12 +17,13 @@ namespace database {
 
 FileIterator::FileIterator(std::string filepath) 
 : original_path_(filepath),
-  current_()
+  current_(),
+  offset_(-1)
  {
   auto lock = drivers::acquire_spi();
 
-  const TCHAR* next_path = static_cast<const TCHAR*>(filepath.c_str());
-  FRESULT res = f_opendir(&dir_, next_path);
+  const TCHAR* path = static_cast<const TCHAR*>(filepath.c_str());
+  FRESULT res = f_opendir(&dir_, path);
   if (res != FR_OK) {
     ESP_LOGE(kTag, "Error opening directory: %s", filepath.c_str());
   }
@@ -42,36 +43,40 @@ auto FileIterator::next() -> void {
 }
 
 auto FileIterator::prev() -> void {
-  iterate(true);
+  if (offset_ == 0) {
+    current_.reset();
+    return;
+  }
+  f_rewinddir(&dir_);
+  auto new_offset = offset_-1;
+  offset_ = -1;
+  for (int i = 0; i < new_offset; i++) {
+    iterate(false);
+  }
 }
 
 auto FileIterator::iterate(bool reverse) -> bool {
     FILINFO info;
-    if (reverse) {
-      f_rewinddir(&dir_);
-    }
     {
       auto lock = drivers::acquire_spi();
       auto res = f_readdir(&dir_, &info);
       if (res != FR_OK) {
-        ESP_LOGI(kTag, "AAAAAAAAAAAAAAAAAAA");
-        ESP_LOGI(kTag, "%d", res);
+        ESP_LOGE(kTag, "Error reading directory. Error: %d", res);
         return false;
       }
     }
     if (info.fname[0] == 0) {
       // End of directory
+      // Set value to nil
       current_.reset();
-      ESP_LOGI(kTag, "End of dir");
-
     } else {
       // Update current value
-      ESP_LOGI(kTag, "File: %s", info.fname);
+      offset_++;
       current_ = FileEntry{
         .isHidden = (info.fattrib & AM_HID) > 0,
         .isDirectory = (info.fattrib & AM_DIR) > 0,
         .isTrack = false, // TODO
-        .filepath = original_path_ + info.fname,
+        .filepath = original_path_ + (original_path_.size()>0?"/":"") + info.fname,
 
       };
     }
