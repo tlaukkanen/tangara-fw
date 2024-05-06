@@ -50,7 +50,7 @@ auto FileIterator::prev() -> void {
   f_rewinddir(&dir_);
   auto new_offset = offset_-1;
   offset_ = -1;
-  for (int i = 0; i < new_offset; i++) {
+  for (int i = 0; i <= new_offset; i++) {
     iterate(false);
   }
 }
@@ -73,6 +73,7 @@ auto FileIterator::iterate(bool reverse) -> bool {
       // Update current value
       offset_++;
       current_ = FileEntry{
+        .index = offset_,
         .isHidden = (info.fattrib & AM_HID) > 0,
         .isDirectory = (info.fattrib & AM_DIR) > 0,
         .isTrack = false, // TODO

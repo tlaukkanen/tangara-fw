@@ -16,6 +16,7 @@ namespace database {
 // Note for when reading FILINFO, that we are in LFN mode:
 // http://elm-chan.org/fsw/ff/doc/sfileinfo.html
 struct FileEntry {
+    int index;
     bool isHidden;
     bool isDirectory;
     bool isTrack;

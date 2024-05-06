@@ -288,13 +288,8 @@ function widgets.RecyclerList(parent, iterator, opts)
         end
         btn:onevent(lvgl.EVENT.FOCUSED, function()
           if refreshing then return end
-          selected = this_item
-          if this_item > last_selected and this_item > 3 then
+          if this_item > last_selected and this_item - first_index  > 5 then
             -- moving forward
-            if moving_back == true then
-                fwd_iterator:next()
-                moving_back = false
-            end
             local to_add = fwd_iterator:next()
             if to_add then
                 remove_top()
@@ -303,19 +298,15 @@ function widgets.RecyclerList(parent, iterator, opts)
           end
           if this_item < last_selected then
             -- moving backward
-            if last_index - this_item > 3 then
-                if moving_back == false then
-                    -- Special case for the element we switch on
-                    bck_iterator:prev()
-                    moving_back = true
-                end
-                if (last_index > 10) then
-                    remove_last()
-                end
-                if (first_index > 0) then
-                    add_item(bck_iterator:prev(), first_index-1)
-                end
-            end
+              if (last_index - first_index > 10) then
+                  remove_last()
+              end
+              if (first_index > 0 and this_item - first_index < 5) then
+                  local to_add = bck_iterator:prev();
+                  if to_add then
+                    add_item(to_add, first_index-1)
+                  end
+              end
           end
           last_selected = this_item
           refresh_group()
