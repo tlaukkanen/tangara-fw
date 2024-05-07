@@ -138,6 +138,18 @@ struct OutputModeChanged : tinyfsm::Event {};
 
 namespace internal {
 
+struct DecodingStarted : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
+struct DecodingFailedToStart : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
+struct DecodingFinished : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
 struct StreamStarted : tinyfsm::Event {
   std::shared_ptr<TrackInfo> track;
   IAudioOutput::Format src_format;

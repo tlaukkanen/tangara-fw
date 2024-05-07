@@ -25,10 +25,10 @@ namespace audio {
  * format of the current output device. The resulting samples are forwarded
  * to the output device's sink stream.
  */
-class SampleConverter {
+class SampleProcessor {
  public:
-  SampleConverter();
-  ~SampleConverter();
+  SampleProcessor();
+  ~SampleProcessor();
 
   auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
 

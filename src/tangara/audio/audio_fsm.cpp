@@ -11,29 +11,28 @@
 #include <memory>
 #include <variant>
 
-#include "audio/audio_sink.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
-#include "drivers/bluetooth_types.hpp"
-#include "drivers/storage.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 
-#include "audio/audio_converter.hpp"
 #include "audio/audio_decoder.hpp"
 #include "audio/audio_events.hpp"
+#include "audio/audio_sink.hpp"
 #include "audio/bt_audio_output.hpp"
-#include "audio/fatfs_audio_input.hpp"
+#include "audio/fatfs_stream_factory.hpp"
 #include "audio/i2s_audio_output.hpp"
 #include "audio/track_queue.hpp"
 #include "database/future_fetcher.hpp"
 #include "database/track.hpp"
 #include "drivers/bluetooth.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "drivers/i2s_dac.hpp"
 #include "drivers/nvs.hpp"
+#include "drivers/storage.hpp"
 #include "drivers/wm8523.hpp"
 #include "events/event_queue.hpp"
 #include "sample.hpp"
@@ -47,9 +46,9 @@ namespace audio {
 
 std::shared_ptr<system_fsm::ServiceLocator> AudioState::sServices;
 
-std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
+std::shared_ptr<FatfsStreamFactory> AudioState::sStreamFactory;
 std::unique_ptr<Decoder> AudioState::sDecoder;
-std::shared_ptr<SampleConverter> AudioState::sSampleConverter;
+std::shared_ptr<SampleProcessor> AudioState::sSampleProcessor;
 std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 std::shared_ptr<IAudioOutput> AudioState::sOutput;
@@ -143,7 +142,7 @@ void AudioState::react(const SetTrack& ev) {
 
   if (std::holds_alternative<std::monostate>(ev.new_track)) {
     ESP_LOGI(kTag, "playback finished, awaiting drain");
-    sFileSource->SetPath();
+    sDecoder->open({});
     awaitEmptyDrainBuffer();
     sCurrentTrack.reset();
     sDrainFormat.reset();
@@ -158,26 +157,20 @@ void AudioState::react(const SetTrack& ev) {
   auto new_track = ev.new_track;
   uint32_t seek_to = ev.seek_to_second.value_or(0);
   sServices->bg_worker().Dispatch<void>([=]() {
-    std::optional<std::string> path;
+    std::shared_ptr<TaggedStream> stream;
     if (std::holds_alternative<database::TrackId>(new_track)) {
-      auto db = sServices->database().lock();
-      if (db) {
-        path = db->getTrackPath(std::get<database::TrackId>(new_track));
-      }
+      stream = sStreamFactory->create(std::get<database::TrackId>(new_track),
+                                      seek_to);
     } else if (std::holds_alternative<std::string>(new_track)) {
-      path = std::get<std::string>(new_track);
+      stream =
+          sStreamFactory->create(std::get<std::string>(new_track), seek_to);
     }
 
-    if (path) {
-      if (*path == prev_uri) {
-        // This was a seek or replay within the same track; don't forget where
-        // the track originally came from.
-        sNextTrackIsFromQueue = prev_from_queue;
-      }
-      sFileSource->SetPath(*path, seek_to);
-    } else {
-      sFileSource->SetPath();
-    }
+    // This was a seek or replay within the same track; don't forget where
+    // the track originally came from.
+    // FIXME:
+    // sNextTrackIsFromQueue = prev_from_queue;
+    sDecoder->open(stream);
   });
 }
 
@@ -350,7 +343,7 @@ void AudioState::react(const OutputModeChanged& ev) {
       break;
   }
   sOutput->mode(IAudioOutput::Modes::kOnPaused);
-  sSampleConverter->SetOutput(sOutput);
+  sSampleProcessor->SetOutput(sOutput);
 
   // Bluetooth volume isn't 'changed' until we've connected to a device.
   if (new_mode == drivers::NvsStorage::Output::kHeadphones) {
@@ -365,7 +358,7 @@ auto AudioState::clearDrainBuffer() -> void {
   // Tell the decoder to stop adding new samples. This might not take effect
   // immediately, since the decoder might currently be stuck waiting for space
   // to become available in the drain buffer.
-  sFileSource->SetPath();
+  sDecoder->open({});
 
   auto mode = sOutput->mode();
   if (mode == IAudioOutput::Modes::kOnPlaying) {
@@ -428,8 +421,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sDrainBuffer = xStreamBufferCreateStatic(
       kDrainBufferSize, sizeof(sample::Sample), storage, meta);
 
-  sFileSource.reset(
-      new FatfsAudioInput(sServices->tag_parser(), sServices->bg_worker()));
+  sStreamFactory.reset(new FatfsStreamFactory(*sServices));
   sI2SOutput.reset(new I2SAudioOutput(sDrainBuffer, sServices->gpios()));
   sBtOutput.reset(new BluetoothAudioOutput(sDrainBuffer, sServices->bluetooth(),
                                            sServices->bg_worker()));
@@ -463,10 +455,10 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       .left_bias = nvs.AmpLeftBias(),
   });
 
-  sSampleConverter.reset(new SampleConverter());
-  sSampleConverter->SetOutput(sOutput);
+  sSampleProcessor.reset(new SampleProcessor());
+  sSampleProcessor->SetOutput(sOutput);
 
-  Decoder::Start(sFileSource, sSampleConverter);
+  sDecoder.reset(Decoder::Start(sSampleProcessor));
 
   transit<Standby>();
 }

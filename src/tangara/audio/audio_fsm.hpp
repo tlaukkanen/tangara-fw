@@ -11,14 +11,13 @@
 #include <memory>
 #include <vector>
 
-#include "audio/audio_sink.hpp"
-#include "system_fsm/service_locator.hpp"
 #include "tinyfsm.hpp"
 
 #include "audio/audio_decoder.hpp"
 #include "audio/audio_events.hpp"
+#include "audio/audio_sink.hpp"
 #include "audio/bt_audio_output.hpp"
-#include "audio/fatfs_audio_input.hpp"
+#include "audio/fatfs_stream_factory.hpp"
 #include "audio/i2s_audio_output.hpp"
 #include "audio/track_queue.hpp"
 #include "database/database.hpp"
@@ -28,6 +27,7 @@
 #include "drivers/gpios.hpp"
 #include "drivers/i2s_dac.hpp"
 #include "drivers/storage.hpp"
+#include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
 
 namespace audio {
@@ -74,9 +74,9 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
-  static std::shared_ptr<FatfsAudioInput> sFileSource;
+  static std::shared_ptr<FatfsStreamFactory> sStreamFactory;
   static std::unique_ptr<Decoder> sDecoder;
-  static std::shared_ptr<SampleConverter> sSampleConverter;
+  static std::shared_ptr<SampleProcessor> sSampleProcessor;
   static std::shared_ptr<I2SAudioOutput> sI2SOutput;
   static std::shared_ptr<BluetoothAudioOutput> sBtOutput;
   static std::shared_ptr<IAudioOutput> sOutput;

@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "audio/audio_converter.hpp"
-#include <stdint.h>
+#include "audio/processor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -32,7 +31,7 @@ static constexpr std::size_t kSourceBufferLength = kSampleBufferLength * 2;
 
 namespace audio {
 
-SampleConverter::SampleConverter()
+SampleProcessor::SampleProcessor()
     : commands_(xQueueCreate(1, sizeof(Args))),
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
@@ -55,19 +54,19 @@ SampleConverter::SampleConverter()
   tasks::StartPersistent<tasks::Type::kAudioConverter>([&]() { Main(); });
 }
 
-SampleConverter::~SampleConverter() {
+SampleProcessor::~SampleProcessor() {
   vQueueDelete(commands_);
   vStreamBufferDelete(source_);
 }
 
-auto SampleConverter::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
+auto SampleProcessor::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
   // FIXME: We should add synchronisation here, but we should be careful about
   // not impacting performance given that the output will change only very
   // rarely (if ever).
   sink_ = output;
 }
 
-auto SampleConverter::beginStream(std::shared_ptr<TrackInfo> track) -> void {
+auto SampleProcessor::beginStream(std::shared_ptr<TrackInfo> track) -> void {
   Args args{
       .track = new std::shared_ptr<TrackInfo>(track),
       .samples_available = 0,
@@ -76,7 +75,7 @@ auto SampleConverter::beginStream(std::shared_ptr<TrackInfo> track) -> void {
   xQueueSend(commands_, &args, portMAX_DELAY);
 }
 
-auto SampleConverter::continueStream(std::span<sample::Sample> input) -> void {
+auto SampleProcessor::continueStream(std::span<sample::Sample> input) -> void {
   Args args{
       .track = nullptr,
       .samples_available = input.size(),
@@ -86,7 +85,7 @@ auto SampleConverter::continueStream(std::span<sample::Sample> input) -> void {
   xStreamBufferSend(source_, input.data(), input.size_bytes(), portMAX_DELAY);
 }
 
-auto SampleConverter::endStream() -> void {
+auto SampleProcessor::endStream() -> void {
   Args args{
       .track = nullptr,
       .samples_available = 0,
@@ -95,7 +94,7 @@ auto SampleConverter::endStream() -> void {
   xQueueSend(commands_, &args, portMAX_DELAY);
 }
 
-auto SampleConverter::Main() -> void {
+auto SampleProcessor::Main() -> void {
   for (;;) {
     Args args;
     while (!xQueueReceive(commands_, &args, portMAX_DELAY)) {
@@ -114,7 +113,7 @@ auto SampleConverter::Main() -> void {
   }
 }
 
-auto SampleConverter::handleBeginStream(std::shared_ptr<TrackInfo> track)
+auto SampleProcessor::handleBeginStream(std::shared_ptr<TrackInfo> track)
     -> void {
   if (track->format != source_format_) {
     resampler_.reset();
@@ -145,7 +144,7 @@ auto SampleConverter::handleBeginStream(std::shared_ptr<TrackInfo> track)
   });
 }
 
-auto SampleConverter::handleContinueStream(size_t samples_available) -> void {
+auto SampleProcessor::handleContinueStream(size_t samples_available) -> void {
   // Loop until we finish reading all the bytes indicated. There might be
   // leftovers from each iteration, and from this process as a whole,
   // depending on the resampling stage.
@@ -182,7 +181,7 @@ auto SampleConverter::handleContinueStream(size_t samples_available) -> void {
   }
 }
 
-auto SampleConverter::handleSamples(std::span<sample::Sample> input) -> size_t {
+auto SampleProcessor::handleSamples(std::span<sample::Sample> input) -> size_t {
   if (source_format_ == target_format_) {
     // The happiest possible case: the input format matches the output
     // format already.
@@ -223,7 +222,7 @@ auto SampleConverter::handleSamples(std::span<sample::Sample> input) -> size_t {
   return samples_used;
 }
 
-auto SampleConverter::handleEndStream() -> void {
+auto SampleProcessor::handleEndStream() -> void {
   if (resampler_) {
     size_t read, written;
     std::tie(read, written) = resampler_->Process({}, resampled_buffer_, true);
@@ -245,7 +244,7 @@ auto SampleConverter::handleEndStream() -> void {
   events::Audio().Dispatch(internal::StreamEnded{});
 }
 
-auto SampleConverter::sendToSink(std::span<sample::Sample> samples) -> void {
+auto SampleProcessor::sendToSink(std::span<sample::Sample> samples) -> void {
   // Update the number of samples sunk so far *before* actually sinking them,
   // since writing to the stream buffer will block when the buffer gets full.
   samples_sunk_ += samples.size();
