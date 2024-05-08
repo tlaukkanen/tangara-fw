@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 
+#include "audio/stream_cues.hpp"
 #include "tinyfsm.hpp"
 
 #include "audio/audio_decoder.hpp"
@@ -46,13 +47,13 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const SetTrack&);
   void react(const TogglePlayPause&);
 
+  void react(const internal::DecodingFinished&);
   void react(const internal::StreamStarted&);
-  void react(const internal::StreamUpdate&);
   void react(const internal::StreamEnded&);
+  virtual void react(const internal::StreamHeartbeat&) {}
 
   void react(const StepUpVolume&);
   void react(const StepDownVolume&);
-  virtual void react(const system_fsm::HasPhonesChanged&);
 
   void react(const SetVolume&);
   void react(const SetVolumeLimit&);
@@ -66,10 +67,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const system_fsm::BluetoothEvent&);
 
  protected:
-  auto clearDrainBuffer() -> void;
-  auto awaitEmptyDrainBuffer() -> void;
-
-  auto playTrack(database::TrackId id) -> void;
+  auto emitPlaybackUpdate(bool paused) -> void;
   auto commitVolume() -> void;
 
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
@@ -83,19 +81,10 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
 
   static StreamBufferHandle_t sDrainBuffer;
 
-  static std::shared_ptr<TrackInfo> sCurrentTrack;
-  static uint64_t sCurrentSamples;
+  static StreamCues sStreamCues;
   static std::optional<IAudioOutput::Format> sDrainFormat;
-  static bool sCurrentTrackIsFromQueue;
 
-  static std::shared_ptr<TrackInfo> sNextTrack;
-  static uint64_t sNextTrackCueSamples;
-  static bool sNextTrackIsFromQueue;
-
-  static bool sIsResampling;
   static bool sIsPaused;
-
-  auto currentPositionSeconds() -> std::optional<uint32_t>;
 };
 
 namespace states {
@@ -122,6 +111,7 @@ class Playback : public AudioState {
   void exit() override;
 
   void react(const system_fsm::SdStateChanged&) override;
+  void react(const internal::StreamHeartbeat&) override;
 
   using AudioState::react;
 };

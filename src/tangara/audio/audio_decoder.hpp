@@ -40,7 +40,7 @@ class Decoder {
 
   auto prepareDecode(std::shared_ptr<TaggedStream>) -> void;
   auto continueDecode() -> bool;
-  auto finishDecode() -> void;
+  auto finishDecode(bool cancel) -> void;
 
   std::shared_ptr<SampleProcessor> processor_;
 

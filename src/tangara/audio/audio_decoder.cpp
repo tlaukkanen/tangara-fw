@@ -92,7 +92,7 @@ void Decoder::Main() {
       // If we were already decoding, then make sure we finish up the current
       // file gracefully.
       if (stream_) {
-        finishDecode();
+        finishDecode(true);
       }
 
       // Ensure there's actually stream data; we might have been given nullptr
@@ -106,7 +106,7 @@ void Decoder::Main() {
     }
 
     if (!continueDecode()) {
-      finishDecode();
+      finishDecode(false);
     }
   }
 }
@@ -179,12 +179,16 @@ auto Decoder::continueDecode() -> bool {
   return !res->is_stream_finished;
 }
 
-auto Decoder::finishDecode() -> void {
+auto Decoder::finishDecode(bool cancel) -> void {
   assert(track_);
 
   // Tell everyone we're finished.
-  events::Audio().Dispatch(internal::DecodingFinished{.track = track_});
-  processor_->endStream();
+  if (cancel) {
+    events::Audio().Dispatch(internal::DecodingCancelled{.track = track_});
+  } else {
+    events::Audio().Dispatch(internal::DecodingFinished{.track = track_});
+  }
+  processor_->endStream(cancel);
 
   // Clean up after ourselves.
   stream_.reset();

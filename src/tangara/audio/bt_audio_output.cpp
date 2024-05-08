@@ -121,4 +121,8 @@ auto BluetoothAudioOutput::Configure(const Format& fmt) -> void {
   // No configuration necessary; the output format is fixed.
 }
 
+auto BluetoothAudioOutput::samplesUsed() -> uint32_t {
+  return bluetooth_.SamplesUsed();
+}
+
 }  // namespace audio

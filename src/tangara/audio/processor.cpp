@@ -5,10 +5,12 @@
  */
 
 #include "audio/processor.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include "audio/audio_events.hpp"
 #include "audio/audio_sink.hpp"
@@ -31,14 +33,15 @@ static constexpr std::size_t kSourceBufferLength = kSampleBufferLength * 2;
 
 namespace audio {
 
-SampleProcessor::SampleProcessor()
+SampleProcessor::SampleProcessor(StreamBufferHandle_t sink)
     : commands_(xQueueCreate(1, sizeof(Args))),
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
                                           sizeof(sample::Sample) * 2,
                                           MALLOC_CAP_DMA)),
+      sink_(sink),
       leftover_bytes_(0),
-      samples_sunk_(0) {
+      samples_written_(0) {
   input_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
           kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_DMA)),
@@ -60,10 +63,12 @@ SampleProcessor::~SampleProcessor() {
 }
 
 auto SampleProcessor::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
-  // FIXME: We should add synchronisation here, but we should be careful about
-  // not impacting performance given that the output will change only very
-  // rarely (if ever).
-  sink_ = output;
+  assert(xStreamBufferIsEmpty(sink_));
+  // FIXME: We should add synchronisation here, but we should be careful
+  // about not impacting performance given that the output will change only
+  // very rarely (if ever).
+  output_ = output;
+  samples_written_ = output_->samplesUsed();
 }
 
 auto SampleProcessor::beginStream(std::shared_ptr<TrackInfo> track) -> void {
@@ -71,6 +76,7 @@ auto SampleProcessor::beginStream(std::shared_ptr<TrackInfo> track) -> void {
       .track = new std::shared_ptr<TrackInfo>(track),
       .samples_available = 0,
       .is_end_of_stream = false,
+      .clear_buffers = false,
   };
   xQueueSend(commands_, &args, portMAX_DELAY);
 }
@@ -80,16 +86,18 @@ auto SampleProcessor::continueStream(std::span<sample::Sample> input) -> void {
       .track = nullptr,
       .samples_available = input.size(),
       .is_end_of_stream = false,
+      .clear_buffers = false,
   };
   xQueueSend(commands_, &args, portMAX_DELAY);
   xStreamBufferSend(source_, input.data(), input.size_bytes(), portMAX_DELAY);
 }
 
-auto SampleProcessor::endStream() -> void {
+auto SampleProcessor::endStream(bool cancelled) -> void {
   Args args{
       .track = nullptr,
       .samples_available = 0,
       .is_end_of_stream = true,
+      .clear_buffers = cancelled,
   };
   xQueueSend(commands_, &args, portMAX_DELAY);
 }
@@ -108,7 +116,7 @@ auto SampleProcessor::Main() -> void {
       handleContinueStream(args.samples_available);
     }
     if (args.is_end_of_stream) {
-      handleEndStream();
+      handleEndStream(args.clear_buffers);
     }
   }
 }
@@ -116,31 +124,32 @@ auto SampleProcessor::Main() -> void {
 auto SampleProcessor::handleBeginStream(std::shared_ptr<TrackInfo> track)
     -> void {
   if (track->format != source_format_) {
-    resampler_.reset();
     source_format_ = track->format;
+    // The new stream has a different format to the previous stream (or there
+    // was no previous stream).
+    // First, clean up our filters.
+    resampler_.reset();
     leftover_bytes_ = 0;
 
-    auto new_target = sink_->PrepareFormat(track->format);
-    if (new_target != target_format_) {
-      // The new format is different to the old one. Wait for the sink to
-      // drain before continuing.
-      while (!xStreamBufferIsEmpty(sink_->stream())) {
-        ESP_LOGI(kTag, "waiting for sink stream to drain...");
-        // TODO(jacqueline): Get the sink drain ISR to notify us of this
-        // via semaphore instead of busy-ish waiting.
-        vTaskDelay(pdMS_TO_TICKS(10));
-      }
-
-      sink_->Configure(new_target);
+    // If the output is idle, then we can reconfigure it to the closest format
+    // to our new source.
+    // If the output *wasn't* idle, then we can't reconfigure without an
+    // audible gap in playback. So instead, we simply keep the same target
+    // format and begin resampling.
+    if (xStreamBufferIsEmpty(sink_)) {
+      target_format_ = output_->PrepareFormat(track->format);
+      output_->Configure(target_format_);
     }
-    target_format_ = new_target;
   }
 
-  samples_sunk_ = 0;
+  if (xStreamBufferIsEmpty(sink_)) {
+    samples_written_ = output_->samplesUsed();
+  }
+
   events::Audio().Dispatch(internal::StreamStarted{
       .track = track,
-      .src_format = source_format_,
-      .dst_format = target_format_,
+      .sink_format = target_format_,
+      .cue_at_sample = samples_written_,
   });
 }
 
@@ -222,8 +231,8 @@ auto SampleProcessor::handleSamples(std::span<sample::Sample> input) -> size_t {
   return samples_used;
 }
 
-auto SampleProcessor::handleEndStream() -> void {
-  if (resampler_) {
+auto SampleProcessor::handleEndStream(bool clear_bufs) -> void {
+  if (resampler_ && !clear_bufs) {
     size_t read, written;
     std::tie(read, written) = resampler_->Process({}, resampled_buffer_, true);
 
@@ -232,33 +241,31 @@ auto SampleProcessor::handleEndStream() -> void {
     }
   }
 
-  // Send a final update to finish off this stream's samples.
-  if (samples_sunk_ > 0) {
-    events::Audio().Dispatch(internal::StreamUpdate{
-        .samples_sunk = samples_sunk_,
-    });
-    samples_sunk_ = 0;
+  if (clear_bufs) {
+    assert(xStreamBufferReset(sink_));
+    samples_written_ = output_->samplesUsed();
   }
+
+  // FIXME: This discards any leftover samples, but there probably shouldn't be
+  // any leftover samples. Can this be an assert instead?
   leftover_bytes_ = 0;
 
-  events::Audio().Dispatch(internal::StreamEnded{});
+  events::Audio().Dispatch(internal::StreamEnded{
+      .cue_at_sample = samples_written_,
+  });
 }
 
 auto SampleProcessor::sendToSink(std::span<sample::Sample> samples) -> void {
-  // Update the number of samples sunk so far *before* actually sinking them,
-  // since writing to the stream buffer will block when the buffer gets full.
-  samples_sunk_ += samples.size();
-  if (samples_sunk_ >=
-      target_format_.sample_rate * target_format_.num_channels) {
-    events::Audio().Dispatch(internal::StreamUpdate{
-        .samples_sunk = samples_sunk_,
-    });
-    samples_sunk_ = 0;
-  }
+  auto data = std::as_bytes(samples);
+  xStreamBufferSend(sink_, data.data(), data.size(), portMAX_DELAY);
 
-  xStreamBufferSend(sink_->stream(),
-                    reinterpret_cast<std::byte*>(samples.data()),
-                    samples.size_bytes(), portMAX_DELAY);
+  uint32_t samples_before_overflow =
+      std::numeric_limits<uint32_t>::max() - samples_written_;
+  if (samples_before_overflow < samples.size()) {
+    samples_written_ = samples.size() - samples_before_overflow;
+  } else {
+    samples_written_ += samples.size();
+  }
 }
 
 }  // namespace audio

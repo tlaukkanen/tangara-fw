@@ -13,10 +13,10 @@
 #include <freertos/stream_buffer.h>
 #include <stdint.h>
 #include "drivers/bluetooth_types.hpp"
+#include "drivers/nvs.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "esp_gap_bt_api.h"
-#include "drivers/nvs.hpp"
 #include "tasks.hpp"
 #include "tinyfsm.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
@@ -44,6 +44,7 @@ class Bluetooth {
 
   auto SetSource(StreamBufferHandle_t) -> void;
   auto SetVolumeFactor(float) -> void;
+  auto SamplesUsed() -> uint32_t;
 
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
 };
