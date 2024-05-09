@@ -85,4 +85,11 @@ auto Trigger::update(bool is_pressed) -> State {
   return State::kNone;
 }
 
+auto Trigger::cancel() -> void {
+  touch_time_ms_.reset();
+  was_pressed_ = false;
+  was_double_click_ = false;
+  times_long_pressed_ = 0;
+}
+
 }  // namespace input

@@ -40,10 +40,10 @@ TouchWheel::TouchWheel(drivers::NvsStorage& nvs, drivers::TouchWheel& wheel)
                      return true;
                    }),
       centre_("centre", actions::select(), {}, {}, {}),
-      up_("up", {}, actions::scrollToTop(), {}, {}),
+      up_("up", {}, {}, actions::scrollToTop(), {}),
       right_("right", {}),
-      down_("down", {}, actions::scrollToBottom(), {}, {}),
-      left_("left", {}, actions::goBack(), {}, {}),
+      down_("down", {}, {}, actions::scrollToBottom(), {}),
+      left_("left", {}, {}, actions::goBack(), {}),
       is_scrolling_(false),
       threshold_(calculateThreshold(nvs.ScrollSensitivity())),
       is_first_read_(true),
@@ -73,20 +73,26 @@ auto TouchWheel::read(lv_indev_data_t* data) -> void {
 
   // If the user is touching the wheel but not scrolling, then they may be
   // clicking on one of the wheel's cardinal directions.
-  bool pressing = wheel_data.is_wheel_touched && !is_scrolling_;
-
-  up_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                             wheel_data.wheel_position, 0, 32),
-             data);
-  right_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                                wheel_data.wheel_position, 192, 32),
-                data);
-  down_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                               wheel_data.wheel_position, 128, 32),
+  if (is_scrolling_) {
+    up_.cancel();
+    right_.cancel();
+    down_.cancel();
+    left_.cancel();
+  } else {
+    bool pressing = wheel_data.is_wheel_touched;
+    up_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                               wheel_data.wheel_position, 0, 32),
                data);
-  left_.update(pressing && drivers::TouchWheel::isAngleWithin(
-                               wheel_data.wheel_position, 64, 32),
-               data);
+    right_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                                  wheel_data.wheel_position, 192, 32),
+                  data);
+    down_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                                 wheel_data.wheel_position, 128, 32),
+                 data);
+    left_.update(pressing && drivers::TouchWheel::isAngleWithin(
+                                 wheel_data.wheel_position, 64, 32),
+                 data);
+  }
 }
 
 auto TouchWheel::name() -> std::string {
