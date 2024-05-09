@@ -45,6 +45,8 @@ class BluetoothAudioOutput : public IAudioOutput {
   auto PrepareFormat(const Format&) -> Format override;
   auto Configure(const Format& format) -> void override;
 
+  auto samplesUsed() -> uint32_t override;
+
   BluetoothAudioOutput(const BluetoothAudioOutput&) = delete;
   BluetoothAudioOutput& operator=(const BluetoothAudioOutput&) = delete;
 

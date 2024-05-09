@@ -38,6 +38,7 @@ namespace drivers {
 
 DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
 DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
+DRAM_ATTR static std::atomic<uint32_t> sSamplesUsed = 0;
 
 static tasks::WorkerPool* sBgWorker;
 
@@ -47,8 +48,8 @@ auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
       bluetooth::events::internal::Gap{.type = event, .param = param});
 }
 
-auto avrcp_cb(esp_avrc_ct_cb_event_t event,
-              esp_avrc_ct_cb_param_t* param) -> void {
+auto avrcp_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t* param)
+    -> void {
   esp_avrc_ct_cb_param_t copy = *param;
   sBgWorker->Dispatch<void>([=]() {
     auto lock = bluetooth::BluetoothState::lock();
@@ -72,6 +73,13 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
     return 0;
   }
   size_t bytes_received = xStreamBufferReceive(stream, buf, buf_size, 0);
+
+  size_t samples_received = bytes_received / 2;
+  if (UINT32_MAX - sSamplesUsed < samples_received) {
+    sSamplesUsed = samples_received - (UINT32_MAX - sSamplesUsed);
+  } else {
+    sSamplesUsed += samples_received;
+  }
 
   // Apply software volume scaling.
   int16_t* samples = reinterpret_cast<int16_t*>(buf);
@@ -163,6 +171,10 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
 
 auto Bluetooth::SetVolumeFactor(float f) -> void {
   sVolumeFactor = f;
+}
+
+auto Bluetooth::SamplesUsed() -> uint32_t {
+  return sSamplesUsed;
 }
 
 auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)

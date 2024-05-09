@@ -75,6 +75,7 @@ class IAudioOutput {
 
   virtual auto PrepareFormat(const Format&) -> Format = 0;
   virtual auto Configure(const Format& format) -> void = 0;
+  virtual auto samplesUsed() -> uint32_t = 0;
 
   auto stream() -> StreamBufferHandle_t { return stream_; }
 
