@@ -191,6 +191,11 @@ void AudioState::react(const internal::StreamStarted& ev) {
 
   if (!sIsPaused && !is_in_state<states::Playback>()) {
     transit<states::Playback>();
+  } else {
+    // Make sure everyone knows we've got a track ready to go, even if we're
+    // not playing it yet. This mostly matters when restoring the queue from
+    // disk after booting.
+    emitPlaybackUpdate(true);
   }
 }
 
@@ -485,12 +490,13 @@ void Playback::react(const system_fsm::SdStateChanged& ev) {
 
 void Playback::react(const internal::StreamHeartbeat& ev) {
   sStreamCues.update(sOutput->samplesUsed());
-  auto current = sStreamCues.current();
 
-  if (!current.first) {
-    transit<Standby>();
-  } else {
+  if (sStreamCues.hasStream()) {
     emitPlaybackUpdate(false);
+  } else {
+    // Finished the current stream, and there's nothing upcoming. We must be
+    // finished.
+    transit<Standby>();
   }
 }
 

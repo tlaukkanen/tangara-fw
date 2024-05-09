@@ -32,10 +32,14 @@ auto StreamCues::update(uint32_t sample) -> void {
 
 auto StreamCues::addCue(std::shared_ptr<TrackInfo> track, uint32_t sample)
     -> void {
-  upcoming_.push_back(Cue{
-      .track = track,
-      .start_at = sample,
-  });
+  if (sample == now_) {
+    current_ = {track, now_};
+  } else {
+    upcoming_.push_back(Cue{
+        .track = track,
+        .start_at = sample,
+    });
+  }
 }
 
 auto StreamCues::current() -> std::pair<std::shared_ptr<TrackInfo>, uint32_t> {
@@ -52,6 +56,10 @@ auto StreamCues::current() -> std::pair<std::shared_ptr<TrackInfo>, uint32_t> {
   }
 
   return {current_->track, duration};
+}
+
+auto StreamCues::hasStream() -> bool {
+  return current_ || !upcoming_.empty();
 }
 
 }  // namespace audio
