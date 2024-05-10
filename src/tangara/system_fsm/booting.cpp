@@ -64,7 +64,7 @@ auto Booting::entry() -> void {
 
   // HACK: tell the unit that it has an ERM motor (we will likely default to
   //       LRAs in future, but all the current units in the field use ERMs.)
-  sServices->nvs().HapticMotorIsErm(true);
+  // sServices->nvs().HapticMotorIsErm(true);
 
   // HACK: fix up the switch polarity on newer dev units
   // sServices->nvs().LockPolarity(false);
