@@ -11,7 +11,7 @@
 
 #include "ff.h"
 
-namespace database {
+namespace lua {
 
 // Note for when reading FILINFO, that we are in LFN mode:
 // http://elm-chan.org/fsw/ff/doc/sfileinfo.html
@@ -42,4 +42,4 @@ class FileIterator {
   auto iterate(bool reverse = false) -> bool;
 };
 
-} // namespace database
+} // namespace lua

@@ -10,7 +10,7 @@
 
 namespace lua {
 
-auto check_file_iterator(lua_State*, int stack_pos) -> database::FileIterator*;
+auto check_file_iterator(lua_State*, int stack_pos) -> lua::FileIterator*;
 
 auto RegisterFileSystemModule(lua_State*) -> void;
 

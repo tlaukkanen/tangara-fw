@@ -11,7 +11,7 @@
 #include "ff.h"
 #include "drivers/spi.hpp"
 
-namespace database {
+namespace lua {
 
 [[maybe_unused]] static const char* kTag = "FileIterator";
 
@@ -84,4 +84,4 @@ auto FileIterator::iterate(bool reverse) -> bool {
     return true;
 }
 
-}  // namespace database
+}  // namespace lua

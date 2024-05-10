@@ -28,7 +28,7 @@ struct LuaFileEntry {
 static_assert(std::is_trivially_destructible<LuaFileEntry>());
 static_assert(std::is_trivially_copy_assignable<LuaFileEntry>());
 
-static auto push_lua_file_entry(lua_State* L, const database::FileEntry& r) -> void {
+static auto push_lua_file_entry(lua_State* L, const lua::FileEntry& r) -> void {
   // Create and init the userdata.
   LuaFileEntry* file_entry = reinterpret_cast<LuaFileEntry*>(
       lua_newuserdata(L, sizeof(LuaFileEntry) + r.filepath.size()));
@@ -46,24 +46,24 @@ static auto push_lua_file_entry(lua_State* L, const database::FileEntry& r) -> v
   std::memcpy(file_entry->path, r.filepath.data(), r.filepath.size());
 }
 
-auto check_file_iterator(lua_State* L, int stack_pos) -> database::FileIterator* {
-  database::FileIterator* it = *reinterpret_cast<database::FileIterator**>(
+auto check_file_iterator(lua_State* L, int stack_pos) -> lua::FileIterator* {
+  lua::FileIterator* it = *reinterpret_cast<lua::FileIterator**>(
       luaL_checkudata(L, stack_pos, kFileIteratorMetatable));
   return it;
 }
 
-static auto push_iterator(lua_State* state, const database::FileIterator& it)
+static auto push_iterator(lua_State* state, const lua::FileIterator& it)
     -> void {
-  database::FileIterator** data = reinterpret_cast<database::FileIterator**>(
+  lua::FileIterator** data = reinterpret_cast<lua::FileIterator**>(
       lua_newuserdata(state, sizeof(uintptr_t)));
-  *data = new database::FileIterator(it); // TODO...
+  *data = new lua::FileIterator(it); // TODO...
   luaL_setmetatable(state, kFileIteratorMetatable);
 }
 
 static auto fs_iterate_prev(lua_State* state) -> int {
-  database::FileIterator* it = check_file_iterator(state, 1);
+  lua::FileIterator* it = check_file_iterator(state, 1);
   it->prev();
-  std::optional<database::FileEntry> res = it->value();
+  std::optional<lua::FileEntry> res = it->value();
 
   if (res) {
     push_lua_file_entry(state, *res);
@@ -75,9 +75,9 @@ static auto fs_iterate_prev(lua_State* state) -> int {
 }
 
 static auto fs_iterate(lua_State* state) -> int {
-  database::FileIterator* it = check_file_iterator(state, 1);
+  lua::FileIterator* it = check_file_iterator(state, 1);
   it->next();
-  std::optional<database::FileEntry> res = it->value();
+  std::optional<lua::FileEntry> res = it->value();
 
   if (res) {
     push_lua_file_entry(state, *res);
@@ -89,13 +89,13 @@ static auto fs_iterate(lua_State* state) -> int {
 }
 
 static auto fs_iterator_clone(lua_State* state) -> int {
-  database::FileIterator* it = check_file_iterator(state, 1);
+  lua::FileIterator* it = check_file_iterator(state, 1);
   push_iterator(state, *it);
   return 1;
 }
 
 static auto fs_iterator_gc(lua_State* state) -> int {
-  database::FileIterator* it = check_file_iterator(state, 1);
+  lua::FileIterator* it = check_file_iterator(state, 1);
   delete it;
   return 0;
 }
@@ -146,12 +146,12 @@ static auto fs_new_iterator(lua_State* state) -> int {
   // Takes a filepath as a string and returns a new FileIterator
   // on that directory
   std::string filepath = luaL_checkstring(state, -1);
-  database::FileIterator iter(filepath);
+  lua::FileIterator iter(filepath);
    push_iterator(state, iter);
   return 1;
 }
 
-static const struct luaL_Reg kDatabaseFuncs[] = {{"iterator", fs_new_iterator},
+static const struct luaL_Reg kFilesystemFuncs[] = {{"iterator", fs_new_iterator},
                                                  {NULL, NULL}};
 
 static auto lua_filesystem(lua_State* state) -> int {
@@ -167,7 +167,7 @@ static auto lua_filesystem(lua_State* state) -> int {
   lua_settable(state, -3);  // metatable.__index = metatable
   luaL_setfuncs(state, kFileEntryFuncs, 0);
 
-  luaL_newlib(state, kDatabaseFuncs);
+  luaL_newlib(state, kFilesystemFuncs);
   return 1;
 }
 
