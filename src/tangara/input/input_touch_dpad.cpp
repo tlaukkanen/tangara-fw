@@ -23,10 +23,10 @@ namespace input {
 TouchDPad::TouchDPad(drivers::TouchWheel& wheel)
     : wheel_(wheel),
       centre_("centre", actions::select(), {}, {}, {}),
-      up_("up", actions::scrollUp()),
-      right_("right", {}),
-      down_("down", actions::scrollDown()),
-      left_("left", actions::goBack()) {}
+      up_("up", actions::scrollUp(), {}, {}, actions::scrollUp()),
+      right_("right", actions::select(), {}, {}, {}),
+      down_("down", actions::scrollDown(), {}, {}, actions::scrollDown()),
+      left_("left", actions::goBack(), {}, {}, {}) {}
 
 auto TouchDPad::read(lv_indev_data_t* data) -> void {
   wheel_.Update();
