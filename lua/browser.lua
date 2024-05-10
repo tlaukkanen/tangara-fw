@@ -81,7 +81,7 @@ return screen:new{
             backstack.push(playing:new())
         end)
 
-        local infinite_list = widgets.InfiniteList(self.root, self.iterator, {
+        widgets.InfiniteList(self.root, self.iterator, {
             callback = function(item) 
                 return function()
                     local contents = item:contents()
