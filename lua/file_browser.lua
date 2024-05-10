@@ -8,6 +8,7 @@ local styles = require("styles")
 local playback = require("playback")
 local theme = require("theme")
 local screen = require("screen")
+local filesystem = require("filesystem")
 
 return screen:new{
     createUi = function(self)
@@ -54,48 +55,16 @@ return screen:new{
             }
         end
 
-        local buttons = header:Object({
-            flex = {
-                flex_direction = "row",
-                flex_wrap = "wrap",
-                justify_content = "flex-end",
-                align_items = "center",
-                align_content = "center"
-            },
-            w = lvgl.PCT(100),
-            h = lvgl.SIZE_CONTENT,
-            pad_column = 4
-        })
-        local original_iterator = self.iterator:clone()
-        local enqueue = widgets.IconBtn(buttons, "//lua/img/enqueue.png", "Enqueue")
-        enqueue:onClicked(function()
-            queue.add(original_iterator)
-            playback.playing:set(true)
-        end)
-        -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
-        local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
-        play:onClicked(function()
-            queue.clear()
-            queue.add(original_iterator)
-            playback.playing:set(true)
-            backstack.push(playing:new())
-        end)
-
         widgets.InfiniteList(self.root, self.iterator, {
             callback = function(item) 
                 return function()
-                    local contents = item:contents()
-                    if type(contents) == "userdata" then
-                        backstack.push(require("browser"):new{
+                    local is_dir = item:is_directory()
+                    if is_dir then
+                        backstack.push(require("file_browser"):new{
                             title = self.title,
-                            iterator = contents,
+                            iterator = filesystem.iterator(tostring(item)),
                             breadcrumb = tostring(item)
                         })
-                    else
-                        queue.clear()
-                        queue.add(contents)
-                        playback.playing:set(true)
-                        backstack.push(playing:new())
                     end
                 end
             end
