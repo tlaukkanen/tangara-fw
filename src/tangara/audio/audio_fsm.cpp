@@ -5,41 +5,41 @@
  */
 
 #include "audio/audio_fsm.hpp"
-#include <stdint.h>
 
+#include <cstdint>
 #include <future>
 #include <memory>
 #include <variant>
 
-#include "audio/audio_sink.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
-#include "drivers/bluetooth_types.hpp"
-#include "drivers/storage.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
+#include "tinyfsm.hpp"
 
-#include "audio/audio_converter.hpp"
 #include "audio/audio_decoder.hpp"
 #include "audio/audio_events.hpp"
+#include "audio/audio_sink.hpp"
 #include "audio/bt_audio_output.hpp"
-#include "audio/fatfs_audio_input.hpp"
+#include "audio/fatfs_stream_factory.hpp"
 #include "audio/i2s_audio_output.hpp"
+#include "audio/stream_cues.hpp"
 #include "audio/track_queue.hpp"
 #include "database/future_fetcher.hpp"
 #include "database/track.hpp"
 #include "drivers/bluetooth.hpp"
+#include "drivers/bluetooth_types.hpp"
 #include "drivers/i2s_dac.hpp"
 #include "drivers/nvs.hpp"
+#include "drivers/storage.hpp"
 #include "drivers/wm8523.hpp"
 #include "events/event_queue.hpp"
 #include "sample.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
-#include "tinyfsm.hpp"
 
 namespace audio {
 
@@ -47,12 +47,14 @@ namespace audio {
 
 std::shared_ptr<system_fsm::ServiceLocator> AudioState::sServices;
 
-std::shared_ptr<FatfsAudioInput> AudioState::sFileSource;
+std::shared_ptr<FatfsStreamFactory> AudioState::sStreamFactory;
+
 std::unique_ptr<Decoder> AudioState::sDecoder;
-std::shared_ptr<SampleConverter> AudioState::sSampleConverter;
+std::shared_ptr<SampleProcessor> AudioState::sSampleProcessor;
+
+std::shared_ptr<IAudioOutput> AudioState::sOutput;
 std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
-std::shared_ptr<IAudioOutput> AudioState::sOutput;
 
 // Two seconds of samples for two channels, at a representative sample rate.
 constexpr size_t kDrainLatencySamples = 48000 * 2 * 2;
@@ -62,30 +64,33 @@ constexpr size_t kDrainBufferSize =
 StreamBufferHandle_t AudioState::sDrainBuffer;
 std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 
-std::shared_ptr<TrackInfo> AudioState::sCurrentTrack;
-uint64_t AudioState::sCurrentSamples;
-bool AudioState::sCurrentTrackIsFromQueue;
+StreamCues AudioState::sStreamCues;
 
-std::shared_ptr<TrackInfo> AudioState::sNextTrack;
-uint64_t AudioState::sNextTrackCueSamples;
-bool AudioState::sNextTrackIsFromQueue;
-
-bool AudioState::sIsResampling;
 bool AudioState::sIsPaused = true;
 
-auto AudioState::currentPositionSeconds() -> std::optional<uint32_t> {
-  if (!sCurrentTrack || !sDrainFormat) {
-    return {};
+auto AudioState::emitPlaybackUpdate(bool paused) -> void {
+  std::optional<uint32_t> position;
+  auto current = sStreamCues.current();
+  if (current.first && sDrainFormat) {
+    position = (current.second /
+                (sDrainFormat->num_channels * sDrainFormat->sample_rate)) +
+               current.first->start_offset.value_or(0);
   }
-  return sCurrentSamples /
-         (sDrainFormat->num_channels * sDrainFormat->sample_rate);
+
+  PlaybackUpdate event{
+      .current_track = current.first,
+      .track_position = position,
+      .paused = paused,
+  };
+
+  events::System().Dispatch(event);
+  events::Ui().Dispatch(event);
 }
 
 void AudioState::react(const QueueUpdate& ev) {
   SetTrack cmd{
       .new_track = std::monostate{},
       .seek_to_second = {},
-      .transition = SetTrack::Transition::kHardCut,
   };
 
   auto current = sServices->track_queue().current();
@@ -98,20 +103,13 @@ void AudioState::react(const QueueUpdate& ev) {
       if (!ev.current_changed) {
         return;
       }
-      sNextTrackIsFromQueue = true;
-      cmd.transition = SetTrack::Transition::kHardCut;
       break;
     case QueueUpdate::kRepeatingLastTrack:
-      sNextTrackIsFromQueue = true;
-      cmd.transition = SetTrack::Transition::kGapless;
       break;
     case QueueUpdate::kTrackFinished:
       if (!ev.current_changed) {
         cmd.new_track = std::monostate{};
-      } else {
-        sNextTrackIsFromQueue = true;
       }
-      cmd.transition = SetTrack::Transition::kGapless;
       break;
     case QueueUpdate::kDeserialised:
     default:
@@ -124,32 +122,9 @@ void AudioState::react(const QueueUpdate& ev) {
 }
 
 void AudioState::react(const SetTrack& ev) {
-  // Remember the current track if there is one, since we need to preserve some
-  // of the state if it turns out this SetTrack event corresponds to seeking
-  // within the current track.
-  std::string prev_uri;
-  bool prev_from_queue = false;
-  if (sCurrentTrack) {
-    prev_uri = sCurrentTrack->uri;
-    prev_from_queue = sCurrentTrackIsFromQueue;
-  }
-
-  if (ev.transition == SetTrack::Transition::kHardCut) {
-    sCurrentTrack.reset();
-    sCurrentSamples = 0;
-    sCurrentTrackIsFromQueue = false;
-    clearDrainBuffer();
-  }
-
   if (std::holds_alternative<std::monostate>(ev.new_track)) {
     ESP_LOGI(kTag, "playback finished, awaiting drain");
-    sFileSource->SetPath();
-    awaitEmptyDrainBuffer();
-    sCurrentTrack.reset();
-    sDrainFormat.reset();
-    sCurrentSamples = 0;
-    sCurrentTrackIsFromQueue = false;
-    transit<states::Standby>();
+    sDecoder->open({});
     return;
   }
 
@@ -158,94 +133,74 @@ void AudioState::react(const SetTrack& ev) {
   auto new_track = ev.new_track;
   uint32_t seek_to = ev.seek_to_second.value_or(0);
   sServices->bg_worker().Dispatch<void>([=]() {
-    std::optional<std::string> path;
+    std::shared_ptr<TaggedStream> stream;
     if (std::holds_alternative<database::TrackId>(new_track)) {
-      auto db = sServices->database().lock();
-      if (db) {
-        path = db->getTrackPath(std::get<database::TrackId>(new_track));
-      }
+      stream = sStreamFactory->create(std::get<database::TrackId>(new_track),
+                                      seek_to);
     } else if (std::holds_alternative<std::string>(new_track)) {
-      path = std::get<std::string>(new_track);
+      stream =
+          sStreamFactory->create(std::get<std::string>(new_track), seek_to);
     }
 
-    if (path) {
-      if (*path == prev_uri) {
-        // This was a seek or replay within the same track; don't forget where
-        // the track originally came from.
-        sNextTrackIsFromQueue = prev_from_queue;
-      }
-      sFileSource->SetPath(*path, seek_to);
-    } else {
-      sFileSource->SetPath();
-    }
+    sDecoder->open(stream);
   });
 }
 
 void AudioState::react(const TogglePlayPause& ev) {
   sIsPaused = !ev.set_to.value_or(sIsPaused);
-  if (!sIsPaused && is_in_state<states::Standby>() && sCurrentTrack) {
+  if (!sIsPaused && is_in_state<states::Standby>() &&
+      sStreamCues.current().first) {
     transit<states::Playback>();
   } else if (sIsPaused && is_in_state<states::Playback>()) {
     transit<states::Standby>();
   }
 }
 
+void AudioState::react(const internal::DecodingFinished& ev) {
+  // If we just finished playing whatever's at the front of the queue, then we
+  // need to advanve and start playing the next one ASAP in order to continue
+  // gaplessly.
+  sServices->bg_worker().Dispatch<void>([=]() {
+    auto& queue = sServices->track_queue();
+    auto current = queue.current();
+    if (!current) {
+      return;
+    }
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    auto path = db->getTrackPath(*current);
+    if (!path) {
+      return;
+    }
+    if (*path == ev.track->uri) {
+      queue.finish();
+    }
+  });
+}
+
 void AudioState::react(const internal::StreamStarted& ev) {
-  sDrainFormat = ev.dst_format;
-  sIsResampling = ev.src_format != ev.dst_format;
-
-  sNextTrack = ev.track;
-  sNextTrackCueSamples = sCurrentSamples + (kDrainLatencySamples / 2);
-
-  ESP_LOGI(kTag, "new stream %s %u ch @ %lu hz (resample=%i)",
-           ev.track->uri.c_str(), sDrainFormat->num_channels,
-           sDrainFormat->sample_rate, sIsResampling);
-}
-
-void AudioState::react(const internal::StreamEnded&) {
-  ESP_LOGI(kTag, "stream ended");
-
-  if (sCurrentTrackIsFromQueue) {
-    sServices->track_queue().finish();
-  } else {
-    tinyfsm::FsmList<AudioState>::dispatch(SetTrack{
-        .new_track = std::monostate{},
-        .seek_to_second = {},
-        .transition = SetTrack::Transition::kGapless,
-    });
-  }
-}
-
-void AudioState::react(const internal::StreamUpdate& ev) {
-  sCurrentSamples += ev.samples_sunk;
-
-  if (sNextTrack && sCurrentSamples >= sNextTrackCueSamples) {
-    ESP_LOGI(kTag, "next track is now sinking");
-    sCurrentTrack = sNextTrack;
-    sCurrentSamples -= sNextTrackCueSamples;
-    sCurrentSamples += sNextTrack->start_offset.value_or(0) *
-                       (sDrainFormat->num_channels * sDrainFormat->sample_rate);
-    sCurrentTrackIsFromQueue = sNextTrackIsFromQueue;
-
-    sNextTrack.reset();
-    sNextTrackCueSamples = 0;
-    sNextTrackIsFromQueue = false;
+  if (sDrainFormat != ev.sink_format) {
+    sDrainFormat = ev.sink_format;
+    ESP_LOGI(kTag, "sink_format=%u ch @ %lu hz", sDrainFormat->num_channels,
+             sDrainFormat->sample_rate);
   }
 
-  if (sCurrentTrack) {
-    PlaybackUpdate event{
-        .current_track = sCurrentTrack,
-        .track_position = currentPositionSeconds(),
-        .paused = !is_in_state<states::Playback>(),
-    };
-    events::System().Dispatch(event);
-    events::Ui().Dispatch(event);
-  }
+  sStreamCues.addCue(ev.track, ev.cue_at_sample);
 
-  if (sCurrentTrack && !sIsPaused && !is_in_state<states::Playback>()) {
-    ESP_LOGI(kTag, "ready to play!");
+  if (!sIsPaused && !is_in_state<states::Playback>()) {
     transit<states::Playback>();
+  } else {
+    // Make sure everyone knows we've got a track ready to go, even if we're
+    // not playing it yet. This mostly matters when restoring the queue from
+    // disk after booting.
+    emitPlaybackUpdate(true);
   }
+}
+
+void AudioState::react(const internal::StreamEnded& ev) {
+  sStreamCues.addCue({}, ev.cue_at_sample);
 }
 
 void AudioState::react(const system_fsm::BluetoothEvent& ev) {
@@ -280,14 +235,6 @@ void AudioState::react(const StepDownVolume& ev) {
         .percent = sOutput->GetVolumePct(),
         .db = sOutput->GetVolumeDb(),
     });
-  }
-}
-
-void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
-  if (ev.has_headphones) {
-    ESP_LOGI(kTag, "headphones in!");
-  } else {
-    ESP_LOGI(kTag, "headphones out!");
   }
 }
 
@@ -350,7 +297,7 @@ void AudioState::react(const OutputModeChanged& ev) {
       break;
   }
   sOutput->mode(IAudioOutput::Modes::kOnPaused);
-  sSampleConverter->SetOutput(sOutput);
+  sSampleProcessor->SetOutput(sOutput);
 
   // Bluetooth volume isn't 'changed' until we've connected to a device.
   if (new_mode == drivers::NvsStorage::Output::kHeadphones) {
@@ -358,43 +305,6 @@ void AudioState::react(const OutputModeChanged& ev) {
         .percent = sOutput->GetVolumePct(),
         .db = sOutput->GetVolumeDb(),
     });
-  }
-}
-
-auto AudioState::clearDrainBuffer() -> void {
-  // Tell the decoder to stop adding new samples. This might not take effect
-  // immediately, since the decoder might currently be stuck waiting for space
-  // to become available in the drain buffer.
-  sFileSource->SetPath();
-
-  auto mode = sOutput->mode();
-  if (mode == IAudioOutput::Modes::kOnPlaying) {
-    // If we're currently playing, then the drain buffer will be actively
-    // draining on its own. Just keep trying to reset until it works.
-    while (xStreamBufferReset(sDrainBuffer) != pdPASS) {
-    }
-  } else {
-    // If we're not currently playing, then we need to actively pull samples
-    // out of the drain buffer to unblock the decoder.
-    while (!xStreamBufferIsEmpty(sDrainBuffer)) {
-      // Read a little to unblock the decoder.
-      uint8_t drain[2048];
-      xStreamBufferReceive(sDrainBuffer, drain, sizeof(drain), 0);
-
-      // Try to quickly discard the rest.
-      xStreamBufferReset(sDrainBuffer);
-    }
-  }
-}
-
-auto AudioState::awaitEmptyDrainBuffer() -> void {
-  if (is_in_state<states::Playback>()) {
-    for (int i = 0; i < 10 && !xStreamBufferIsEmpty(sDrainBuffer); i++) {
-      vTaskDelay(pdMS_TO_TICKS(250));
-    }
-  }
-  if (!xStreamBufferIsEmpty(sDrainBuffer)) {
-    clearDrainBuffer();
   }
 }
 
@@ -428,8 +338,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sDrainBuffer = xStreamBufferCreateStatic(
       kDrainBufferSize, sizeof(sample::Sample), storage, meta);
 
-  sFileSource.reset(
-      new FatfsAudioInput(sServices->tag_parser(), sServices->bg_worker()));
+  sStreamFactory.reset(new FatfsStreamFactory(*sServices));
   sI2SOutput.reset(new I2SAudioOutput(sDrainBuffer, sServices->gpios()));
   sBtOutput.reset(new BluetoothAudioOutput(sDrainBuffer, sServices->bluetooth(),
                                            sServices->bg_worker()));
@@ -463,10 +372,10 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       .left_bias = nvs.AmpLeftBias(),
   });
 
-  sSampleConverter.reset(new SampleConverter());
-  sSampleConverter->SetOutput(sOutput);
+  sSampleProcessor.reset(new SampleProcessor(sDrainBuffer));
+  sSampleProcessor->SetOutput(sOutput);
 
-  Decoder::Start(sFileSource, sSampleConverter);
+  sDecoder.reset(Decoder::Start(sSampleProcessor));
 
   transit<Standby>();
 }
@@ -478,7 +387,8 @@ void Standby::react(const system_fsm::KeyLockChanged& ev) {
   if (!ev.locking) {
     return;
   }
-  sServices->bg_worker().Dispatch<void>([this]() {
+  auto current = sStreamCues.current();
+  sServices->bg_worker().Dispatch<void>([=]() {
     auto db = sServices->database().lock();
     if (!db) {
       return;
@@ -491,10 +401,13 @@ void Standby::react(const system_fsm::KeyLockChanged& ev) {
     }
     db->put(kQueueKey, queue.serialise());
 
-    if (sCurrentTrack) {
+    if (current.first && sDrainFormat) {
+      uint32_t seconds = (current.second / (sDrainFormat->num_channels *
+                                            sDrainFormat->sample_rate)) +
+                         current.first->start_offset.value_or(0);
       cppbor::Array current_track{
-          cppbor::Tstr{sCurrentTrack->uri},
-          cppbor::Uint{currentPositionSeconds().value_or(0)},
+          cppbor::Tstr{current.first->uri},
+          cppbor::Uint{seconds},
       };
       db->put(kCurrentFileKey, current_track.toString());
     }
@@ -529,7 +442,6 @@ void Standby::react(const system_fsm::SdStateChanged& ev) {
         events::Audio().Dispatch(SetTrack{
             .new_track = filename,
             .seek_to_second = pos,
-            .transition = SetTrack::Transition::kHardCut,
         });
       }
     }
@@ -545,36 +457,45 @@ void Standby::react(const system_fsm::SdStateChanged& ev) {
   });
 }
 
+static TimerHandle_t sHeartbeatTimer;
+
+static void heartbeat(TimerHandle_t) {
+  events::Audio().Dispatch(internal::StreamHeartbeat{});
+}
+
 void Playback::entry() {
   ESP_LOGI(kTag, "audio output resumed");
   sOutput->mode(IAudioOutput::Modes::kOnPlaying);
+  emitPlaybackUpdate(false);
 
-  PlaybackUpdate event{
-      .current_track = sCurrentTrack,
-      .track_position = currentPositionSeconds(),
-      .paused = false,
-  };
-
-  events::System().Dispatch(event);
-  events::Ui().Dispatch(event);
+  if (!sHeartbeatTimer) {
+    sHeartbeatTimer =
+        xTimerCreate("stream", pdMS_TO_TICKS(250), true, NULL, heartbeat);
+  }
+  xTimerStart(sHeartbeatTimer, portMAX_DELAY);
 }
 
 void Playback::exit() {
   ESP_LOGI(kTag, "audio output paused");
+  xTimerStop(sHeartbeatTimer, portMAX_DELAY);
   sOutput->mode(IAudioOutput::Modes::kOnPaused);
-
-  PlaybackUpdate event{
-      .current_track = sCurrentTrack,
-      .track_position = currentPositionSeconds(),
-      .paused = true,
-  };
-
-  events::System().Dispatch(event);
-  events::Ui().Dispatch(event);
+  emitPlaybackUpdate(true);
 }
 
 void Playback::react(const system_fsm::SdStateChanged& ev) {
   if (sServices->sd() != drivers::SdState::kMounted) {
+    transit<Standby>();
+  }
+}
+
+void Playback::react(const internal::StreamHeartbeat& ev) {
+  sStreamCues.update(sOutput->samplesUsed());
+
+  if (sStreamCues.hasStream()) {
+    emitPlaybackUpdate(false);
+  } else {
+    // Finished the current stream, and there's nothing upcoming. We must be
+    // finished.
     transit<Standby>();
   }
 }

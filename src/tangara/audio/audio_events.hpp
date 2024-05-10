@@ -84,13 +84,6 @@ struct PlaybackUpdate : tinyfsm::Event {
 struct SetTrack : tinyfsm::Event {
   std::variant<std::string, database::TrackId, std::monostate> new_track;
   std::optional<uint32_t> seek_to_second;
-
-  enum Transition {
-    kHardCut,
-    kGapless,
-    // TODO: kCrossFade
-  };
-  Transition transition;
 };
 
 struct TogglePlayPause : tinyfsm::Event {
@@ -138,17 +131,33 @@ struct OutputModeChanged : tinyfsm::Event {};
 
 namespace internal {
 
+struct DecodingStarted : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
+struct DecodingFailedToStart : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
+struct DecodingCancelled : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
+struct DecodingFinished : tinyfsm::Event {
+  std::shared_ptr<TrackInfo> track;
+};
+
 struct StreamStarted : tinyfsm::Event {
   std::shared_ptr<TrackInfo> track;
-  IAudioOutput::Format src_format;
-  IAudioOutput::Format dst_format;
+  IAudioOutput::Format sink_format;
+  uint32_t cue_at_sample;
 };
 
-struct StreamUpdate : tinyfsm::Event {
-  uint32_t samples_sunk;
+struct StreamEnded : tinyfsm::Event {
+  uint32_t cue_at_sample;
 };
 
-struct StreamEnded : tinyfsm::Event {};
+struct StreamHeartbeat : tinyfsm::Event {};
 
 }  // namespace internal
 

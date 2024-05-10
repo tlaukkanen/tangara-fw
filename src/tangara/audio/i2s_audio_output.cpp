@@ -230,4 +230,8 @@ auto I2SAudioOutput::Configure(const Format& fmt) -> void {
   current_config_ = fmt;
 }
 
+auto I2SAudioOutput::samplesUsed() -> uint32_t {
+  return dac_->SamplesUsed();
+}
+
 }  // namespace audio

@@ -70,8 +70,8 @@ auto TriggerHooks::update(bool pressed, lv_indev_data_t* d) -> void {
   }
 }
 
-auto TriggerHooks::override(Trigger::State s,
-                            std::optional<HookCallback> cb) -> void {
+auto TriggerHooks::override(Trigger::State s, std::optional<HookCallback> cb)
+    -> void {
   switch (s) {
     case Trigger::State::kClick:
       click_.override(cb);
@@ -94,6 +94,10 @@ auto TriggerHooks::name() const -> const std::string& {
 
 auto TriggerHooks::hooks() -> std::vector<std::reference_wrapper<Hook>> {
   return {click_, long_press_, repeat_};
+}
+
+auto TriggerHooks::cancel() -> void {
+  trigger_.cancel();
 }
 
 }  // namespace input

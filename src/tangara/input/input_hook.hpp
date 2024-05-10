@@ -58,6 +58,8 @@ class TriggerHooks {
   auto name() const -> const std::string&;
   auto hooks() -> std::vector<std::reference_wrapper<Hook>>;
 
+  auto cancel() -> void;
+
   // Not copyable or movable.
   TriggerHooks(const TriggerHooks&) = delete;
   TriggerHooks& operator=(const TriggerHooks&) = delete;

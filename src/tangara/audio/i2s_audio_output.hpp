@@ -43,6 +43,8 @@ class I2SAudioOutput : public IAudioOutput {
   auto PrepareFormat(const Format&) -> Format override;
   auto Configure(const Format& format) -> void override;
 
+  auto samplesUsed() -> uint32_t override;
+
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
 

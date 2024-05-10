@@ -30,6 +30,7 @@ class Trigger {
   Trigger();
 
   auto update(bool is_pressed) -> State;
+  auto cancel() -> void;
 
  private:
   std::optional<uint64_t> touch_time_ms_;

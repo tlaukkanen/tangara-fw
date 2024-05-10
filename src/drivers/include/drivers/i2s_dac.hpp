@@ -11,8 +11,8 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <utility>
 #include <span>
+#include <utility>
 
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
@@ -70,6 +70,8 @@ class I2SDac {
 
   auto WriteData(const std::span<const std::byte>& data) -> void;
   auto SetSource(StreamBufferHandle_t buffer) -> void;
+
+  auto SamplesUsed() -> uint32_t;
 
   // Not copyable or movable.
   I2SDac(const I2SDac&) = delete;
