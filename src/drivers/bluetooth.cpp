@@ -1,4 +1,4 @@
-#include "bluetooth.hpp"
+#include "drivers/bluetooth.hpp"
 
 #include <stdint.h>
 
@@ -25,12 +25,11 @@
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
-#include "sample.hpp"
 #include "tinyfsm/include/tinyfsm.hpp"
 
-#include "bluetooth_types.hpp"
+#include "drivers/bluetooth_types.hpp"
+#include "drivers/nvs.hpp"
 #include "memory_resource.hpp"
-#include "nvs.hpp"
 #include "tasks.hpp"
 
 namespace drivers {
@@ -39,6 +38,7 @@ namespace drivers {
 
 DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
 DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
+DRAM_ATTR static std::atomic<uint32_t> sSamplesUsed = 0;
 
 static tasks::WorkerPool* sBgWorker;
 
@@ -73,6 +73,13 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
     return 0;
   }
   size_t bytes_received = xStreamBufferReceive(stream, buf, buf_size, 0);
+
+  size_t samples_received = bytes_received / 2;
+  if (UINT32_MAX - sSamplesUsed < samples_received) {
+    sSamplesUsed = samples_received - (UINT32_MAX - sSamplesUsed);
+  } else {
+    sSamplesUsed += samples_received;
+  }
 
   // Apply software volume scaling.
   int16_t* samples = reinterpret_cast<int16_t*>(buf);
@@ -164,6 +171,10 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
 
 auto Bluetooth::SetVolumeFactor(float f) -> void {
   sVolumeFactor = f;
+}
+
+auto Bluetooth::SamplesUsed() -> uint32_t {
+  return sSamplesUsed;
 }
 
 auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)

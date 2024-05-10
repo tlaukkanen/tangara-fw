@@ -3,11 +3,14 @@ local vol = require("volume")
 local theme = require("theme")
 local controls = require("controls")
 local time = require("time")
-
-local lock_time = time.ticks()
+local sd_card = require("sd_card")
+local backstack = require("backstack")
+local main_menu = require("main_menu")
 
 local theme_dark = require("theme_dark")
 theme.set(theme_dark)
+
+local lock_time = time.ticks()
 
 -- Set up property bindings that are used across every screen.
 GLOBAL_BINDINGS = {
@@ -52,9 +55,8 @@ GLOBAL_BINDINGS = {
       end
     end
   end),
+  sd_card.mounted:bind(function(mounted)
+    print("reset ui stack")
+    backstack.reset(main_menu:new())
+  end),
 }
-
-local backstack = require("backstack")
-local main_menu = require("main_menu")
-
-backstack.push(main_menu)

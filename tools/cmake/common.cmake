@@ -5,7 +5,7 @@
 # For more information about build system see
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
 
-set(PROJECT_VER "0.8.3")
+set(PROJECT_VER "0.9.0")
 
 # esp-idf sets the C++ standard weird. Set cmake vars to match.
 set(CMAKE_CXX_STANDARD 23)
@@ -33,7 +33,6 @@ list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/drflac")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/ogg")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/opusfile")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/result")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/span")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/speexdsp")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/tinyfsm")
 list(APPEND EXTRA_COMPONENT_DIRS "$ENV{PROJ_PATH}/lib/tremor")

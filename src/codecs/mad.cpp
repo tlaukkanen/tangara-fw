@@ -74,7 +74,7 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
   while (!eof && !got_header) {
     eof = buffer_.Refill(input_.get());
 
-    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+    buffer_.ConsumeBytes([&](std::span<std::byte> buf) -> size_t {
       mad_stream_buffer(stream_.get(),
                         reinterpret_cast<const unsigned char*>(buf.data()),
                         buf.size_bytes());
@@ -130,7 +130,7 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
     }
     need_refill = false;
 
-    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+    buffer_.ConsumeBytes([&](std::span<std::byte> buf) -> size_t {
       mad_stream_buffer(stream_.get(),
                         reinterpret_cast<const unsigned char*>(buf.data()),
                         buf.size());
@@ -156,13 +156,13 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
   return output;
 }
 
-auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
+auto MadMp3Decoder::DecodeTo(std::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
   if (current_sample_ < 0 && !is_eos_) {
     if (!is_eof_) {
       is_eof_ = buffer_.Refill(input_.get());
       if (is_eof_) {
-        buffer_.AddBytes([&](cpp::span<std::byte> buf) -> size_t {
+        buffer_.AddBytes([&](std::span<std::byte> buf) -> size_t {
           if (buf.size() < MAD_BUFFER_GUARD) {
             is_eof_ = false;
             return 0;
@@ -174,7 +174,7 @@ auto MadMp3Decoder::DecodeTo(cpp::span<sample::Sample> output)
       }
     }
 
-    buffer_.ConsumeBytes([&](cpp::span<std::byte> buf) -> size_t {
+    buffer_.ConsumeBytes([&](std::span<std::byte> buf) -> size_t {
       mad_stream_buffer(stream_.get(),
                         reinterpret_cast<const unsigned char*>(buf.data()),
                         buf.size());

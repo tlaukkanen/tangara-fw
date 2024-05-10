@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 
 #include <cstdint>
 

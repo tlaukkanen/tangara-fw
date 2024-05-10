@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "storage.hpp"
+#include "drivers/storage.hpp"
 
 #include <atomic>
 #include <memory>
@@ -23,7 +23,7 @@
 #include "hal/spi_types.h"
 #include "sdmmc_cmd.h"
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
 #include "memory_resource.hpp"
 
 [[maybe_unused]] static const char* kTag = "SDSTORAGE";

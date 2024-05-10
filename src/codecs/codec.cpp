@@ -9,8 +9,8 @@
 #include <memory>
 #include <optional>
 
-#include "mad.hpp"
 #include "dr_flac.hpp"
+#include "mad.hpp"
 #include "opus.hpp"
 #include "types.hpp"
 #include "vorbis.hpp"

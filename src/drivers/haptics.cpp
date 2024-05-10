@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "haptics.hpp"
+#include "drivers/haptics.hpp"
 #include <stdint.h>
 
 #include <cstdint>
@@ -21,7 +21,7 @@
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 
 namespace drivers {
 
@@ -54,7 +54,8 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
     // Set library
     // TODO(robin): try the other libraries and test response. C is marginal, D
     // too much?
-    WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(kDefaultErmLibrary));
+    WriteRegister(Register::kWaveformLibrary,
+                  static_cast<uint8_t>(kDefaultErmLibrary));
 
   } else if (std::holds_alternative<LraMotor>(motor)) {
     ESP_LOGI(kTag, "Setting up LRA motor...");
@@ -75,7 +76,8 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
                       ControlMask::kLraOpenLoop);
 
     // Set library; only option is the LRA one for, well, LRA motors.
-    WriteRegister(Register::kWaveformLibrary, static_cast<uint8_t>(Library::LRA));
+    WriteRegister(Register::kWaveformLibrary,
+                  static_cast<uint8_t>(Library::LRA));
   }
 
   // Set mode (internal trigger, on writing 1 to Go register)
@@ -122,7 +124,6 @@ auto Haptics::SetWaveformEffect(Effect effect) -> void {
   }
   current_effect_ = effect;
 }
-
 
 auto Haptics::TourEffects() -> void {
   TourEffects(Effect::kFirst, Effect::kLast, kDefaultErmLibrary);
@@ -173,7 +174,6 @@ auto Haptics::TourLibraries(Effect from, Effect to) -> void {
     }
   }
 }
-
 
 auto Haptics::PowerDown() -> void {
   WriteRegister(Register::kMode, static_cast<uint8_t>(Mode::kInternalTrigger) |

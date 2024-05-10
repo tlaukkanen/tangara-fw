@@ -6,7 +6,7 @@ idf_component_register(
   SRCS "dr_flac.cpp" "codec.cpp" "mad.cpp" "opus.cpp" "vorbis.cpp"
        "source_buffer.cpp" "sample.cpp" "wav.cpp"
   INCLUDE_DIRS "include"
-  REQUIRES "result" "span" "libmad" "drflac" "tremor" "opusfile" "memory" "util"
+  REQUIRES "result" "libmad" "drflac" "tremor" "opusfile" "memory" "util"
        "komihash")
 
 target_compile_options("${COMPONENT_LIB}" PRIVATE ${EXTRA_WARNINGS})

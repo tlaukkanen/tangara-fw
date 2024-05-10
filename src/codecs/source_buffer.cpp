@@ -39,7 +39,7 @@ auto SourceBuffer::Refill(IStream* src) -> bool {
     return false;
   }
   bool eof = false;
-  AddBytes([&](cpp::span<std::byte> buf) -> size_t {
+  AddBytes([&](std::span<std::byte> buf) -> size_t {
     ssize_t bytes_read = src->Read(buf);
     // Treat read errors as EOF.
     eof = bytes_read <= 0;
@@ -48,7 +48,7 @@ auto SourceBuffer::Refill(IStream* src) -> bool {
   return eof;
 }
 
-auto SourceBuffer::AddBytes(std::function<size_t(cpp::span<std::byte>)> writer)
+auto SourceBuffer::AddBytes(std::function<size_t(std::span<std::byte>)> writer)
     -> void {
   if (offset_of_bytes_ > 0) {
     std::memmove(buffer_.data(), buffer_.data() + offset_of_bytes_,
@@ -61,9 +61,9 @@ auto SourceBuffer::AddBytes(std::function<size_t(cpp::span<std::byte>)> writer)
 }
 
 auto SourceBuffer::ConsumeBytes(
-    std::function<size_t(cpp::span<std::byte>)> reader) -> void {
-  size_t bytes_consumed = std::invoke(
-      reader, buffer_.subspan(offset_of_bytes_, bytes_in_buffer_));
+    std::function<size_t(std::span<std::byte>)> reader) -> void {
+  size_t bytes_consumed =
+      std::invoke(reader, buffer_.subspan(offset_of_bytes_, bytes_in_buffer_));
   assert(bytes_consumed <= bytes_in_buffer_);
 
   bytes_in_buffer_ -= bytes_consumed;

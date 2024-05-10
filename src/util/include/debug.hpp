@@ -8,13 +8,12 @@
 
 #include <iomanip>
 #include <ostream>
-
+#include <span>
 #include <string>
-#include "span.hpp"
 
 namespace util {
 
-inline std::string format_hex_string(cpp::span<const std::byte> data) {
+inline std::string format_hex_string(std::span<const std::byte> data) {
   std::ostringstream oss;
   std::ostringstream ascii_values;
   int count = 0;

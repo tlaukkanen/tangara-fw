@@ -129,7 +129,7 @@ auto TremorVorbisDecoder::OpenStream(std::shared_ptr<IStream> input,
   };
 }
 
-auto TremorVorbisDecoder::DecodeTo(cpp::span<sample::Sample> output)
+auto TremorVorbisDecoder::DecodeTo(std::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
   int unused = 0;
   long bytes_written =

@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "i2s_dac.hpp"
+#include "drivers/i2s_dac.hpp"
+#include <stdint.h>
 
 #include <cmath>
 #include <cstdint>
@@ -25,11 +26,11 @@
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
+#include "drivers/i2c.hpp"
+#include "drivers/wm8523.hpp"
 #include "hal/i2s_types.h"
-#include "i2c.hpp"
 #include "soc/clk_tree_defs.h"
-#include "wm8523.hpp"
 
 namespace drivers {
 
@@ -140,7 +141,7 @@ auto I2SDac::SetPaused(bool paused) -> void {
   }
 }
 
-static volatile bool sSwapWords = false;
+DRAM_ATTR static volatile bool sSwapWords = false;
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
@@ -207,7 +208,7 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
   }
 }
 
-auto I2SDac::WriteData(const cpp::span<const std::byte>& data) -> void {
+auto I2SDac::WriteData(const std::span<const std::byte>& data) -> void {
   std::size_t bytes_written = 0;
   esp_err_t err = i2s_channel_write(i2s_handle_, data.data(), data.size_bytes(),
                                     &bytes_written, portMAX_DELAY);
@@ -215,6 +216,8 @@ auto I2SDac::WriteData(const cpp::span<const std::byte>& data) -> void {
     ESP_ERROR_CHECK(err);
   }
 }
+
+DRAM_ATTR static volatile uint32_t sSamplesRead = 0;
 
 extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
                                    i2s_event_data_t* event,
@@ -233,6 +236,14 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
   BaseType_t ret = false;
   size_t bytes_written =
       xStreamBufferReceiveFromISR(src, buf, event->size, &ret);
+
+  // Assume 16 bit samples.
+  size_t samples = bytes_written / 2;
+  if (UINT32_MAX - sSamplesRead < samples) {
+    sSamplesRead = samples - (UINT32_MAX - sSamplesRead);
+  } else {
+    sSamplesRead = sSamplesRead + samples;
+  }
 
   // The ESP32's I2S peripheral has a different endianness to its processors.
   // ESP-IDF handles this difference for stereo channels, but not for mono
@@ -273,6 +284,10 @@ auto I2SDac::SetSource(StreamBufferHandle_t buffer) -> void {
   if (i2s_active_) {
     ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
   }
+}
+
+auto I2SDac::SamplesUsed() -> uint32_t {
+  return sSamplesRead;
 }
 
 auto I2SDac::set_channel(bool enabled) -> void {

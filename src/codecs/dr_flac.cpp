@@ -100,7 +100,7 @@ auto DrFlacDecoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
   return format;
 }
 
-auto DrFlacDecoder::DecodeTo(cpp::span<sample::Sample> output)
+auto DrFlacDecoder::DecodeTo(std::span<sample::Sample> output)
     -> cpp::result<OutputInfo, Error> {
   size_t frames_to_read = output.size() / flac_->channels / 2;
 

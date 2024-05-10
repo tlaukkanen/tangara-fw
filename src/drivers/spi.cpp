@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "spi.hpp"
+#include "drivers/spi.hpp"
 
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"

@@ -6,19 +6,16 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <sys/_stdint.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
 #include "result.hpp"
 #include "sample.hpp"
-#include "span.hpp"
 #include "types.hpp"
 
 #include "memory_resource.hpp"
@@ -35,7 +32,7 @@ class IStream {
 
   auto type() -> StreamType { return t_; }
 
-  virtual auto Read(cpp::span<std::byte> dest) -> ssize_t = 0;
+  virtual auto Read(std::span<std::byte> dest) -> ssize_t = 0;
 
   virtual auto CanSeek() -> bool = 0;
 
@@ -54,7 +51,7 @@ class IStream {
   /*
    * Called by codecs to indicate that they've finished parsing any header data
    * within this stream, and are about to begin decoding.
-   * 
+   *
    * Currently used as a hint to the readahead stream to begin prefetching file
    * data.
    */
@@ -117,7 +114,7 @@ class ICodec {
    * Decodes metadata or headers from the given input stream, and returns the
    * format for the samples that will be decoded from it.
    */
-  virtual auto OpenStream(std::shared_ptr<IStream> input,uint32_t offset)
+  virtual auto OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
       -> cpp::result<OutputFormat, Error> = 0;
 
   struct OutputInfo {
@@ -128,7 +125,7 @@ class ICodec {
   /*
    * Writes PCM samples to the given output buffer.
    */
-  virtual auto DecodeTo(cpp::span<sample::Sample> destination)
+  virtual auto DecodeTo(std::span<sample::Sample> destination)
       -> cpp::result<OutputInfo, Error> = 0;
 };
 

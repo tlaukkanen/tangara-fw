@@ -33,12 +33,12 @@ auto Name<Type::kAudioConverter>() -> std::pmr::string {
 }
 
 template <Type t>
-auto AllocateStack() -> cpp::span<StackType_t>;
+auto AllocateStack() -> std::span<StackType_t>;
 
 // Decoders often require a very large amount of stack space, since they aren't
 // usually written with embedded use cases in mind.
 template <>
-auto AllocateStack<Type::kAudioDecoder>() -> cpp::span<StackType_t> {
+auto AllocateStack<Type::kAudioDecoder>() -> std::span<StackType_t> {
   constexpr std::size_t size = 20 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
@@ -46,14 +46,14 @@ auto AllocateStack<Type::kAudioDecoder>() -> cpp::span<StackType_t> {
 // LVGL requires only a relatively small stack. Lua's stack is allocated
 // separately.
 template <>
-auto AllocateStack<Type::kUi>() -> cpp::span<StackType_t> {
+auto AllocateStack<Type::kUi>() -> std::span<StackType_t> {
   constexpr std::size_t size = 14 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
 }
 template <>
 // PCM conversion and resampling uses a very small amount of stack.
-auto AllocateStack<Type::kAudioConverter>() -> cpp::span<StackType_t> {
+auto AllocateStack<Type::kAudioConverter>() -> std::span<StackType_t> {
   constexpr std::size_t size = 4 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
@@ -63,7 +63,7 @@ auto AllocateStack<Type::kAudioConverter>() -> cpp::span<StackType_t> {
 // cases, where large stack usage isn't so much of a concern. It therefore uses
 // an eye-wateringly large amount of stack.
 template <>
-auto AllocateStack<Type::kBackgroundWorker>() -> cpp::span<StackType_t> {
+auto AllocateStack<Type::kBackgroundWorker>() -> std::span<StackType_t> {
   std::size_t size = 64 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};

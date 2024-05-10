@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "gpios.hpp"
+#include "drivers/gpios.hpp"
 
 #include "catch2/catch.hpp"
 
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 #include "i2c_fixture.hpp"
 
 namespace drivers {
