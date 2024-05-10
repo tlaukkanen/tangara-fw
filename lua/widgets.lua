@@ -215,10 +215,10 @@ function widgets.IconBtn(parent, icon, text)
     return btn
 end
 
-function widgets.RecyclerList(parent, iterator, opts)
-    local recycler_list = {}
+function widgets.InfiniteList(parent, iterator, opts)
+    local infinite_list = {}
 
-    recycler_list.root = lvgl.List(parent, {
+    infinite_list.root = lvgl.List(parent, {
         w = lvgl.PCT(100),
         h = lvgl.PCT(100),
         flex_grow = 1,
@@ -230,13 +230,13 @@ function widgets.RecyclerList(parent, iterator, opts)
         refreshing = true
         local group = lvgl.group.get_default()
         local focused_obj = group:get_focused()
-        local num_children = recycler_list.root:get_child_cnt()
+        local num_children = infinite_list.root:get_child_cnt()
         -- remove all children from the group and re-add them
         for i = 0, num_children-1 do
-            lvgl.group.remove_obj(recycler_list.root:get_child(i))
+            lvgl.group.remove_obj(infinite_list.root:get_child(i))
         end
         for i = 0, num_children-1 do
-            group:add_obj(recycler_list.root:get_child(i))
+            group:add_obj(infinite_list.root:get_child(i))
         end
         if (focused_obj) then
             lvgl.group.focus_obj(focused_obj)
@@ -252,14 +252,14 @@ function widgets.RecyclerList(parent, iterator, opts)
     local first_index = 0
 
     local function remove_top() 
-        local obj = recycler_list.root:get_child(0)
+        local obj = infinite_list.root:get_child(0)
         obj:delete()
         first_index = first_index + 1
         bck_iterator:next()
     end
 
     local function remove_last() 
-        local obj = recycler_list.root:get_child(-1)
+        local obj = infinite_list.root:get_child(-1)
         obj:delete()
         last_index = last_index - 1
         fwd_iterator:prev()
@@ -278,7 +278,7 @@ function widgets.RecyclerList(parent, iterator, opts)
             add_to_top = true
         end
         if this_item > last_index then last_index = index end
-        local btn = recycler_list.root:add_btn(nil, tostring(item))
+        local btn = infinite_list.root:add_btn(nil, tostring(item))
         if add_to_top then
             btn:move_to_index(0)
         end
@@ -288,13 +288,8 @@ function widgets.RecyclerList(parent, iterator, opts)
         end
         btn:onevent(lvgl.EVENT.FOCUSED, function()
           if refreshing then return end
-          selected = this_item
-          if this_item > last_selected and this_item > 3 then
+          if this_item > last_selected and this_item - first_index  > 5 then
             -- moving forward
-            if moving_back == true then
-                fwd_iterator:next()
-                moving_back = false
-            end
             local to_add = fwd_iterator:next()
             if to_add then
                 remove_top()
@@ -303,19 +298,15 @@ function widgets.RecyclerList(parent, iterator, opts)
           end
           if this_item < last_selected then
             -- moving backward
-            if last_index - this_item > 3 then
-                if moving_back == false then
-                    -- Special case for the element we switch on
-                    bck_iterator:prev()
-                    moving_back = true
-                end
-                if (last_index > 10) then
-                    remove_last()
-                end
-                if (first_index > 0) then
-                    add_item(bck_iterator:prev(), first_index-1)
-                end
-            end
+              if (last_index - first_index > 10) then
+                  remove_last()
+              end
+              if (first_index > 0 and this_item - first_index < 5) then
+                  local to_add = bck_iterator:prev();
+                  if to_add then
+                    add_item(to_add, first_index-1)
+                  end
+              end
           end
           last_selected = this_item
           refresh_group()
@@ -332,7 +323,7 @@ function widgets.RecyclerList(parent, iterator, opts)
         add_item(val, idx)
     end
 
-    return recycler_list
+    return infinite_list
 end
 
 return widgets
