@@ -55,7 +55,7 @@ return screen:new{
             }
         end
 
-        local recycle_list = widgets.RecyclerList(self.root, self.iterator, {
+        local infinite_list = widgets.InfiniteList(self.root, self.iterator, {
             callback = function(item) 
                 return function()
                     local is_dir = item:is_directory()
