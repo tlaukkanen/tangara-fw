@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "lua_filesystem.hpp"
+#include "lua/lua_filesystem.hpp"
 #include <string>
 #include <cstring>
 #include "lauxlib.h"

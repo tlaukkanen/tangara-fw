@@ -6,7 +6,7 @@
 #pragma once
 
 #include "lua.hpp"
-#include "file_iterator.hpp"
+#include "lua/file_iterator.hpp"
 
 namespace lua {
 

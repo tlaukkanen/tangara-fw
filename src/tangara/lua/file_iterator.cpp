@@ -3,13 +3,13 @@
  *
  * SPDX-License-Identifier: GPL-3.0-only
  */
-#include "file_iterator.hpp"
+#include "lua/file_iterator.hpp"
 #include "esp_log.h"
 
 #include <string>
 
 #include "ff.h"
-#include "spi.hpp"
+#include "drivers/spi.hpp"
 
 namespace database {
 

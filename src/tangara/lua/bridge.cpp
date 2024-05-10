@@ -18,6 +18,7 @@
 #include "lua.hpp"
 #include "lua/lua_controls.hpp"
 #include "lua/lua_database.hpp"
+#include "lua/lua_filesystem.hpp"
 #include "lua/lua_queue.hpp"
 #include "lua/lua_screen.hpp"
 #include "lua/lua_theme.hpp"
@@ -86,6 +87,7 @@ auto Bridge::installBaseModules(lua_State* L) -> void {
   RegisterControlsModule(L);
   RegisterDatabaseModule(L);
   RegisterQueueModule(L);
+  RegisterFileSystemModule(L);
   RegisterVersionModule(L);
   RegisterThemeModule(L);
   RegisterScreenModule(L);
