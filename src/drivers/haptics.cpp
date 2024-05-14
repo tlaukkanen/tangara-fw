@@ -29,11 +29,8 @@ static constexpr char kTag[] = "haptics";
 static constexpr uint8_t kHapticsAddress = 0x5A;
 
 Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
-  PowerUp();
-
-  // TODO: Break out into helper functions
-  // TODO: Use LRA closed loop instead, loading in calibration data from NVS, or
-  //       running calibration + storing the result first if necessary.
+  // Bring the driver out of standby, and put it into auto-calibration mode.
+  WriteRegister(Register::kMode, 0b00000111);
 
   if (std::holds_alternative<ErmMotor>(motor)) {
     ESP_LOGI(kTag, "Setting up ERM motor...");
@@ -59,21 +56,39 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
 
   } else if (std::holds_alternative<LraMotor>(motor)) {
     ESP_LOGI(kTag, "Setting up LRA motor...");
-    // TODO:
-    // auto lraInit = std::get<LraMotor>(motor);
+    // TODO: Save and restore calibration data instead of recalibrating each
+    // boot.
 
-    // Put into LRA Open Loop:
-    // (§8.5.4.1 Programming for LRA Open-Loop Operation)
+    // Set rated voltage to 1v8; see equation (5) in Section 8.5.2.1.
+    WriteRegister(Register::kRatedVoltage, 0x46);
 
-    // - Turn on N_ERM_LRA first
-    WriteRegister(Register::kFeedbackControl,
-                  static_cast<uint8_t>(RegisterDefaults::kFeedbackControl) &
-                      (ControlMask::kNErmLra));
+    // Set overdrive voltage to 2v6 see equation (9) in Section 8.5.2.2. This
+    // is based on a max operating voltage of 1v85 RMS.
+    // FIXME: Could this be higher?
+    WriteRegister(Register::kOverdriveClampVoltage, 0x7B);
 
-    // - Turn on LRA_OPEN_LOOP
-    WriteRegister(Register::kControl3,
-                  static_cast<uint8_t>(RegisterDefaults::kControl3) |
-                      ControlMask::kLraOpenLoop);
+    // Enable LRA mode, with default brake factor, loop gain, and back-EMF.
+    WriteRegister(Register::kFeedbackControl, 0b10110110);
+
+    // Set the drive time for our 235Hz motors. This is a period of 4.2ms, so
+    // a drive time of 2.1ms. See Table 24 in section 8.6.21. Leave the other
+    // bits in this register with their default values.
+    WriteRegister(Register::kControl1, 0b10010000);
+
+    // Ensure closed-loop mode is set.
+    WriteRegister(Register::kControl3, 0b10000000);
+
+    // Use a short auto-calibration time. For our application, a longer time
+    // doesn't seem to affect much.
+    WriteRegister(Register::kControl4, 0b00000000);
+
+    // Start auto-calibration.
+    WriteRegister(Register::kGo, 1);
+
+    // Wait for calibration to complete.
+    do {
+      vTaskDelay(1);
+    } while ((ReadRegister(Register::kGo) & 1) > 0);
 
     // Set library; only option is the LRA one for, well, LRA motors.
     WriteRegister(Register::kWaveformLibrary,
@@ -82,9 +97,6 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
 
   // Set mode (internal trigger, on writing 1 to Go register)
   WriteRegister(Register::kMode, static_cast<uint8_t>(Mode::kInternalTrigger));
-
-  // Set up a default effect (sequence of one effect)
-  SetWaveformEffect(kStartupEffect);
 }
 
 Haptics::~Haptics() {}
@@ -102,8 +114,30 @@ void Haptics::WriteRegister(Register reg, uint8_t val) {
   }
 }
 
+auto Haptics::ReadRegister(Register reg) -> uint8_t {
+  uint8_t regRaw = static_cast<uint8_t>(reg);
+  uint8_t ret = 0;
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kHapticsAddress, I2C_MASTER_WRITE)
+      .write_ack(regRaw)
+      .start()
+      .write_addr(kHapticsAddress, I2C_MASTER_READ)
+      .read(&ret, I2C_MASTER_NACK)
+      .stop();
+  esp_err_t res = transaction.Execute(1);
+  if (res != ESP_OK) {
+    ESP_LOGW(kTag, "read failed: %s", esp_err_to_name(res));
+  }
+  return ret;
+}
+
 auto Haptics::PlayWaveformEffect(Effect effect) -> void {
   const std::lock_guard<std::mutex> lock{playing_effect_};  // locks until freed
+
+  // Interrupt any already-running effect. This makes haptic feedback feel a
+  // little bit more responsive.
+  WriteRegister(Register::kGo, 0);
 
   SetWaveformEffect(effect);
   Go();

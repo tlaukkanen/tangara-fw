@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <initializer_list>
 #include <mutex>
@@ -17,7 +18,8 @@ namespace drivers {
 
 typedef std::monostate ErmMotor;
 struct LraMotor {
-  // TODO: fill out with calibration data from https://www.ti.com/lit/ds/symlink/drv2605l.pdf
+  // TODO: fill out with calibration data from
+  // https://www.ti.com/lit/ds/symlink/drv2605l.pdf
   bool hi;
 };
 
@@ -321,6 +323,7 @@ class Haptics {
 
   auto PowerUp() -> void;
   auto WriteRegister(Register reg, uint8_t val) -> void;
+  auto ReadRegister(Register reg) -> uint8_t;
 
   auto SetWaveformEffect(Effect effect) -> void;
   auto Go() -> void;
