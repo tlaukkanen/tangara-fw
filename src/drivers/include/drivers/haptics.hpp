@@ -14,23 +14,15 @@
 #include <string>
 #include <variant>
 
-namespace drivers {
+#include "drivers/nvs.hpp"
 
-typedef std::monostate ErmMotor;
-struct LraMotor {
-  // TODO: fill out with calibration data from
-  // https://www.ti.com/lit/ds/symlink/drv2605l.pdf
-  bool hi;
-};
+namespace drivers {
 
 class Haptics {
  public:
-  static auto Create(const std::variant<ErmMotor, LraMotor>& motor)
-      -> Haptics* {
-    return new Haptics(motor);
-  }
+  static auto Create(NvsStorage& nvs) -> Haptics* { return new Haptics(nvs); }
 
-  Haptics(const std::variant<ErmMotor, LraMotor>& motor);
+  Haptics(NvsStorage& nvs);
   ~Haptics();
 
   // Not copyable or movable.

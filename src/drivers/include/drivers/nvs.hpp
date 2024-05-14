@@ -78,7 +78,17 @@ class NvsStorage {
 
   auto HapticMotorIsErm() -> bool;
   auto HapticMotorIsErm(bool) -> void;
-  // /Hardware Compatibility
+
+  struct LraData {
+    uint8_t compensation;
+    uint8_t back_emf;
+    uint8_t gain;
+
+    bool operator==(const LraData&) const = default;
+  };
+
+  auto LraCalibration() -> std::optional<LraData>;
+  auto LraCalibration(const LraData&) -> void;
 
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> void;
@@ -135,6 +145,7 @@ class NvsStorage {
   Setting<uint16_t> display_cols_;
   Setting<uint16_t> display_rows_;
   Setting<uint8_t> haptic_motor_type_;
+  Setting<LraData> lra_calibration_;
 
   Setting<uint8_t> brightness_;
   Setting<uint8_t> sensitivity_;

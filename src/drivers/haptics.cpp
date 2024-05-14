@@ -15,6 +15,7 @@
 #include "assert.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "drivers/nvs.hpp"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/projdefs.h"
@@ -28,11 +29,11 @@ namespace drivers {
 static constexpr char kTag[] = "haptics";
 static constexpr uint8_t kHapticsAddress = 0x5A;
 
-Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
-  // Bring the driver out of standby, and put it into auto-calibration mode.
+Haptics::Haptics(NvsStorage& nvs) {
+  // Bring the driver out of standby, and put it into calibration mode.
   WriteRegister(Register::kMode, 0b00000111);
 
-  if (std::holds_alternative<ErmMotor>(motor)) {
+  if (nvs.HapticMotorIsErm()) {
     ESP_LOGI(kTag, "Setting up ERM motor...");
 
     // Put into ERM Open Loop:
@@ -54,10 +55,8 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
     WriteRegister(Register::kWaveformLibrary,
                   static_cast<uint8_t>(kDefaultErmLibrary));
 
-  } else if (std::holds_alternative<LraMotor>(motor)) {
+  } else {
     ESP_LOGI(kTag, "Setting up LRA motor...");
-    // TODO: Save and restore calibration data instead of recalibrating each
-    // boot.
 
     // Set rated voltage to 1v8; see equation (5) in Section 8.5.2.1.
     WriteRegister(Register::kRatedVoltage, 0x46);
@@ -67,9 +66,6 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
     // FIXME: Could this be higher?
     WriteRegister(Register::kOverdriveClampVoltage, 0x7B);
 
-    // Enable LRA mode, with default brake factor, loop gain, and back-EMF.
-    WriteRegister(Register::kFeedbackControl, 0b10110110);
-
     // Set the drive time for our 235Hz motors. This is a period of 4.2ms, so
     // a drive time of 2.1ms. See Table 24 in section 8.6.21. Leave the other
     // bits in this register with their default values.
@@ -78,17 +74,50 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
     // Ensure closed-loop mode is set.
     WriteRegister(Register::kControl3, 0b10000000);
 
-    // Use a short auto-calibration time. For our application, a longer time
-    // doesn't seem to affect much.
-    WriteRegister(Register::kControl4, 0b00000000);
+    auto calibration = nvs.LraCalibration();
+    if (!calibration) {
+      ESP_LOGI(kTag, "calibrating LRA motor");
+      // Enable LRA mode, with default brake factor, loop gain, and back-EMF.
+      WriteRegister(Register::kFeedbackControl, 0b10110110);
 
-    // Start auto-calibration.
-    WriteRegister(Register::kGo, 1);
+      // Start auto-calibration.
+      WriteRegister(Register::kGo, 1);
+      // Wait for calibration to complete.
+      do {
+        vTaskDelay(1);
+      } while ((ReadRegister(Register::kGo) & 1) > 0);
 
-    // Wait for calibration to complete.
-    do {
-      vTaskDelay(1);
-    } while ((ReadRegister(Register::kGo) & 1) > 0);
+      uint8_t status = ReadRegister(Register::kStatus);
+      if ((status & 0b11111) == 0) {
+        calibration = NvsStorage::LraData{
+            .compensation =
+                ReadRegister(Register::kAutoCalibrationCompensationResult),
+            .back_emf = ReadRegister(Register::kAutoCalibrationBackEmfResult),
+            .gain = static_cast<uint8_t>(
+                ReadRegister(Register::kFeedbackControl) & 0b11),
+        };
+
+        ESP_LOGI(kTag, "lra calibration succeeded: %x%x%x",
+                 calibration->compensation, calibration->back_emf,
+                 calibration->gain);
+
+        nvs.LraCalibration(*calibration);
+      } else {
+        // Not much we can do here! The motor might still buzz okay, so it's
+        // not a fatal issue at least.
+        ESP_LOGE(kTag, "lra calibration failed :(");
+      }
+    } else {
+      ESP_LOGI(kTag, "using stored lra calibration: %x%x%x",
+               calibration->compensation, calibration->back_emf,
+               calibration->gain);
+
+      WriteRegister(Register::kAutoCalibrationCompensationResult,
+                    calibration->compensation);
+      WriteRegister(Register::kAutoCalibrationBackEmfResult,
+                    calibration->back_emf);
+      WriteRegister(Register::kFeedbackControl, 0b10110100 | calibration->gain);
+    }
 
     // Set library; only option is the LRA one for, well, LRA motors.
     WriteRegister(Register::kWaveformLibrary,
@@ -97,6 +126,9 @@ Haptics::Haptics(const std::variant<ErmMotor, LraMotor>& motor) {
 
   // Set mode (internal trigger, on writing 1 to Go register)
   WriteRegister(Register::kMode, static_cast<uint8_t>(Mode::kInternalTrigger));
+
+  // Set up a default effect (sequence of one effect)
+  SetWaveformEffect(kStartupEffect);
 }
 
 Haptics::~Haptics() {}

@@ -37,10 +37,11 @@ static constexpr char kKeyLockPolarity[] = "lockpol";
 static constexpr char kKeyDisplayCols[] = "dispcols";
 static constexpr char kKeyDisplayRows[] = "disprows";
 static constexpr char kKeyHapticMotorType[] = "hapticmtype";
+static constexpr char kKeyLraCalibration[] = "lra_cali";
 static constexpr char kKeyDbAutoIndex[] = "dbautoindex";
 
-static auto nvs_get_string(nvs_handle_t nvs,
-                           const char* key) -> std::optional<std::string> {
+static auto nvs_get_string(nvs_handle_t nvs, const char* key)
+    -> std::optional<std::string> {
   size_t len = 0;
   if (nvs_get_blob(nvs, key, NULL, &len) != ESP_OK) {
     return {};
@@ -128,6 +129,39 @@ auto Setting<bluetooth::MacAndName>::store(nvs_handle_t nvs,
   nvs_set_blob(nvs, name_, encoded.data(), encoded.size());
 }
 
+template <>
+auto Setting<NvsStorage::LraData>::load(nvs_handle_t nvs)
+    -> std::optional<NvsStorage::LraData> {
+  auto raw = nvs_get_string(nvs, name_);
+  if (!raw) {
+    return {};
+  }
+  auto [parsed, unused, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(raw->data()), raw->size());
+  if (parsed->type() != cppbor::ARRAY) {
+    return {};
+  }
+  auto arr = parsed->asArray();
+  NvsStorage::LraData data{
+      .compensation = static_cast<uint8_t>(arr->get(0)->asUint()->value()),
+      .back_emf = static_cast<uint8_t>(arr->get(1)->asUint()->value()),
+      .gain = static_cast<uint8_t>(arr->get(2)->asUint()->value()),
+  };
+  return data;
+}
+
+template <>
+auto Setting<NvsStorage::LraData>::store(nvs_handle_t nvs,
+                                         NvsStorage::LraData v) -> void {
+  cppbor::Array cbor{
+      cppbor::Uint{v.compensation},
+      cppbor::Uint{v.back_emf},
+      cppbor::Uint{v.gain},
+  };
+  auto encoded = cbor.encode();
+  nvs_set_blob(nvs, name_, encoded.data(), encoded.size());
+}
+
 auto NvsStorage::OpenSync() -> NvsStorage* {
   esp_err_t err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -165,6 +199,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
       display_cols_(kKeyDisplayCols),
       display_rows_(kKeyDisplayRows),
       haptic_motor_type_(kKeyHapticMotorType),
+      lra_calibration_(kKeyLraCalibration),
       brightness_(kKeyBrightness),
       sensitivity_(kKeyScrollSensitivity),
       amp_max_vol_(kKeyAmpMaxVolume),
@@ -187,7 +222,9 @@ auto NvsStorage::Read() -> void {
   lock_polarity_.read(handle_);
   display_cols_.read(handle_);
   display_rows_.read(handle_);
-  haptic_motor_type_.read(handle_), brightness_.read(handle_);
+  haptic_motor_type_.read(handle_);
+  lra_calibration_.read(handle_);
+  brightness_.read(handle_);
   sensitivity_.read(handle_);
   amp_max_vol_.read(handle_);
   amp_cur_vol_.read(handle_);
@@ -204,7 +241,9 @@ auto NvsStorage::Write() -> bool {
   lock_polarity_.write(handle_);
   display_cols_.write(handle_);
   display_rows_.write(handle_);
-  haptic_motor_type_.write(handle_), brightness_.write(handle_);
+  haptic_motor_type_.write(handle_);
+  lra_calibration_.write(handle_);
+  brightness_.write(handle_);
   sensitivity_.write(handle_);
   amp_max_vol_.write(handle_);
   amp_cur_vol_.write(handle_);
@@ -252,6 +291,16 @@ auto NvsStorage::HapticMotorIsErm(bool p) -> void {
   haptic_motor_type_.set(p);
 }
 
+auto NvsStorage::LraCalibration() -> std::optional<LraData> {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return lra_calibration_.get();
+}
+
+auto NvsStorage::LraCalibration(const LraData& d) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  lra_calibration_.set(d);
+}
+
 auto NvsStorage::DisplaySize()
     -> std::pair<std::optional<uint16_t>, std::optional<uint16_t>> {
   std::lock_guard<std::mutex> lock{mutex_};
@@ -285,8 +334,8 @@ auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac) -> uint8_t {
   return bt_volumes_.Get(mac).value_or(50);
 }
 
-auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac,
-                                 uint8_t vol) -> void {
+auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac, uint8_t vol)
+    -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   bt_volumes_dirty_ = true;
   bt_volumes_.Put(mac, vol);

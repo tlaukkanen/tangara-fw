@@ -4,12 +4,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "collation.hpp"
-#include "drivers/haptics.hpp"
-#include "drivers/spiffs.hpp"
 #include "system_fsm/system_fsm.hpp"
 
-#include <stdint.h>
+#include <cstdint>
 #include <memory>
 
 #include "assert.h"
@@ -23,16 +20,19 @@
 #include "audio/audio_fsm.hpp"
 #include "audio/track_queue.hpp"
 #include "battery/battery.hpp"
+#include "collation.hpp"
 #include "database/tag_parser.hpp"
 #include "drivers/adc.hpp"
 #include "drivers/bluetooth.hpp"
 #include "drivers/bluetooth_types.hpp"
 #include "drivers/display_init.hpp"
 #include "drivers/gpios.hpp"
+#include "drivers/haptics.hpp"
 #include "drivers/i2c.hpp"
 #include "drivers/nvs.hpp"
 #include "drivers/samd.hpp"
 #include "drivers/spi.hpp"
+#include "drivers/spiffs.hpp"
 #include "drivers/touchwheel.hpp"
 #include "events/event_queue.hpp"
 #include "system_fsm/service_locator.hpp"
@@ -89,11 +89,7 @@ auto Booting::entry() -> void {
   sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
   sServices->touchwheel(
       std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
-  sServices->haptics(std::make_unique<drivers::Haptics>(
-      sServices->nvs().HapticMotorIsErm()
-          ? std::variant<drivers::ErmMotor, drivers::LraMotor>(
-                drivers::ErmMotor())
-          : drivers::LraMotor()));
+  sServices->haptics(std::make_unique<drivers::Haptics>(sServices->nvs()));
 
   auto adc = drivers::AdcBattery::Create();
   sServices->battery(std::make_unique<battery::Battery>(
