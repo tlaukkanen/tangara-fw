@@ -265,8 +265,6 @@ function widgets.InfiniteList(parent, iterator, opts)
         fwd_iterator:prev()
     end
 
-    local moving_back = false
-
     local function add_item(item, index)
         if not item then
             return
@@ -288,7 +286,7 @@ function widgets.InfiniteList(parent, iterator, opts)
         end
         btn:onevent(lvgl.EVENT.FOCUSED, function()
           if refreshing then return end
-          if this_item > last_selected and this_item - first_index  > 5 then
+          if this_item > last_selected and this_item - first_index > 3 then
             -- moving forward
             local to_add = fwd_iterator:next()
             if to_add then
@@ -298,18 +296,16 @@ function widgets.InfiniteList(parent, iterator, opts)
           end
           if this_item < last_selected then
             -- moving backward
-              if (last_index - first_index > 10) then
+            if (first_index > 0 and last_index - this_item > 3) then
+                local to_add = bck_iterator:prev();
+                if to_add then
                   remove_last()
-              end
-              if (first_index > 0 and this_item - first_index < 5) then
-                  local to_add = bck_iterator:prev();
-                  if to_add then
-                    add_item(to_add, first_index-1)
-                  end
-              end
+                  add_item(to_add, first_index-1)
+                  refresh_group()
+                end
+            end
           end
           last_selected = this_item
-          refresh_group()
         end)
         btn:add_style(styles.list_item)
         return btn
