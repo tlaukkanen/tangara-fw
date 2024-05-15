@@ -51,6 +51,7 @@ Samd::Samd() {
 
   UpdateChargeStatus();
   UpdateUsbStatus();
+  SetFastChargeEnabled(true);
 }
 Samd::~Samd() {}
 
@@ -121,6 +122,18 @@ auto Samd::ResetToFlashSamd() -> void {
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
       .write_ack(Registers::kUsbControl, 0b100)
+      .stop();
+  ESP_ERROR_CHECK(transaction.Execute(3));
+}
+
+auto Samd::SetFastChargeEnabled(bool en) -> void {
+  if (version_ < 4) {
+    return;
+  }
+  I2CTransaction transaction;
+  transaction.start()
+      .write_addr(kAddress, I2C_MASTER_WRITE)
+      .write_ack(Registers::kPowerControl, (en << 1))
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(3));
 }

@@ -56,6 +56,7 @@ class Samd {
   auto UpdateUsbStatus() -> void;
 
   auto ResetToFlashSamd() -> void;
+  auto SetFastChargeEnabled(bool) -> void;
   auto PowerDown() -> void;
 
   auto UsbMassStorage(bool en) -> void;
