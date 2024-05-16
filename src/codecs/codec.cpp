@@ -11,6 +11,7 @@
 
 #include "dr_flac.hpp"
 #include "mad.hpp"
+#include "native.hpp"
 #include "opus.hpp"
 #include "types.hpp"
 #include "vorbis.hpp"
@@ -30,6 +31,8 @@ auto StreamTypeToString(StreamType t) -> std::string {
       return "Flac";
     case StreamType::kOpus:
       return "Opus";
+    case StreamType::kNative:
+      return "Native";
     default:
       return "";
   }
@@ -47,6 +50,8 @@ auto CreateCodecForType(StreamType type) -> std::optional<ICodec*> {
       return new XiphOpusDecoder();
     case StreamType::kWav:
       return new WavDecoder();
+    case StreamType::kNative:
+      return new NativeDecoder();
     default:
       return {};
   }

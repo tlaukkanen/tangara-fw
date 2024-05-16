@@ -16,8 +16,9 @@ enum class StreamType {
   kFlac,
   kOpus,
   kWav,
+  kNative,
 };
 
 auto StreamTypeToString(StreamType t) -> std::string;
-  
+
 }  // namespace codecs
