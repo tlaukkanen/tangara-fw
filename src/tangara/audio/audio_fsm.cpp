@@ -11,6 +11,8 @@
 #include <memory>
 #include <variant>
 
+#include "audio/audio_source.hpp"
+#include "audio/sine_source.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
 #include "esp_heap_caps.h"
@@ -144,6 +146,17 @@ void AudioState::react(const SetTrack& ev) {
 
     sDecoder->open(stream);
   });
+}
+
+void AudioState::react(const PlaySineWave& ev) {
+  auto tags = std::make_shared<database::TrackTags>();
+
+  std::stringstream title;
+  title << ev.frequency << "Hz Sine Wave";
+  tags->title(title.str());
+
+  sDecoder->open(std::make_shared<TaggedStream>(
+      tags, std::make_unique<SineSource>(ev.frequency), title.str()));
 }
 
 void AudioState::react(const TogglePlayPause& ev) {

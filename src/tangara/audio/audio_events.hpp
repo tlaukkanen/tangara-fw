@@ -86,6 +86,10 @@ struct SetTrack : tinyfsm::Event {
   std::optional<uint32_t> seek_to_second;
 };
 
+struct PlaySineWave : tinyfsm::Event {
+  uint32_t frequency;
+};
+
 struct TogglePlayPause : tinyfsm::Event {
   std::optional<bool> set_to;
 };

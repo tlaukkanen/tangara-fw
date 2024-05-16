@@ -44,6 +44,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const tinyfsm::Event& ev) {}
 
   void react(const QueueUpdate&);
+  void react(const PlaySineWave&);
   void react(const SetTrack&);
   void react(const TogglePlayPause&);
 
