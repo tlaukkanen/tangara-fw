@@ -223,9 +223,11 @@ return screen:new {
       end),
       playback.track:bind(function(track)
         if not track then return end
-        end_time:set {
-          text = format_time(track.duration)
-        }
+        if track.duration then
+          end_time:set { text = format_time(track.duration) }
+        else
+          end_time:set { text = format_time(playback.position:get()) }
+        end
         title:set { text = track.title }
         artist:set { text = track.artist }
       end),
