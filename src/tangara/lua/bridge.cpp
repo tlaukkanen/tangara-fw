@@ -21,6 +21,7 @@
 #include "lua/lua_filesystem.hpp"
 #include "lua/lua_queue.hpp"
 #include "lua/lua_screen.hpp"
+#include "lua/lua_testing.hpp"
 #include "lua/lua_theme.hpp"
 #include "lua/lua_version.hpp"
 #include "lvgl.h"
@@ -47,9 +48,8 @@ namespace lua {
 
 static constexpr char kBridgeKey[] = "bridge";
 
-static auto make_font_cb(const char* name,
-                         int size,
-                         int weight) -> const lv_font_t* {
+static auto make_font_cb(const char* name, int size, int weight)
+    -> const lv_font_t* {
   if (std::string{"fusion"} == name) {
     if (size == 12) {
       return &font_fusion_12;
@@ -87,6 +87,7 @@ auto Bridge::installBaseModules(lua_State* L) -> void {
   RegisterControlsModule(L);
   RegisterDatabaseModule(L);
   RegisterQueueModule(L);
+  RegisterTestingModule(L);
   RegisterFileSystemModule(L);
   RegisterVersionModule(L);
   RegisterThemeModule(L);
