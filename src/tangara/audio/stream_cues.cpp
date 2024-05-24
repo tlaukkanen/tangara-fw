@@ -24,6 +24,7 @@ auto StreamCues::update(uint32_t sample) -> void {
   }
   now_ = sample;
 
+  // Advance the current queue until we've caught up.
   while (!upcoming_.empty() && upcoming_.front().start_at <= now_) {
     current_ = upcoming_.front();
     upcoming_.pop_front();
@@ -59,7 +60,8 @@ auto StreamCues::current() -> std::pair<std::shared_ptr<TrackInfo>, uint32_t> {
 }
 
 auto StreamCues::hasStream() -> bool {
-  return current_ || !upcoming_.empty();
+  // 'current_' might be tracking how long we've been playing nothing for.
+  return (current_ && current_->track) || !upcoming_.empty();
 }
 
 }  // namespace audio
