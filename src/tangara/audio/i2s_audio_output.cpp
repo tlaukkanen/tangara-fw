@@ -62,14 +62,21 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
   if (mode == current_mode_) {
     return;
   }
+  bool was_off = current_mode_ == Modes::kOff;
+  current_mode_ = mode;
+
   if (mode == Modes::kOff) {
+    // Turning off this output. Ensure we clean up the I2SDac instance to
+    // reclaim its valuable DMA buffers.
     if (dac_) {
       dac_->Stop();
       dac_.reset();
     }
     return;
   }
-  if (current_mode_ == Modes::kOff) {
+
+  if (was_off) {
+    // Ensure an I2SDac instance actually exists.
     if (!dac_) {
       auto instance = drivers::I2SDac::create(expander_);
       if (!instance) {
@@ -77,10 +84,12 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
       }
       dac_.reset(*instance);
     }
+    // Set up the new instance properly.
     SetVolume(GetVolume());
     dac_->SetSource(stream());
     dac_->Start();
   }
+
   current_mode_ = mode;
   dac_->SetPaused(mode == Modes::kOnPaused);
 }
