@@ -187,7 +187,7 @@ static auto DeviceName() -> std::pmr::string {
   uint8_t mac[8]{0};
   esp_efuse_mac_get_default(mac);
   std::ostringstream name;
-  name << "TANGARA " << std::hex << static_cast<int>(mac[0])
+  name << "Tangara " << std::hex << static_cast<int>(mac[0])
        << static_cast<int>(mac[1]);
   return std::pmr::string{name.str(), &memory::kSpiRamResource};
 }
