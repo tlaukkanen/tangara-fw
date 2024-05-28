@@ -540,7 +540,7 @@ static void timeoutCallback(TimerHandle_t) {
 }
 
 void Connecting::entry() {
-    sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
+  sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
                                timeoutCallback);
   xTimerStart(sTimeoutTimer, portMAX_DELAY);
 
@@ -568,7 +568,7 @@ void Connecting::react(const events::ConnectTimedOut& ev) {
 
 void Connecting::react(const events::Disable& ev) {
   // TODO: disconnect gracefully
-    transit<Disabled>();
+  transit<Disabled>();
 }
 
 void Connecting::react(const events::PreferredDeviceChanged& ev) {
