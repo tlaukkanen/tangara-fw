@@ -408,7 +408,10 @@ auto BluetoothState::connect(const MacAndName& dev) -> bool {
            dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4],
            dev.mac[5]);
   if (esp_a2d_source_connect(sConnectingDevice_->mac.data()) != ESP_OK) {
-    return false;
+    ESP_LOGI(kTag, "Connecting failed...");
+    if (sConnectAttemptsRemaining_>1) {
+      ESP_LOGI(kTag, "Will retry.");
+    }
   }
 
   transit<Connecting>();
@@ -537,7 +540,7 @@ static void timeoutCallback(TimerHandle_t) {
 }
 
 void Connecting::entry() {
-  sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
+    sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
                                timeoutCallback);
   xTimerStart(sTimeoutTimer, portMAX_DELAY);
 
@@ -565,7 +568,7 @@ void Connecting::react(const events::ConnectTimedOut& ev) {
 
 void Connecting::react(const events::Disable& ev) {
   // TODO: disconnect gracefully
-  transit<Disabled>();
+    transit<Disabled>();
 }
 
 void Connecting::react(const events::PreferredDeviceChanged& ev) {
