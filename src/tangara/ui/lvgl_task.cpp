@@ -68,14 +68,14 @@ auto UiTask::Main() -> void {
     if (screen != current_screen_ && screen != nullptr) {
       lv_scr_load(screen->root());
       if (input_) {
-        lv_indev_set_group(input_->registration(), screen->group());
+        input_->setGroup(screen->group());
       }
       current_screen_ = screen;
     }
 
     if (input_ && current_screen_->group() != current_group) {
       current_group = current_screen_->group();
-      lv_indev_set_group(input_->registration(), current_group);
+      input_->setGroup(current_group);
     }
 
     TickType_t delay = lv_timer_handler();

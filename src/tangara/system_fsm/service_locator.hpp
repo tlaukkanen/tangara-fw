@@ -10,17 +10,18 @@
 
 #include "audio/track_queue.hpp"
 #include "battery/battery.hpp"
-#include "drivers/bluetooth.hpp"
 #include "collation.hpp"
 #include "database/database.hpp"
 #include "database/tag_parser.hpp"
+#include "drivers/bluetooth.hpp"
 #include "drivers/gpios.hpp"
 #include "drivers/haptics.hpp"
 #include "drivers/nvs.hpp"
 #include "drivers/samd.hpp"
 #include "drivers/storage.hpp"
-#include "tasks.hpp"
 #include "drivers/touchwheel.hpp"
+#include "tasks.hpp"
+#include "tts/provider.hpp"
 
 namespace system_fsm {
 
@@ -68,6 +69,13 @@ class ServiceLocator {
   }
 
   auto battery(std::unique_ptr<battery::Battery> i) { battery_ = std::move(i); }
+
+  auto tts() -> tts::Provider& {
+    assert(tts_ != nullptr);
+    return *tts_;
+  }
+
+  auto tts(std::unique_ptr<tts::Provider> i) { tts_ = std::move(i); }
 
   auto touchwheel() -> std::optional<drivers::TouchWheel*> {
     if (!touchwheel_) {
@@ -140,6 +148,7 @@ class ServiceLocator {
 
   std::unique_ptr<audio::TrackQueue> queue_;
   std::unique_ptr<battery::Battery> battery_;
+  std::unique_ptr<tts::Provider> tts_;
 
   std::shared_ptr<database::Database> database_;
   std::unique_ptr<database::ITagParser> tag_parser_;

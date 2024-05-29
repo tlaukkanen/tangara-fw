@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include "core/lv_group.h"
 
 namespace input {
 
@@ -23,7 +24,7 @@ class IFeedbackDevice {
  public:
   virtual ~IFeedbackDevice() {}
 
-  virtual auto feedback(uint8_t event_type) -> void = 0;
+  virtual auto feedback(lv_group_t* group, uint8_t event_type) -> void = 0;
 
   // TODO: Add configuration; likely the same shape of interface that
   // IInputDevice uses.

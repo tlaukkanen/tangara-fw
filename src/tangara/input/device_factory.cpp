@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "input/feedback_haptics.hpp"
+#include "input/feedback_tts.hpp"
 #include "input/input_device.hpp"
 #include "input/input_nav_buttons.hpp"
 #include "input/input_touch_dpad.hpp"
@@ -52,7 +53,10 @@ auto DeviceFactory::createInputs(drivers::NvsStorage::InputModes mode)
 
 auto DeviceFactory::createFeedbacks()
     -> std::vector<std::shared_ptr<IFeedbackDevice>> {
-  return {std::make_shared<Haptics>(services_->haptics())};
+  return {
+      std::make_shared<Haptics>(services_->haptics()),
+      std::make_shared<TextToSpeech>(services_->tts()),
+  };
 }
 
 }  // namespace input

@@ -17,12 +17,12 @@
 #include "input/device_factory.hpp"
 #include "input/feedback_device.hpp"
 
+#include "drivers/nvs.hpp"
+#include "drivers/touchwheel.hpp"
 #include "input/input_device.hpp"
 #include "input/input_hook.hpp"
 #include "lua/lua_thread.hpp"
 #include "lua/property.hpp"
-#include "drivers/nvs.hpp"
-#include "drivers/touchwheel.hpp"
 
 namespace input {
 
@@ -37,10 +37,10 @@ class LvglInputDriver {
 
   auto mode() -> lua::Property& { return mode_; }
 
+  auto setGroup(lv_group_t*) -> void;
   auto read(lv_indev_data_t* data) -> void;
   auto feedback(uint8_t) -> void;
 
-  auto registration() -> lv_indev_t* { return registration_; }
   auto lock(bool l) -> void { is_locked_ = l; }
 
   auto pushHooks(lua_State* L) -> int;

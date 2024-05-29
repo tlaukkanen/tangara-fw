@@ -126,6 +126,7 @@ return screen:new {
       range = { min = 0, max = 100 },
       value = 0,
     }
+    local scrubber_desc = widgets.Description(scrubber, "Scrubber")
 
     scrubber:onevent(lvgl.EVENT.RELEASED, function()
       local track = playback.track:get()
@@ -165,6 +166,7 @@ return screen:new {
     end)
     local repeat_img = repeat_btn:Image { src = img.repeat_src }
     theme.set_style(repeat_img, icon_enabled_class)
+    local repeat_desc = widgets.Description(repeat_btn)
 
 
     local prev_btn = controls:Button {}
@@ -177,6 +179,7 @@ return screen:new {
     end)
     local prev_img = prev_btn:Image { src = img.prev }
     theme.set_style(prev_img, icon_enabled_class)
+    local prev_desc = widgets.Description(prev_btn, "Previous track")
 
     local play_pause_btn = controls:Button {}
     play_pause_btn:onClicked(function()
@@ -185,11 +188,13 @@ return screen:new {
     play_pause_btn:focus()
     local play_pause_img = play_pause_btn:Image { src = img.pause }
     theme.set_style(play_pause_img, icon_enabled_class)
+    local play_pause_desc = widgets.Description(play_pause_btn, "Play")
 
     local next_btn = controls:Button {}
     next_btn:onClicked(queue.next)
     local next_img = next_btn:Image { src = img.next }
     theme.set_style(next_img, icon_disabled_class)
+    local next_desc = widgets.Description(next_btn, "Next track")
 
     local shuffle_btn = controls:Button {}
     shuffle_btn:onClicked(function()
@@ -197,6 +202,7 @@ return screen:new {
     end)
     local shuffle_img = shuffle_btn:Image { src = img.shuffle }
     theme.set_style(shuffle_img, icon_enabled_class)
+    local shuffle_desc = widgets.Description(shuffle_btn)
 
     controls:Object({ flex_grow = 1, h = 1 }) -- spacer
 
@@ -205,8 +211,10 @@ return screen:new {
       playback.playing:bind(function(playing)
         if playing then
           play_pause_img:set_src(img.pause)
+          play_pause_desc:set { text = "Pause" }
         else
           play_pause_img:set_src(img.play)
+          play_pause_desc:set { text = "Play" }
         end
       end),
       playback.position:bind(function(pos)
@@ -241,9 +249,19 @@ return screen:new {
       end),
       queue.random:bind(function(shuffling)
         theme.set_style(shuffle_img, shuffling and icon_enabled_class or icon_disabled_class)
+        if shuffling then
+          shuffle_desc:set { text = "Disable shuffle" }
+        else
+          shuffle_desc:set { text = "Enable shuffle" }
+        end
       end),
       queue.repeat_track:bind(function(en)
         theme.set_style(repeat_img, en and icon_enabled_class or icon_disabled_class)
+        if en then
+          repeat_desc:set { text = "Disable track repeat" }
+        else
+          repeat_desc:set { text = "Enable track repeat" }
+        end
       end),
       queue.size:bind(function(num)
         if not num then return end

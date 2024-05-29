@@ -10,6 +10,8 @@
 #include <memory>
 #include <variant>
 
+#include "core/lv_event.h"
+#include "core/lv_indev.h"
 #include "lua.hpp"
 #include "lvgl.h"
 
@@ -91,6 +93,16 @@ LvglInputDriver::LvglInputDriver(drivers::NvsStorage& nvs,
   registration_ = lv_indev_drv_register(&driver_);
 }
 
+auto LvglInputDriver::setGroup(lv_group_t* g) -> void {
+  if (!g) {
+    return;
+  }
+  lv_indev_set_group(registration_, g);
+  // Emit a synthetic 'focus' event for the current selection, since otherwise
+  // our feedback devices won't know that the selection changed.
+  feedback(LV_EVENT_FOCUSED);
+}
+
 auto LvglInputDriver::read(lv_indev_data_t* data) -> void {
   // TODO: we should pass lock state on to the individual devices, since they
   // may wish to either ignore the lock state, or power down until unlock.
@@ -107,7 +119,7 @@ auto LvglInputDriver::feedback(uint8_t event) -> void {
     return;
   }
   for (auto&& device : feedbacks_) {
-    device->feedback(event);
+    device->feedback(registration_->group, event);
   }
 }
 

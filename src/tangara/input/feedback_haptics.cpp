@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "core/lv_group.h"
 #include "lvgl/lvgl.h"
 
 #include "core/lv_event.h"
@@ -21,7 +22,13 @@ using Effect = drivers::Haptics::Effect;
 
 Haptics::Haptics(drivers::Haptics& haptics_) : haptics_(haptics_) {}
 
-auto Haptics::feedback(uint8_t event_type) -> void {
+auto Haptics::feedback(lv_group_t* group, uint8_t event_type) -> void {
+  lv_obj_t* obj = lv_group_get_focused(group);
+  if (obj == last_selection_) {
+    return;
+  }
+  last_selection_ = obj;
+
   switch (event_type) {
     case LV_EVENT_FOCUSED:
       haptics_.PlayWaveformEffect(Effect::kMediumClick1_100Pct);

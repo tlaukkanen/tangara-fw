@@ -38,6 +38,7 @@
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
 #include "tasks.hpp"
+#include "tts/provider.hpp"
 #include "ui/ui_fsm.hpp"
 
 namespace system_fsm {
@@ -99,6 +100,7 @@ auto Booting::entry() -> void {
       std::make_unique<audio::TrackQueue>(sServices->bg_worker()));
   sServices->tag_parser(std::make_unique<database::TagParserImpl>());
   sServices->collator(locale::CreateCollator());
+  sServices->tts(std::make_unique<tts::Provider>());
 
   ESP_LOGI(kTag, "init bluetooth");
   sServices->bluetooth(std::make_unique<drivers::Bluetooth>(

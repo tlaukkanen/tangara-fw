@@ -248,6 +248,14 @@ static int luavgl_group_get_focused(lua_State *L)
   return 1;
 }
 
+static int luavgl_group_clear_focus(lua_State *L)
+{
+  luavgl_group_t *g = luavgl_check_group(L, 1);
+  g->group->obj_focus = NULL;
+
+  return 0;
+}
+
 static int luavgl_group_remove_obj(lua_State *L)
 {
   lv_obj_t *obj = luavgl_to_obj(L, 1);
@@ -319,6 +327,7 @@ static const luaL_Reg group_methods[] = {
     {"get_wrap",      luavgl_group_get_wrap     },
     {"get_obj_count", luavgl_group_get_obj_count},
     {"get_focused",   luavgl_group_get_focused  },
+    {"clear_focus",   luavgl_group_clear_focus  },
 
     {NULL,            NULL                      },
 };
