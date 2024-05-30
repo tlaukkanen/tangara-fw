@@ -162,7 +162,7 @@ static auto push_iterator(lua_State* state,
 
 static auto db_iterate_prev(lua_State* state) -> int {
   database::Iterator* it = db_check_iterator(state, 1);
-  std::optional<database::Record> res = (*it)--;
+  std::optional<database::Record> res = --(*it);
 
   if (res) {
     push_lua_record(state, *res);
@@ -175,7 +175,7 @@ static auto db_iterate_prev(lua_State* state) -> int {
 
 static auto db_iterate(lua_State* state) -> int {
   database::Iterator* it = db_check_iterator(state, 1);
-  std::optional<database::Record> res = (*it)++;
+  std::optional<database::Record> res = ++(*it);
 
   if (res) {
     push_lua_record(state, *res);
