@@ -63,8 +63,8 @@ static const char kKeyTrackId[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
-static auto CreateNewDatabase(leveldb::Options& options,
-                              locale::ICollator& col) -> leveldb::DB* {
+static auto CreateNewDatabase(leveldb::Options& options, locale::ICollator& col)
+    -> leveldb::DB* {
   Database::Destroy();
   leveldb::DB* db;
   options.create_if_missing = true;
@@ -759,25 +759,18 @@ auto Iterator::count() const -> size_t {
 
 TrackIterator::TrackIterator(const Iterator& it) : db_(it.db_), levels_() {
   levels_.push_back(it);
-  next(false);
+  next();
 }
 
 auto TrackIterator::next() -> void {
-  next(true);
-}
-
-auto TrackIterator::next(bool advance) -> void {
   while (!levels_.empty()) {
-    if (advance) {
-      levels_.back().next();
-    }
+    levels_.back().next();
 
     auto& cur = levels_.back().value();
     if (!cur) {
       // The current top iterator is out of tracks. Pop it, and move the parent
       // to the next item.
       levels_.pop_back();
-      advance = true;
     } else if (std::holds_alternative<IndexKey::Header>(cur->contents())) {
       // This record is a branch. Push a new iterator.
       auto key = std::get<IndexKey::Header>(cur->contents());
@@ -786,8 +779,6 @@ auto TrackIterator::next(bool advance) -> void {
         return;
       }
       levels_.emplace_back(db, key);
-      // Don't skip the first value of the new level.
-      advance = false;
     } else if (std::holds_alternative<TrackId>(cur->contents())) {
       // New record is a leaf.
       break;
