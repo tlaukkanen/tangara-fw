@@ -704,9 +704,8 @@ Iterator::Iterator(std::shared_ptr<Database> db, const IndexKey::Header& header)
   key_ = {
       .prefix = {prefix.data(), prefix.size(), &memory::kSpiRamResource},
       .key = {},
-      .offset = 0,
+      .offset = -1,
   };
-  iterate(key_);
 }
 
 auto Iterator::value() const -> const std::optional<Record>& {
@@ -715,7 +714,11 @@ auto Iterator::value() const -> const std::optional<Record>& {
 
 auto Iterator::next() -> void {
   SearchKey new_key = key_;
-  new_key.offset = 1;
+  if (new_key.offset == -1) {
+    new_key.offset = 0;
+  } else {
+    new_key.offset = 1;
+  }
   iterate(new_key);
 }
 
