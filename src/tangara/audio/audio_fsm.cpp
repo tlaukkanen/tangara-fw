@@ -15,6 +15,7 @@
 #include "audio/sine_source.hpp"
 #include "cppbor.h"
 #include "cppbor_parse.h"
+#include "drivers/pcm_buffer.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -60,10 +61,8 @@ std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 
 // Two seconds of samples for two channels, at a representative sample rate.
 constexpr size_t kDrainLatencySamples = 48000 * 2 * 2;
-constexpr size_t kDrainBufferSize =
-    sizeof(sample::Sample) * kDrainLatencySamples;
 
-StreamBufferHandle_t AudioState::sDrainBuffer;
+std::unique_ptr<drivers::PcmBuffer> AudioState::sDrainBuffer;
 std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 
 StreamCues AudioState::sStreamCues;
@@ -74,7 +73,8 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
   std::optional<uint32_t> position;
   auto current = sStreamCues.current();
   if (current.first && sDrainFormat) {
-    position = (current.second /
+    position = ((current.second +
+                 (sDrainFormat->num_channels * sDrainFormat->sample_rate / 2)) /
                 (sDrainFormat->num_channels * sDrainFormat->sample_rate)) +
                current.first->start_offset.value_or(0);
   }
@@ -340,21 +340,12 @@ namespace states {
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
-  ESP_LOGI(kTag, "allocating drain buffer, size %u KiB",
-           kDrainBufferSize / 1024);
-
-  auto meta = reinterpret_cast<StaticStreamBuffer_t*>(
-      heap_caps_malloc(sizeof(StaticStreamBuffer_t), MALLOC_CAP_DMA));
-  auto storage = reinterpret_cast<uint8_t*>(
-      heap_caps_malloc(kDrainBufferSize, MALLOC_CAP_SPIRAM));
-
-  sDrainBuffer = xStreamBufferCreateStatic(
-      kDrainBufferSize, sizeof(sample::Sample), storage, meta);
+  sDrainBuffer = std::make_unique<drivers::PcmBuffer>(kDrainLatencySamples);
 
   sStreamFactory.reset(new FatfsStreamFactory(*sServices));
-  sI2SOutput.reset(new I2SAudioOutput(sDrainBuffer, sServices->gpios()));
-  sBtOutput.reset(new BluetoothAudioOutput(sDrainBuffer, sServices->bluetooth(),
-                                           sServices->bg_worker()));
+  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffer));
+  sBtOutput.reset(new BluetoothAudioOutput(
+      sServices->bluetooth(), *sDrainBuffer, sServices->bg_worker()));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
@@ -385,7 +376,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       .left_bias = nvs.AmpLeftBias(),
   });
 
-  sSampleProcessor.reset(new SampleProcessor(sDrainBuffer));
+  sSampleProcessor.reset(new SampleProcessor(*sDrainBuffer));
   sSampleProcessor->SetOutput(sOutput);
 
   sDecoder.reset(Decoder::Start(sSampleProcessor));
@@ -483,7 +474,7 @@ void Playback::entry() {
 
   if (!sHeartbeatTimer) {
     sHeartbeatTimer =
-        xTimerCreate("stream", pdMS_TO_TICKS(250), true, NULL, heartbeat);
+        xTimerCreate("stream", pdMS_TO_TICKS(1000), true, NULL, heartbeat);
   }
   xTimerStart(sHeartbeatTimer, portMAX_DELAY);
 }
@@ -502,7 +493,7 @@ void Playback::react(const system_fsm::SdStateChanged& ev) {
 }
 
 void Playback::react(const internal::StreamHeartbeat& ev) {
-  sStreamCues.update(sOutput->samplesUsed());
+  sStreamCues.update(sDrainBuffer->totalReceived());
 
   if (sStreamCues.hasStream()) {
     emitPlaybackUpdate(false);

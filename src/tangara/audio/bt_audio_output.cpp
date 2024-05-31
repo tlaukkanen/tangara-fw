@@ -21,6 +21,7 @@
 #include "drivers/gpios.hpp"
 #include "drivers/i2c.hpp"
 #include "drivers/i2s_dac.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "drivers/wm8523.hpp"
 #include "result.hpp"
 #include "tasks.hpp"
@@ -31,16 +32,20 @@ namespace audio {
 
 static constexpr uint16_t kVolumeRange = 60;
 
-BluetoothAudioOutput::BluetoothAudioOutput(StreamBufferHandle_t s,
-                                           drivers::Bluetooth& bt,
+BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth& bt,
+                                           drivers::PcmBuffer& buffer,
                                            tasks::WorkerPool& p)
-    : IAudioOutput(s), bluetooth_(bt), bg_worker_(p), volume_() {}
+    : IAudioOutput(),
+      bluetooth_(bt),
+      buffer_(buffer),
+      bg_worker_(p),
+      volume_() {}
 
 BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
 auto BluetoothAudioOutput::changeMode(Modes mode) -> void {
   if (mode == Modes::kOnPlaying) {
-    bluetooth_.SetSource(stream());
+    bluetooth_.SetSource(&buffer_);
   } else {
     bluetooth_.SetSource(nullptr);
   }
@@ -119,10 +124,6 @@ auto BluetoothAudioOutput::PrepareFormat(const Format& orig) -> Format {
 
 auto BluetoothAudioOutput::Configure(const Format& fmt) -> void {
   // No configuration necessary; the output format is fixed.
-}
-
-auto BluetoothAudioOutput::samplesUsed() -> uint32_t {
-  return bluetooth_.SamplesUsed();
 }
 
 }  // namespace audio

@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 
+#include "drivers/pcm_buffer.hpp"
 #include "result.hpp"
 
 #include "audio/audio_sink.hpp"
@@ -23,8 +24,8 @@ namespace audio {
 
 class BluetoothAudioOutput : public IAudioOutput {
  public:
-  BluetoothAudioOutput(StreamBufferHandle_t,
-                       drivers::Bluetooth& bt,
+  BluetoothAudioOutput(drivers::Bluetooth& bt,
+                       drivers::PcmBuffer& buf,
                        tasks::WorkerPool&);
   ~BluetoothAudioOutput();
 
@@ -45,8 +46,6 @@ class BluetoothAudioOutput : public IAudioOutput {
   auto PrepareFormat(const Format&) -> Format override;
   auto Configure(const Format& format) -> void override;
 
-  auto samplesUsed() -> uint32_t override;
-
   BluetoothAudioOutput(const BluetoothAudioOutput&) = delete;
   BluetoothAudioOutput& operator=(const BluetoothAudioOutput&) = delete;
 
@@ -55,6 +54,7 @@ class BluetoothAudioOutput : public IAudioOutput {
 
  private:
   drivers::Bluetooth& bluetooth_;
+  drivers::PcmBuffer& buffer_;
   tasks::WorkerPool& bg_worker_;
 
   uint16_t volume_;

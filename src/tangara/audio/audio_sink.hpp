@@ -22,12 +22,8 @@ namespace audio {
  * those samples to the appropriate hardware driver.
  */
 class IAudioOutput {
- private:
-  StreamBufferHandle_t stream_;
-
  public:
-  IAudioOutput(StreamBufferHandle_t stream)
-      : stream_(stream), mode_(Modes::kOff) {}
+  IAudioOutput() : mode_(Modes::kOff) {}
 
   virtual ~IAudioOutput() {}
 
@@ -75,9 +71,6 @@ class IAudioOutput {
 
   virtual auto PrepareFormat(const Format&) -> Format = 0;
   virtual auto Configure(const Format& format) -> void = 0;
-  virtual auto samplesUsed() -> uint32_t = 0;
-
-  auto stream() -> StreamBufferHandle_t { return stream_; }
 
  protected:
   Modes mode_;

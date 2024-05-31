@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "audio/stream_cues.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "tinyfsm.hpp"
 
 #include "audio/audio_decoder.hpp"
@@ -80,7 +81,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<BluetoothAudioOutput> sBtOutput;
   static std::shared_ptr<IAudioOutput> sOutput;
 
-  static StreamBufferHandle_t sDrainBuffer;
+  static std::unique_ptr<drivers::PcmBuffer> sDrainBuffer;
 
   static StreamCues sStreamCues;
   static std::optional<IAudioOutput::Format> sDrainFormat;

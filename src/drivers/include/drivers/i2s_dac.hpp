@@ -16,6 +16,7 @@
 
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
+#include "drivers/pcm_buffer.hpp"
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
@@ -39,9 +40,9 @@ constexpr size_t kI2SBufferLengthFrames = 1024;
  */
 class I2SDac {
  public:
-  static auto create(IGpios& expander) -> std::optional<I2SDac*>;
+  static auto create(IGpios& expander, PcmBuffer&) -> std::optional<I2SDac*>;
 
-  I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle);
+  I2SDac(IGpios& gpio, PcmBuffer&, i2s_chan_handle_t i2s_handle);
   ~I2SDac();
 
   auto Start() -> void;
@@ -69,9 +70,6 @@ class I2SDac {
   auto Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate) -> void;
 
   auto WriteData(const std::span<const std::byte>& data) -> void;
-  auto SetSource(StreamBufferHandle_t buffer) -> void;
-
-  auto SamplesUsed() -> uint32_t;
 
   // Not copyable or movable.
   I2SDac(const I2SDac&) = delete;
@@ -81,9 +79,10 @@ class I2SDac {
   auto set_channel(bool) -> void;
 
   IGpios& gpio_;
+  PcmBuffer& buffer_;
   i2s_chan_handle_t i2s_handle_;
+
   bool i2s_active_;
-  StreamBufferHandle_t buffer_;
   std::mutex configure_mutex_;
 
   i2s_std_clk_config_t clock_config_;

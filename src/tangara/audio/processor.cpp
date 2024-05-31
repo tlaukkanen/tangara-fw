@@ -11,10 +11,12 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 
 #include "audio/audio_events.hpp"
 #include "audio/audio_sink.hpp"
 #include "drivers/i2s_dac.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "events/event_queue.hpp"
@@ -33,15 +35,14 @@ static constexpr std::size_t kSourceBufferLength = kSampleBufferLength * 2;
 
 namespace audio {
 
-SampleProcessor::SampleProcessor(StreamBufferHandle_t sink)
+SampleProcessor::SampleProcessor(drivers::PcmBuffer& sink)
     : commands_(xQueueCreate(1, sizeof(Args))),
       resampler_(nullptr),
       source_(xStreamBufferCreateWithCaps(kSourceBufferLength,
                                           sizeof(sample::Sample) * 2,
                                           MALLOC_CAP_DMA)),
       sink_(sink),
-      leftover_bytes_(0),
-      samples_written_(0) {
+      leftover_bytes_(0) {
   input_buffer_ = {
       reinterpret_cast<sample::Sample*>(heap_caps_calloc(
           kSampleBufferLength, sizeof(sample::Sample), MALLOC_CAP_DMA)),
@@ -63,12 +64,10 @@ SampleProcessor::~SampleProcessor() {
 }
 
 auto SampleProcessor::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
-  assert(xStreamBufferIsEmpty(sink_));
   // FIXME: We should add synchronisation here, but we should be careful
   // about not impacting performance given that the output will change only
   // very rarely (if ever).
   output_ = output;
-  samples_written_ = output_->samplesUsed();
 }
 
 auto SampleProcessor::beginStream(std::shared_ptr<TrackInfo> track) -> void {
@@ -136,20 +135,16 @@ auto SampleProcessor::handleBeginStream(std::shared_ptr<TrackInfo> track)
     // If the output *wasn't* idle, then we can't reconfigure without an
     // audible gap in playback. So instead, we simply keep the same target
     // format and begin resampling.
-    if (xStreamBufferIsEmpty(sink_)) {
+    if (sink_.isEmpty()) {
       target_format_ = output_->PrepareFormat(track->format);
       output_->Configure(target_format_);
     }
   }
 
-  if (xStreamBufferIsEmpty(sink_)) {
-    samples_written_ = output_->samplesUsed();
-  }
-
   events::Audio().Dispatch(internal::StreamStarted{
       .track = track,
       .sink_format = target_format_,
-      .cue_at_sample = samples_written_,
+      .cue_at_sample = sink_.totalSent(),
   });
 }
 
@@ -194,7 +189,7 @@ auto SampleProcessor::handleSamples(std::span<sample::Sample> input) -> size_t {
   if (source_format_ == target_format_) {
     // The happiest possible case: the input format matches the output
     // format already.
-    sendToSink(input);
+    sink_.send(input);
     return input.size();
   }
 
@@ -225,7 +220,7 @@ auto SampleProcessor::handleSamples(std::span<sample::Sample> input) -> size_t {
       samples_used = input.size();
     }
 
-    sendToSink(output_source);
+    sink_.send(output_source);
   }
 
   return samples_used;
@@ -237,13 +232,12 @@ auto SampleProcessor::handleEndStream(bool clear_bufs) -> void {
     std::tie(read, written) = resampler_->Process({}, resampled_buffer_, true);
 
     if (written > 0) {
-      sendToSink(resampled_buffer_.first(written));
+      sink_.send(resampled_buffer_.first(written));
     }
   }
 
   if (clear_bufs) {
-    assert(xStreamBufferReset(sink_));
-    samples_written_ = output_->samplesUsed();
+    sink_.clear();
   }
 
   // FIXME: This discards any leftover samples, but there probably shouldn't be
@@ -251,21 +245,8 @@ auto SampleProcessor::handleEndStream(bool clear_bufs) -> void {
   leftover_bytes_ = 0;
 
   events::Audio().Dispatch(internal::StreamEnded{
-      .cue_at_sample = samples_written_,
+      .cue_at_sample = sink_.totalSent(),
   });
-}
-
-auto SampleProcessor::sendToSink(std::span<sample::Sample> samples) -> void {
-  auto data = std::as_bytes(samples);
-  xStreamBufferSend(sink_, data.data(), data.size(), portMAX_DELAY);
-
-  uint32_t samples_before_overflow =
-      std::numeric_limits<uint32_t>::max() - samples_written_;
-  if (samples_before_overflow < samples.size()) {
-    samples_written_ = samples.size() - samples_before_overflow;
-  } else {
-    samples_written_ += samples.size();
-  }
 }
 
 }  // namespace audio

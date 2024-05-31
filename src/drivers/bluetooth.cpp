@@ -29,6 +29,7 @@
 
 #include "drivers/bluetooth_types.hpp"
 #include "drivers/nvs.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "memory_resource.hpp"
 #include "tasks.hpp"
 
@@ -36,9 +37,8 @@ namespace drivers {
 
 [[maybe_unused]] static constexpr char kTag[] = "bluetooth";
 
-DRAM_ATTR static StreamBufferHandle_t sStream = nullptr;
+DRAM_ATTR static PcmBuffer* sStream = nullptr;
 DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
-DRAM_ATTR static std::atomic<uint32_t> sSamplesUsed = 0;
 
 static tasks::WorkerPool* sBgWorker;
 
@@ -68,27 +68,21 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   if (buf == nullptr || buf_size <= 0) {
     return 0;
   }
-  StreamBufferHandle_t stream = sStream;
+  PcmBuffer* stream = sStream;
   if (stream == nullptr) {
     return 0;
   }
-  size_t bytes_received = xStreamBufferReceive(stream, buf, buf_size, 0);
 
-  size_t samples_received = bytes_received / 2;
-  if (UINT32_MAX - sSamplesUsed < samples_received) {
-    sSamplesUsed = samples_received - (UINT32_MAX - sSamplesUsed);
-  } else {
-    sSamplesUsed += samples_received;
-  }
+  int16_t* samples = reinterpret_cast<int16_t*>(buf);
+  stream->receive({samples, static_cast<size_t>(buf_size / 2)}, false);
 
   // Apply software volume scaling.
-  int16_t* samples = reinterpret_cast<int16_t*>(buf);
   float factor = sVolumeFactor.load();
-  for (size_t i = 0; i < bytes_received / 2; i++) {
+  for (size_t i = 0; i < buf_size / 2; i++) {
     samples[i] *= factor;
   }
 
-  return bytes_received;
+  return buf_size;
 }
 
 Bluetooth::Bluetooth(NvsStorage& storage, tasks::WorkerPool& bg_worker) {
@@ -159,7 +153,7 @@ auto Bluetooth::PreferredDevice() -> std::optional<bluetooth::MacAndName> {
   return bluetooth::BluetoothState::preferred_device();
 }
 
-auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
+auto Bluetooth::SetSource(PcmBuffer* src) -> void {
   auto lock = bluetooth::BluetoothState::lock();
   if (src == bluetooth::BluetoothState::source()) {
     return;
@@ -171,10 +165,6 @@ auto Bluetooth::SetSource(StreamBufferHandle_t src) -> void {
 
 auto Bluetooth::SetVolumeFactor(float f) -> void {
   sVolumeFactor = f;
-}
-
-auto Bluetooth::SamplesUsed() -> uint32_t {
-  return sSamplesUsed;
 }
 
 auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
@@ -333,7 +323,7 @@ std::optional<MacAndName> BluetoothState::sPreferredDevice_{};
 std::optional<MacAndName> BluetoothState::sConnectingDevice_{};
 int BluetoothState::sConnectAttemptsRemaining_{0};
 
-std::atomic<StreamBufferHandle_t> BluetoothState::sSource_;
+std::atomic<PcmBuffer*> BluetoothState::sSource_;
 std::function<void(Event)> BluetoothState::sEventHandler_;
 
 auto BluetoothState::Init(NvsStorage& storage) -> void {
@@ -362,11 +352,11 @@ auto BluetoothState::preferred_device(std::optional<MacAndName> addr) -> void {
   sPreferredDevice_ = addr;
 }
 
-auto BluetoothState::source() -> StreamBufferHandle_t {
+auto BluetoothState::source() -> PcmBuffer* {
   return sSource_.load();
 }
 
-auto BluetoothState::source(StreamBufferHandle_t src) -> void {
+auto BluetoothState::source(PcmBuffer* src) -> void {
   sSource_.store(src);
 }
 
@@ -409,7 +399,7 @@ auto BluetoothState::connect(const MacAndName& dev) -> bool {
            dev.mac[5]);
   if (esp_a2d_source_connect(sConnectingDevice_->mac.data()) != ESP_OK) {
     ESP_LOGI(kTag, "Connecting failed...");
-    if (sConnectAttemptsRemaining_>1) {
+    if (sConnectAttemptsRemaining_ > 1) {
       ESP_LOGI(kTag, "Will retry.");
     }
   }

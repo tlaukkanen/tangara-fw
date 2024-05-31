@@ -17,6 +17,7 @@
 #include "driver/i2s_common.h"
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
+#include "drivers/pcm_buffer.hpp"
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -37,7 +38,43 @@ namespace drivers {
 [[maybe_unused]] static const char* kTag = "i2s_dac";
 static const i2s_port_t kI2SPort = I2S_NUM_0;
 
-auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
+DRAM_ATTR static volatile bool sSwapWords = false;
+
+extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
+                                   i2s_event_data_t* event,
+                                   void* user_ctx) -> bool {
+  if (event == nullptr || user_ctx == nullptr) {
+    return false;
+  }
+  if (event->data == nullptr || event->size == 0) {
+    return false;
+  }
+  assert(event->size % 4 == 0);
+
+  uint8_t* buf = *reinterpret_cast<uint8_t**>(event->data);
+  auto* src = reinterpret_cast<PcmBuffer*>(user_ctx);
+
+  BaseType_t ret =
+      src->receive({reinterpret_cast<int16_t*>(buf), event->size / 2}, true);
+
+  // The ESP32's I2S peripheral has a different endianness to its processors.
+  // ESP-IDF handles this difference for stereo channels, but not for mono
+  // channels. We therefore sometimes need to swap each pair of words as they're
+  // written to the DMA buffer.
+  if (sSwapWords) {
+    uint16_t* buf_as_words = reinterpret_cast<uint16_t*>(buf);
+    for (size_t i = 0; i + 1 < event->size / 2; i += 2) {
+      uint16_t temp = buf_as_words[i];
+      buf_as_words[i] = buf_as_words[i + 1];
+      buf_as_words[i + 1] = temp;
+    }
+  }
+
+  return ret;
+}
+
+auto I2SDac::create(IGpios& expander, PcmBuffer& buf)
+    -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config{
       .id = kI2SPort,
@@ -52,7 +89,8 @@ auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
 
   // First, instantiate the instance so it can do all of its power on
   // configuration.
-  std::unique_ptr<I2SDac> dac = std::make_unique<I2SDac>(expander, i2s_handle);
+  std::unique_ptr<I2SDac> dac =
+      std::make_unique<I2SDac>(expander, buf, i2s_handle);
 
   // Whilst we wait for the initial boot, we can work on installing the I2S
   // driver.
@@ -78,11 +116,20 @@ auto I2SDac::create(IGpios& expander) -> std::optional<I2SDac*> {
     return {};
   }
 
+  i2s_event_callbacks_t callbacks{
+      .on_recv = NULL,
+      .on_recv_q_ovf = NULL,
+      .on_sent = callback,
+      .on_send_q_ovf = NULL,
+  };
+  i2s_channel_register_event_callback(i2s_handle, &callbacks, &buf);
+
   return dac.release();
 }
 
-I2SDac::I2SDac(IGpios& gpio, i2s_chan_handle_t i2s_handle)
+I2SDac::I2SDac(IGpios& gpio, PcmBuffer& buf, i2s_chan_handle_t i2s_handle)
     : gpio_(gpio),
+      buffer_(buf),
       i2s_handle_(i2s_handle),
       i2s_active_(false),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(48000)),
@@ -140,8 +187,6 @@ auto I2SDac::SetPaused(bool paused) -> void {
     gpio_.WriteSync(IGpios::Pin::kAmplifierMute, false);
   }
 }
-
-DRAM_ATTR static volatile bool sSwapWords = false;
 
 auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
     -> void {
@@ -215,79 +260,6 @@ auto I2SDac::WriteData(const std::span<const std::byte>& data) -> void {
   if (err != ESP_ERR_TIMEOUT) {
     ESP_ERROR_CHECK(err);
   }
-}
-
-DRAM_ATTR static volatile uint32_t sSamplesRead = 0;
-
-extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
-                                   i2s_event_data_t* event,
-                                   void* user_ctx) -> bool {
-  if (event == nullptr || user_ctx == nullptr) {
-    return false;
-  }
-  if (event->data == nullptr || event->size == 0) {
-    return false;
-  }
-  assert(event->size % 4 == 0);
-
-  uint8_t* buf = *reinterpret_cast<uint8_t**>(event->data);
-  auto src = reinterpret_cast<StreamBufferHandle_t>(user_ctx);
-
-  BaseType_t ret = false;
-  size_t bytes_written =
-      xStreamBufferReceiveFromISR(src, buf, event->size, &ret);
-
-  // Assume 16 bit samples.
-  size_t samples = bytes_written / 2;
-  if (UINT32_MAX - sSamplesRead < samples) {
-    sSamplesRead = samples - (UINT32_MAX - sSamplesRead);
-  } else {
-    sSamplesRead = sSamplesRead + samples;
-  }
-
-  // The ESP32's I2S peripheral has a different endianness to its processors.
-  // ESP-IDF handles this difference for stereo channels, but not for mono
-  // channels. We therefore sometimes need to swap each pair of words as they're
-  // written to the DMA buffer.
-  if (sSwapWords) {
-    uint16_t* buf_as_words = reinterpret_cast<uint16_t*>(buf);
-    for (size_t i = 0; i + 1 < bytes_written / 2; i += 2) {
-      uint16_t temp = buf_as_words[i];
-      buf_as_words[i] = buf_as_words[i + 1];
-      buf_as_words[i + 1] = temp;
-    }
-  }
-
-  // If we ran out of data, then make sure we clear out the DMA buffers rather
-  // than continuing to repreat the last few samples.
-  if (bytes_written < event->size) {
-    std::memset(buf + bytes_written, 0, event->size - bytes_written);
-  }
-
-  return ret;
-}
-
-auto I2SDac::SetSource(StreamBufferHandle_t buffer) -> void {
-  if (i2s_active_) {
-    ESP_ERROR_CHECK(i2s_channel_disable(i2s_handle_));
-  }
-  i2s_event_callbacks_t callbacks{
-      .on_recv = NULL,
-      .on_recv_q_ovf = NULL,
-      .on_sent = NULL,
-      .on_send_q_ovf = NULL,
-  };
-  if (buffer != nullptr) {
-    callbacks.on_sent = &callback;
-  }
-  i2s_channel_register_event_callback(i2s_handle_, &callbacks, buffer);
-  if (i2s_active_) {
-    ESP_ERROR_CHECK(i2s_channel_enable(i2s_handle_));
-  }
-}
-
-auto I2SDac::SamplesUsed() -> uint32_t {
-  return sSamplesRead;
 }
 
 auto I2SDac::set_channel(bool enabled) -> void {

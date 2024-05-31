@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include "drivers/bluetooth_types.hpp"
 #include "drivers/nvs.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "esp_gap_bt_api.h"
@@ -42,9 +43,8 @@ class Bluetooth {
   auto SetPreferredDevice(std::optional<bluetooth::MacAndName> dev) -> void;
   auto PreferredDevice() -> std::optional<bluetooth::MacAndName>;
 
-  auto SetSource(StreamBufferHandle_t) -> void;
+  auto SetSource(PcmBuffer*) -> void;
   auto SetVolumeFactor(float) -> void;
-  auto SamplesUsed() -> uint32_t;
 
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
 };
@@ -114,8 +114,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static auto discovery() -> bool;
   static auto discovery(bool) -> void;
 
-  static auto source() -> StreamBufferHandle_t;
-  static auto source(StreamBufferHandle_t) -> void;
+  static auto source() -> PcmBuffer*;
+  static auto source(PcmBuffer*) -> void;
 
   static auto event_handler(std::function<void(Event)>) -> void;
 
@@ -147,7 +147,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static std::optional<bluetooth::MacAndName> sConnectingDevice_;
   static int sConnectAttemptsRemaining_;
 
-  static std::atomic<StreamBufferHandle_t> sSource_;
+  static std::atomic<PcmBuffer*> sSource_;
   static std::function<void(Event)> sEventHandler_;
 
   auto connect(const bluetooth::MacAndName&) -> bool;

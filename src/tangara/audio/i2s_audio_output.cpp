@@ -13,6 +13,7 @@
 #include <memory>
 #include <variant>
 
+#include "drivers/pcm_buffer.hpp"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
@@ -42,10 +43,11 @@ static constexpr uint16_t kDefaultVolume = 0x100;
 
 static constexpr size_t kDrainBufferSize = 8 * 1024;
 
-I2SAudioOutput::I2SAudioOutput(StreamBufferHandle_t s,
-                               drivers::IGpios& expander)
-    : IAudioOutput(s),
+I2SAudioOutput::I2SAudioOutput(drivers::IGpios& expander,
+                               drivers::PcmBuffer& buffer)
+    : IAudioOutput(),
       expander_(expander),
+      buffer_(buffer),
       dac_(),
       current_mode_(Modes::kOff),
       current_config_(),
@@ -55,7 +57,6 @@ I2SAudioOutput::I2SAudioOutput(StreamBufferHandle_t s,
 
 I2SAudioOutput::~I2SAudioOutput() {
   dac_->Stop();
-  dac_->SetSource(nullptr);
 }
 
 auto I2SAudioOutput::changeMode(Modes mode) -> void {
@@ -78,7 +79,7 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
   if (was_off) {
     // Ensure an I2SDac instance actually exists.
     if (!dac_) {
-      auto instance = drivers::I2SDac::create(expander_);
+      auto instance = drivers::I2SDac::create(expander_, buffer_);
       if (!instance) {
         return;
       }
@@ -86,7 +87,6 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
     }
     // Set up the new instance properly.
     SetVolume(GetVolume());
-    dac_->SetSource(stream());
     dac_->Start();
   }
 
@@ -237,10 +237,6 @@ auto I2SAudioOutput::Configure(const Format& fmt) -> void {
 
   dac_->Reconfigure(ch, bps, sample_rate);
   current_config_ = fmt;
-}
-
-auto I2SAudioOutput::samplesUsed() -> uint32_t {
-  return dac_->SamplesUsed();
 }
 
 }  // namespace audio

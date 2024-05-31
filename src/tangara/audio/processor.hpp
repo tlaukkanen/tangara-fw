@@ -15,6 +15,7 @@
 #include "audio/audio_source.hpp"
 #include "audio/resample.hpp"
 #include "codec.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "sample.hpp"
 
 namespace audio {
@@ -27,7 +28,7 @@ namespace audio {
  */
 class SampleProcessor {
  public:
-  SampleProcessor(StreamBufferHandle_t sink);
+  SampleProcessor(drivers::PcmBuffer& sink);
   ~SampleProcessor();
 
   auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
@@ -45,8 +46,6 @@ class SampleProcessor {
 
   auto handleSamples(std::span<sample::Sample>) -> size_t;
 
-  auto sendToSink(std::span<sample::Sample>) -> void;
-
   struct Args {
     std::shared_ptr<TrackInfo>* track;
     size_t samples_available;
@@ -58,7 +57,7 @@ class SampleProcessor {
   std::unique_ptr<Resampler> resampler_;
 
   StreamBufferHandle_t source_;
-  StreamBufferHandle_t sink_;
+  drivers::PcmBuffer& sink_;
 
   std::span<sample::Sample> input_buffer_;
   std::span<std::byte> input_buffer_as_bytes_;
@@ -69,8 +68,6 @@ class SampleProcessor {
   IAudioOutput::Format source_format_;
   IAudioOutput::Format target_format_;
   size_t leftover_bytes_;
-
-  uint32_t samples_written_;
 };
 
 }  // namespace audio

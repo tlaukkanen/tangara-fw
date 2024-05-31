@@ -14,13 +14,14 @@
 #include "audio/audio_sink.hpp"
 #include "drivers/gpios.hpp"
 #include "drivers/i2s_dac.hpp"
+#include "drivers/pcm_buffer.hpp"
 #include "result.hpp"
 
 namespace audio {
 
 class I2SAudioOutput : public IAudioOutput {
  public:
-  I2SAudioOutput(StreamBufferHandle_t, drivers::IGpios& expander);
+  I2SAudioOutput(drivers::IGpios&, drivers::PcmBuffer&);
   ~I2SAudioOutput();
 
   auto SetMaxVolume(uint16_t) -> void;
@@ -43,8 +44,6 @@ class I2SAudioOutput : public IAudioOutput {
   auto PrepareFormat(const Format&) -> Format override;
   auto Configure(const Format& format) -> void override;
 
-  auto samplesUsed() -> uint32_t override;
-
   I2SAudioOutput(const I2SAudioOutput&) = delete;
   I2SAudioOutput& operator=(const I2SAudioOutput&) = delete;
 
@@ -53,6 +52,8 @@ class I2SAudioOutput : public IAudioOutput {
 
  private:
   drivers::IGpios& expander_;
+  drivers::PcmBuffer& buffer_;
+
   std::unique_ptr<drivers::I2SDac> dac_;
 
   Modes current_mode_;
