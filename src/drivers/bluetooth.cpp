@@ -446,7 +446,6 @@ void Disabled::entry() {
 }
 
 void Disabled::react(const events::Enable&) {
-  ESP_LOGI("jacqueline", "BEGIN INIT BT");
   esp_bt_controller_config_t config = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
   esp_err_t err;
   if ((err = esp_bt_controller_init(&config) != ESP_OK)) {
