@@ -57,6 +57,7 @@ auto SdStorage::Create(IGpios& gpio) -> cpp::result<SdStorage*, Error> {
   }
 
   auto host = std::make_unique<sdmmc_host_t>(sdmmc_host_t SDSPI_HOST_DEFAULT());
+  host->max_freq_khz = SDMMC_FREQ_HIGHSPEED;
   auto card = std::make_unique<sdmmc_card_t>();
 
   host->slot = handle;

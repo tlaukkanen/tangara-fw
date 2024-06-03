@@ -13,6 +13,6 @@ namespace drivers {
 
 esp_err_t init_spi(void);
 esp_err_t deinit_spi(void);
-std::lock_guard<std::mutex> acquire_spi(void);
+int acquire_spi(void);
 
 }  // namespace drivers

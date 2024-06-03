@@ -296,6 +296,8 @@ void Display::SendTransaction(TransactionType type,
 void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
                           const lv_area_t* area,
                           lv_color_t* color_map) {
+  spi_device_acquire_bus(handle_, portMAX_DELAY);
+
   // First we need to specify the rectangle of the display we're writing into.
   uint16_t data[2] = {0, 0};
 
@@ -313,6 +315,8 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
   uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
   SendCommandWithData(displays::ST77XX_RAMWR,
                       reinterpret_cast<uint8_t*>(color_map), size * 2);
+
+  spi_device_release_bus(handle_);
 
   if (!first_flush_finished_ && lv_disp_flush_is_last(disp_drv)) {
     first_flush_finished_ = true;
