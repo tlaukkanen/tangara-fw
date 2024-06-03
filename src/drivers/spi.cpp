@@ -56,10 +56,4 @@ esp_err_t deinit_spi(void) {
   return spi_bus_free(kSpiHost);
 }
 
-int acquire_spi(void) {
-  // Cross fingers emoji: I *think* this is now resolved???
-  // return std::lock_guard<std::mutex>{sSpiMutex};
-  return 1;
-}
-
 }  // namespace drivers

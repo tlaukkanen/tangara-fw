@@ -65,13 +65,7 @@ auto FatfsStreamFactory::create(std::string path, uint32_t offset)
   }
 
   std::unique_ptr<FIL> file = std::make_unique<FIL>();
-  FRESULT res;
-
-  {
-    auto lock = drivers::acquire_spi();
-    res = f_open(file.get(), path.c_str(), FA_READ);
-  }
-
+  FRESULT res = f_open(file.get(), path.c_str(), FA_READ);
   if (res != FR_OK) {
     ESP_LOGE(kTag, "failed to open file! res: %i", res);
     return {};

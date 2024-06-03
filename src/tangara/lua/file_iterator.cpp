@@ -8,20 +8,15 @@
 
 #include <string>
 
-#include "ff.h"
 #include "drivers/spi.hpp"
+#include "ff.h"
 
 namespace lua {
 
 [[maybe_unused]] static const char* kTag = "FileIterator";
 
-FileIterator::FileIterator(std::string filepath) 
-: original_path_(filepath),
-  current_(),
-  offset_(-1)
- {
-  auto lock = drivers::acquire_spi();
-
+FileIterator::FileIterator(std::string filepath)
+    : original_path_(filepath), current_(), offset_(-1) {
   const TCHAR* path = static_cast<const TCHAR*>(filepath.c_str());
   FRESULT res = f_opendir(&dir_, path);
   if (res != FR_OK) {
@@ -30,7 +25,6 @@ FileIterator::FileIterator(std::string filepath)
 }
 
 FileIterator::~FileIterator() {
-  auto lock = drivers::acquire_spi();
   f_closedir(&dir_);
 }
 
@@ -48,7 +42,7 @@ auto FileIterator::prev() -> void {
     return;
   }
   f_rewinddir(&dir_);
-  auto new_offset = offset_-1;
+  auto new_offset = offset_ - 1;
   offset_ = -1;
   for (int i = 0; i <= new_offset; i++) {
     iterate(false);
@@ -56,32 +50,30 @@ auto FileIterator::prev() -> void {
 }
 
 auto FileIterator::iterate(bool reverse) -> bool {
-    FILINFO info;
-    {
-      auto lock = drivers::acquire_spi();
-      auto res = f_readdir(&dir_, &info);
-      if (res != FR_OK) {
-        ESP_LOGE(kTag, "Error reading directory. Error: %d", res);
-        return false;
-      }
-    }
-    if (info.fname[0] == 0) {
-      // End of directory
-      // Set value to nil
-      current_.reset();
-    } else {
-      // Update current value
-      offset_++;
-      current_ = FileEntry{
+  FILINFO info;
+  auto res = f_readdir(&dir_, &info);
+  if (res != FR_OK) {
+    ESP_LOGE(kTag, "Error reading directory. Error: %d", res);
+    return false;
+  }
+  if (info.fname[0] == 0) {
+    // End of directory
+    // Set value to nil
+    current_.reset();
+  } else {
+    // Update current value
+    offset_++;
+    current_ = FileEntry{
         .index = offset_,
         .isHidden = (info.fattrib & AM_HID) > 0,
         .isDirectory = (info.fattrib & AM_DIR) > 0,
-        .isTrack = false, // TODO
-        .filepath = original_path_ + (original_path_.size()>0?"/":"") + info.fname,
+        .isTrack = false,  // TODO
+        .filepath = original_path_ + (original_path_.size() > 0 ? "/" : "") +
+                    info.fname,
 
-      };
-    }
-    return true;
+    };
+  }
+  return true;
 }
 
 }  // namespace lua

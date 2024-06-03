@@ -103,12 +103,10 @@ class EspSequentialFile final : public SequentialFile {
   EspSequentialFile(const std::string& filename, FIL file)
       : file_(file), filename_(filename) {}
   ~EspSequentialFile() override {
-    auto lock = drivers::acquire_spi();
     f_close(&file_);
   }
 
   Status Read(size_t n, Slice* result, char* scratch) override {
-    auto lock = drivers::acquire_spi();
     UINT read_size = 0;
     FRESULT res = f_read(&file_, scratch, n, &read_size);
     if (res != FR_OK) {  // Read error.
@@ -119,7 +117,6 @@ class EspSequentialFile final : public SequentialFile {
   }
 
   Status Skip(uint64_t n) override {
-    auto lock = drivers::acquire_spi();
     DWORD current_pos = f_tell(&file_);
     FRESULT res = f_lseek(&file_, current_pos + n);
     if (res != FR_OK) {
@@ -151,7 +148,6 @@ class EspRandomAccessFile final : public RandomAccessFile {
               size_t n,
               Slice* result,
               char* scratch) const override {
-    auto lock = drivers::acquire_spi();
     FIL file;
     FRESULT res = f_open(&file, filename_.c_str(), FA_READ);
     if (res != FR_OK) {
@@ -200,7 +196,6 @@ class EspWritableFile final : public WritableFile {
       return EspError(filename_, FR_NOT_ENABLED);
     }
 
-    auto lock = drivers::acquire_spi();
     size_t write_size = data.size();
     const char* write_data = data.data();
 
@@ -214,7 +209,6 @@ class EspWritableFile final : public WritableFile {
   }
 
   Status Close() override {
-    auto lock = drivers::acquire_spi();
     is_open_ = false;
     FRESULT res = f_close(&file_);
     if (res != FR_OK) {
@@ -229,7 +223,6 @@ class EspWritableFile final : public WritableFile {
     if (!is_open_) {
       return EspError(filename_, FR_NOT_ENABLED);
     }
-    auto lock = drivers::acquire_spi();
     FRESULT res = f_sync(&file_);
     if (res != FR_OK) {
       return EspError(filename_, res);
@@ -285,7 +278,6 @@ EspEnv::~EspEnv() {
 
 Status EspEnv::NewSequentialFile(const std::string& filename,
                                  SequentialFile** result) {
-  auto lock = drivers::acquire_spi();
   FIL file;
   FRESULT res = f_open(&file, filename.c_str(), FA_READ);
   if (res != FR_OK) {
@@ -299,7 +291,6 @@ Status EspEnv::NewSequentialFile(const std::string& filename,
 
 Status EspEnv::NewRandomAccessFile(const std::string& filename,
                                    RandomAccessFile** result) {
-  auto lock = drivers::acquire_spi();
   // EspRandomAccessFile doesn't try to open the file until it's needed, so
   // we need to first ensure the file exists to handle the NotFound case
   // correctly.
@@ -316,7 +307,6 @@ Status EspEnv::NewRandomAccessFile(const std::string& filename,
 
 Status EspEnv::NewWritableFile(const std::string& filename,
                                WritableFile** result) {
-  auto lock = drivers::acquire_spi();
   FIL file;
   FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
   if (res != FR_OK) {
@@ -330,7 +320,6 @@ Status EspEnv::NewWritableFile(const std::string& filename,
 
 Status EspEnv::NewAppendableFile(const std::string& filename,
                                  WritableFile** result) {
-  auto lock = drivers::acquire_spi();
   FIL file;
   FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_OPEN_APPEND);
   if (res != FR_OK) {
@@ -343,7 +332,6 @@ Status EspEnv::NewAppendableFile(const std::string& filename,
 }
 
 bool EspEnv::FileExists(const std::string& filename) {
-  auto lock = drivers::acquire_spi();
   FILINFO info;
   return f_stat(filename.c_str(), &info) == FR_OK;
 }
@@ -352,7 +340,6 @@ Status EspEnv::GetChildren(const std::string& directory_path,
                            std::vector<std::string>* result) {
   result->clear();
 
-  auto lock = drivers::acquire_spi();
   FF_DIR dir;
   FRESULT res = f_opendir(&dir, directory_path.c_str());
   if (res != FR_OK) {
@@ -380,7 +367,6 @@ Status EspEnv::GetChildren(const std::string& directory_path,
 }
 
 Status EspEnv::RemoveFile(const std::string& filename) {
-  auto lock = drivers::acquire_spi();
   FRESULT res = f_unlink(filename.c_str());
   if (res != FR_OK) {
     return EspError(filename, res);
@@ -389,7 +375,6 @@ Status EspEnv::RemoveFile(const std::string& filename) {
 }
 
 Status EspEnv::CreateDir(const std::string& dirname) {
-  auto lock = drivers::acquire_spi();
   FRESULT res = f_mkdir(dirname.c_str());
   if (res != FR_OK) {
     return EspError(dirname, res);
@@ -402,7 +387,6 @@ Status EspEnv::RemoveDir(const std::string& dirname) {
 }
 
 Status EspEnv::GetFileSize(const std::string& filename, uint64_t* size) {
-  auto lock = drivers::acquire_spi();
   FILINFO info;
   FRESULT res = f_stat(filename.c_str(), &info);
   if (res != FR_OK) {
@@ -421,7 +405,6 @@ Status EspEnv::RenameFile(const std::string& from, const std::string& to) {
       return s;
     }
   }
-  auto lock = drivers::acquire_spi();
   FRESULT res = f_rename(from.c_str(), to.c_str());
   if (res != FR_OK) {
     return EspError(from, res);
@@ -460,7 +443,6 @@ Status EspEnv::GetTestDirectory(std::string* result) {
 }
 
 Status EspEnv::NewLogger(const std::string& filename, Logger** result) {
-  auto lock = drivers::acquire_spi();
   FIL file;
   FRESULT res = f_open(&file, filename.c_str(), FA_WRITE | FA_OPEN_APPEND);
   if (res != FR_OK) {

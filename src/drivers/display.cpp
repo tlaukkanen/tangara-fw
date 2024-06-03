@@ -284,13 +284,8 @@ void Display::SendTransaction(TransactionType type,
 
   gpio_set_level(kDisplayDr, type);
 
-  esp_err_t ret;
-  {
-    auto lock = drivers::acquire_spi();
-    // TODO(jacqueline): Handle these errors.
-    ret = spi_device_transmit(handle_, &sTransaction);
-  }
-  ESP_ERROR_CHECK(ret);
+  // TODO(jacqueline): Handle these errors better.
+  ESP_ERROR_CHECK(spi_device_transmit(handle_, &sTransaction));
 }
 
 void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,

@@ -148,15 +148,13 @@ auto TagParserImpl::parseNew(std::string_view p) -> std::shared_ptr<TrackTags> {
   libtags::Aux aux;
   auto out = TrackTags::create();
   aux.tags = out.get();
-  {
-    auto lock = drivers::acquire_spi();
 
-    if (f_stat(path.c_str(), &aux.info) != FR_OK ||
-        f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
-      ESP_LOGW(kTag, "failed to open file %s", path.c_str());
-      return {};
-    }
+  if (f_stat(path.c_str(), &aux.info) != FR_OK ||
+      f_open(&aux.file, path.c_str(), FA_READ) != FR_OK) {
+    ESP_LOGW(kTag, "failed to open file %s", path.c_str());
+    return {};
   }
+
   // Fine to have this on the stack; this is only called on tasks with large
   // stacks anyway, due to all the string handling.
   char buf[kBufSize];
@@ -169,12 +167,8 @@ auto TagParserImpl::parseNew(std::string_view p) -> std::shared_ptr<TrackTags> {
   ctx.buf = buf;
   ctx.bufsz = kBufSize;
 
-  int res;
-  {
-    auto lock = drivers::acquire_spi();
-    res = tagsget(&ctx);
-    f_close(&aux.file);
-  }
+  int res = tagsget(&ctx);
+  f_close(&aux.file);
 
   if (res != 0) {
     // Parsing failed.

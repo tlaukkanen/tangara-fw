@@ -206,8 +206,6 @@ auto Database::schemaVersion() -> std::string {
 }
 
 auto Database::sizeOnDiskBytes() -> size_t {
-  auto lock = drivers::acquire_spi();
-
   FF_DIR dir;
   FRESULT res = f_opendir(&dir, kDbPath);
   if (res != FR_OK) {
@@ -328,12 +326,8 @@ auto Database::updateIndexes() -> void {
         continue;
       }
 
-      FRESULT res;
       FILINFO info;
-      {
-        auto lock = drivers::acquire_spi();
-        res = f_stat(track->filepath.c_str(), &info);
-      }
+      FRESULT res = f_stat(track->filepath.c_str(), &info);
 
       std::pair<uint16_t, uint16_t> modified_at{0, 0};
       if (res == FR_OK) {

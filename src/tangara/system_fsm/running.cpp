@@ -82,22 +82,14 @@ void Running::react(const SdDetectChanged& ev) {
   // supriously. FIXME: Why?
   // Instead, check whether or not the card has actually gone away.
   if (sStorage) {
-    FRESULT res;
     FF_DIR dir;
-    {
-      auto lock = drivers::acquire_spi();
-      res = f_opendir(&dir, "/");
-    }
-
+    FRESULT res = f_opendir(&dir, "/");
     if (res != FR_OK) {
       ESP_LOGW(kTag, "sd card ejected unsafely!");
       unmountStorage();
     }
 
-    {
-      auto lock = drivers::acquire_spi();
-      f_closedir(&dir);
-    }
+    f_closedir(&dir);
   }
 }
 
