@@ -25,6 +25,7 @@
 #include "cppbor_parse.h"
 #include "database/index.hpp"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "ff.h"
 #include "freertos/projdefs.h"
 #include "komihash.h"
@@ -296,21 +297,24 @@ auto Database::updateIndexes() -> void {
   }
   UpdateNotifier notifier{is_updating_};
 
+  uint32_t num_old_tracks = 0;
+  uint32_t num_new_tracks = 0;
+  uint64_t start_time = esp_timer_get_time();
+
   leveldb::ReadOptions read_options;
   read_options.fill_cache = true;
 
   // Stage 1: verify all existing tracks are still valid.
   ESP_LOGI(kTag, "verifying existing tracks");
   {
-    uint64_t num_processed = 0;
     std::unique_ptr<leveldb::Iterator> it{db_->NewIterator(read_options)};
     std::string prefix = EncodeDataPrefix();
     for (it->Seek(prefix); it->Valid() && it->key().starts_with(prefix);
          it->Next()) {
-      num_processed++;
+      num_old_tracks++;
       events::Ui().Dispatch(event::UpdateProgress{
           .stage = event::UpdateProgress::Stage::kVerifyingExistingTracks,
-          .val = num_processed,
+          .val = num_old_tracks,
       });
 
       std::shared_ptr<TrackData> track = ParseDataValue(it->value());
@@ -373,14 +377,16 @@ auto Database::updateIndexes() -> void {
     }
   }
 
+  uint64_t verify_end_time = esp_timer_get_time();
+
   // Stage 2: search for newly added files.
   ESP_LOGI(kTag, "scanning for new tracks");
-  uint64_t num_processed = 0;
+  uint64_t num_files = 0;
   file_gatherer_.FindFiles("", [&](std::string_view path, const FILINFO& info) {
-    num_processed++;
+    num_files++;
     events::Ui().Dispatch(event::UpdateProgress{
         .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
-        .val = num_processed,
+        .val = num_files,
     });
 
     std::string unused;
@@ -409,7 +415,8 @@ auto Database::updateIndexes() -> void {
       // We've never met this track before! Or we have, but the entry is
       // malformed. Either way, record this as a new track.
       TrackId id = dbMintNewTrackId();
-      ESP_LOGI(kTag, "recording new 0x%lx", id);
+      ESP_LOGD(kTag, "recording new 0x%lx", id);
+      num_new_tracks++;
 
       auto data = std::make_shared<TrackData>();
       data->id = id;
@@ -461,6 +468,24 @@ auto Database::updateIndexes() -> void {
                tags->album().value_or("no album").c_str());
     }
   });
+
+  uint64_t end_time = esp_timer_get_time();
+
+  uint64_t time_per_old = 0;
+  if (num_old_tracks) {
+    time_per_old = (verify_end_time - start_time) / num_old_tracks;
+  }
+  uint64_t time_per_new = 0;
+  if (num_new_tracks) {
+    time_per_new = (end_time - verify_end_time) / num_new_tracks;
+  }
+
+  ESP_LOGI(
+      kTag,
+      "processed %lu old tracks and %lu new tracks in %llu seconds (%llums "
+      "per old, %llums per new)",
+      num_old_tracks, num_new_tracks, (end_time - start_time) / 1000000,
+      time_per_old / 1000, time_per_new / 1000);
 }
 
 auto Database::isUpdating() -> bool {
