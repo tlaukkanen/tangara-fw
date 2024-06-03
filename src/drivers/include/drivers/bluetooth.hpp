@@ -65,11 +65,11 @@ struct DeviceDiscovered : public tinyfsm::Event {
 namespace internal {
 struct Gap : public tinyfsm::Event {
   esp_bt_gap_cb_event_t type;
-  esp_bt_gap_cb_param_t* param;
+  esp_bt_gap_cb_param_t param;
 };
 struct A2dp : public tinyfsm::Event {
   esp_a2d_cb_event_t type;
-  esp_a2d_cb_param_t* param;
+  esp_a2d_cb_param_t param;
 };
 struct Avrc : public tinyfsm::Event {
   esp_avrc_ct_cb_event_t type;
@@ -132,9 +132,9 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
 
   virtual void react(const events::DeviceDiscovered&);
 
-  virtual void react(const events::internal::Gap& ev) = 0;
-  virtual void react(const events::internal::A2dp& ev){};
-  virtual void react(const events::internal::Avrc& ev){};
+  virtual void react(events::internal::Gap ev) = 0;
+  virtual void react(events::internal::A2dp ev){};
+  virtual void react(events::internal::Avrc ev){};
 
  protected:
   static NvsStorage* sStorage_;
@@ -160,8 +160,8 @@ class Disabled : public BluetoothState {
   void react(const events::Enable& ev) override;
   void react(const events::Disable& ev) override{};
 
-  void react(const events::internal::Gap& ev) override {}
-  void react(const events::internal::A2dp& ev) override {}
+  void react(events::internal::Gap ev) override {}
+  void react(events::internal::A2dp ev) override {}
 
   using BluetoothState::react;
 };
@@ -174,7 +174,7 @@ class Idle : public BluetoothState {
   void react(const events::Disable& ev) override;
   void react(const events::PreferredDeviceChanged& ev) override;
 
-  void react(const events::internal::Gap& ev) override;
+  void react(events::internal::Gap ev) override;
 
   using BluetoothState::react;
 };
@@ -188,8 +188,8 @@ class Connecting : public BluetoothState {
 
   void react(const events::ConnectTimedOut& ev) override;
   void react(const events::Disable& ev) override;
-  void react(const events::internal::Gap& ev) override;
-  void react(const events::internal::A2dp& ev) override;
+  void react(events::internal::Gap ev) override;
+  void react(events::internal::A2dp ev) override;
 
   using BluetoothState::react;
 };
@@ -203,9 +203,9 @@ class Connected : public BluetoothState {
   void react(const events::SourceChanged& ev) override;
 
   void react(const events::Disable& ev) override;
-  void react(const events::internal::Gap& ev) override;
-  void react(const events::internal::A2dp& ev) override;
-  void react(const events::internal::Avrc& ev) override;
+  void react(events::internal::Gap ev) override;
+  void react(events::internal::A2dp ev) override;
+  void react(events::internal::Avrc ev) override;
 
   using BluetoothState::react;
 

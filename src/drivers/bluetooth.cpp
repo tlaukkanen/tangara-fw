@@ -43,25 +43,43 @@ DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
 static tasks::WorkerPool* sBgWorker;
 
 auto gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) -> void {
-  auto lock = bluetooth::BluetoothState::lock();
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::internal::Gap{.type = event, .param = param});
+  esp_bt_gap_cb_param_t copy = *param;
+  if (event == ESP_BT_GAP_DISC_RES_EVT || event == ESP_BT_GAP_RMT_SRVCS_EVT) {
+    auto lock = bluetooth::BluetoothState::lock();
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        bluetooth::events::internal::Gap{.type = event, .param = copy});
+  } else {
+    sBgWorker->Dispatch<void>([=]() {
+      auto lock = bluetooth::BluetoothState::lock();
+      tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+          bluetooth::events::internal::Gap{.type = event, .param = copy});
+    });
+  }
 }
 
 auto avrcp_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t* param)
     -> void {
   esp_avrc_ct_cb_param_t copy = *param;
-  sBgWorker->Dispatch<void>([=]() {
+  if (event == ESP_AVRC_CT_METADATA_RSP_EVT) {
     auto lock = bluetooth::BluetoothState::lock();
     tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
         bluetooth::events::internal::Avrc{.type = event, .param = copy});
-  });
+  } else {
+    sBgWorker->Dispatch<void>([=]() {
+      auto lock = bluetooth::BluetoothState::lock();
+      tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+          bluetooth::events::internal::Avrc{.type = event, .param = copy});
+    });
+  }
 }
 
 auto a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param) -> void {
-  auto lock = bluetooth::BluetoothState::lock();
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::internal::A2dp{.type = event, .param = param});
+  esp_a2d_cb_param_t copy = *param;
+  sBgWorker->Dispatch<void>([=]() {
+    auto lock = bluetooth::BluetoothState::lock();
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        bluetooth::events::internal::A2dp{.type = event, .param = copy});
+  });
 }
 
 IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
@@ -227,13 +245,11 @@ auto Scanner::StopScanningNow() -> void {
 auto Scanner::HandleGapEvent(const events::internal::Gap& ev) -> void {
   switch (ev.type) {
     case ESP_BT_GAP_DISC_RES_EVT:
-      if (ev.param != nullptr) {
-        // Handle device discovery even if we've been told to stop discovering.
-        HandleDeviceDiscovery(*ev.param);
-      }
+      // Handle device discovery even if we've been told to stop discovering.
+      HandleDeviceDiscovery(ev.param);
       break;
     case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
-      if (ev.param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STOPPED) {
+      if (ev.param.disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STOPPED) {
         ESP_LOGI(kTag, "discovery finished");
         if (enabled_) {
           ESP_LOGI(kTag, "restarting discovery");
@@ -430,6 +446,7 @@ void Disabled::entry() {
 }
 
 void Disabled::react(const events::Enable&) {
+  ESP_LOGI("jacqueline", "BEGIN INIT BT");
   esp_bt_controller_config_t config = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
   esp_err_t err;
   if ((err = esp_bt_controller_init(&config) != ESP_OK)) {
@@ -467,8 +484,8 @@ void Disabled::react(const events::Enable&) {
   esp_bt_gap_register_callback(gap_cb);
 
   // Initialise AVRCP. This handles playback controls; play/pause/volume/etc.
-  esp_avrc_ct_init();
   esp_avrc_ct_register_callback(avrcp_cb);
+  esp_avrc_ct_init();
 
   // Initialise A2DP. This handles streaming audio. Currently ESP-IDF's SBC
   // encoder only supports 2 channels of interleaved 16 bit samples, at
@@ -515,7 +532,7 @@ void Idle::react(const events::PreferredDeviceChanged& ev) {
   }
 }
 
-void Idle::react(const events::internal::Gap& ev) {
+void Idle::react(events::internal::Gap ev) {
   sScanner_->HandleGapEvent(ev);
 }
 
@@ -565,11 +582,11 @@ void Connecting::react(const events::PreferredDeviceChanged& ev) {
   // TODO. Cancel out and start again.
 }
 
-void Connecting::react(const events::internal::Gap& ev) {
+void Connecting::react(events::internal::Gap ev) {
   sScanner_->HandleGapEvent(ev);
   switch (ev.type) {
     case ESP_BT_GAP_AUTH_CMPL_EVT:
-      if (ev.param->auth_cmpl.stat != ESP_BT_STATUS_SUCCESS) {
+      if (ev.param.auth_cmpl.stat != ESP_BT_STATUS_SUCCESS) {
         ESP_LOGE(kTag, "auth failed");
         transit<Idle>();
       }
@@ -584,8 +601,8 @@ void Connecting::react(const events::internal::Gap& ev) {
       break;
     case ESP_BT_GAP_CFM_REQ_EVT:
       // FIXME: Expose a UI for this instead of auto-accepting.
-      ESP_LOGW(kTag, "CFM request, PIN is: %lu", ev.param->cfm_req.num_val);
-      esp_bt_gap_ssp_confirm_reply(ev.param->cfm_req.bda, true);
+      ESP_LOGW(kTag, "CFM request, PIN is: %lu", ev.param.cfm_req.num_val);
+      esp_bt_gap_ssp_confirm_reply(ev.param.cfm_req.bda, true);
       break;
     case ESP_BT_GAP_KEY_NOTIF_EVT:
       ESP_LOGW(kTag, "the device is telling us a password??");
@@ -612,10 +629,10 @@ void Connecting::react(const events::internal::Gap& ev) {
   }
 }
 
-void Connecting::react(const events::internal::A2dp& ev) {
+void Connecting::react(events::internal::A2dp ev) {
   switch (ev.type) {
     case ESP_A2D_CONNECTION_STATE_EVT:
-      if (ev.param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
+      if (ev.param.conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
         ESP_LOGI(kTag, "connected okay!");
         transit<Connected>();
       }
@@ -669,7 +686,7 @@ void Connected::react(const events::SourceChanged& ev) {
   }
 }
 
-void Connected::react(const events::internal::Gap& ev) {
+void Connected::react(events::internal::Gap ev) {
   sScanner_->HandleGapEvent(ev);
   switch (ev.type) {
     case ESP_BT_GAP_MODE_CHG_EVT:
@@ -681,11 +698,11 @@ void Connected::react(const events::internal::Gap& ev) {
   }
 }
 
-void Connected::react(const events::internal::A2dp& ev) {
+void Connected::react(events::internal::A2dp ev) {
   switch (ev.type) {
     case ESP_A2D_CONNECTION_STATE_EVT:
-      if (ev.param->conn_stat.state != ESP_A2D_CONNECTION_STATE_CONNECTED &&
-          ev.param->conn_stat.state != ESP_A2D_CONNECTION_STATE_DISCONNECTING) {
+      if (ev.param.conn_stat.state != ESP_A2D_CONNECTION_STATE_CONNECTED &&
+          ev.param.conn_stat.state != ESP_A2D_CONNECTION_STATE_DISCONNECTING) {
         ESP_LOGE(kTag, "a2dp connection dropped :(");
         transit<Connecting>();
       }
@@ -695,7 +712,7 @@ void Connected::react(const events::internal::A2dp& ev) {
       break;
     case ESP_A2D_MEDIA_CTRL_ACK_EVT:
       // Sink is responding to our media control request.
-      if (ev.param->media_ctrl_stat.cmd == ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY) {
+      if (ev.param.media_ctrl_stat.cmd == ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY) {
         // TODO: check if success
         ESP_LOGI(kTag, "starting playback");
         esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_START);
@@ -706,7 +723,7 @@ void Connected::react(const events::internal::A2dp& ev) {
   }
 }
 
-void Connected::react(const events::internal::Avrc& ev) {
+void Connected::react(events::internal::Avrc ev) {
   switch (ev.type) {
     case ESP_AVRC_CT_CONNECTION_STATE_EVT:
       if (ev.param.conn_stat.connected) {
