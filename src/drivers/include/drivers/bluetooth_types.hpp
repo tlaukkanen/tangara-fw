@@ -5,6 +5,7 @@
 #include <string>
 
 #include "memory_resource.hpp"
+#include <variant>
 
 namespace drivers {
 namespace bluetooth {
@@ -25,11 +26,27 @@ struct Device {
   int8_t signal_strength;
 };
 
-enum class Event {
+enum class SimpleEvent {
   kKnownDevicesChanged,
   kConnectionStateChanged,
   kPreferredDeviceChanged,
+  // Passthrough events
+  kPlayPause,
+  kStop,
+  kMute,
+  kVolUp,
+  kVolDown,
+  kForward,
+  kBackward,
+  kRewind,
+  kFastForward,
 };
+
+struct RemoteVolumeChanged {
+  uint8_t new_vol;
+};
+
+using Event = std::variant<SimpleEvent, RemoteVolumeChanged>;
 
 }  // namespace bluetooth
 }  // namespace drivers

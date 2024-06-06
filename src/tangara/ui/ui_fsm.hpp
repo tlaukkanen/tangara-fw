@@ -67,6 +67,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const audio::VolumeChanged&);
   void react(const audio::VolumeBalanceChanged&);
   void react(const audio::VolumeLimitChanged&);
+  void react(const audio::RemoteVolumeChanged& ev);
 
   void react(const system_fsm::KeyLockChanged&);
   void react(const system_fsm::SamdUsbStatusChanged&);

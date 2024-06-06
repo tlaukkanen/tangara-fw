@@ -387,6 +387,10 @@ void UiState::react(const audio::VolumeChanged& ev) {
   sVolumeCurrentDb.setDirect(static_cast<int>(ev.db));
 }
 
+void UiState::react(const audio::RemoteVolumeChanged& ev) {
+  // TODO: Show dialog
+}
+
 void UiState::react(const audio::VolumeBalanceChanged& ev) {
   sVolumeLeftBias.setDirect(ev.left_bias);
 }
@@ -396,27 +400,55 @@ void UiState::react(const audio::VolumeLimitChanged& ev) {
 }
 
 void UiState::react(const system_fsm::BluetoothEvent& ev) {
+  using drivers::bluetooth::SimpleEvent;
   auto bt = sServices->bluetooth();
   auto dev = bt.ConnectedDevice();
-  switch (ev.event) {
-    case drivers::bluetooth::Event::kKnownDevicesChanged:
-      sBluetoothDevices.setDirect(bt.KnownDevices());
-      break;
-    case drivers::bluetooth::Event::kConnectionStateChanged:
-      sBluetoothConnected.setDirect(bt.IsConnected());
-      if (dev) {
-        sBluetoothPairedDevice.setDirect(drivers::bluetooth::Device{
-            .address = dev->mac,
-            .name = {dev->name.data(), dev->name.size()},
-            .class_of_device = 0,
-            .signal_strength = 0,
-        });
-      } else {
-        sBluetoothPairedDevice.setDirect(std::monostate{});
-      }
-      break;
-    case drivers::bluetooth::Event::kPreferredDeviceChanged:
-      break;
+  if (std::holds_alternative<SimpleEvent>(ev.event)) {
+    switch (std::get<SimpleEvent>(ev.event)) {
+      case SimpleEvent::kPlayPause:
+        events::Audio().Dispatch(audio::TogglePlayPause{});
+        break;
+      case SimpleEvent::kStop:
+        events::Audio().Dispatch(audio::TogglePlayPause{.set_to = false});
+        break;
+      case SimpleEvent::kMute:
+        break;
+      case SimpleEvent::kVolUp:
+        break;
+      case SimpleEvent::kVolDown:
+        break;
+      case SimpleEvent::kForward:
+        break;
+      case SimpleEvent::kBackward:
+        break;
+      case SimpleEvent::kRewind:
+        break;
+      case SimpleEvent::kFastForward:
+        break;
+      case SimpleEvent::kKnownDevicesChanged:
+        sBluetoothDevices.setDirect(bt.KnownDevices());
+        break;
+      case SimpleEvent::kConnectionStateChanged:
+        sBluetoothConnected.setDirect(bt.IsConnected());
+        if (dev) {
+          sBluetoothPairedDevice.setDirect(drivers::bluetooth::Device{
+              .address = dev->mac,
+              .name = {dev->name.data(), dev->name.size()},
+              .class_of_device = 0,
+              .signal_strength = 0,
+          });
+        } else {
+          sBluetoothPairedDevice.setDirect(std::monostate{});
+        }
+        break;
+      case SimpleEvent::kPreferredDeviceChanged:
+        break;
+      default:
+        break;
+    }
+  } else if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(ev.event)) {
+    // Todo: Do something with this (ie, bt volume alert)
+    ESP_LOGI(kTag, "Recieved volume changed event with new volume: %d", std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol);
   }
 }
 

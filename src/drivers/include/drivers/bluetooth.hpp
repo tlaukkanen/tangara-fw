@@ -75,6 +75,10 @@ struct Avrc : public tinyfsm::Event {
   esp_avrc_ct_cb_event_t type;
   esp_avrc_ct_cb_param_t param;
 };
+struct Avrctg : public tinyfsm::Event {
+  esp_avrc_tg_cb_event_t type;
+  esp_avrc_tg_cb_param_t param;
+};
 }  // namespace internal
 }  // namespace events
 
@@ -135,6 +139,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(events::internal::Gap ev) = 0;
   virtual void react(events::internal::A2dp ev){};
   virtual void react(events::internal::Avrc ev){};
+  virtual void react(events::internal::Avrctg ev){};
 
  protected:
   static NvsStorage* sStorage_;
@@ -206,6 +211,7 @@ class Connected : public BluetoothState {
   void react(events::internal::Gap ev) override;
   void react(events::internal::A2dp ev) override;
   void react(events::internal::Avrc ev) override;
+  void react(const events::internal::Avrctg ev) override;
 
   using BluetoothState::react;
 

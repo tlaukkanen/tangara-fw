@@ -73,6 +73,16 @@ auto avrcp_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t* param)
   }
 }
 
+auto avrcp_tg_cb(esp_avrc_tg_cb_event_t event, esp_avrc_tg_cb_param_t* param)
+    -> void {
+  esp_avrc_tg_cb_param_t copy = *param;
+  sBgWorker->Dispatch<void>([=]() {
+    auto lock = bluetooth::BluetoothState::lock();
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        bluetooth::events::internal::Avrctg{.type = event, .param = copy});
+  });
+}
+
 auto a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param) -> void {
   esp_a2d_cb_param_t copy = *param;
   sBgWorker->Dispatch<void>([=]() {
@@ -229,7 +239,6 @@ auto Scanner::ScanOnce() -> void {
 }
 
 auto Scanner::StopScanning() -> void {
-  ESP_LOGI(kTag, "stopping scan");
   enabled_ = false;
 }
 
@@ -263,7 +272,7 @@ auto Scanner::HandleGapEvent(const events::internal::Gap& ev) -> void {
       break;
     case ESP_BT_GAP_MODE_CHG_EVT:
       // todo: mode change. is this important?
-      ESP_LOGI(kTag, "GAP mode changed");
+      ESP_LOGI(kTag, "GAP mode changed %d", ev.param.mode_chg.mode);
       break;
     default:
       ESP_LOGW(kTag, "unhandled GAP event: %u", ev.type);
@@ -390,7 +399,7 @@ auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
   }
 
   if (sEventHandler_ && !already_known) {
-    std::invoke(sEventHandler_, Event::kKnownDevicesChanged);
+    std::invoke(sEventHandler_, SimpleEvent::kKnownDevicesChanged);
   }
 
   if (is_preferred && sPreferredDevice_) {
@@ -439,6 +448,7 @@ void Disabled::entry() {
 
   esp_a2d_source_deinit();
   esp_avrc_ct_deinit();
+  esp_avrc_tg_deinit();
   esp_bluedroid_disable();
   esp_bluedroid_deinit();
   esp_bt_controller_disable();
@@ -480,11 +490,50 @@ void Disabled::react(const events::Enable&) {
 
   // Initialise GAP. This controls advertising our device, and scanning for
   // other devices.
-  esp_bt_gap_register_callback(gap_cb);
+  err = esp_bt_gap_register_callback(gap_cb);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "Error initialising GAP: %s %d", esp_err_to_name(err), err);
+  }
 
   // Initialise AVRCP. This handles playback controls; play/pause/volume/etc.
-  esp_avrc_ct_register_callback(avrcp_cb);
-  esp_avrc_ct_init();
+  err = esp_avrc_ct_init();
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "Error initialising AVRC: %s %d", esp_err_to_name(err), err);
+  }
+  err = esp_avrc_ct_register_callback(avrcp_cb);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "Error registering AVRC: %s %d", esp_err_to_name(err), err);
+  }
+
+  // AVRCP Target
+  err = esp_avrc_tg_init();
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "Error during target init: %s %d", esp_err_to_name(err), err);
+  }
+  err = esp_avrc_tg_register_callback(avrcp_tg_cb);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "Error registering AVRC tg callback: %s %d", esp_err_to_name(err), err);
+  }
+
+  // Set the supported passthrough commands on the tg
+  esp_avrc_psth_bit_mask_t psth;
+  // Retry this until successful
+  // this indicates that the bt stack is ready
+  do {
+    // Sleep for a bit
+    vTaskDelay(pdMS_TO_TICKS(10));
+    err = esp_avrc_tg_get_psth_cmd_filter(ESP_AVRC_PSTH_FILTER_ALLOWED_CMD, &psth);
+  } while (err != ESP_OK);
+
+  err = esp_avrc_tg_set_psth_cmd_filter(ESP_AVRC_PSTH_FILTER_SUPPORTED_CMD, &psth);
+  if (err != ESP_OK) {
+    ESP_LOGE(kTag, "Error: %s %d", esp_err_to_name(err), err);
+  }
+  esp_avrc_rn_evt_cap_mask_t evt_set = {0};
+  esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set,
+                                      ESP_AVRC_RN_VOLUME_CHANGE);
+  assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
+
 
   // Initialise A2DP. This handles streaming audio. Currently ESP-IDF's SBC
   // encoder only supports 2 channels of interleaved 16 bit samples, at
@@ -552,7 +601,7 @@ void Connecting::entry() {
 
   sScanner_->StopScanning();
   if (sEventHandler_) {
-    std::invoke(sEventHandler_, Event::kConnectionStateChanged);
+    std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
   }
 }
 
@@ -560,7 +609,7 @@ void Connecting::exit() {
   xTimerDelete(sTimeoutTimer, portMAX_DELAY);
 
   if (sEventHandler_) {
-    std::invoke(sEventHandler_, Event::kConnectionStateChanged);
+    std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
   }
 }
 
@@ -726,7 +775,10 @@ void Connected::react(events::internal::Avrc ev) {
   switch (ev.type) {
     case ESP_AVRC_CT_CONNECTION_STATE_EVT:
       if (ev.param.conn_stat.connected) {
-        // TODO: tell the target about our capabilities
+        auto err = esp_avrc_ct_send_register_notification_cmd(4, ESP_AVRC_RN_VOLUME_CHANGE, 0);
+        if (err != ESP_OK) {
+          ESP_LOGE(kTag, "Error: %s %d", esp_err_to_name(err), err);
+        }
       }
       // Don't worry about disconnect events; if there's a serious problem
       // then the entire bluetooth connection will drop out, which is handled
@@ -735,9 +787,80 @@ void Connected::react(events::internal::Avrc ev) {
     case ESP_AVRC_CT_REMOTE_FEATURES_EVT:
       // The remote device is telling us about its capabilities! We don't
       // currently care about any of them.
+      ESP_LOGI(kTag, "Recieved capabilitites: %lu", ev.param.rmt_feats.feat_mask);
+      break;
+    case ESP_AVRC_CT_CHANGE_NOTIFY_EVT:
+      if (ev.param.change_ntf.event_id == ESP_AVRC_RN_VOLUME_CHANGE) {
+        if (sEventHandler_) {
+          std::invoke(sEventHandler_, bluetooth::RemoteVolumeChanged{.new_vol = ev.param.change_ntf.event_parameter.volume});
+        }
+        // Resubscribe to volume facts
+        auto err = esp_avrc_ct_send_register_notification_cmd(4, ESP_AVRC_RN_VOLUME_CHANGE, 0);
+        if (err != ESP_OK) {
+          ESP_LOGE(kTag, "Error: %s %d", esp_err_to_name(err), err);
+        }
+      }
       break;
     default:
-      ESP_LOGW(kTag, "unhandled AVRC event: %u", ev.type);
+      ESP_LOGI(kTag, "unhandled AVRC event: %u", ev.type);
+  }
+}
+
+void Connected::react(const events::internal::Avrctg ev) {
+  switch (ev.type) {
+    case ESP_AVRC_TG_CONNECTION_STATE_EVT:
+      ESP_LOGI(kTag, "Got connection event. Connected: %s", ev.param.conn_stat.connected ? "true" : "false");
+      if (ev.param.conn_stat.connected) {
+      }
+      break;
+    case ESP_AVRC_TG_REMOTE_FEATURES_EVT:
+      ESP_LOGI(kTag, "Got remote features feat flag %d", ev.param.rmt_feats.ct_feat_flag);
+      ESP_LOGI(kTag, "Got remote features feat mask %lu", ev.param.rmt_feats.feat_mask);
+      break;
+    case ESP_AVRC_TG_PASSTHROUGH_CMD_EVT:
+      ESP_LOGI(kTag, "Got passthrough event keycode: %x, %d", ev.param.psth_cmd.key_code, ev.param.psth_cmd.key_state);
+      if (ev.param.psth_cmd.key_state == 1 && sEventHandler_) {
+        switch (ev.param.psth_cmd.key_code) {
+          case ESP_AVRC_PT_CMD_PLAY:
+            std::invoke(sEventHandler_, bluetooth::SimpleEvent::kPlayPause);
+            break;
+          case ESP_AVRC_PT_CMD_PAUSE:
+            std::invoke(sEventHandler_, bluetooth::SimpleEvent::kPlayPause);
+            break;
+          case ESP_AVRC_PT_CMD_STOP:
+            std::invoke(sEventHandler_, bluetooth::SimpleEvent::kStop);
+            break;
+          case ESP_AVRC_PT_CMD_MUTE:
+            std::invoke(sEventHandler_, bluetooth::SimpleEvent::kMute);
+            break;
+          case ESP_AVRC_PT_CMD_FORWARD:
+            std::invoke(sEventHandler_, bluetooth::SimpleEvent::kForward);
+            break;
+          case ESP_AVRC_PT_CMD_BACKWARD:
+            std::invoke(sEventHandler_, bluetooth::SimpleEvent::kBackward);
+            break;
+          default:
+            ESP_LOGI(kTag, "Unhandled passthrough cmd. Key code: %d", ev.param.psth_cmd.key_code);
+        }
+      }
+      break;
+    case ESP_AVRC_TG_REGISTER_NOTIFICATION_EVT: {
+      if (ev.param.reg_ntf.event_id == ESP_AVRC_RN_VOLUME_CHANGE) {
+        // TODO: actually do this lol
+        esp_avrc_rn_param_t rn_param;
+        rn_param.volume = 64; 
+        auto err = esp_avrc_tg_send_rn_rsp(ESP_AVRC_RN_VOLUME_CHANGE,
+                                ESP_AVRC_RN_RSP_INTERIM, &rn_param);
+        if (err != ESP_OK) {
+          ESP_LOGE(kTag, "Error: %s %d", esp_err_to_name(err), err);
+        }
+      } else {
+        ESP_LOGW(kTag, "unhandled AVRC TG Register Notification event: %u", ev.param.reg_ntf.event_id);
+      }
+      break;
+    }
+    default:
+      ESP_LOGW(kTag, "unhandled AVRC TG event: %u", ev.type);
   }
 }
 

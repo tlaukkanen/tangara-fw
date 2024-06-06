@@ -217,18 +217,32 @@ void AudioState::react(const internal::StreamEnded& ev) {
 }
 
 void AudioState::react(const system_fsm::BluetoothEvent& ev) {
-  if (ev.event != drivers::bluetooth::Event::kConnectionStateChanged) {
-    return;
+  using drivers::bluetooth::SimpleEvent;
+  if (std::holds_alternative<SimpleEvent>(ev.event)) {
+    auto simpleEvent = std::get<SimpleEvent>(ev.event);
+    switch (simpleEvent) {
+      case SimpleEvent::kConnectionStateChanged: {
+        auto dev = sServices->bluetooth().ConnectedDevice();
+        if (!dev) {
+          return;
+        }
+        sBtOutput->SetVolume(sServices->nvs().BluetoothVolume(dev->mac));
+        events::Ui().Dispatch(VolumeChanged{
+            .percent = sOutput->GetVolumePct(),
+            .db = sOutput->GetVolumeDb(),
+        });
+        break;
+      }
+      default:
+        break;
+    }
   }
-  auto dev = sServices->bluetooth().ConnectedDevice();
-  if (!dev) {
-    return;
+  if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(ev.event)) {
+    auto volume_chg = std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol;
+        events::Ui().Dispatch(RemoteVolumeChanged{
+          .value = volume_chg
+        });
   }
-  sBtOutput->SetVolume(sServices->nvs().BluetoothVolume(dev->mac));
-  events::Ui().Dispatch(VolumeChanged{
-      .percent = sOutput->GetVolumePct(),
-      .db = sOutput->GetVolumeDb(),
-  });
 }
 
 void AudioState::react(const StepUpVolume& ev) {
