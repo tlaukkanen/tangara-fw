@@ -418,8 +418,10 @@ void UiState::react(const system_fsm::BluetoothEvent& ev) {
       case SimpleEvent::kVolDown:
         break;
       case SimpleEvent::kForward:
+        sServices->track_queue().next();
         break;
       case SimpleEvent::kBackward:
+        sServices->track_queue().previous();
         break;
       case SimpleEvent::kRewind:
         break;
