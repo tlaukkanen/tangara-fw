@@ -1,7 +1,7 @@
 #include "lua.h"
 #include "luavgl.h"
 #include "private.h"
-#include <src/widgets/lv_slider.h>
+#include <src/widgets/slider/lv_slider.h>
 
 static int luavgl_slider_create(lua_State *L) {
   return luavgl_obj_create_helper(L, lv_slider_create);
@@ -42,7 +42,7 @@ LUALIB_API int luavgl_slider_set_property_kv(lua_State *L, void *data) {
   /* a base obj property? */
   ret = luavgl_obj_set_property_kv(L, obj);
   if (ret != 0) {
-    debug("unkown property for slider.\n");
+    LV_LOG_ERROR("unkown property for slider.\n");
   }
 
   return ret;
