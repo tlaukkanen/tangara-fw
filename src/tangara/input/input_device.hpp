@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "hal/lv_hal_indev.h"
+#include "indev/lv_indev.h"
 #include "input/input_hook.hpp"
 #include "lua/property.hpp"
 

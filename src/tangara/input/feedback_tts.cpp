@@ -11,14 +11,14 @@
 
 #include "lvgl/lvgl.h"
 
-#include "core/lv_event.h"
 #include "core/lv_group.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_class.h"
 #include "core/lv_obj_tree.h"
-#include "extra/widgets/list/lv_list.h"
 #include "tts/events.hpp"
-#include "widgets/lv_label.h"
+#include "widgets/button/lv_button.h"
+#include "widgets/label/lv_label.h"
+#include "widgets/list/lv_list.h"
 
 #include "tts/events.hpp"
 #include "tts/provider.hpp"
@@ -51,8 +51,8 @@ auto TextToSpeech::feedback(lv_group_t* group, uint8_t event_type) -> void {
 }
 
 auto TextToSpeech::describe(lv_obj_t& obj) -> void {
-  if (lv_obj_check_type(&obj, &lv_btn_class) ||
-      lv_obj_check_type(&obj, &lv_list_btn_class)) {
+  if (lv_obj_check_type(&obj, &lv_button_class) ||
+      lv_obj_check_type(&obj, &lv_list_button_class)) {
     auto desc = findDescription(obj);
     tts_.feed(tts::SelectionChanged{
         .new_selection =

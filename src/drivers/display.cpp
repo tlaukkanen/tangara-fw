@@ -13,6 +13,8 @@
 #include <memory>
 
 #include "assert.h"
+#include "display/lv_display.h"
+#include "draw/sw/lv_draw_sw.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/spi_common.h"
@@ -27,7 +29,6 @@
 #include "freertos/projdefs.h"
 #include "hal/gpio_types.h"
 #include "hal/ledc_types.h"
-#include "hal/lv_hal_disp.h"
 #include "hal/spi_types.h"
 #include "lvgl/lvgl.h"
 
@@ -61,13 +62,11 @@ namespace drivers {
 /*
  * Callback invoked by LVGL when there is new data to be written to the display.
  */
-extern "C" void FlushDataCallback(lv_disp_drv_t* disp_drv,
+extern "C" void FlushDataCallback(lv_display_t* display,
                                   const lv_area_t* area,
-                                  lv_color_t* color_map) {
-  taskYIELD();
-  Display* instance = static_cast<Display*>(disp_drv->user_data);
-  instance->OnLvglFlush(disp_drv, area, color_map);
-  taskYIELD();
+                                  uint8_t* px_map) {
+  Display* instance = static_cast<Display*>(lv_display_get_user_data(display));
+  instance->OnLvglFlush(area, px_map);
 }
 
 auto Display::Create(IGpios& expander,
@@ -149,21 +148,16 @@ auto Display::Create(IGpios& expander,
   // driver.
   ESP_LOGI(kTag, "Init buffers");
   assert(esp_ptr_dma_capable(kDisplayBuffer));
-  lv_disp_draw_buf_init(&display->buffers_, kDisplayBuffer, NULL,
-                        kDisplayBufferSize);
 
-  lv_disp_drv_init(&display->driver_);
-  display->driver_.draw_buf = &display->buffers_;
-  display->driver_.hor_res = init_data.width;
-  display->driver_.ver_res = init_data.height;
-  display->driver_.sw_rotate = 0;
-  display->driver_.rotated = LV_DISP_ROT_NONE;
-  display->driver_.antialiasing = 0;
-  display->driver_.flush_cb = &FlushDataCallback;
-  display->driver_.user_data = display.get();
-
-  ESP_LOGI(kTag, "Registering driver");
-  display->display_ = lv_disp_drv_register(&display->driver_);
+  ESP_LOGI(kTag, "Creating display");
+  display->display_ = lv_display_create(init_data.width, init_data.height);
+  lv_display_set_buffers(display->display_, kDisplayBuffer, NULL,
+                         sizeof(kDisplayBuffer),
+                         LV_DISPLAY_RENDER_MODE_PARTIAL);
+  lv_display_set_color_format(display->display_, LV_COLOR_FORMAT_RGB565);
+  lv_display_set_user_data(display->display_, display.get());
+  lv_display_set_flush_cb(display->display_, &FlushDataCallback);
+  lv_display_set_default(display->display_);
 
   return display.release();
 }
@@ -288,9 +282,12 @@ void Display::SendTransaction(TransactionType type,
   ESP_ERROR_CHECK(spi_device_transmit(handle_, &sTransaction));
 }
 
-void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
-                          const lv_area_t* area,
-                          lv_color_t* color_map) {
+void Display::OnLvglFlush(const lv_area_t* area, uint8_t* color_map) {
+  // Swap the pixel byte order first, since we don't want to do this whilst
+  // holding the SPI bus lock.
+  uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
+  lv_draw_sw_rgb565_swap(color_map, size);
+
   spi_device_acquire_bus(handle_, portMAX_DELAY);
 
   // First we need to specify the rectangle of the display we're writing into.
@@ -307,18 +304,17 @@ void Display::OnLvglFlush(lv_disp_drv_t* disp_drv,
                       4);
 
   // Now send the pixels for this region.
-  uint32_t size = lv_area_get_width(area) * lv_area_get_height(area);
   SendCommandWithData(displays::ST77XX_RAMWR,
                       reinterpret_cast<uint8_t*>(color_map), size * 2);
 
   spi_device_release_bus(handle_);
 
-  if (!first_flush_finished_ && lv_disp_flush_is_last(disp_drv)) {
+  if (!first_flush_finished_ && lv_disp_flush_is_last(display_)) {
     first_flush_finished_ = true;
     SetDisplayOn(display_on_);
   }
 
-  lv_disp_flush_ready(&driver_);
+  lv_display_flush_ready(display_);
 }
 
 }  // namespace drivers

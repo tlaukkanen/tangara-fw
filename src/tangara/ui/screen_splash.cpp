@@ -23,6 +23,8 @@ Splash::Splash() {
   lv_obj_set_style_bg_color(root_, lv_color_black(), 0);
 
   lv_obj_t* logo = lv_img_create(root_);
+  lv_obj_set_style_bg_opa(logo, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(logo, lv_color_black(), 0);
   lv_img_set_src(logo, &splash);
   lv_obj_center(logo);
 }

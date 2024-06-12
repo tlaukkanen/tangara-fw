@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <variant>
 
-#include "hal/lv_hal_indev.h"
+#include "indev/lv_indev.h"
 
 #include "drivers/haptics.hpp"
 #include "drivers/nvs.hpp"

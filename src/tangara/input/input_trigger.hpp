@@ -9,13 +9,11 @@
 #include <cstdint>
 #include <optional>
 
-#include "hal/lv_hal_indev.h"
-
 namespace input {
 
 const uint16_t kDoubleClickDelayMs = 500;
-const uint16_t kLongPressDelayMs = LV_INDEV_DEF_LONG_PRESS_TIME;
-const uint16_t kRepeatDelayMs = LV_INDEV_DEF_LONG_PRESS_REP_TIME;
+const uint16_t kLongPressDelayMs = 400;
+const uint16_t kRepeatDelayMs = 100;
 
 class Trigger {
  public:

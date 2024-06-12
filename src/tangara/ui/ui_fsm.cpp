@@ -5,6 +5,7 @@
  */
 
 #include "ui/ui_fsm.hpp"
+#include <stdint.h>
 
 #include <memory>
 #include <memory_resource>
@@ -23,9 +24,8 @@
 #include "freertos/projdefs.h"
 #include "lua.hpp"
 #include "luavgl.h"
-#include "misc/lv_gc.h"
+#include "tick/lv_tick.h"
 #include "tinyfsm.hpp"
-#include "widgets/lv_label.h"
 
 #include "audio/audio_events.hpp"
 #include "audio/audio_fsm.hpp"
@@ -74,7 +74,6 @@ std::unique_ptr<input::DeviceFactory> UiState::sDeviceFactory;
 
 std::stack<std::shared_ptr<Screen>> UiState::sScreens;
 std::shared_ptr<Screen> UiState::sCurrentScreen;
-std::shared_ptr<Modal> UiState::sCurrentModal;
 std::shared_ptr<lua::LuaThread> UiState::sLua;
 
 static TimerHandle_t sAlertTimer;
@@ -82,6 +81,14 @@ static lv_obj_t* sAlertContainer;
 
 static void alert_timer_callback(TimerHandle_t timer) {
   events::Ui().Dispatch(internal::DismissAlerts{});
+}
+
+static auto lvgl_tick_cb() -> uint32_t {
+  return esp_timer_get_time() / 1000;
+}
+
+static auto lvgl_delay_cb(uint32_t ms) -> void {
+  vTaskDelay(pdMS_TO_TICKS(ms));
 }
 
 lua::Property UiState::sBatteryPct{0};
@@ -281,6 +288,8 @@ auto UiState::InitBootSplash(drivers::IGpios& gpios, drivers::NvsStorage& nvs)
 void UiState::react(const internal::InitDisplay& ev) {
   // Init LVGL first, since the display driver registers itself with LVGL.
   lv_init();
+  lv_tick_set_cb(lvgl_tick_cb);
+  lv_delay_set_cb(lvgl_delay_cb);
 
   drivers::displays::InitialisationData init_data = drivers::displays::kST7735R;
 
@@ -448,9 +457,12 @@ void UiState::react(const system_fsm::BluetoothEvent& ev) {
       default:
         break;
     }
-  } else if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(ev.event)) {
+  } else if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(
+                 ev.event)) {
     // Todo: Do something with this (ie, bt volume alert)
-    ESP_LOGI(kTag, "Recieved volume changed event with new volume: %d", std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol);
+    ESP_LOGI(
+        kTag, "Recieved volume changed event with new volume: %d",
+        std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol);
   }
 }
 
@@ -469,7 +481,7 @@ void Splash::react(const system_fsm::BootComplete& ev) {
   // The system has finished booting! We now need to prepare to show real UI.
   // This basically just involves reading and applying the user's preferences.
 
-  lv_theme_t* base_theme = lv_theme_basic_init(NULL);
+  lv_theme_t* base_theme = lv_theme_simple_init(NULL);
   lv_disp_set_theme(NULL, base_theme);
   themes::Theme::instance()->Apply();
 

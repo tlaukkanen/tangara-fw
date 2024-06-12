@@ -32,7 +32,6 @@
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
 #include "ui/lvgl_task.hpp"
-#include "ui/modal.hpp"
 #include "ui/screen.hpp"
 #include "ui/ui_events.hpp"
 
@@ -81,13 +80,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   void react(const system_fsm::BluetoothEvent&);
 
-  virtual void react(const internal::ModalCancelPressed&) {
-    sCurrentModal.reset();
-  }
-  virtual void react(const internal::ModalConfirmPressed&) {
-    sCurrentModal.reset();
-  }
-
   void react(const internal::ReindexDatabase&){};
 
  protected:
@@ -103,7 +95,6 @@ class UiState : public tinyfsm::Fsm<UiState> {
 
   static std::stack<std::shared_ptr<Screen>> sScreens;
   static std::shared_ptr<Screen> sCurrentScreen;
-  static std::shared_ptr<Modal> sCurrentModal;
   static std::shared_ptr<lua::LuaThread> sLua;
 
   static lua::Property sBatteryPct;

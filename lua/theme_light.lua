@@ -41,14 +41,14 @@ local theme_light = {
       pad_top = 1,
       pad_bottom = 1,
       bg_color = background_color,
-      img_recolor_opa = 180,
-      img_recolor = highlight_color,
+      image_recolor_opa = 180,
+      image_recolor = highlight_color,
       radius = 5,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       bg_color = highlight_color,
-      img_recolor_opa = 0,
+      image_recolor_opa = 0,
     }},
   },
   listbutton = {
@@ -144,8 +144,8 @@ local theme_light = {
   },
   database_indicator = {
     {lvgl.PART.MAIN, lvgl.Style {
-      img_recolor_opa = 180,
-      img_recolor = highlight_color,
+      image_recolor_opa = 180,
+      image_recolor = highlight_color,
     }},
   },
   settings_title = {
@@ -158,14 +158,14 @@ local theme_light = {
   },
   icon_disabled = {
     {lvgl.PART.MAIN, lvgl.Style {
-      img_recolor_opa = 180,
-      img_recolor = icon_disabled_color,
+      image_recolor_opa = 180,
+      image_recolor = icon_disabled_color,
     }},
   },
   icon_enabled = {
     {lvgl.PART.MAIN, lvgl.Style {
-      img_recolor_opa = 180,
-      img_recolor = icon_enabled_color,
+      image_recolor_opa = 180,
+      image_recolor = icon_enabled_color,
     }},
   },
 

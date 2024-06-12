@@ -6,45 +6,27 @@
 
 #include "ui/lvgl_task.hpp"
 
-#include <dirent.h>
-#include <stdint.h>
-#include <stdio.h>
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-
-#include "core/lv_disp.h"
 #include "core/lv_group.h"
-#include "core/lv_indev.h"
 #include "core/lv_obj.h"
 #include "core/lv_obj_pos.h"
 #include "core/lv_obj_tree.h"
-#include "drivers/touchwheel.hpp"
+#include "core/lv_refr.h"
+#include "display/lv_display.h"
 #include "esp_log.h"
-#include "events/event_queue.hpp"
-#include "extra/themes/basic/lv_theme_basic.h"
-#include "font/lv_font.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/timers.h"
-#include "hal/gpio_types.h"
-#include "hal/lv_hal_indev.h"
-#include "hal/spi_types.h"
-#include "input/lvgl_input_driver.hpp"
 #include "lua.h"
-#include "lv_api_map.h"
 #include "lvgl/lvgl.h"
 #include "misc/lv_color.h"
 #include "misc/lv_style.h"
 #include "misc/lv_timer.h"
-#include "tasks.hpp"
-#include "ui/modal.hpp"
-#include "ui/ui_fsm.hpp"
-#include "widgets/lv_label.h"
 
 #include "drivers/display.hpp"
-#include "drivers/gpios.hpp"
+#include "events/event_queue.hpp"
+#include "input/lvgl_input_driver.hpp"
+#include "tasks.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace ui {
 
@@ -66,7 +48,7 @@ auto UiTask::Main() -> void {
 
     std::shared_ptr<Screen> screen = UiState::current_screen();
     if (screen != current_screen_ && screen != nullptr) {
-      lv_scr_load(screen->root());
+      lv_screen_load(screen->root());
       if (input_) {
         input_->setGroup(screen->group());
       }

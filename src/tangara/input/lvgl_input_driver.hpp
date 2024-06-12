@@ -12,13 +12,13 @@
 #include <set>
 
 #include "core/lv_group.h"
-#include "drivers/gpios.hpp"
-#include "hal/lv_hal_indev.h"
-#include "input/device_factory.hpp"
-#include "input/feedback_device.hpp"
+#include "indev/lv_indev.h"
 
+#include "drivers/gpios.hpp"
 #include "drivers/nvs.hpp"
 #include "drivers/touchwheel.hpp"
+#include "input/device_factory.hpp"
+#include "input/feedback_device.hpp"
 #include "input/input_device.hpp"
 #include "input/input_hook.hpp"
 #include "lua/lua_thread.hpp"
@@ -50,8 +50,7 @@ class LvglInputDriver {
   DeviceFactory& factory_;
 
   lua::Property mode_;
-  lv_indev_drv_t driver_;
-  lv_indev_t* registration_;
+  lv_indev_t* device_;
 
   std::vector<std::shared_ptr<IInputDevice>> inputs_;
   std::vector<std::shared_ptr<IFeedbackDevice>> feedbacks_;

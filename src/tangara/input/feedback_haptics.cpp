@@ -9,10 +9,8 @@
 #include <cstdint>
 
 #include "core/lv_group.h"
-#include "lvgl/lvgl.h"
-
-#include "core/lv_event.h"
 #include "esp_log.h"
+#include "lvgl/lvgl.h"
 
 #include "drivers/haptics.hpp"
 

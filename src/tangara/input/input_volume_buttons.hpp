@@ -8,13 +8,13 @@
 
 #include <cstdint>
 
-#include "drivers/gpios.hpp"
-#include "hal/lv_hal_indev.h"
+#include "indev/lv_indev.h"
 
+#include "drivers/gpios.hpp"
 #include "drivers/haptics.hpp"
+#include "drivers/touchwheel.hpp"
 #include "input/input_device.hpp"
 #include "input/input_hook.hpp"
-#include "drivers/touchwheel.hpp"
 
 namespace input {
 

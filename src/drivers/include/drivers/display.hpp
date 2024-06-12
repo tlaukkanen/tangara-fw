@@ -12,6 +12,7 @@
 
 #include "driver/spi_master.h"
 #include "lvgl/lvgl.h"
+#include "misc/lv_types.h"
 #include "result.hpp"
 #include "tasks.hpp"
 
@@ -40,9 +41,7 @@ class Display {
   auto SetBrightness(uint_fast8_t) -> void;
 
   /* Driver callback invoked by LVGL when there is new data to display. */
-  void OnLvglFlush(lv_disp_drv_t* disp_drv,
-                   const lv_area_t* area,
-                   lv_color_t* color_map);
+  void OnLvglFlush(const lv_area_t* area, uint8_t* px_map);
 
   // Not copyable or movable.
   Display(const Display&) = delete;
@@ -56,9 +55,7 @@ class Display {
   bool display_on_;
   uint_fast8_t brightness_;
 
-  lv_disp_draw_buf_t buffers_;
-  lv_disp_drv_t driver_;
-  lv_disp_t* display_ = nullptr;
+  lv_display_t* display_ = nullptr;
 
   enum TransactionType {
     COMMAND = 0,

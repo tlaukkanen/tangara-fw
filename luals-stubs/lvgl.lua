@@ -418,13 +418,11 @@ end
 function lvgl.Timer(p)
 end
 
---- Create a new a font. Currently only the inbuilt "fusion" font family is
---- available, in "normal" weight and sizes 12 and 10.
---- @param family string Name of the font family.
---- @param size integer the font size in px
---- @param weight string the weight of the font. e.g.g "normal", "bold", "light"
+--- Create a new a font. Fonts can be located on internal flash or the SD card,
+--- and must be in LVGL's binary font format.
+--- @param path string location of the binary font file
 --- @return Font
-function lvgl.Font(family, size, weight)
+function lvgl.Font(path)
 end
 
 --- Decodes an image from the filesystem and pins it into RAM, returning a
