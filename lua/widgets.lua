@@ -19,8 +19,8 @@ local img = {
   bat_20 = lvgl.ImgData("//lua/img/bat/20.png"),
   bat_0 = lvgl.ImgData("//lua/img/bat/0.png"),
   bat_0chg = lvgl.ImgData("//lua/img/bat/0chg.png"),
-  bt_conn = lvgl.ImgData("//lua/assets/bt_conn.png"),
-  bt = lvgl.ImgData("//lua/assets/bt.png")
+  bt_conn = lvgl.ImgData("//lua/img/bt_conn.png"),
+  bt = lvgl.ImgData("//lua/img/bt.png")
 }
 
 local widgets = {}
