@@ -28,12 +28,14 @@ static void _lv_textarea_set_placeholder_txt(void *obj, lua_State *L)
 
 static void _lv_textarea_set_password_bullet(void *obj, lua_State *L)
 {
+#if LV_VERSION_CHECK(8, 3, 0)
   if (!lua_isstring(L, -1)) {
     luaL_argerror(L, -1, "expect string");
     return;
   }
 
   lv_textarea_set_password_bullet(obj, lua_tostring(L, -1));
+#endif
 }
 
 static void _lv_textarea_set_accepted_chars(void *obj, lua_State *L)
@@ -72,7 +74,7 @@ LUALIB_API int luavgl_textarea_set_property_kv(lua_State *L, void *data)
   /* a base obj property? */
   ret = luavgl_obj_set_property_kv(L, obj);
   if (ret != 0) {
-    debug("unkown property for textarea: %s\n", lua_tostring(L, -2));
+    LV_LOG_ERROR("unkown property for textarea: %s", lua_tostring(L, -2));
   }
 
   return -1;

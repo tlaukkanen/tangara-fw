@@ -47,15 +47,15 @@ static int luavgl_fs_open(lua_State *L)
   f->closed = false;
 
   lv_fs_mode_t lmode = 0;
-  if (strchr(mode, 'r'))
+  if (luavgl_strchr(mode, 'r'))
     lmode |= LV_FS_MODE_RD;
 
-  if (strchr(mode, 'w'))
+  if (luavgl_strchr(mode, 'w'))
     lmode |= LV_FS_MODE_WR;
 
   lv_fs_res_t res = lv_fs_open(&f->file, path, lmode);
   if (res != LV_FS_RES_OK) {
-    debug("open failed: %s\n", path);
+    LV_LOG_ERROR("open failed: %s", path);
     lua_pushnil(L);
     lua_pushfstring(L, "open failed: %s\n", path);
     lua_pushinteger(L, res); /* return lv_fs error number */
@@ -152,7 +152,7 @@ static int luavgl_fs_write(lua_State *L)
   int arg = 2;
   int nargs = lua_gettop(L) - arg;
   int status = 1;
-  lv_fs_res_t res = 0;
+  lv_fs_res_t res;
   size_t l;
   uint32_t nw;
   const char *s;
@@ -183,7 +183,7 @@ static int luavgl_fs_close(lua_State *L)
 {
   luavgl_fs_t *f = luavgl_to_fs(L, 1);
 
-  debug("\n");
+  LV_LOG_INFO("enter");
   f->closed = true;
   lv_fs_close(&f->file);
 
@@ -228,7 +228,7 @@ static int luavgl_fs_tostring(lua_State *L)
 
 static int luavgl_fs_gc(lua_State *L)
 {
-  debug("\n");
+  LV_LOG_INFO("enter");
 
   luavgl_fs_t *v = luaL_checkudata(L, 1, "lv_fs");
   if (!v->closed) {
@@ -251,7 +251,7 @@ static int luavgl_dir_open(lua_State *L)
 
   lv_fs_res_t res = lv_fs_dir_open(&d->dir, path);
   if (res != LV_FS_RES_OK) {
-    debug("open failed: %s\n", path);
+    LV_LOG_ERROR("open failed: %s", path);
     lua_pushnil(L);
     lua_pushfstring(L, "open failed: %s\n", path);
     lua_pushinteger(L, res); /* return lv_fs error number */
@@ -268,7 +268,7 @@ static int luavgl_dir_read(lua_State *L)
 {
   luavgl_dir_t *d = luavgl_to_dir(L, 1);
   char buffer[PATH_MAX];
-  lv_fs_res_t res = lv_fs_dir_read(&d->dir, buffer);
+  lv_fs_res_t res = lv_fs_dir_read(&d->dir, buffer, sizeof(buffer));
   if (res != LV_FS_RES_OK || buffer[0] == '\0') {
     lua_pushnil(L);
   } else {
@@ -280,7 +280,7 @@ static int luavgl_dir_read(lua_State *L)
 
 static int luavgl_dir_close(lua_State *L)
 {
-  debug("\n");
+  LV_LOG_INFO("error");
   luavgl_dir_t *d = luavgl_to_dir(L, 1);
   d->closed = true;
   lv_fs_dir_close(&d->dir);
@@ -295,7 +295,7 @@ static int luavgl_dir_tostring(lua_State *L)
 
 static int luavgl_dir_gc(lua_State *L)
 {
-  debug("\n");
+  LV_LOG_INFO("enter");
 
   luavgl_dir_t *v = luaL_checkudata(L, 1, "lv_dir");
   if (!v->closed) {

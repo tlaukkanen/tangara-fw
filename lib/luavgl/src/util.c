@@ -16,7 +16,7 @@ LUALIB_API luavgl_obj_t *luavgl_to_lobj(lua_State *L, int idx)
   return lobj;
 
 fail:
-  debug("arg not lv_obj userdata.\n");
+  LV_LOG_ERROR("arg not lv_obj userdata");
   luaL_argerror(L, idx, "Expected lv_obj userdata");
   return NULL;
 }
@@ -55,19 +55,19 @@ static void dumpvalue(lua_State *L, int i, bool cr)
   const char ending = cr ? '\n' : '\0';
   switch (lua_type(L, i)) {
   case LUA_TNUMBER:
-    printf("number: %g%c", lua_tonumber(L, i), ending);
+    LV_LOG_USER("number: %g%c", lua_tonumber(L, i), ending);
     break;
   case LUA_TSTRING:
-    printf("string: %s%c", lua_tostring(L, i), ending);
+    LV_LOG_USER("string: %s%c", lua_tostring(L, i), ending);
     break;
   case LUA_TBOOLEAN:
-    printf("boolean: %s%c", (lua_toboolean(L, i) ? "true" : "false"), ending);
+    LV_LOG_USER("boolean: %s%c", (lua_toboolean(L, i) ? "true" : "false"), ending);
     break;
   case LUA_TNIL:
-    printf("nil: %s%c", "nil", ending);
+    LV_LOG_USER("nil: %s%c", "nil", ending);
     break;
   default:
-    printf("pointer: %p%c", lua_topointer(L, i), ending);
+    LV_LOG_USER("pointer: %p%c", lua_topointer(L, i), ending);
     break;
   }
 }
@@ -79,7 +79,7 @@ static void dumptable(lua_State *L, int index)
   while (lua_next(L, i)) {
     /* -1: value, -2: key */
     dumpvalue(L, -2, 0);
-    printf(" ");
+    LV_LOG_USER(" ");
     dumpvalue(L, -1, 1);
     lua_pop(L, 1); /* remove value, keep the key to continue. */
   }
@@ -89,24 +89,22 @@ static void dumptable(lua_State *L, int index)
 static void dumpstack(lua_State *L)
 {
   int top = lua_gettop(L);
-  printf("\n");
   for (int i = 1; i <= top; i++) {
-    printf("%d\t%s\t", i, luaL_typename(L, i));
     switch (lua_type(L, i)) {
     case LUA_TNUMBER:
-      printf("number: %g\n", lua_tonumber(L, i));
+      LV_LOG_USER("%s: %g", luaL_typename(L, i), lua_tonumber(L, i));
       break;
     case LUA_TSTRING:
-      printf("string: %s\n", lua_tostring(L, i));
+      LV_LOG_USER("%s: %s", luaL_typename(L, i), lua_tostring(L, i));
       break;
     case LUA_TBOOLEAN:
-      printf("boolean: %s\n", (lua_toboolean(L, i) ? "true" : "false"));
+      LV_LOG_USER("%s: %s", luaL_typename(L, i), (lua_toboolean(L, i) ? "true" : "false"));
       break;
     case LUA_TNIL:
-      printf("nil: %s\n", "nil");
+      LV_LOG_USER("%s: %s", luaL_typename(L, i), "nil");
       break;
     default:
-      printf("pointer: %p\n", lua_topointer(L, i));
+      LV_LOG_USER("%s: %p", luaL_typename(L, i), lua_topointer(L, i));
       break;
     }
   }
@@ -236,7 +234,7 @@ LUALIB_API int luavgl_pcall(lua_State *L, int nargs, int nresult)
   lua_insert(L, base);              /* put it under function and args */
   int status = lua_pcall(L, nargs, nresult, base);
   if (status != LUA_OK) {
-    debug("crashed\n%s", lua_tostring(L, -1));
+    LV_LOG_ERROR("crashed\n%s", lua_tostring(L, -1));
   }
   lua_remove(L, base); /* remove message handler from the stack */
 
@@ -304,11 +302,11 @@ LUALIB_API lv_color_t luavgl_tocolor(lua_State *L, int idx)
     /* support #RGB and #RRGGBB */
     const char *s = lua_tostring(L, idx);
     if (s == NULL) {
-      luaL_error(L, "unknown color.");
+      luaL_error(L, "unknown color");
       return color;
     }
 
-    int len = strlen(s);
+    int len = lv_strlen(s);
     if (len == 4 && s[0] == '#') {
       /* #RGB */
       int r = to_int(s[1]);
@@ -325,7 +323,7 @@ LUALIB_API lv_color_t luavgl_tocolor(lua_State *L, int idx)
       int b = (to_int(s[5]) << 4) | to_int(s[6]);
       color = lv_color_make(r, g, b);
     } else {
-      luaL_error(L, "unknown color format.");
+      luaL_error(L, "unknown color format");
       return color;
     }
   } else {
@@ -340,11 +338,11 @@ LUALIB_API const char *luavgl_toimgsrc(lua_State *L, int idx)
   const char *src = NULL;
   if (lua_isuserdata(L, idx)) {
     src = lua_touserdata(L, idx);
-    debug("set img src to user data: %p\n", src);
+    LV_LOG_INFO("set img src to user data: %p", src);
   } else if (lua_isstring(L, idx)) {
     src = lua_tostring(L, idx);
   } else {
-    debug("img src should be string or userdata.\n");
+    LV_LOG_ERROR("img src should be string or userdata");
     return NULL;
   }
 
@@ -355,12 +353,13 @@ LUALIB_API void luavgl_iterate(lua_State *L, int index,
                                int (*cb)(lua_State *, void *), void *cb_para)
 {
   int i = index < 0 ? index - 1 : index;
+
   lua_pushnil(L); /* nil as initial key to iterate through table */
   while (lua_next(L, i)) {
     /* -1: value, -2: key */
     if (!lua_isstring(L, -2)) {
       /* we expect string as key, ignore it if not */
-      debug("ignore non-string key in table.\n");
+      LV_LOG_INFO("ignore non-string key in table");
       lua_pop(L, 1);
       continue;
     }
@@ -376,13 +375,13 @@ LUALIB_API int luavgl_set_property_array(lua_State *L, void *obj,
 {
   const char *key = lua_tostring(L, -2);
   if (key == NULL) {
-    debug("Null key, ignored.\n");
+    LV_LOG_ERROR("Null key, ignored");
     return -1;
   }
 
   for (int i = 0; i < len; i++) {
     const luavgl_value_setter_t *p = &table[i];
-    if (strcmp(key, p->key))
+    if (lv_strcmp(key, p->key))
       continue;
 
     if (p->type == SETTER_TYPE_INT) {
@@ -397,8 +396,12 @@ LUALIB_API int luavgl_set_property_array(lua_State *L, void *obj,
       p->setter(obj, v);
     } else if (p->type == SETTER_TYPE_COLOR) {
       /* color */
-      lv_color_t color = luavgl_tocolor(L, -1);
-      p->setter(obj, color.full);
+      union {
+        lv_color_t c;
+        uint32_t v;
+      } color;
+      color.c = luavgl_tocolor(L, -1);
+      p->setter(obj, color.v);
     } else if (p->type == SETTER_TYPE_IMGSRC) {
       /* img src */
       p->setter_pointer(obj, (void *)luavgl_toimgsrc(L, -1));
@@ -408,7 +411,7 @@ LUALIB_API int luavgl_set_property_array(lua_State *L, void *obj,
       void *data = lua_touserdata(L, -1);
       p->setter_pointer(obj, data);
     } else {
-      debug("unsupported type: %d\n", p->type);
+      LV_LOG_ERROR("unsupported type: %d", p->type);
     }
     return 0;
   }
