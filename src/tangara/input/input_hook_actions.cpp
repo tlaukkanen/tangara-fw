@@ -34,14 +34,14 @@ auto scrollDown() -> HookCallback {
 
 auto scrollToTop() -> HookCallback {
   return HookCallback{.name = "scroll_to_top", .fn = [&](lv_indev_data_t* d) {
-                        d->enc_diff = INT16_MIN;
+                        d->enc_diff = -10;
                       }};
 }
 
 auto scrollToBottom() -> HookCallback {
   return HookCallback{
       .name = "scroll_to_bottom",
-      .fn = [&](lv_indev_data_t* d) { d->enc_diff = INT16_MAX; }};
+      .fn = [&](lv_indev_data_t* d) { d->enc_diff = 10; }};
 }
 
 auto goBack() -> HookCallback {
