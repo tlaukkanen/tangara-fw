@@ -22,7 +22,6 @@ namespace audio {
 class I2SAudioOutput : public IAudioOutput {
  public:
   I2SAudioOutput(drivers::IGpios&, drivers::PcmBuffer&);
-  ~I2SAudioOutput();
 
   auto SetMaxVolume(uint16_t) -> void;
   auto SetVolumeDb(uint16_t) -> void;

@@ -41,8 +41,6 @@ static constexpr uint16_t kMaxVolumeBeforeClipping = 0x185;
 static constexpr uint16_t kLineLevelVolume = 0x13d;
 static constexpr uint16_t kDefaultVolume = 0x100;
 
-static constexpr size_t kDrainBufferSize = 8 * 1024;
-
 I2SAudioOutput::I2SAudioOutput(drivers::IGpios& expander,
                                drivers::PcmBuffer& buffer)
     : IAudioOutput(),
@@ -55,10 +53,6 @@ I2SAudioOutput::I2SAudioOutput(drivers::IGpios& expander,
       current_volume_(kDefaultVolume),
       max_volume_(0) {}
 
-I2SAudioOutput::~I2SAudioOutput() {
-  dac_->Stop();
-}
-
 auto I2SAudioOutput::changeMode(Modes mode) -> void {
   if (mode == current_mode_) {
     return;
@@ -70,7 +64,6 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
     // Turning off this output. Ensure we clean up the I2SDac instance to
     // reclaim its valuable DMA buffers.
     if (dac_) {
-      dac_->Stop();
       dac_.reset();
     }
     return;
@@ -87,7 +80,6 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
     }
     // Set up the new instance properly.
     SetVolume(GetVolume());
-    dac_->Start();
   }
 
   current_mode_ = mode;

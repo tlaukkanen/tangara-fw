@@ -45,8 +45,6 @@ class I2SDac {
   I2SDac(IGpios& gpio, PcmBuffer&, i2s_chan_handle_t i2s_handle);
   ~I2SDac();
 
-  auto Start() -> void;
-  auto Stop() -> void;
   auto SetPaused(bool) -> void;
 
   enum Channels {

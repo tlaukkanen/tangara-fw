@@ -137,54 +137,43 @@ I2SDac::I2SDac(IGpios& gpio, PcmBuffer& buf, i2s_chan_handle_t i2s_handle)
                                                        I2S_SLOT_MODE_STEREO)) {
   clock_config_.clk_src = I2S_CLK_SRC_APLL;
 
-  // The amplifier's power rails ramp unevenly, with the negative rail coming
-  // up ~5ms after the positive rail. Ensure that headphone output is muted
-  // during this to avoid a loud pop during power up.
-  gpio_.WriteSync(IGpios::Pin::kAmplifierMute, true);
-  vTaskDelay(pdMS_TO_TICKS(1));
-
-  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, true);
+  // Power up the DAC.
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
 
   // Reset all registers back to their default values.
   wm8523::WriteRegister(wm8523::Register::kReset, 1);
 
-  // Wait for DAC reset + analog rails ramp.
+  // Wait for DAC to reset.
   vTaskDelay(pdMS_TO_TICKS(10));
 
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
-  // Use zero-cross detection for volume changes.
-  wm8523::WriteRegister(wm8523::Register::kDacCtrl, 0b10000);
+  // Enable zero-cross detection and ramping for volume changes.
+  wm8523::WriteRegister(wm8523::Register::kDacCtrl, 0b10011);
+
+  // Ready to play!
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
 }
 
 I2SDac::~I2SDac() {
-  Stop();
+  if (i2s_active_) {
+    SetPaused(true);
+  }
+
+  // Power down the DAC.
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b01);
+  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b00);
+
   i2s_del_channel(i2s_handle_);
-
-  gpio_.WriteSync(IGpios::Pin::kAmplifierMute, true);
-  vTaskDelay(pdMS_TO_TICKS(1));
-  gpio_.WriteSync(IGpios::Pin::kAmplifierEnable, false);
-}
-
-auto I2SDac::Start() -> void {
-  std::lock_guard<std::mutex> lock(configure_mutex_);
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
-}
-
-auto I2SDac::Stop() -> void {
-  std::lock_guard<std::mutex> lock(configure_mutex_);
-  set_channel(false);
-  wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b0);
 }
 
 auto I2SDac::SetPaused(bool paused) -> void {
   if (paused) {
-    gpio_.WriteSync(IGpios::Pin::kAmplifierUnmuteLegacy, false);
+    wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
     gpio_.WriteSync(IGpios::Pin::kAmplifierMute, true);
     set_channel(false);
   } else {
     set_channel(true);
-    gpio_.WriteSync(IGpios::Pin::kAmplifierUnmuteLegacy, true);
     gpio_.WriteSync(IGpios::Pin::kAmplifierMute, false);
+    wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
   }
 }
 
@@ -250,6 +239,8 @@ auto I2SDac::Reconfigure(Channels ch, BitsPerSample bps, SampleRate rate)
   if (i2s_active_) {
     i2s_channel_enable(i2s_handle_);
     wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b11);
+  } else {
+    wm8523::WriteRegister(wm8523::Register::kPsCtrl, 0b10);
   }
 }
 
