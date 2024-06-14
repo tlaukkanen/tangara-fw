@@ -115,7 +115,7 @@ return screen:new {
       w = lvgl.SIZE_CONTENT,
       h = lvgl.SIZE_CONTENT,
       align = lvgl.ALIGN.RIGHT_MID,
-      text = "",
+      text = format_time(0),
       text_font = font.fusion_10,
     }
     playlist:Object({ w = 3, h = 1 }) -- spacer
