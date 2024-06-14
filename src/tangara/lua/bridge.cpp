@@ -5,6 +5,9 @@
  */
 
 #include "lua/bridge.hpp"
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/unistd.h>
 
 #include <cstdint>
 #include <memory>
@@ -12,7 +15,9 @@
 
 #include "database/database.hpp"
 #include "database/index.hpp"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "font/lv_binfont_loader.h"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
@@ -30,6 +35,7 @@
 
 #include "events/event_queue.hpp"
 #include "lua/property.hpp"
+#include "misc/lv_fs.h"
 #include "system_fsm/service_locator.hpp"
 #include "ui/ui_events.hpp"
 
@@ -38,29 +44,74 @@ int luaopen_linenoise(lua_State* L);
 int luaopen_term_core(lua_State* L);
 }
 
-LV_FONT_DECLARE(font_fusion_12);
-LV_FONT_DECLARE(font_fusion_10);
-
 namespace lua {
 
 [[maybe_unused]] static constexpr char kTag[] = "lua_bridge";
 
 static constexpr char kBridgeKey[] = "bridge";
 
-static auto make_font_cb(const char* name, int size, int weight)
-    -> const lv_font_t* {
-  if (std::string{"fusion"} == name) {
-    if (size == 12) {
-      return &font_fusion_12;
-    }
-    if (size == 10) {
-      return &font_fusion_10;
+static auto make_font_cb(const char* name) -> const lv_font_t* {
+  // Most Lua file paths start with "//" in order to deal with LVGL's Windows-y
+  // approach to paths. Try to handle such paths correctly so that paths in Lua
+  // code look a bit more consistent.
+  {
+    std::string name_str = name;
+    if (name_str.starts_with("//")) {
+      name++;
     }
   }
-  return NULL;
+
+  // This following is a bit C-brained. Sorry.
+
+  ESP_LOGI(kTag, "load font '%s'", name);
+  FILE* f = fopen(name, "r");
+  if (!f) {
+    return NULL;
+  }
+
+  uint8_t* data = NULL;
+  long len = 0;
+  lv_font_t* font = NULL;
+
+  if (fseek(f, 0, SEEK_END)) {
+    goto fail_with_file;
+  }
+
+  len = ftell(f);
+  if (len <= 0) {
+    goto fail_with_file;
+  }
+
+  if (fseek(f, 0, SEEK_SET)) {
+    goto fail_with_file;
+  }
+
+  data = reinterpret_cast<uint8_t*>(heap_caps_malloc(len, MALLOC_CAP_SPIRAM));
+  if (!data) {
+    goto fail_with_buffer;
+  }
+
+  if (fread(data, 1, len, f) < len) {
+    goto fail_with_buffer;
+  }
+
+  // We can finally start parsing the font!
+  font = lv_binfont_create_from_buffer(data, len);
+
+fail_with_buffer:
+  // LVGL copies the font data out of the buffer, so we don't need to big raw
+  // data alloc after this function returns.
+  heap_caps_free(data);
+
+fail_with_file:
+  fclose(f);
+
+  return font;
 }
 
-static auto delete_font_cb(const lv_font_t* font) -> void {}
+static auto delete_font_cb(const lv_font_t* font) -> void {
+  // FIXME: luavgl never actually calls this?
+}
 
 auto Bridge::Get(lua_State* state) -> Bridge* {
   lua_pushstring(state, kBridgeKey);

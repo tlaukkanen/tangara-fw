@@ -2,6 +2,4 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 
-idf_component_register(
-  SRCS "font_fusion_10.c" "font_fusion_12.c" "splash.c"
-  REQUIRES "lvgl")
+idf_component_register(SRCS "splash.c" REQUIRES "lvgl")

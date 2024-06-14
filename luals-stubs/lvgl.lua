@@ -1246,7 +1246,7 @@ function timer:ready()
 end
 
 --[[
-Font is a light userdata that can be uset to set style text_font.
+Font is a light userdata that can be used to set style text_font.
 ]]
 --- @class Font
 ---
@@ -1368,7 +1368,7 @@ end
 --- @field arc_img_src? integer
 --- @field text_color? integer | string
 --- @field text_opa? integer
---- @field text_font? Font | BuiltinFont
+--- @field text_font? Font
 --- @field text_letter_space? integer
 --- @field text_line_space/ integer
 --- @field text_decor? integer

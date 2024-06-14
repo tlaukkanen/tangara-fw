@@ -8,7 +8,7 @@ fusion_12() {
     -r 0x20-0x7F,0xA0-0xFF \
     -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF,0xFF00-0xFFEF,0x4E00-0x9FAF \
     --size 12 \
-    --bpp 1 --format lvgl -o font_fusion_12.c
+    --bpp 1 --format bin -o fusion12
   echo "finished fusion_12"
 }
 
@@ -21,7 +21,7 @@ fusion_10() {
     -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF \
     -r 0xFF00-0xFFEF,0x4E00-0x9FAF \
     --size 10 \
-    --bpp 1 --format lvgl -o font_fusion_10.c
+    --bpp 1 --format bin -o fusion10
   echo "finished fusion_10"
 }
 
