@@ -10,8 +10,8 @@
 #include <memory>
 #include <variant>
 
-#include "core/lv_event.h"
-#include "core/lv_indev.h"
+#include "core/lv_group.h"
+#include "indev/lv_indev.h"
 #include "lua.hpp"
 #include "lvgl.h"
 
@@ -25,6 +25,7 @@
 #include "input/input_volume_buttons.hpp"
 #include "lua/lua_thread.hpp"
 #include "lua/property.hpp"
+#include "misc/lv_event.h"
 
 [[maybe_unused]] static constexpr char kTag[] = "input";
 
@@ -33,16 +34,22 @@ static constexpr char kLuaOverrideText[] = "lua_callback";
 
 namespace input {
 
-static void read_cb(lv_indev_drv_t* drv, lv_indev_data_t* data) {
+static void read_cb(lv_indev_t* dev, lv_indev_data_t* data) {
   LvglInputDriver* instance =
-      reinterpret_cast<LvglInputDriver*>(drv->user_data);
+      reinterpret_cast<LvglInputDriver*>(lv_indev_get_user_data(dev));
   instance->read(data);
 }
 
-static void feedback_cb(lv_indev_drv_t* drv, uint8_t event) {
+static void feedback_cb(lv_event_t* ev) {
   LvglInputDriver* instance =
-      reinterpret_cast<LvglInputDriver*>(drv->user_data);
-  instance->feedback(event);
+      reinterpret_cast<LvglInputDriver*>(lv_event_get_user_data(ev));
+  instance->feedback(lv_event_get_code(ev));
+}
+
+static void focus_cb(lv_group_t* group) {
+  LvglInputDriver* instance =
+      reinterpret_cast<LvglInputDriver*>(group->user_data);
+  instance->feedback(LV_EVENT_FOCUSED);
 }
 
 auto intToMode(int raw) -> std::optional<drivers::NvsStorage::InputModes> {
@@ -77,29 +84,31 @@ LvglInputDriver::LvglInputDriver(drivers::NvsStorage& nvs,
               inputs_ = factory.createInputs(*mode);
               return true;
             }),
-      driver_(),
-      registration_(nullptr),
       inputs_(factory.createInputs(nvs.PrimaryInput())),
       feedbacks_(factory.createFeedbacks()),
       is_locked_(false) {
-  lv_indev_drv_init(&driver_);
-  driver_.type = LV_INDEV_TYPE_ENCODER;
-  driver_.read_cb = read_cb;
-  driver_.feedback_cb = feedback_cb;
-  driver_.user_data = this;
-  driver_.long_press_time = kLongPressDelayMs;
-  driver_.long_press_repeat_time = kRepeatDelayMs;
-
-  registration_ = lv_indev_drv_register(&driver_);
+  device_ = lv_indev_create();
+  lv_indev_set_type(device_, LV_INDEV_TYPE_ENCODER);
+  lv_indev_set_user_data(device_, this);
+  lv_indev_set_read_cb(device_, read_cb);
+  lv_indev_add_event_cb(device_, feedback_cb, LV_EVENT_ALL, this);
 }
 
 auto LvglInputDriver::setGroup(lv_group_t* g) -> void {
+  lv_group_t* prev = lv_indev_get_group(device_);
+  if (prev && prev != g) {
+    lv_group_set_focus_cb(prev, NULL);
+  }
   if (!g) {
     return;
   }
-  lv_indev_set_group(registration_, g);
-  // Emit a synthetic 'focus' event for the current selection, since otherwise
-  // our feedback devices won't know that the selection changed.
+  lv_indev_set_group(device_, g);
+
+  g->user_data = this;
+  lv_group_set_focus_cb(g, focus_cb);
+
+  // Emit a synthetic 'focus' event for the current selection, since
+  // otherwise our feedback devices won't know that the selection changed.
   feedback(LV_EVENT_FOCUSED);
 }
 
@@ -119,7 +128,7 @@ auto LvglInputDriver::feedback(uint8_t event) -> void {
     return;
   }
   for (auto&& device : feedbacks_) {
-    device->feedback(registration_->group, event);
+    device->feedback(lv_indev_get_group(device_), event);
   }
 }
 

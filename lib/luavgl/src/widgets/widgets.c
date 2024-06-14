@@ -5,7 +5,7 @@
 #include "bar.c"
 #endif
 
-#if LV_USE_BTN
+#if LV_USE_BUTTON
 #include "btn.c"
 #endif
 
@@ -21,7 +21,7 @@
 #include "dropdown.c"
 #endif
 
-#if LV_USE_IMG
+#if LV_USE_IMAGE
 #include "img.c"
 #endif
 
@@ -66,7 +66,7 @@ static const luaL_Reg widget_create_methods[] = {
     {"Bar", luavgl_bar_create},
 #endif
 
-#if LV_USE_BTN
+#if LV_USE_BUTTON
     {"Button", luavgl_btn_create},
 #endif
 
@@ -82,7 +82,7 @@ static const luaL_Reg widget_create_methods[] = {
     {"Dropdown", luavgl_dropdown_create},
 #endif
 
-#if LV_USE_IMG
+#if LV_USE_IMAGE
     {"Image",    luavgl_img_create     },
 #endif
 
@@ -122,7 +122,7 @@ static const luaL_Reg widget_create_methods[] = {
 
 static void luavgl_widgets_init(lua_State *L)
 {
-#if LV_USE_IMG
+#if LV_USE_IMAGE
   luavgl_img_init(L);
 #endif
 
@@ -162,7 +162,7 @@ static void luavgl_widgets_init(lua_State *L)
   luavgl_dropdown_init(L);
 #endif
 
-#if LV_USE_BTN
+#if LV_USE_BUTTON
   luavgl_btn_init(L);
 #endif
 

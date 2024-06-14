@@ -12,7 +12,7 @@ LUALIB_API int luavgl_btn_set_property_kv(lua_State *L, void *data)
   /* a base obj property? */
   int ret = luavgl_obj_set_property_kv(L, obj);
   if (ret != 0) {
-    debug("unkown property for btn.\n");
+    LV_LOG_ERROR("unkown property for btn.\n");
   }
 
   return ret;
@@ -46,7 +46,7 @@ static const luaL_Reg luavgl_btn_methods[] = {
 
 static void luavgl_btn_init(lua_State *L)
 {
-  luavgl_obj_newmetatable(L, &lv_btn_class, "lv_btn", luavgl_btn_methods);
+  luavgl_obj_newmetatable(L, &lv_button_class, "lv_btn", luavgl_btn_methods);
   lua_pushcfunction(L, luavgl_btn_tostring);
   lua_setfield(L, -2, "__tostring");
   lua_pop(L, 1);

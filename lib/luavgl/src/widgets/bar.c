@@ -1,7 +1,7 @@
 #include "luavgl.h"
 #include "private.h"
 #include <src/misc/lv_anim.h>
-#include <src/widgets/lv_bar.h>
+#include <src/widgets/bar/lv_bar.h>
 
 static int luavgl_bar_create(lua_State *L)
 {
@@ -46,7 +46,7 @@ LUALIB_API int luavgl_bar_set_property_kv(lua_State *L, void *data)
   /* a base obj property? */
   ret = luavgl_obj_set_property_kv(L, obj);
   if (ret != 0) {
-    debug("unkown property for bar.\n");
+    LV_LOG_ERROR("unkown property for bar.\n");
   }
 
   return ret;

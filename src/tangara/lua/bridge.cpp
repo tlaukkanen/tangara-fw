@@ -26,7 +26,6 @@
 #include "lua/lua_version.hpp"
 #include "lvgl.h"
 
-#include "font/lv_font_loader.h"
 #include "luavgl.h"
 
 #include "events/event_queue.hpp"
@@ -61,7 +60,7 @@ static auto make_font_cb(const char* name, int size, int weight)
   return NULL;
 }
 
-static auto delete_font_cb(lv_font_t* font) -> void {}
+static auto delete_font_cb(const lv_font_t* font) -> void {}
 
 auto Bridge::Get(lua_State* state) -> Bridge* {
   lua_pushstring(state, kBridgeKey);

@@ -54,10 +54,13 @@ static const struct style_map_s {
     {"transform_height",   LV_STYLE_TRANSFORM_HEIGHT,   STYLE_TYPE_INT                       },
     {"translate_x",        LV_STYLE_TRANSLATE_X,        STYLE_TYPE_INT                       },
     {"translate_y",        LV_STYLE_TRANSLATE_Y,        STYLE_TYPE_INT                       },
-    {"transform_zoom",     LV_STYLE_TRANSFORM_ZOOM,     STYLE_TYPE_INT                       },
-    {"transform_angle",    LV_STYLE_TRANSFORM_ANGLE,    STYLE_TYPE_INT                       },
+    {"transform_scale_x",  LV_STYLE_TRANSFORM_SCALE_X,  STYLE_TYPE_INT                       },
+    {"transform_scale_y",  LV_STYLE_TRANSFORM_SCALE_X,  STYLE_TYPE_INT                       },
+    {"transform_rotation", LV_STYLE_TRANSFORM_ROTATION, STYLE_TYPE_INT                       },
+#if LV_VERSION_CHECK(8, 3, 0)
     {"transform_pivot_x",  LV_STYLE_TRANSFORM_PIVOT_X,  STYLE_TYPE_INT                       },
     {"transform_pivot_y",  LV_STYLE_TRANSFORM_PIVOT_Y,  STYLE_TYPE_INT                       },
+#endif
     {"pad_top",            LV_STYLE_PAD_TOP,            STYLE_TYPE_INT                       },
     {"pad_bottom",         LV_STYLE_PAD_BOTTOM,         STYLE_TYPE_INT                       },
     {"pad_left",           LV_STYLE_PAD_LEFT,           STYLE_TYPE_INT                       },
@@ -71,12 +74,11 @@ static const struct style_map_s {
     {"bg_grad_dir",        LV_STYLE_BG_GRAD_DIR,        STYLE_TYPE_INT                       },
     {"bg_main_stop",       LV_STYLE_BG_MAIN_STOP,       STYLE_TYPE_INT                       },
     {"bg_grad_stop",       LV_STYLE_BG_GRAD_STOP,       STYLE_TYPE_INT                       },
-    {"bg_dither_mode",     LV_STYLE_BG_DITHER_MODE,     STYLE_TYPE_INT                       },
-    {"bg_img_src",         LV_STYLE_BG_IMG_SRC,         STYLE_TYPE_IMGSRC                    },
-    {"bg_img_opa",         LV_STYLE_BG_IMG_OPA,         STYLE_TYPE_INT                       },
-    {"bg_img_recolor",     LV_STYLE_BG_IMG_RECOLOR,     STYLE_TYPE_COLOR                     },
-    {"bg_img_recolor_opa", LV_STYLE_BG_IMG_RECOLOR_OPA, STYLE_TYPE_INT                       },
-    {"bg_img_tiled",       LV_STYLE_BG_IMG_TILED,       STYLE_TYPE_INT                       },
+    {"bg_image_src",         LV_STYLE_BG_IMAGE_SRC,         STYLE_TYPE_IMGSRC                    },
+    {"bg_image_opa",         LV_STYLE_BG_IMAGE_OPA,         STYLE_TYPE_INT                       },
+    {"bg_image_recolor",     LV_STYLE_BG_IMAGE_RECOLOR,     STYLE_TYPE_COLOR                     },
+    {"bg_image_recolor_opa", LV_STYLE_BG_IMAGE_RECOLOR_OPA, STYLE_TYPE_INT                       },
+    {"bg_image_tiled",       LV_STYLE_BG_IMAGE_TILED,       STYLE_TYPE_INT                       },
     {"border_color",       LV_STYLE_BORDER_COLOR,       STYLE_TYPE_COLOR                     },
     {"border_opa",         LV_STYLE_BORDER_OPA,         STYLE_TYPE_INT                       },
     {"border_width",       LV_STYLE_BORDER_WIDTH,       STYLE_TYPE_INT                       },
@@ -87,14 +89,14 @@ static const struct style_map_s {
     {"outline_opa",        LV_STYLE_OUTLINE_OPA,        STYLE_TYPE_INT                       },
     {"outline_pad",        LV_STYLE_OUTLINE_PAD,        STYLE_TYPE_INT                       },
     {"shadow_width",       LV_STYLE_SHADOW_WIDTH,       STYLE_TYPE_INT                       },
-    {"shadow_ofs_x",       LV_STYLE_SHADOW_OFS_X,       STYLE_TYPE_INT                       },
-    {"shadow_ofs_y",       LV_STYLE_SHADOW_OFS_Y,       STYLE_TYPE_INT                       },
+    {"shadow_offset_x",    LV_STYLE_SHADOW_OFFSET_X,    STYLE_TYPE_INT                       },
+    {"shadow_offset_y",    LV_STYLE_SHADOW_OFFSET_Y,    STYLE_TYPE_INT                       },
     {"shadow_spread",      LV_STYLE_SHADOW_SPREAD,      STYLE_TYPE_INT                       },
     {"shadow_color",       LV_STYLE_SHADOW_COLOR,       STYLE_TYPE_COLOR                     },
     {"shadow_opa",         LV_STYLE_SHADOW_OPA,         STYLE_TYPE_INT                       },
-    {"img_opa",            LV_STYLE_IMG_OPA,            STYLE_TYPE_INT                       },
-    {"img_recolor",        LV_STYLE_IMG_RECOLOR,        STYLE_TYPE_COLOR                     },
-    {"img_recolor_opa",    LV_STYLE_IMG_RECOLOR_OPA,    STYLE_TYPE_INT                       },
+    {"image_opa",          LV_STYLE_IMAGE_OPA,          STYLE_TYPE_INT                       },
+    {"image_recolor",      LV_STYLE_IMAGE_RECOLOR,      STYLE_TYPE_COLOR                     },
+    {"image_recolor_opa",  LV_STYLE_IMAGE_RECOLOR_OPA,  STYLE_TYPE_INT                       },
     {"line_width",         LV_STYLE_LINE_WIDTH,         STYLE_TYPE_INT                       },
     {"line_dash_width",    LV_STYLE_LINE_DASH_WIDTH,    STYLE_TYPE_INT                       },
     {"line_dash_gap",      LV_STYLE_LINE_DASH_GAP,      STYLE_TYPE_INT                       },
@@ -102,7 +104,7 @@ static const struct style_map_s {
     {"line_color",         LV_STYLE_LINE_COLOR,         STYLE_TYPE_INT                       },
     {"line_opa",           LV_STYLE_LINE_OPA,           STYLE_TYPE_INT                       },
     {"arc_width",          LV_STYLE_ARC_WIDTH,          STYLE_TYPE_INT                       },
-    {"arc_img_src",        LV_STYLE_ARC_IMG_SRC,        STYLE_TYPE_IMGSRC                    },
+    {"arc_image_src",      LV_STYLE_ARC_IMAGE_SRC,      STYLE_TYPE_IMGSRC                    },
     {"arc_rounded",        LV_STYLE_ARC_ROUNDED,        STYLE_TYPE_INT                       },
     {"arc_color",          LV_STYLE_ARC_COLOR,          STYLE_TYPE_COLOR                     },
     {"arc_opa",            LV_STYLE_ARC_OPA,            STYLE_TYPE_INT                       },
@@ -118,7 +120,6 @@ static const struct style_map_s {
     {"opa",                LV_STYLE_OPA,                STYLE_TYPE_INT                       },
     {"color_filter_opa",   LV_STYLE_COLOR_FILTER_OPA,   STYLE_TYPE_INT                       },
     {"anim_time",          LV_STYLE_ANIM_TIME,          STYLE_TYPE_INT                       },
-    {"anim_speed",         LV_STYLE_ANIM_SPEED,         STYLE_TYPE_INT                       },
     {"blend_mode",         LV_STYLE_BLEND_MODE,         STYLE_TYPE_INT                       },
     {"layout",             LV_STYLE_LAYOUT,             STYLE_TYPE_INT                       },
     {"base_dir",           LV_STYLE_BASE_DIR,           STYLE_TYPE_INT                       },
@@ -126,7 +127,9 @@ static const struct style_map_s {
  /* need to build pointer from table parameter */
     {"bg_grad",            LV_STYLE_BG_GRAD,            STYLE_TYPE_SPECIAL                   }, /* pointer from table */
     {"color_filter_dsc",   LV_STYLE_COLOR_FILTER_DSC,   STYLE_TYPE_SPECIAL                   }, /**/
+#if LV_VERSION_CHECK(8, 3, 0)
     {"anim",               LV_STYLE_ANIM,               STYLE_TYPE_SPECIAL                   }, /* anim para */
+#endif
     {"transition",         LV_STYLE_TRANSITION,         STYLE_TYPE_SPECIAL                   }, /* transition */
 
   /* styles combined */
@@ -166,12 +169,14 @@ static void lv_style_set_cb(lv_style_prop_t prop, lv_style_value_t value,
   lv_style_set_prop(s, prop, value);
 }
 
+#if LV_VERSION_CHECK(8, 3, 0)
 static void lv_style_set_inherit_cb(lv_style_prop_t prop,
                                     lv_style_value_t value, void *args)
 {
   lv_style_t *s = args;
   lv_style_set_prop_meta(s, prop, LV_STYLE_PROP_META_INHERIT);
 }
+#endif
 
 static uint8_t to_int(char c)
 {
@@ -193,33 +198,53 @@ static lv_flex_align_t luavgl_to_flex_align(lua_State *L, int idx)
     return LV_FLEX_ALIGN_START;
 
   const char *str = lua_tostring(L, idx);
-  if (strcmp("flex-start", str) == 0)
+  if (lv_strcmp("flex-start", str) == 0)
     return LV_FLEX_ALIGN_START;
 
-  if (strcmp("flex-end", str) == 0)
+  if (lv_strcmp("flex-end", str) == 0)
     return LV_FLEX_ALIGN_END;
 
-  if (strcmp("center", str) == 0)
+  if (lv_strcmp("center", str) == 0)
     return LV_FLEX_ALIGN_CENTER;
 
-  if (strcmp("space-evenly", str) == 0)
+  if (lv_strcmp("space-evenly", str) == 0)
     return LV_FLEX_ALIGN_SPACE_EVENLY;
 
-  if (strcmp("space-around", str) == 0)
+  if (lv_strcmp("space-around", str) == 0)
     return LV_FLEX_ALIGN_SPACE_AROUND;
 
-  if (strcmp("space-between", str) == 0)
+  if (lv_strcmp("space-between", str) == 0)
     return LV_FLEX_ALIGN_SPACE_BETWEEN;
 
   return LV_FLEX_ALIGN_START;
+}
+
+static char *luavgl_strstr(const char *haystack, const char *needle) {
+    while (*haystack != '\0') {
+        const char *h = haystack;
+        const char *n = needle;
+
+        while (*n != '\0' && *h == *n) {
+            h++;
+            n++;
+        }
+
+        if (*n == '\0') {
+            return (char *)haystack;
+        }
+
+        haystack++;
+    }
+
+    return NULL;
 }
 
 static int luavgl_set_flex_layout_kv(lua_State *L, style_set_cb_t cb,
                                      void *args)
 {
   if (!lua_istable(L, -1)) {
-    debug("para should be table.");
-    return luaL_argerror(L, -1, "should be table.");
+    LV_LOG_ERROR("para should be table");
+    return luaL_argerror(L, -1, "should be table");
   }
 
   const char *str;
@@ -234,14 +259,14 @@ static int luavgl_set_flex_layout_kv(lua_State *L, style_set_cb_t cb,
   if (lua_type(L, -1) == LUA_TSTRING) {
     str = lua_tostring(L, -1);
     /* starts with  */
-    if (strncmp("row", str, 3) == 0) {
+    if (lv_strcmp("row", str) == 0) {
       flow = LV_FLEX_FLOW_ROW;
-    } else if (strncmp("column", str, 3) == 0) {
+    } else if (lv_strcmp("column", str) == 0) {
       flow = LV_FLEX_FLOW_COLUMN;
     }
 
     /* if reverse presents */
-    if (strstr(str, "-reverse")) {
+    if (luavgl_strstr(str, "-reverse")) {
       flow |= _LV_FLEX_REVERSE;
     }
   }
@@ -254,9 +279,9 @@ static int luavgl_set_flex_layout_kv(lua_State *L, style_set_cb_t cb,
   lua_getfield(L, -1, "flex_wrap");
   if (lua_type(L, -1) == LUA_TSTRING) {
     str = lua_tostring(L, -1);
-    if (strcmp("wrap", str) == 0) {
+    if (lv_strcmp("wrap", str) == 0) {
       flow |= _LV_FLEX_WRAP;
-    } else if (strcmp("wrap-reverse", str) == 0) {
+    } else if (lv_strcmp("wrap-reverse", str) == 0) {
       flow |= _LV_FLEX_WRAP | _LV_FLEX_REVERSE;
     }
     /* else: normal */
@@ -316,7 +341,7 @@ static inline bool luavgl_is_style_inherit(lua_State *L)
 {
   const char *str;
   return (lua_type(L, -1) == LUA_TSTRING) && (str = lua_tostring(L, -1)) &&
-         (strcmp(str, "inherit") == 0);
+         (lv_strcmp(str, "inherit") == 0);
 }
 
 /**
@@ -330,7 +355,7 @@ static int luavgl_set_style_kv(lua_State *L, style_set_cb_t cb, void *args)
 {
   const char *key = lua_tostring(L, -2);
   if (key == NULL) {
-    debug("Null key, ignored.\n");
+    LV_LOG_WARN("Null key, ignored");
     return -1;
   }
 
@@ -338,7 +363,7 @@ static int luavgl_set_style_kv(lua_State *L, style_set_cb_t cb, void *args)
   lv_style_value_t value = {0};
   const struct style_map_s *p = NULL;
   for (int i = 0; i < STYLE_MAP_LEN; i++) {
-    if (strcmp(key, g_style_map[i].name) == 0) {
+    if (lv_strcmp(key, g_style_map[i].name) == 0) {
       p = &g_style_map[i];
       break;
     }
@@ -374,8 +399,18 @@ static int luavgl_set_style_kv(lua_State *L, style_set_cb_t cb, void *args)
     }
   }
 
+  lv_style_prop_t prop = p->prop;
+
+#if LV_VERSION_CHECK(9, 0, 0)
+  lv_style_prop_t mask = ~0;
+#elif LV_VERSION_CHECK(8, 3, 0)
+  lv_style_prop_t mask = ~LV_STYLE_PROP_FLAG_ALL;
+#else
+  lv_style_prop_t mask = LV_STYLE_PROP_ANY;
+#endif
+
   if (p->type & STYLE_TYPE_SPECIAL) {
-    switch ((int)p->prop) {
+    switch ((int)prop) {
       /* style combinations */
     case LV_STYLE_SIZE:
       cb(LV_STYLE_WIDTH, value, args);
@@ -410,10 +445,10 @@ static int luavgl_set_style_kv(lua_State *L, style_set_cb_t cb, void *args)
 
     case LV_STYLE_COLOR_FILTER_DSC:
       break;
-
+#if LV_VERSION_CHECK(8, 3, 0)
     case LV_STYLE_ANIM:
       break;
-
+#endif
     case LV_STYLE_TRANSITION:
       break;
 
@@ -442,8 +477,8 @@ static int luavgl_set_style_kv(lua_State *L, style_set_cb_t cb, void *args)
     default:
       break;
     }
-  } else if (p->prop <= _LV_STYLE_LAST_BUILT_IN_PROP) {
-    cb(p->prop, value, args);
+  } else if ((prop & mask) <= _LV_STYLE_LAST_BUILT_IN_PROP) {
+    cb(prop & mask, value, args);
   } else {
     return luaL_error(L, "unknown style");
   }
@@ -459,7 +494,7 @@ static int luavgl_style_set(lua_State *L)
   luavgl_style_t *s = luavgl_check_style(L, 1);
 
   if (!lua_istable(L, 2)) {
-    luaL_argerror(L, 2, "expect a table on 2nd para.");
+    luaL_argerror(L, 2, "expect a table on 2nd para");
     return 0;
   }
 
@@ -468,16 +503,21 @@ static int luavgl_style_set(lua_State *L)
     /* -1: value, -2: key */
     if (!lua_isstring(L, -2)) {
       /* we expect string as key, ignore it if not */
-      debug("ignore non-string key in table.\n");
+      LV_LOG_WARN("ignore non-string key in table");
       lua_pop(L, 1);
       continue;
     }
 
+#if LV_VERSION_CHECK(8, 3, 0)
     /* special value check */
     bool inherit = luavgl_is_style_inherit(L);
 
     luavgl_set_style_kv(L, inherit ? lv_style_set_inherit_cb : lv_style_set_cb,
                         s);
+#else
+    luavgl_set_style_kv(L, lv_style_set_cb, s);
+#endif
+
     lua_pop(L, 1); /* remove value, keep the key to continue. */
   }
 
@@ -497,7 +537,7 @@ static int luavgl_style_create(lua_State *L)
 {
   luavgl_style_t *s = malloc(sizeof(luavgl_style_t));
   if (s == NULL) {
-    return luaL_error(L, "No memory.");
+    return luaL_error(L, "No memory");
   }
 
   lv_style_init(&s->style);
@@ -528,7 +568,7 @@ static int luavgl_style_remove_prop(lua_State *L)
 
   for (int i = 0; i < STYLE_MAP_LEN; i++) {
     const struct style_map_s *p = &g_style_map[i];
-    if (strcmp(name, p->name) == 0) {
+    if (lv_strcmp(name, p->name) == 0) {
       lv_style_remove_prop(&s->style, p->prop);
       return 0;
     }
@@ -553,7 +593,7 @@ static int luavgl_style_gc(lua_State *L)
   luavgl_style_t *s = luavgl_check_style(L, 1);
   lv_style_reset(&s->style);
   free(s);
-  debug("gc style:%p\n", s);
+  LV_LOG_INFO("gc style:%p", s);
   return 0;
 }
 
@@ -573,6 +613,7 @@ static void obj_style_set_cb(lv_style_prop_t prop, lv_style_value_t value,
   lv_obj_set_local_style_prop(info->obj, prop, value, info->selector);
 }
 
+#if LV_VERSION_CHECK(8, 3, 0)
 static void obj_style_inherit_set_cb(lv_style_prop_t prop,
                                      lv_style_value_t value, void *args)
 {
@@ -580,6 +621,7 @@ static void obj_style_inherit_set_cb(lv_style_prop_t prop,
   lv_obj_set_local_style_prop_meta(info->obj, prop, LV_STYLE_PROP_META_INHERIT,
                                    info->selector);
 }
+#endif
 
 static int luavgl_obj_set_style_kv(lua_State *L, lv_obj_t *obj, int selector)
 {
@@ -588,11 +630,15 @@ static int luavgl_obj_set_style_kv(lua_State *L, lv_obj_t *obj, int selector)
       .selector = selector,
   };
 
+#if LV_VERSION_CHECK(8, 3, 0)
   /* special value check */
   bool inherit = luavgl_is_style_inherit(L);
 
   return luavgl_set_style_kv(
       L, inherit ? obj_style_inherit_set_cb : obj_style_set_cb, &info);
+#else
+  return luavgl_set_style_kv(L, obj_style_set_cb, &info);
+#endif
 }
 
 /**
@@ -602,12 +648,12 @@ static int luavgl_obj_set_style(lua_State *L)
 {
   lv_obj_t *obj = luavgl_to_obj(L, 1);
   if (obj == NULL) {
-    luaL_argerror(L, 1, "obj could already been deleted.");
+    luaL_argerror(L, 1, "obj could already been deleted");
     return 0;
   }
 
   if (!lua_istable(L, 2)) {
-    luaL_argerror(L, 2, "expect a table on 2nd para.");
+    luaL_argerror(L, 2, "expect a table on 2nd para");
     return 0;
   }
 
@@ -622,7 +668,7 @@ static int luavgl_obj_set_style(lua_State *L)
     /* -1: value, -2: key */
     if (!lua_isstring(L, -2)) {
       /* we expect string as key, ignore it if not */
-      debug("ignore non-string key in table.\n");
+      LV_LOG_WARN("ignore non-string key in table");
       lua_pop(L, 1);
       continue;
     }

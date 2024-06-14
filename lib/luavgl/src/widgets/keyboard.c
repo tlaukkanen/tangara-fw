@@ -36,7 +36,7 @@ LUALIB_API int luavgl_keyboard_set_property_kv(lua_State *L, void *data)
   /* a base obj property? */
   ret = luavgl_obj_set_property_kv(L, obj);
   if (ret != 0) {
-    debug("unkown property for keyboard.\n");
+    LV_LOG_ERROR("unkown property for keyboard");
   }
 
   return ret;
@@ -67,7 +67,7 @@ static void luavgl_keyboard_init(lua_State *L)
   static const luaL_Reg btm_methods[] = {
       {NULL, NULL},
   };
-  luavgl_obj_newmetatable(L, &lv_btnmatrix_class, "lv_btnm", btm_methods);
+  luavgl_obj_newmetatable(L, &lv_buttonmatrix_class, "lv_btnm", btm_methods);
   lua_pop(L, 1);
 
   luavgl_obj_newmetatable(L, &lv_keyboard_class, "lv_keyboard",

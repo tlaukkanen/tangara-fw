@@ -6,9 +6,10 @@
 
 #include "input/input_nav_buttons.hpp"
 
+#include "indev/lv_indev.h"
+
 #include "drivers/gpios.hpp"
 #include "events/event_queue.hpp"
-#include "hal/lv_hal_indev.h"
 #include "input/input_hook_actions.hpp"
 
 namespace input {

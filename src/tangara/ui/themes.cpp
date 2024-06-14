@@ -1,4 +1,11 @@
+/*
+ * Copyright 2024 jacqueline <me@jacqueline.id.au>
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "ui/themes.hpp"
+
 #include "core/lv_obj.h"
 #include "core/lv_obj_style.h"
 #include "core/lv_obj_tree.h"
@@ -6,10 +13,9 @@
 #include "esp_log.h"
 #include "misc/lv_color.h"
 #include "misc/lv_style.h"
-#include "widgets/lv_bar.h"
-#include "widgets/lv_slider.h"
-
-LV_FONT_DECLARE(font_fusion_12);
+#include "widgets/bar/lv_bar.h"
+#include "widgets/button/lv_button.h"
+#include "widgets/slider/lv_slider.h"
 
 namespace ui {
 namespace themes {
@@ -42,9 +48,9 @@ void Theme::Callback(lv_obj_t* obj) {
 
   // Determine class name
   std::string class_name;
-  if (lv_obj_check_type(obj, &lv_btn_class)) {
+  if (lv_obj_check_type(obj, &lv_button_class)) {
     class_name = "button";
-  } else if (lv_obj_check_type(obj, &lv_list_btn_class)) {
+  } else if (lv_obj_check_type(obj, &lv_list_button_class)) {
     class_name = "listbutton";
   } else if (lv_obj_check_type(obj, &lv_bar_class)) {
     class_name = "bar";

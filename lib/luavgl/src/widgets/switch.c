@@ -1,6 +1,6 @@
 #include "luavgl.h"
 #include "private.h"
-#include <src/widgets/lv_switch.h>
+#include <src/widgets/switch/lv_switch.h>
 
 static int luavgl_switch_create(lua_State *L) {
   return luavgl_obj_create_helper(L, lv_switch_create);
@@ -11,7 +11,7 @@ LUALIB_API int luavgl_switch_set_property_kv(lua_State *L, void *data) {
   /* switches only use base properties */
   int ret = luavgl_obj_set_property_kv(L, obj);
   if (ret != 0) {
-    debug("unkown property for switch.\n");
+    LV_LOG_ERROR("unkown property for switch.\n");
   }
 
   return ret;

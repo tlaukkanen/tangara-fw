@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "hal/lv_hal_indev.h"
 #include "input/input_hook.hpp"
 
 namespace input {

@@ -14,7 +14,7 @@ extern "C" {
 
 typedef const lv_font_t *(*make_font_cb)(const char *name, int size,
                                          int weight);
-typedef void (*delete_font_cb)(lv_font_t *);
+typedef void (*delete_font_cb)(const lv_font_t *);
 typedef int (*luavgl_pcall_t)(lua_State *L, int nargs, int nresults);
 
 typedef struct {
@@ -48,13 +48,17 @@ typedef struct {
   };
 } luavgl_value_setter_t;
 
+struct event_callback_s {
+  lua_State *L;
+  int ref; /* ref to callback */
+  lv_event_code_t code;
+  lv_event_dsc_t *dsc;
+};
+
 typedef struct luavgl_obj_s {
   lv_obj_t *obj;    /* NULL means obj deleted, but not gc'ed in lua */
   bool lua_created; /* this object is created from lua */
-
-  /* internally used variables */
-  int n_events;
-  struct event_callback_s *events;
+  lv_array_t events;  /* events added from lua, need it to distinguish between lua */
 } luavgl_obj_t;
 
 #define luavgl_obj_newmetatable(L, clz, name, l)                               \
@@ -124,6 +128,11 @@ LUALIB_API luavgl_obj_t *luavgl_add_lobj(lua_State *L, lv_obj_t *obj);
 LUALIB_API luavgl_obj_t *luavgl_to_lobj(lua_State *L, int idx);
 
 /**
+ * @brief Get lvgl style from stack
+ */
+LUALIB_API lv_style_t *luavgl_to_style(lua_State *L, int idx);
+
+/**
  * @brief Create metatable for specified object class
  *
  * @param L
@@ -156,11 +165,6 @@ LUALIB_API int luavgl_obj_getuserdatauv(lua_State *L, int idx);
  * @brief Get lvgl object from stack
  */
 LUALIB_API lv_obj_t *luavgl_to_obj(lua_State *L, int idx);
-
-/**
- * @brief Get lvgl style from stack
- */
-LUALIB_API lv_style_t *luavgl_to_style(lua_State *L, int idx);
 
 /**
  * @brief Convert value to integer

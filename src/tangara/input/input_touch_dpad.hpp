@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "hal/lv_hal_indev.h"
+#include "indev/lv_indev.h"
 
 #include "drivers/haptics.hpp"
 #include "input/input_device.hpp"

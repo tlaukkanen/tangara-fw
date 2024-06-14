@@ -7,6 +7,7 @@
 #include "ui/screen_splash.hpp"
 
 #include "core/lv_obj.h"
+#include "core/lv_obj_pos.h"
 #include "core/lv_obj_style.h"
 #include "lvgl.h"
 #include "misc/lv_area.h"
@@ -19,10 +20,10 @@ namespace ui {
 namespace screens {
 
 Splash::Splash() {
-  lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
-  lv_obj_set_style_bg_color(root_, lv_color_black(), 0);
-
   lv_obj_t* logo = lv_img_create(root_);
+  lv_obj_set_size(logo, lv_pct(100), lv_pct(100));
+  lv_obj_set_style_bg_opa(logo, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(logo, lv_color_black(), 0);
   lv_img_set_src(logo, &splash);
   lv_obj_center(logo);
 }

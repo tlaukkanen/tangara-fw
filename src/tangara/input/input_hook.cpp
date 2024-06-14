@@ -9,7 +9,7 @@
 #include <functional>
 #include <optional>
 
-#include "hal/lv_hal_indev.h"
+#include "indev/lv_indev.h"
 #include "lua.hpp"
 
 #include "input/input_trigger.hpp"

@@ -5,6 +5,8 @@
 
 #define _ARRAY_LEN(a) (sizeof(a) / sizeof(a[0]))
 
+#define NAMED_WEIGHT_MAX_CHARS 16
+
 /**
  * Follow css style, specify the name by name family, name size,
  * name weight. Font weight can be numeric value or 'bold'. Alls strings
@@ -159,7 +161,7 @@ static int luavgl_get_named_weight(const char *name)
   }
 
   for (int i = 0; i < _ARRAY_LEN(g_named_weight); i++) {
-    if (strcmp(name, g_named_weight[i].name) == 0) {
+    if (lv_strcmp(name, g_named_weight[i].name) == 0) {
       return g_named_weight[i].value;
     }
   }
@@ -178,7 +180,7 @@ static const lv_font_t *_luavgl_font_create(lua_State *L, const char *name,
                                             int size, int weight)
 {
   /* check builtin font firstly. */
-  if (strcmp(name, "montserrat") == 0) {
+  if (lv_strcmp(name, "montserrat") == 0) {
     if (FONT_WEIGHT_NORMAL != weight)
       return NULL;
 
@@ -187,7 +189,7 @@ static const lv_font_t *_luavgl_font_create(lua_State *L, const char *name,
         return g_builtin_montserrat[i].font;
       }
     }
-  } else if (strcmp(name, "unscii") == 0) {
+  } else if (lv_strcmp(name, "unscii") == 0) {
     if (FONT_WEIGHT_NORMAL != weight)
       return NULL;
 #if LV_FONT_UNSCII_8
@@ -200,21 +202,15 @@ static const lv_font_t *_luavgl_font_create(lua_State *L, const char *name,
       return &lv_font_unscii_16;
 #endif
   }
-#if LV_FONT_MONTSERRAT_12_SUBPX
-  else if (strcmp(name, "montserrat_subpx") == 0) {
-    if (size == 12)
-      return &lv_font_montserrat_12_subpx;
-  }
-#endif
 #if LV_FONT_DEJAVU_16_PERSIAN_HEBREW
-  else if (strcmp(name, "dejavu_persian_hebrew") == 0) {
+  else if (lv_strcmp(name, "dejavu_persian_hebrew") == 0) {
     if (size == 16)
       return &lv_font_dejavu_16_persian_hebrew;
   }
 #endif
 
 #if LV_FONT_SIMSUN_16_CJK
-  else if (strcmp(name, "dejavu_persian_hebrew") == 0) {
+  else if (lv_strcmp(name, "dejavu_persian_hebrew") == 0) {
     if (size == 16)
       return &lv_font_simsun_16_cjk;
   }
@@ -229,6 +225,17 @@ static const lv_font_t *_luavgl_font_create(lua_State *L, const char *name,
   return NULL;
 }
 
+static char *luavgl_strchr(const char *s, char c)
+{
+  while (*s) {
+    if (c == *s) {
+      return (char *)s;
+    }
+    s++;
+  }
+  return NULL;
+}
+
 /**
  * Dynamic font family fallback is not supported.
  * The fallback only happen when font creation fails and continue to try next
@@ -240,7 +247,7 @@ static int luavgl_font_create(lua_State *L)
 {
   int weight;
   int size;
-  const char *name;
+  char *str, *name;
   const lv_font_t *font = NULL;
 
   if (!lua_isstring(L, 1)) {
@@ -258,26 +265,60 @@ static int luavgl_font_create(lua_State *L)
       weight = lua_tointeger(L, 3);
     } else {
       char *luastr = (char *)lua_tostring(L, 3);
-      int len = strlen(luastr);
+      int len = lv_strlen(luastr);
       if (len > 128) {
         /* not likely to happen */
         return luaL_argerror(L, 3, "too long");
       }
-      char s[len + 1];
-      strcpy(s, luastr);
+      char s[NAMED_WEIGHT_MAX_CHARS];
+      if (len + 1 > NAMED_WEIGHT_MAX_CHARS) {
+        return luaL_argerror(L, 3, "too long");
+      }
+
+      lv_strcpy(s, luastr);
       weight = luavgl_get_named_weight(to_lower(s));
     }
   } else {
     weight = FONT_WEIGHT_NORMAL;
   }
 
-  name = lua_tostring(L, 1);
-  font = _luavgl_font_create(L, name, size, weight);
+  str = lv_strdup(lua_tostring(L, 1));
+  if (str == NULL) {
+    return luaL_error(L, "no memory");
+  }
 
+  name = to_lower(str);
+  while (*name) {
+    if (*name == ' ') {
+      name++;
+      continue;
+    }
+
+    char *end = luavgl_strchr(name, ',');
+    if (end != NULL) {
+      *end = '\0';
+    } else {
+      end = name + lv_strlen(name);
+    }
+
+    char *trim = end - 1;
+    while (*trim == ' ') {
+      *trim-- = '\0'; /* trailing space. */
+    }
+
+    font = _luavgl_font_create(L, name, size, weight);
+    if (font) {
+      break;
+    }
+
+    name = end + 1; /* next */
+  }
+
+  lv_free(str);
   if (font) {
     lua_pushlightuserdata(L, (void *)font);
     return 1;
   }
 
-  return luaL_error(L, "cannot create font.");
+  return luaL_error(L, "cannot create font");
 }

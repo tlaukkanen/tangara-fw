@@ -14,13 +14,13 @@
 #include "util.c"
 
 static const struct luaL_Reg luavgl_methods[] = {
-    {"Timer", luavgl_timer_create}, /* timer.c */
-    {"Font",  luavgl_font_create }, /* font.c */
-    {"Style", luavgl_style_create}, /* style.c */
-    {"Anim",  luavgl_anim_create }, /* anim.c */
-    {"ImgData",  luavgl_imgdata_create}, /* imgdata.c */
+    {"Timer",   luavgl_timer_create  }, /* timer.c */
+    {"Font",    luavgl_font_create   }, /* font.c */
+    {"Style",   luavgl_style_create  }, /* style.c */
+    {"Anim",    luavgl_anim_create   }, /* anim.c */
+    {"ImgData", luavgl_imgdata_create}, /* imgdata.c */
 
-    {NULL,    NULL               },
+    {NULL,      NULL                 },
 };
 
 LUALIB_API luavgl_ctx_t *luavgl_context(lua_State *L)
@@ -44,7 +44,7 @@ LUALIB_API luavgl_ctx_t *luavgl_context(lua_State *L)
     /* create it if not exist in registry */
     lua_pushstring(L, luavglgl_key);
     ctx = (luavgl_ctx_t *)lua_newuserdata(L, sizeof(*ctx));
-    memset(ctx, 0, sizeof(*ctx));
+    lv_memset(ctx, 0, sizeof(*ctx));
     lua_rawset(L, LUA_REGISTRYINDEX);
   } else {
     ctx = (luavgl_ctx_t *)lua_touserdata(L, -1);
@@ -76,7 +76,7 @@ LUALIB_API void luavgl_set_font_extension(lua_State *L, make_font_cb make,
 
 static int root_gc(lua_State *L)
 {
-  debug("enter.\n");
+  LV_LOG_INFO("enter");
   luavgl_ctx_t *ctx = luavgl_context(L);
   lv_obj_del(ctx->root);
   return 0;
@@ -84,7 +84,7 @@ static int root_gc(lua_State *L)
 
 static int root_clean(lua_State *L)
 {
-  debug("enter.\n");
+  LV_LOG_INFO("enter");
   luavgl_ctx_t *ctx = luavgl_context(L);
   lv_obj_clean(ctx->root);
   return 0;
@@ -104,7 +104,7 @@ LUALIB_API int luaopen_lvgl(lua_State *L)
 
   lv_obj_t *root = ctx->root;
   if (root == NULL) {
-    debug("create root obj for lua.\n");
+    LV_LOG_INFO("create root obj for lua");
     root = lv_obj_create(lv_scr_act());
     ctx->root = root;
   }

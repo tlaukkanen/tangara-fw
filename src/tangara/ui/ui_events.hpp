@@ -7,19 +7,17 @@
 #pragma once
 
 #include <memory>
+
+#include "tinyfsm.hpp"
+
 #include "database/database.hpp"
 #include "database/index.hpp"
 #include "drivers/gpios.hpp"
 #include "drivers/nvs.hpp"
-#include "tinyfsm.hpp"
 #include "ui/screen.hpp"
 
 namespace ui {
 
-// TODO(jacqueline): is this needed? is this good?
-/*
- * Event emitted by the main task on heartbeat.
- */
 struct OnStorageChange : tinyfsm::Event {
   bool is_mounted;
 };
@@ -43,9 +41,6 @@ struct ReindexDatabase : tinyfsm::Event {};
 
 struct BackPressed : tinyfsm::Event {};
 struct ShowNowPlaying : tinyfsm::Event {};
-
-struct ModalConfirmPressed : tinyfsm::Event {};
-struct ModalCancelPressed : tinyfsm::Event {};
 
 struct DismissAlerts : tinyfsm::Event {};
 
