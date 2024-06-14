@@ -52,7 +52,7 @@ static int luavgl_check_continuation(lua_State *L, int index)
 
 static void dumpvalue(lua_State *L, int i, bool cr)
 {
-  const char ending = cr ? '\n' : '\0';
+  // const char ending = cr ? '\n' : '\0';
   switch (lua_type(L, i)) {
   case LUA_TNUMBER:
     LV_LOG_USER("number: %g%c", lua_tonumber(L, i), ending);
