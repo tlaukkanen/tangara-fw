@@ -171,7 +171,7 @@ return screen:new {
 
     local prev_btn = controls:Button {}
     prev_btn:onClicked(function()
-      if playback.position:get() > 1 or queue.position:get() == 1 then
+      if playback.position:get() > 3 then
         playback.position:set(0)
       else
         queue.previous()
