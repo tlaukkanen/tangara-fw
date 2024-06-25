@@ -5,7 +5,9 @@
  */
 
 #include "battery/battery.hpp"
+#include <stdint.h>
 
+#include <cmath>
 #include <cstdint>
 
 #include "drivers/adc.hpp"
@@ -58,14 +60,17 @@ auto Battery::Update() -> void {
 
   auto charge_state = samd_.GetChargeStatus();
 
-  // FIXME: So what we *should* do here is measure the actual real-life
-  // time from full battery -> empty battery, store it in NVS, then rely on
-  // that. If someone could please do this, it would be lovely. Thanks!
   uint32_t mV = std::max(adc_->Millivolts(), kEmptyChargeMilliVolts);
-  uint_fast8_t percent = static_cast<uint_fast8_t>(std::min<double>(
-      std::max<double>(0.0, mV - kEmptyChargeMilliVolts) /
-          (kFullChargeMilliVolts - kEmptyChargeMilliVolts) * 100.0,
-      100.0));
+
+  // Ideally the way you're 'supposed' to measure battery charge percent is to
+  // keep continuous track of the amps going in and out of it at any point. I'm
+  // skeptical of this approach, and we're not set up with the hardware needed
+  // to do it anyway. Instead, we use a curve-fitting formula by StackOverflow
+  // user 'Roho' to estimate the remaining capacity based on the battery's
+  // voltage. This seems to work pretty good!
+  double v = mV / 1000.0;
+  uint_fast8_t percent = static_cast<uint_fast8_t>(std::clamp<double>(
+      123 - (123 / std::pow(1 + std::pow(v / 3.7, 80.0), 0.165)), 0.0, 100.0));
 
   bool is_charging;
   if (!charge_state) {
