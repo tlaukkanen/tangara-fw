@@ -7,7 +7,7 @@
 #pragma once
 
 #include "catch2/catch.hpp"
-#include "spi.hpp"
+#include "drivers/spi.hpp"
 
 class SpiFixture {
  public:

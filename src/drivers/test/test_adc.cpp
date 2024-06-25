@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "battery.hpp"
+#include "drivers/adc.hpp"
 
 #include <cstdint>
 
@@ -13,12 +13,12 @@
 namespace drivers {
 
 TEST_CASE("battery measurement", "[integration]") {
-  Battery battery;
+  AdcBattery battery;
 
   SECTION("voltage is within range") {
     uint32_t mv = battery.Millivolts();
-    REQUIRE(mv <= 2200);  // Plugged in, no battery.
-    REQUIRE(mv >= 1000);
+    REQUIRE(mv <= 4210); // Should never be charged above this.
+    REQUIRE(mv >= 3000); // Should never be discharged below this.
   }
 }
 

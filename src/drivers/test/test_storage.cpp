@@ -22,31 +22,31 @@
 
 namespace drivers {
 
-static const std::pmr::string kTestFilename = "test";
-static const std::pmr::string kTestFilePath =
-    std::pmr::string(kStoragePath) + "/" + kTestFilename;
+static const std::string kTestFilename = "test";
+static const std::string kTestFilePath =
+    std::string(kStoragePath) + "/" + kTestFilename;
 
 TEST_CASE("sd card storage", "[integration]") {
   I2CFixture i2c;
   SpiFixture spi;
-  IGpios expander;
+  std::unique_ptr<IGpios> gpios{Gpios::Create(false)};
 
   {
-    std::unique_ptr<SdStorage> result(SdStorage::create(&expander).value());
+    std::unique_ptr<SdStorage> result(SdStorage::Create(*gpios).value());
 
     SECTION("write to a file") {
       {
         std::ofstream test_file;
-        test_file.open(kTestFilePath.c_str());
+        test_file.open(kTestFilePath);
         test_file << "hello here is some test";
         test_file.close();
       }
 
       SECTION("read from a file") {
         std::ifstream test_file;
-        test_file.open(kTestFilePath.c_str());
+        test_file.open(kTestFilePath);
 
-        std::pmr::string line;
+        std::string line;
         REQUIRE(std::getline(test_file, line));
         REQUIRE(line == "hello here is some test");
 

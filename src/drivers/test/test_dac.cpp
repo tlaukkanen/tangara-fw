@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "dac.hpp"
+#include <stdint.h>
+#include "drivers/wm8523.hpp"
 
 #include <cstdint>
 
@@ -16,16 +17,15 @@
 
 namespace drivers {
 
-TEST_CASE("dac configuration", "[integration]") {
+TEST_CASE("dac is present", "[integration]") {
   I2CFixture i2c;
-  IGpios expander;
-  cpp::result<AudioDac*, AudioDac::Error> dac_res = AudioDac::create(&expander);
-  REQUIRE(dac_res.has_value());
-  std::unique_ptr<AudioDac> dac(dac_res.value());
 
-  auto power_state = dac->ReadPowerState();
+  SECTION("device id is correct") {
+    auto res = wm8523::ReadRegister(wm8523::Register::kReset);
 
-  REQUIRE(power_state.first == true);  // booted
+    REQUIRE(res.has_value());
+    REQUIRE(res.value() == 0x8523);
+  }
 }
 
 }  // namespace drivers

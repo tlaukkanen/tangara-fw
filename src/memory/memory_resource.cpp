@@ -27,7 +27,8 @@ void Resource::do_deallocate(void* p,
   heap_caps_free(p);
 }
 
-bool Resource::do_is_equal(const std::pmr::memory_resource& other) const {
+bool Resource::do_is_equal(
+    const std::pmr::memory_resource& other) const noexcept {
   return this == &other;
 }
 

@@ -8,11 +8,11 @@
 
 #include <cstdint>
 
+#include "catch_runner.hpp"
 #include "esp_console.h"
 #include "esp_log.h"
 
-#include "catch_runner.hpp"
-#include "console.hpp"
+#include "dev_console/console.hpp"
 
 void RegisterCatch2() {
   esp_console_cmd_t cmd{

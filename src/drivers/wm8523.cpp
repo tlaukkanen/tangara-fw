@@ -50,7 +50,7 @@ auto ReadRegister(Register reg) -> std::optional<uint16_t> {
   if (transaction.Execute() != ESP_OK) {
     return {};
   }
-  return (msb << 8) & lsb;
+  return (msb << 8) | lsb;
 }
 
 auto WriteRegister(Register reg, uint16_t data) -> bool {

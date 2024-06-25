@@ -7,7 +7,7 @@
 #pragma once
 
 #include "catch2/catch.hpp"
-#include "i2c.hpp"
+#include "drivers/i2c.hpp"
 
 class I2CFixture {
  public:
