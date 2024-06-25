@@ -31,6 +31,12 @@ TEST_CASE("sd card storage", "[integration]") {
   SpiFixture spi;
   std::unique_ptr<IGpios> gpios{Gpios::Create(false)};
 
+  if (gpios->Get(IGpios::Pin::kSdCardDetect)) {
+    // Skip if nothing is inserted.
+    INFO("no sd card detected; skipping storage tests");
+    return;
+  }
+
   {
     std::unique_ptr<SdStorage> result(SdStorage::Create(*gpios).value());
 
