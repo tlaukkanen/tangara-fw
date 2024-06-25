@@ -12,7 +12,7 @@
 
 namespace drivers {
 
-TEST_CASE("battery measurement", "[integration]") {
+TEST_CASE("battery adc", "[integration]") {
   AdcBattery battery;
 
   SECTION("voltage is within range") {

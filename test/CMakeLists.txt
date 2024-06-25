@@ -27,6 +27,6 @@ list(APPEND EXTRA_COMPONENT_DIRS
   )
 
 # List all components that include tests here.
-set(TEST_COMPONENTS "drivers")
+set(TEST_COMPONENTS "drivers" "tangara")
 
 project(device_tests)

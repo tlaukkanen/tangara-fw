@@ -1,9 +1,3 @@
-<!--
-Copyright 2023 jacqueline <me@jacqueline.id.au>
-
-SPDX-License-Identifier: CC0-1.0
--->
-
 # Building and flashing
 
 1. Make sure you've got all of the submodules in this repo correctly initialised:
@@ -34,28 +28,14 @@ There is also a `.env.fish` for fish users.
 onto your board, something like:
 
 ```
-idf.py -p /dev/ttyUSB0 -b 1000000 flash
+idf.py -p /dev/serial/by-id/usb-cool_tech_zone_Tangara_* -b 1000000 flash
 ```
 
 (give or take the correct serial port)
 
 # Running tests
 
-(Note: tests are currently broken, and have been for a while. Sorry! IOU a working test suite by the time we ship devices :))
-
-Tests are implemented as a separate application build, located in the `test`
-directory. We use Catch2 as our test framework.
-
-To run them, navigate to the test directory, then build and flash as normal.
-Connect to your device via UART, and you will be presented with a terminal
-prompt that you may run tests from.
-
-To add new tests to a components, you must:
- 1. Create a `test` subcomponent within that component. See `drivers/test` for
-    an example of this.
- 2. Include the component in the test build and list of testable components, in
-    `test/CMakeLists.txt`.
-
+See `TESTING.md` for an overview of how to write and run our on-device test suite.
 
 # VSCode setup
 

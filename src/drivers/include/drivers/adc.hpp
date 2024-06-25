@@ -22,12 +22,12 @@ class AdcBattery {
  public:
   static auto Create() -> AdcBattery* { return new AdcBattery(); }
   AdcBattery();
-  ~AdcBattery();
+  virtual ~AdcBattery();
 
   /**
    * Returns the current battery level in millivolts.
    */
-  auto Millivolts() -> uint32_t;
+  virtual auto Millivolts() -> uint32_t;
 
  private:
   adc_oneshot_unit_handle_t adc_handle_;
