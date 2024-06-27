@@ -9,12 +9,6 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch2/catch.hpp"
 
-#include <stdio.h>
-#include <string.h>
-#include "esp_console.h"
-#include "esp_log.h"
-#include "esp_system.h"
-
 // There must be exactly on Session instance at all times; attempting to destroy
 // this will result in memory corruption.
 static Catch::Session sCatchSession;
