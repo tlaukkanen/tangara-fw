@@ -18,6 +18,7 @@ typedef enum {
 
 enum {
   LV_STYLE_SIZE = _LV_STYLE_LAST_BUILT_IN_PROP + 1,
+  LV_STYLE_MARGIN_ALL,
   LV_STYLE_PAD_ALL,
   LV_STYLE_PAD_VER,
   LV_STYLE_PAD_HOR,
@@ -61,6 +62,10 @@ static const struct style_map_s {
     {"transform_pivot_x",  LV_STYLE_TRANSFORM_PIVOT_X,  STYLE_TYPE_INT                       },
     {"transform_pivot_y",  LV_STYLE_TRANSFORM_PIVOT_Y,  STYLE_TYPE_INT                       },
 #endif
+    {"margin_top",         LV_STYLE_MARGIN_TOP,         STYLE_TYPE_INT                       },
+    {"margin_bottom",      LV_STYLE_MARGIN_BOTTOM,      STYLE_TYPE_INT                       },
+    {"margin_left",        LV_STYLE_MARGIN_LEFT,        STYLE_TYPE_INT                       },
+    {"margin_right",       LV_STYLE_MARGIN_RIGHT,       STYLE_TYPE_INT                       },
     {"pad_top",            LV_STYLE_PAD_TOP,            STYLE_TYPE_INT                       },
     {"pad_bottom",         LV_STYLE_PAD_BOTTOM,         STYLE_TYPE_INT                       },
     {"pad_left",           LV_STYLE_PAD_LEFT,           STYLE_TYPE_INT                       },
@@ -134,6 +139,7 @@ static const struct style_map_s {
 
   /* styles combined */
     {"size",               LV_STYLE_SIZE,               STYLE_TYPE_SPECIAL | STYLE_TYPE_INT  },
+    {"margin_all",         LV_STYLE_MARGIN_ALL,         STYLE_TYPE_SPECIAL | STYLE_TYPE_INT  },
     {"pad_all",            LV_STYLE_PAD_ALL,            STYLE_TYPE_SPECIAL | STYLE_TYPE_INT  },
     {"pad_ver",            LV_STYLE_PAD_VER,            STYLE_TYPE_SPECIAL | STYLE_TYPE_INT  },
     {"pad_hor",            LV_STYLE_PAD_HOR,            STYLE_TYPE_SPECIAL | STYLE_TYPE_INT  },
@@ -415,6 +421,13 @@ static int luavgl_set_style_kv(lua_State *L, style_set_cb_t cb, void *args)
     case LV_STYLE_SIZE:
       cb(LV_STYLE_WIDTH, value, args);
       cb(LV_STYLE_HEIGHT, value, args);
+      break;
+
+    case LV_STYLE_MARGIN_ALL:
+      cb(LV_STYLE_MARGIN_TOP, value, args);
+      cb(LV_STYLE_MARGIN_BOTTOM, value, args);
+      cb(LV_STYLE_MARGIN_LEFT, value, args);
+      cb(LV_STYLE_MARGIN_RIGHT, value, args);
       break;
 
     case LV_STYLE_PAD_ALL:

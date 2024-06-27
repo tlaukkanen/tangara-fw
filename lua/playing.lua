@@ -7,14 +7,7 @@ local queue = require("queue")
 local screen = require("screen")
 local theme = require("theme")
 
-local img = {
-  play = lvgl.ImgData("//lua/img/play.png"),
-  pause = lvgl.ImgData("//lua/img/pause.png"),
-  next = lvgl.ImgData("//lua/img/next.png"),
-  prev = lvgl.ImgData("//lua/img/prev.png"),
-  shuffle = lvgl.ImgData("//lua/img/shuffle.png"),
-  repeat_src = lvgl.ImgData("//lua/img/repeat.png"), -- repeat is a reserved word
-}
+local img = require("images")
 
 local format_time = function(time)
   time = math.floor(time)
