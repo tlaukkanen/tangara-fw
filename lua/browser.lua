@@ -58,7 +58,7 @@ return screen:new{
             flex = {
                 flex_direction = "row",
                 flex_wrap = "wrap",
-                justify_content = "flex-end",
+                justify_content = "center",
                 align_items = "center",
                 align_content = "center"
             },
@@ -71,6 +71,14 @@ return screen:new{
         enqueue:onClicked(function()
             queue.add(original_iterator)
             playback.playing:set(true)
+        end)
+        local shuffle_play = widgets.IconBtn(buttons, "//lua/img/shuffleplay.png", "Shuffle")
+        shuffle_play:onClicked(function()
+            queue.clear()
+            queue.random:set(true)
+            queue.add(original_iterator)
+            playback.playing:set(true)
+            backstack.push(playing:new())
         end)
         -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
         local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")

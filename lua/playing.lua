@@ -243,8 +243,9 @@ return screen:new {
         if not pos then return end
         playlist_pos:set { text = tostring(pos) }
 
+        local can_next = pos < queue.size:get() or queue.random:get()
         theme.set_style(
-          next_img, pos < queue.size:get() and icon_enabled_class or icon_disabled_class
+          next_img, can_next and icon_enabled_class or icon_disabled_class
         )
       end),
       queue.random:bind(function(shuffling)
