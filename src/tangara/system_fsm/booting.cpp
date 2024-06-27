@@ -115,9 +115,11 @@ auto Booting::entry() -> void {
 
 auto Booting::exit() -> void {
   // TODO(jacqueline): Gate this on something. Debug flag? Flashing mode?
-  sAppConsole = new console::AppConsole();
-  sAppConsole->sServices = sServices;
-  sAppConsole->Launch();
+  sServices->bg_worker().Dispatch<void>([&] {
+    sAppConsole = new console::AppConsole();
+    sAppConsole->sServices = sServices;
+    sAppConsole->Launch();
+  });
 
   TimerHandle_t timer = xTimerCreate("INTERRUPTS", kInterruptCheckPeriod, true,
                                      NULL, check_interrupts_cb);

@@ -74,13 +74,29 @@ auto Console::RegisterCommonComponents() -> void {
   RegisterLogLevel();
 }
 
+static Console* sInstance;
+
+static auto prerun_cb() -> void {
+  if (sInstance) {
+    sInstance->PrerunCallback();
+  }
+}
+
+auto Console::PrerunCallback() -> void {
+  puts("\r\nPress any key to enter dev console.\r\n");
+  setvbuf(stdin, NULL, _IONBF, 0);
+  fgetc(stdin);
+}
+
 auto Console::Launch() -> void {
+  sInstance = this;
   esp_console_repl_t* repl = nullptr;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
   repl_config.max_history_len = 16;
   repl_config.prompt = " →";
   repl_config.max_cmdline_length = 256;
   repl_config.task_stack_size = 1024 * GetStackSizeKiB();
+  repl_config.prerun_cb = prerun_cb;
 
   esp_console_dev_uart_config_t hw_config =
       ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();

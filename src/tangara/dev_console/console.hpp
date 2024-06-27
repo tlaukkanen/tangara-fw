@@ -16,6 +16,7 @@ class Console {
   virtual ~Console();
 
   auto Launch() -> void;
+  virtual auto PrerunCallback() -> void;
 
  protected:
   virtual auto GetStackSizeKiB() -> uint16_t { return 8; }

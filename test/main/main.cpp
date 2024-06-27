@@ -5,8 +5,12 @@
  */
 
 #include <stdio.h>
+#include <sys/fcntl.h>
+#include <sys/unistd.h>
 
 #include <cstdint>
+
+#include "freertos/FreeRTOS.h"
 
 #include "catch_runner.hpp"
 #include "esp_console.h"
@@ -27,6 +31,13 @@ void RegisterCatch2() {
 namespace console {
 
 class TestConsole : public Console {
+ public:
+  virtual auto PrerunCallback() -> void {
+    char* arg = "catch";
+    exec_catch2(1, &arg);
+    Console::PrerunCallback();
+  }
+
  protected:
   virtual auto RegisterExtraComponents() -> void { RegisterCatch2(); }
   virtual auto GetStackSizeKiB() -> uint16_t {
