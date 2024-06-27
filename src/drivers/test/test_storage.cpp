@@ -33,7 +33,7 @@ TEST_CASE("sd card storage", "[integration]") {
 
   if (gpios->Get(IGpios::Pin::kSdCardDetect)) {
     // Skip if nothing is inserted.
-    INFO("no sd card detected; skipping storage tests");
+    SKIP("no sd card detected; skipping storage tests");
     return;
   }
 
@@ -67,7 +67,7 @@ TEST_CASE("sd card storage", "[integration]") {
         REQUIRE(dir != nullptr);
 
         bool found_test_file = false;
-        while (ent = readdir(dir)) {
+        while ((ent = readdir(dir))) {
           if (ent->d_name == kTestFilename) {
             found_test_file = true;
           }
