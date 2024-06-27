@@ -56,7 +56,6 @@ GLOBAL_BINDINGS = {
     end
   end),
   sd_card.mounted:bind(function(mounted)
-    print("reset ui stack")
     backstack.reset(main_menu:new())
   end),
 }
