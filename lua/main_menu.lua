@@ -31,12 +31,13 @@ return widgets.MenuScreen:new {
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
       margin_all = 2,
+      pad_bottom = 2,
       pad_column = 4,
       border_color = "#FFFFFF",
       border_width = 1,
     })
 
-    local play_pause = now_playing:Image { src = img.play }
+    local play_pause = now_playing:Image { src = img.play_small }
     local title = now_playing:Label {
       flex_grow = 1,
       h = lvgl.SIZE_CONTENT,
@@ -56,9 +57,9 @@ return widgets.MenuScreen:new {
     self.bindings = self.bindings + {
       playback.playing:bind(function(playing)
         if playing then
-          play_pause:set_src(img.play)
+          play_pause:set_src(img.play_small)
         else
-          play_pause:set_src(img.pause)
+          play_pause:set_src(img.pause_small)
         end
       end),
       playback.track:bind(function(track)
@@ -126,9 +127,9 @@ return widgets.MenuScreen:new {
       pad_top = 4,
     })
 
-    local queue_btn = bottom_bar:Button {}
-    queue_btn:Image { src = img.queue }
-    theme.set_style(queue_btn, "icon_enabled")
+    -- local queue_btn = bottom_bar:Button {}
+    -- queue_btn:Image { src = img.queue }
+    -- theme.set_style(queue_btn, "icon_enabled")
 
     local files_btn = bottom_bar:Button {}
     files_btn:onClicked(function()

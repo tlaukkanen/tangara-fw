@@ -1,8 +1,10 @@
 local lvgl = require("lvgl")
 
-return {
+local img = {
   play = lvgl.ImgData("//lua/img/play.png"),
+  play_small = lvgl.ImgData("//lua/img/playcirc.png"),
   pause = lvgl.ImgData("//lua/img/pause.png"),
+  pause_small = lvgl.ImgData("//lua/img/pausecirc.png"),
   next = lvgl.ImgData("//lua/img/next.png"),
   prev = lvgl.ImgData("//lua/img/prev.png"),
   shuffle = lvgl.ImgData("//lua/img/shuffle.png"),
@@ -11,3 +13,5 @@ return {
   files = lvgl.ImgData("//lua/img/files.png"),
   settings = lvgl.ImgData("//lua/img/settings.png"),
 }
+
+return img
