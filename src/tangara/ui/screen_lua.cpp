@@ -30,7 +30,10 @@ Lua::~Lua() {
 
 auto Lua::onShown() -> void {
   callMethod("onShown");
-  forEachBinding([&](lua::Binding* b) { b->active = true; });
+  forEachBinding([&](lua::Binding* b) {
+    b->active = true;
+    lua::Binding::apply(s_, -1);
+  });
 }
 
 auto Lua::onHidden() -> void {
