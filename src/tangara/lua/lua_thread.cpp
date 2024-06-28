@@ -11,6 +11,8 @@
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "lauxlib.h"
+#include "lua.h"
 #include "lua.hpp"
 
 #include "events/event_queue.hpp"
@@ -114,8 +116,10 @@ auto LuaThread::DumpStack() -> void {
       case LUA_TBOOLEAN:
         std::cout << "\t(" << lua_toboolean(state_, i) << ")";
         break;
+      case LUA_TUSERDATA:
+        std::cout << "\t(" << lua_tostring(state_, i) << ")";
+        break;
       case LUA_TNIL:
-        // Value is implied.
         break;
       case LUA_TTABLE:
         lua_pushnil(state_);
