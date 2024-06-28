@@ -90,26 +90,41 @@ return widgets.MenuScreen:new {
     -- a list of all available database indexes, but could also be the contents
     -- of the SD card root.
 
-    local list = lvgl.List(self.root, {
-      w = lvgl.PCT(100),
-      h = lvgl.PCT(100),
-      flex_grow = 1,
-    })
+    if require("sd_card").mounted:get() then
+      local list = lvgl.List(self.root, {
+        w = lvgl.PCT(100),
+        h = lvgl.PCT(100),
+        flex_grow = 1,
+      })
 
-    local indexes = database.indexes()
-    for _, idx in ipairs(indexes) do
-      local btn = list:add_btn(nil, tostring(idx))
-      btn:onClicked(function()
-        backstack.push(browser:new {
-          title = tostring(idx),
-          iterator = idx:iter(),
-        })
-      end)
-      btn:add_style(styles.list_item)
-      if not has_focus then
-        has_focus = true
-        btn:focus()
+      local indexes = database.indexes()
+      for _, idx in ipairs(indexes) do
+        local btn = list:add_btn(nil, tostring(idx))
+        btn:onClicked(function()
+          backstack.push(browser:new {
+            title = tostring(idx),
+            iterator = idx:iter(),
+          })
+        end)
+        btn:add_style(styles.list_item)
+        if not has_focus then
+          has_focus = true
+          btn:focus()
+        end
       end
+    else
+      local container = self.root:Object {
+        w = lvgl.PCT(100),
+        flex_grow = 1,
+      }
+      container:Label {
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT,
+        text_align = 2,
+        long_mode = 0,
+        margin_all = 4,
+        text = "SD Card is not inserted or could not be opened.",
+      }:center();
     end
 
     -- Finally, the bottom bar with icon buttons for other device features.

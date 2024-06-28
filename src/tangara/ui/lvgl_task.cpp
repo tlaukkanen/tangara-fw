@@ -55,7 +55,8 @@ auto UiTask::Main() -> void {
       current_screen_ = screen;
     }
 
-    if (input_ && current_screen_->group() != current_group) {
+    if (input_ && current_screen_ &&
+        current_screen_->group() != current_group) {
       current_group = current_screen_->group();
       input_->setGroup(current_group);
     }

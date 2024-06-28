@@ -75,6 +75,7 @@ void Running::react(const SdDetectChanged& ev) {
   }
 
   if (ev.has_sd_card && !sStorage) {
+    vTaskDelay(pdMS_TO_TICKS(500));
     mountStorage();
   }
 
