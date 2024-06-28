@@ -20,7 +20,7 @@ class Splash : public Screen {
   Splash();
   ~Splash();
 
-  auto canPop() -> bool override { return false; }
+  auto canPop() -> bool override { return true; }
 
  private:
   lv_obj_t* container_;

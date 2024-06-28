@@ -294,7 +294,7 @@ void UiState::react(const internal::InitDisplay& ev) {
   drivers::displays::InitialisationData init_data = drivers::displays::kST7735R;
 
   // HACK: correct the display size for our prototypes.
-  // nvs.DisplaySize({161, 130});
+  // ev.nvs.DisplaySize({161, 130});
 
   auto actual_size = ev.nvs.DisplaySize();
   init_data.width = actual_size.first.value_or(init_data.width);
@@ -307,12 +307,14 @@ void UiState::react(const internal::InitDisplay& ev) {
   sDisplay->SetDisplayOn(!ev.gpios.IsLocked());
 }
 
-void UiState::PushScreen(std::shared_ptr<Screen> screen) {
+void UiState::PushScreen(std::shared_ptr<Screen> screen, bool replace) {
   lv_obj_set_parent(sAlertContainer, screen->alert());
 
   if (sCurrentScreen) {
     sCurrentScreen->onHidden();
-    sScreens.push(sCurrentScreen);
+    if (!replace) {
+      sScreens.push(sCurrentScreen);
+    }
   }
   sCurrentScreen = screen;
   sCurrentScreen->onShown();
@@ -568,7 +570,7 @@ void Lua::entry() {
     registry.AddPropertyModule(
         "backstack",
         {
-            {"push", [&](lua_State* s) { return PushLuaScreen(s); }},
+            {"push", [&](lua_State* s) { return PushLuaScreen(s, false); }},
             {"pop", [&](lua_State* s) { return PopLuaScreen(s); }},
             {"reset", [&](lua_State* s) { return ResetLuaScreen(s); }},
         });
@@ -603,7 +605,6 @@ void Lua::entry() {
     sBluetoothConnected.setDirect(bt.IsConnected());
     sBluetoothDevices.setDirect(bt.KnownDevices());
 
-    sCurrentScreen.reset();
     if (sServices->sd() == drivers::SdState::kMounted) {
       sLua->RunScript("/sdcard/config.lua");
     }
@@ -611,7 +612,7 @@ void Lua::entry() {
   }
 }
 
-auto Lua::PushLuaScreen(lua_State* s) -> int {
+auto Lua::PushLuaScreen(lua_State* s, bool replace) -> int {
   // Ensure the arg looks right before continuing.
   luaL_checktype(s, 1, LUA_TTABLE);
 
@@ -641,7 +642,7 @@ auto Lua::PushLuaScreen(lua_State* s) -> int {
 
   // Finally, push the now-initialised screen as if it were a regular C++
   // screen.
-  PushScreen(new_screen);
+  PushScreen(new_screen, replace);
 
   return 0;
 }
@@ -662,12 +663,11 @@ auto Lua::ResetLuaScreen(lua_State* s) -> int {
       ESP_LOGW(kTag, "ignoring reset as popping is blocked");
       return 0;
     }
-    sCurrentScreen->onHidden();
   }
   while (!sScreens.empty()) {
     sScreens.pop();
   }
-  return PushLuaScreen(s);
+  return PushLuaScreen(s, true);
 }
 
 auto Lua::QueueNext(lua_State*) -> int {

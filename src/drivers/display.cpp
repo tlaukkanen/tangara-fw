@@ -213,6 +213,12 @@ auto Display::SetDutyCycle(uint_fast8_t new_duty, bool fade) -> void {
 }
 
 void Display::SendInitialisationSequence(const uint8_t* data) {
+  // Hold the SPI bus for the entire init sequence, as otherwise SD init may
+  // grab it and delay showing the boot splash. The total time until boot is
+  // finished may be increased by doing this, but a short boot with no feedback
+  // feels worse than a longer boot that doesn't tell you anything.
+  spi_device_acquire_bus(handle_, portMAX_DELAY);
+
   // First byte of the data is the number of commands.
   for (int i = *(data++); i > 0; i--) {
     uint8_t command = *(data++);
@@ -232,6 +238,8 @@ void Display::SendInitialisationSequence(const uint8_t* data) {
       vTaskDelay(pdMS_TO_TICKS(sleep_duration_ms));
     }
   }
+
+  spi_device_release_bus(handle_);
 }
 
 void Display::SendCommandWithData(uint8_t command,

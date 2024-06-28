@@ -83,7 +83,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   void react(const internal::ReindexDatabase&){};
 
  protected:
-  void PushScreen(std::shared_ptr<Screen>);
+  void PushScreen(std::shared_ptr<Screen>, bool);
   int PopScreen();
 
   static std::unique_ptr<UiTask> sTask;
@@ -159,7 +159,7 @@ class Lua : public UiState {
   using UiState::react;
 
  private:
-  auto PushLuaScreen(lua_State*) -> int;
+  auto PushLuaScreen(lua_State*, bool) -> int;
   auto PopLuaScreen(lua_State*) -> int;
   auto ResetLuaScreen(lua_State*) -> int;
 

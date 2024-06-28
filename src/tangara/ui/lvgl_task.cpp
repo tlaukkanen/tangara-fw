@@ -43,8 +43,8 @@ auto UiTask::Main() -> void {
   lv_group_t* current_group = nullptr;
   auto* events = events::queues::Ui();
   while (true) {
-    while (events->Service(0)) {
-    }
+    while (events->Service(0))
+      ;
 
     std::shared_ptr<Screen> screen = UiState::current_screen();
     if (screen != current_screen_ && screen != nullptr) {
