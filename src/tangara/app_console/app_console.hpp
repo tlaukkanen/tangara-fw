@@ -9,9 +9,9 @@
 #include <memory>
 
 #include "audio/track_queue.hpp"
-#include "drivers/bluetooth.hpp"
-#include "dev_console/console.hpp"
 #include "database/database.hpp"
+#include "dev_console/console.hpp"
+#include "drivers/bluetooth.hpp"
 #include "drivers/samd.hpp"
 #include "system_fsm/service_locator.hpp"
 
@@ -21,8 +21,10 @@ class AppConsole : public Console {
  public:
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
+  auto PrerunCallback() -> void override;
+
  protected:
-  virtual auto RegisterExtraComponents() -> void;
+  auto RegisterExtraComponents() -> void override;
 };
 
 }  // namespace console

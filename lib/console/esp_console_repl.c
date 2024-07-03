@@ -333,7 +333,7 @@ static esp_err_t esp_console_setup_prompt(const char *prompt, esp_console_repl_c
     if (prompt) {
         prompt_temp = prompt;
     }
-    snprintf(repl_com->prompt, CONSOLE_PROMPT_MAX_LEN - 1, LOG_COLOR_I "%s " LOG_RESET_COLOR, prompt_temp);
+    snprintf(repl_com->prompt, CONSOLE_PROMPT_MAX_LEN - 1, "%s ", prompt_temp);
 
     return ESP_OK;
 }

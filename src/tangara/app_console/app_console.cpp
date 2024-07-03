@@ -690,6 +690,11 @@ void RegisterLua() {
   esp_console_cmd_register(&cmd_luarun);
 }
 
+auto AppConsole::PrerunCallback() -> void {
+  Console::PrerunCallback();
+  esp_log_level_set("*", ESP_LOG_NONE);
+}
+
 auto AppConsole::RegisterExtraComponents() -> void {
   RegisterVersion();
   RegisterListDir();
