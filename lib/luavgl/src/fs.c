@@ -1,6 +1,17 @@
 #include "luavgl.h"
 #include "private.h"
 
+static char *luavgl_strchr(const char *s, char c)
+{
+  while (*s) {
+    if (c == *s) {
+      return (char *)s;
+    }
+    s++;
+  }
+  return NULL;
+}
+
 typedef struct luavgl_fs_s {
   lv_fs_file_t file;
   bool closed; /* userdata exists but lv_fs has been closed */

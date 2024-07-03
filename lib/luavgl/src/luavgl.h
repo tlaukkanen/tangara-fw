@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-typedef const lv_font_t *(*make_font_cb)(const char *);
+typedef void (*make_font_cb)(lua_State *L, const char *, int cb);
 typedef void (*delete_font_cb)(const lv_font_t *);
 typedef int (*luavgl_pcall_t)(lua_State *L, int nargs, int nresults);
 

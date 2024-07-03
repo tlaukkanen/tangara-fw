@@ -24,6 +24,7 @@
 #include "lua/lua_controls.hpp"
 #include "lua/lua_database.hpp"
 #include "lua/lua_filesystem.hpp"
+#include "lua/lua_font.hpp"
 #include "lua/lua_queue.hpp"
 #include "lua/lua_screen.hpp"
 #include "lua/lua_testing.hpp"
@@ -49,65 +50,6 @@ namespace lua {
 [[maybe_unused]] static constexpr char kTag[] = "lua_bridge";
 
 static constexpr char kBridgeKey[] = "bridge";
-
-static auto make_font_cb(const char* name) -> const lv_font_t* {
-  // Most Lua file paths start with "//" in order to deal with LVGL's Windows-y
-  // approach to paths. Try to handle such paths correctly so that paths in Lua
-  // code look a bit more consistent.
-  {
-    std::string name_str = name;
-    if (name_str.starts_with("//")) {
-      name++;
-    }
-  }
-
-  // This following is a bit C-brained. Sorry.
-
-  ESP_LOGI(kTag, "load font '%s'", name);
-  FILE* f = fopen(name, "r");
-  if (!f) {
-    return NULL;
-  }
-
-  uint8_t* data = NULL;
-  long len = 0;
-  lv_font_t* font = NULL;
-
-  if (fseek(f, 0, SEEK_END)) {
-    goto fail_with_file;
-  }
-
-  len = ftell(f);
-  if (len <= 0) {
-    goto fail_with_file;
-  }
-
-  if (fseek(f, 0, SEEK_SET)) {
-    goto fail_with_file;
-  }
-
-  data = reinterpret_cast<uint8_t*>(heap_caps_malloc(len, MALLOC_CAP_SPIRAM));
-  if (!data) {
-    goto fail_with_buffer;
-  }
-
-  if (fread(data, 1, len, f) < len) {
-    goto fail_with_buffer;
-  }
-
-  // We can finally start parsing the font!
-  font = lv_binfont_create_from_buffer(data, len);
-
-fail_with_buffer:
-  // LVGL copies the font data out of the buffer, so we don't need to big raw
-  // data alloc after this function returns.
-  heap_caps_free(data);
-
-fail_with_file:
-  fclose(f);
-
-  return font;
-}
 
 static auto delete_font_cb(const lv_font_t* font) -> void {
   // FIXME: luavgl never actually calls this?
@@ -146,7 +88,7 @@ auto Bridge::installBaseModules(lua_State* L) -> void {
 
 auto Bridge::installLvgl(lua_State* L) -> void {
   luavgl_set_pcall(L, CallProtected);
-  luavgl_set_font_extension(L, make_font_cb, delete_font_cb);
+  luavgl_set_font_extension(L, loadFont, delete_font_cb);
   luaL_requiref(L, "lvgl", luaopen_lvgl, true);
   lua_pop(L, 1);
 }
