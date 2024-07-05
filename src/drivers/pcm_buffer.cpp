@@ -44,14 +44,15 @@ auto PcmBuffer::send(std::span<const int16_t> data) -> void {
   sent_ += data.size();
 }
 
-IRAM_ATTR auto PcmBuffer::receive(std::span<int16_t> dest, bool isr)
+IRAM_ATTR auto PcmBuffer::receive(std::span<int16_t> dest, bool mix, bool isr)
     -> BaseType_t {
   size_t first_read = 0, second_read = 0;
   BaseType_t ret1 = false, ret2 = false;
-  std::tie(first_read, ret1) = readSingle(dest, isr);
+  std::tie(first_read, ret1) = readSingle(dest, mix, isr);
 
   if (first_read < dest.size()) {
-    std::tie(second_read, ret2) = readSingle(dest.subspan(first_read), isr);
+    std::tie(second_read, ret2) =
+        readSingle(dest.subspan(first_read), mix, isr);
   }
 
   size_t total_read = first_read + second_read;
@@ -86,7 +87,9 @@ auto PcmBuffer::totalReceived() -> uint32_t {
   return received_;
 }
 
-IRAM_ATTR auto PcmBuffer::readSingle(std::span<int16_t> dest, bool isr)
+IRAM_ATTR auto PcmBuffer::readSingle(std::span<int16_t> dest,
+                                     bool mix,
+                                     bool isr)
     -> std::pair<size_t, BaseType_t> {
   BaseType_t ret;
   size_t read_bytes = 0;
@@ -104,7 +107,18 @@ IRAM_ATTR auto PcmBuffer::readSingle(std::span<int16_t> dest, bool isr)
     return {read_samples, ret};
   }
 
-  std::memcpy(dest.data(), data, read_bytes);
+  if (mix) {
+    for (size_t i = 0; i < read_samples; i++) {
+      // Sum the two samples in a 32 bit field so that the addition is always
+      // safe.
+      int32_t sum = static_cast<int32_t>(dest[i]) +
+                    static_cast<int32_t>(reinterpret_cast<int16_t*>(data)[i]);
+      // Clip back into the range of a single sample.
+      dest[i] = std::clamp<int32_t>(sum, INT16_MIN, INT16_MAX);
+    }
+  } else {
+    std::memcpy(dest.data(), data, read_bytes);
+  }
 
   if (isr) {
     vRingbufferReturnItem(ringbuf_, data);

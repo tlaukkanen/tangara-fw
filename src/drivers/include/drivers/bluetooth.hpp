@@ -43,7 +43,7 @@ class Bluetooth {
   auto SetPreferredDevice(std::optional<bluetooth::MacAndName> dev) -> void;
   auto PreferredDevice() -> std::optional<bluetooth::MacAndName>;
 
-  auto SetSource(PcmBuffer*) -> void;
+  auto SetSources(PcmBuffer*, PcmBuffer*) -> void;
   auto SetVolumeFactor(float) -> void;
 
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
@@ -57,7 +57,7 @@ struct Disable : public tinyfsm::Event {};
 
 struct ConnectTimedOut : public tinyfsm::Event {};
 struct PreferredDeviceChanged : public tinyfsm::Event {};
-struct SourceChanged : public tinyfsm::Event {};
+struct SourcesChanged : public tinyfsm::Event {};
 struct DeviceDiscovered : public tinyfsm::Event {
   const Device& device;
 };
@@ -118,8 +118,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static auto discovery() -> bool;
   static auto discovery(bool) -> void;
 
-  static auto source() -> PcmBuffer*;
-  static auto source(PcmBuffer*) -> void;
+  static auto sources() -> std::pair<PcmBuffer*, PcmBuffer*>;
+  static auto sources(PcmBuffer*, PcmBuffer*) -> void;
 
   static auto event_handler(std::function<void(Event)>) -> void;
 
@@ -132,7 +132,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(const events::Disable& ev) = 0;
   virtual void react(const events::ConnectTimedOut& ev){};
   virtual void react(const events::PreferredDeviceChanged& ev){};
-  virtual void react(const events::SourceChanged& ev){};
+  virtual void react(const events::SourcesChanged& ev){};
 
   virtual void react(const events::DeviceDiscovered&);
 
@@ -152,7 +152,6 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static std::optional<bluetooth::MacAndName> sConnectingDevice_;
   static int sConnectAttemptsRemaining_;
 
-  static std::atomic<PcmBuffer*> sSource_;
   static std::function<void(Event)> sEventHandler_;
 
   auto connect(const bluetooth::MacAndName&) -> bool;
@@ -205,7 +204,7 @@ class Connected : public BluetoothState {
   void exit() override;
 
   void react(const events::PreferredDeviceChanged& ev) override;
-  void react(const events::SourceChanged& ev) override;
+  void react(const events::SourcesChanged& ev) override;
 
   void react(const events::Disable& ev) override;
   void react(events::internal::Gap ev) override;

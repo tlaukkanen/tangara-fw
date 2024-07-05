@@ -35,8 +35,13 @@ class PcmBuffer {
    * Fills the given span with samples. If enough samples are available in
    * the buffer, then the span will be filled with samples from the buffer. Any
    * shortfall is made up by padding the given span with zeroes.
+   *
+   * If `mix` is set to true then, instead of overwriting the destination span,
+   * the retrieved samples will be mixed into any existing samples contained
+   * within the destination. This mixing uses a naive sum approach, and so may
+   * introduce clipping.
    */
-  auto receive(std::span<int16_t>, bool isr) -> BaseType_t;
+  auto receive(std::span<int16_t>, bool mix, bool isr) -> BaseType_t;
 
   auto clear() -> void;
   auto isEmpty() -> bool;
@@ -58,7 +63,7 @@ class PcmBuffer {
   PcmBuffer& operator=(const PcmBuffer&) = delete;
 
  private:
-  auto readSingle(std::span<int16_t>, bool isr)
+  auto readSingle(std::span<int16_t>, bool mix, bool isr)
       -> std::pair<size_t, BaseType_t>;
 
   StaticRingbuffer_t meta_;
