@@ -74,4 +74,16 @@ class PcmBuffer {
   RingbufHandle_t ringbuf_;
 };
 
+/*
+ * Convenience type for a pair of PcmBuffers. Each audio output handles mixing
+ * streams together to ensure that low-latency sounds in one channel (e.g. a
+ * system notification bleep) aren't delayed by a large audio buffer in the
+ * other channel (e.g. a long-running track).
+ *
+ * By convention, the first buffer of this pair is used for tracks, whilst the
+ * second is reserved for 'system sounds'; usually TTS, but potentially maybe
+ * other informative noises.
+ */
+using OutputBuffers = std::pair<PcmBuffer, PcmBuffer>;
+
 }  // namespace drivers

@@ -37,8 +37,7 @@ namespace drivers {
 
 [[maybe_unused]] static constexpr char kTag[] = "bluetooth";
 
-DRAM_ATTR static PcmBuffer* sStream1 = nullptr;
-DRAM_ATTR static PcmBuffer* sStream2 = nullptr;
+DRAM_ATTR static OutputBuffers* sStreams = nullptr;
 DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
 
 static tasks::WorkerPool* sBgWorker;
@@ -97,15 +96,16 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   if (buf == nullptr || buf_size <= 0) {
     return 0;
   }
-  PcmBuffer* stream1 = sStream1;
-  PcmBuffer* stream2 = sStream2;
-  if (stream1 == nullptr || stream2 == nullptr) {
+  OutputBuffers* streams = sStreams;
+  if (streams == nullptr) {
     return 0;
   }
 
   int16_t* samples = reinterpret_cast<int16_t*>(buf);
-  stream1->receive({samples, static_cast<size_t>(buf_size / 2)}, false, false);
-  stream2->receive({samples, static_cast<size_t>(buf_size / 2)}, true, false);
+  streams->first.receive({samples, static_cast<size_t>(buf_size / 2)}, false,
+                         false);
+  streams->second.receive({samples, static_cast<size_t>(buf_size / 2)}, true,
+                          false);
 
   // Apply software volume scaling.
   float factor = sVolumeFactor.load();
@@ -184,14 +184,13 @@ auto Bluetooth::PreferredDevice() -> std::optional<bluetooth::MacAndName> {
   return bluetooth::BluetoothState::preferred_device();
 }
 
-auto Bluetooth::SetSources(PcmBuffer* src1, PcmBuffer* src2) -> void {
+auto Bluetooth::SetSources(OutputBuffers* src) -> void {
   auto lock = bluetooth::BluetoothState::lock();
-  PcmBuffer *cur1, *cur2;
-  std::tie(cur1, cur2) = bluetooth::BluetoothState::sources();
-  if (src1 == cur1 && src2 == cur2) {
+  OutputBuffers* cur = bluetooth::BluetoothState::sources();
+  if (src == cur) {
     return;
   }
-  bluetooth::BluetoothState::sources(src1, src2);
+  bluetooth::BluetoothState::sources(src);
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::SourcesChanged{});
 }
@@ -381,13 +380,12 @@ auto BluetoothState::preferred_device(std::optional<MacAndName> addr) -> void {
   sPreferredDevice_ = addr;
 }
 
-auto BluetoothState::sources() -> std::pair<PcmBuffer*, PcmBuffer*> {
-  return {sStream1, sStream2};
+auto BluetoothState::sources() -> OutputBuffers* {
+  return sStreams;
 }
 
-auto BluetoothState::sources(PcmBuffer* src1, PcmBuffer* src2) -> void {
-  sStream1 = src1;
-  sStream2 = src2;
+auto BluetoothState::sources(OutputBuffers* src) -> void {
+  sStreams = src;
 }
 
 auto BluetoothState::event_handler(std::function<void(Event)> cb) -> void {
@@ -715,7 +713,6 @@ void Connected::entry() {
                        sPreferredDevice_->mac != stored_pref->mac)) {
     sStorage_->PreferredBluetoothDevice(sPreferredDevice_);
   }
-  // TODO: if we already have a source, immediately start playing
 }
 
 void Connected::exit() {
@@ -733,7 +730,7 @@ void Connected::react(const events::PreferredDeviceChanged& ev) {
 }
 
 void Connected::react(const events::SourcesChanged& ev) {
-  if (sStream1 != nullptr && sStream2 != nullptr) {
+  if (sStreams != nullptr) {
     ESP_LOGI(kTag, "checking source is ready");
     esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY);
   } else {

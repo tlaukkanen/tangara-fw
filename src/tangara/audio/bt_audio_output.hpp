@@ -25,7 +25,7 @@ namespace audio {
 class BluetoothAudioOutput : public IAudioOutput {
  public:
   BluetoothAudioOutput(drivers::Bluetooth& bt,
-                       drivers::PcmBuffer& buf,
+                       drivers::OutputBuffers& bufs,
                        tasks::WorkerPool&);
   ~BluetoothAudioOutput();
 
@@ -54,7 +54,7 @@ class BluetoothAudioOutput : public IAudioOutput {
 
  private:
   drivers::Bluetooth& bluetooth_;
-  drivers::PcmBuffer& buffer_;
+  drivers::OutputBuffers& buffers_;
   tasks::WorkerPool& bg_worker_;
 
   uint16_t volume_;

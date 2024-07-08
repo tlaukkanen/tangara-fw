@@ -43,7 +43,7 @@ class Bluetooth {
   auto SetPreferredDevice(std::optional<bluetooth::MacAndName> dev) -> void;
   auto PreferredDevice() -> std::optional<bluetooth::MacAndName>;
 
-  auto SetSources(PcmBuffer*, PcmBuffer*) -> void;
+  auto SetSources(OutputBuffers*) -> void;
   auto SetVolumeFactor(float) -> void;
 
   auto SetEventHandler(std::function<void(bluetooth::Event)> cb) -> void;
@@ -118,8 +118,8 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   static auto discovery() -> bool;
   static auto discovery(bool) -> void;
 
-  static auto sources() -> std::pair<PcmBuffer*, PcmBuffer*>;
-  static auto sources(PcmBuffer*, PcmBuffer*) -> void;
+  static auto sources() -> OutputBuffers*;
+  static auto sources(OutputBuffers*) -> void;
 
   static auto event_handler(std::function<void(Event)>) -> void;
 

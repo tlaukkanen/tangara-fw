@@ -81,7 +81,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<BluetoothAudioOutput> sBtOutput;
   static std::shared_ptr<IAudioOutput> sOutput;
 
-  static std::unique_ptr<drivers::PcmBuffer> sDrainBuffer;
+  static std::unique_ptr<drivers::OutputBuffers> sDrainBuffers;
 
   static StreamCues sStreamCues;
   static std::optional<IAudioOutput::Format> sDrainFormat;

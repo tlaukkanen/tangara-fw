@@ -21,7 +21,7 @@ namespace audio {
 
 class I2SAudioOutput : public IAudioOutput {
  public:
-  I2SAudioOutput(drivers::IGpios&, drivers::PcmBuffer&);
+  I2SAudioOutput(drivers::IGpios&, drivers::OutputBuffers&);
 
   auto SetMaxVolume(uint16_t) -> void;
   auto SetVolumeDb(uint16_t) -> void;
@@ -51,7 +51,7 @@ class I2SAudioOutput : public IAudioOutput {
 
  private:
   drivers::IGpios& expander_;
-  drivers::PcmBuffer& buffer_;
+  drivers::OutputBuffers& buffers_;
 
   std::unique_ptr<drivers::I2SDac> dac_;
 

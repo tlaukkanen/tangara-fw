@@ -59,10 +59,16 @@ std::shared_ptr<IAudioOutput> AudioState::sOutput;
 std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 
-// Two seconds of samples for two channels, at a representative sample rate.
-constexpr size_t kDrainLatencySamples = 48000 * 2 * 2;
+// For tracks, keep about two seconds' worth of samples at 2ch 48kHz. This
+// is more headroom than we need for small playback, but it doesn't hurt to
+// keep some PSRAM in our pockets for a rainy day.
+constexpr size_t kTrackDrainLatencySamples = 48000 * 2 * 2;
 
-std::unique_ptr<drivers::PcmBuffer> AudioState::sDrainBuffer;
+// For system sounds, we intentionally choose codecs that are very fast to
+// decode. This lets us get away with a much smaller drain buffer.
+constexpr size_t kSystemDrainLatencySamples = 48000;
+
+std::unique_ptr<drivers::OutputBuffers> AudioState::sDrainBuffers;
 std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 
 StreamCues AudioState::sStreamCues;
@@ -237,11 +243,11 @@ void AudioState::react(const system_fsm::BluetoothEvent& ev) {
         break;
     }
   }
-  if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(ev.event)) {
-    auto volume_chg = std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol;
-        events::Ui().Dispatch(RemoteVolumeChanged{
-          .value = volume_chg
-        });
+  if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(
+          ev.event)) {
+    auto volume_chg =
+        std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol;
+    events::Ui().Dispatch(RemoteVolumeChanged{.value = volume_chg});
   }
 }
 
@@ -354,12 +360,13 @@ namespace states {
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
-  sDrainBuffer = std::make_unique<drivers::PcmBuffer>(kDrainLatencySamples);
+  sDrainBuffers = std::make_unique<drivers::OutputBuffers>(
+      kTrackDrainLatencySamples, kSystemDrainLatencySamples);
 
   sStreamFactory.reset(new FatfsStreamFactory(*sServices));
-  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffer));
+  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffers));
   sBtOutput.reset(new BluetoothAudioOutput(
-      sServices->bluetooth(), *sDrainBuffer, sServices->bg_worker()));
+      sServices->bluetooth(), *sDrainBuffers, sServices->bg_worker()));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
@@ -390,7 +397,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       .left_bias = nvs.AmpLeftBias(),
   });
 
-  sSampleProcessor.reset(new SampleProcessor(*sDrainBuffer));
+  sSampleProcessor.reset(new SampleProcessor(sDrainBuffers->first));
   sSampleProcessor->SetOutput(sOutput);
 
   sDecoder.reset(Decoder::Start(sSampleProcessor));
@@ -507,7 +514,7 @@ void Playback::react(const system_fsm::SdStateChanged& ev) {
 }
 
 void Playback::react(const internal::StreamHeartbeat& ev) {
-  sStreamCues.update(sDrainBuffer->totalReceived());
+  sStreamCues.update(sDrainBuffers->first.totalReceived());
 
   if (sStreamCues.hasStream()) {
     emitPlaybackUpdate(false);

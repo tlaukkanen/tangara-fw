@@ -33,11 +33,11 @@ namespace audio {
 static constexpr uint16_t kVolumeRange = 60;
 
 BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth& bt,
-                                           drivers::PcmBuffer& buffer,
+                                           drivers::OutputBuffers& bufs,
                                            tasks::WorkerPool& p)
     : IAudioOutput(),
       bluetooth_(bt),
-      buffer_(buffer),
+      buffers_(bufs),
       bg_worker_(p),
       volume_() {}
 
@@ -45,9 +45,9 @@ BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
 auto BluetoothAudioOutput::changeMode(Modes mode) -> void {
   if (mode == Modes::kOnPlaying) {
-    bluetooth_.SetSource(&buffer_);
+    bluetooth_.SetSources(&buffers_);
   } else {
-    bluetooth_.SetSource(nullptr);
+    bluetooth_.SetSources(nullptr);
   }
 }
 

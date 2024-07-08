@@ -42,10 +42,10 @@ static constexpr uint16_t kLineLevelVolume = 0x13d;
 static constexpr uint16_t kDefaultVolume = 0x100;
 
 I2SAudioOutput::I2SAudioOutput(drivers::IGpios& expander,
-                               drivers::PcmBuffer& buffer)
+                               drivers::OutputBuffers& buffers)
     : IAudioOutput(),
       expander_(expander),
-      buffer_(buffer),
+      buffers_(buffers),
       dac_(),
       current_mode_(Modes::kOff),
       current_config_(),
@@ -72,7 +72,7 @@ auto I2SAudioOutput::changeMode(Modes mode) -> void {
   if (was_off) {
     // Ensure an I2SDac instance actually exists.
     if (!dac_) {
-      auto instance = drivers::I2SDac::create(expander_, buffer_);
+      auto instance = drivers::I2SDac::create(expander_, buffers_);
       if (!instance) {
         return;
       }
