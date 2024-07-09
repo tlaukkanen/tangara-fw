@@ -6,23 +6,21 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <cstddef>
 #include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
 
-#include "database/database.hpp"
-#include "database/track.hpp"
 #include "ff.h"
 #include "freertos/portmacro.h"
 
 #include "audio/audio_source.hpp"
 #include "codec.hpp"
+#include "database/database.hpp"
 #include "database/future_fetcher.hpp"
 #include "database/tag_parser.hpp"
-#include "system_fsm/service_locator.hpp"
+#include "database/track.hpp"
 #include "tasks.hpp"
 #include "types.hpp"
 
@@ -33,7 +31,7 @@ namespace audio {
  */
 class FatfsStreamFactory {
  public:
-  explicit FatfsStreamFactory(system_fsm::ServiceLocator&);
+  explicit FatfsStreamFactory(database::Handle&&, database::ITagParser&);
 
   auto create(database::TrackId, uint32_t offset = 0)
       -> std::shared_ptr<TaggedStream>;
@@ -47,7 +45,8 @@ class FatfsStreamFactory {
   auto ContainerToStreamType(database::Container)
       -> std::optional<codecs::StreamType>;
 
-  system_fsm::ServiceLocator& services_;
+  database::Handle db_;
+  database::ITagParser& tag_parser_;
 };
 
 }  // namespace audio

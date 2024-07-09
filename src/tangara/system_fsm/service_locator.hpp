@@ -92,7 +92,7 @@ class ServiceLocator {
 
   auto haptics(std::unique_ptr<drivers::Haptics> i) { haptics_ = std::move(i); }
 
-  auto database() -> std::weak_ptr<database::Database> { return database_; }
+  auto database() -> database::Handle { return database_; }
 
   auto database(std::unique_ptr<database::Database> i) {
     database_ = std::move(i);

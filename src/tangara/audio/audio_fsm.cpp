@@ -363,7 +363,8 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sDrainBuffers = std::make_unique<drivers::OutputBuffers>(
       kTrackDrainLatencySamples, kSystemDrainLatencySamples);
 
-  sStreamFactory.reset(new FatfsStreamFactory(*sServices));
+  sStreamFactory.reset(
+      new FatfsStreamFactory(sServices->database(), sServices->tag_parser()));
   sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffers));
   sBtOutput.reset(new BluetoothAudioOutput(
       sServices->bluetooth(), *sDrainBuffers, sServices->bg_worker()));

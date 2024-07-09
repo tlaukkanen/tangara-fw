@@ -10,7 +10,6 @@
 #include <memory>
 #include <string>
 
-#include "database/database.hpp"
 #include "esp_log.h"
 #include "ff.h"
 #include "freertos/portmacro.h"
@@ -19,10 +18,10 @@
 #include "audio/audio_source.hpp"
 #include "audio/fatfs_source.hpp"
 #include "codec.hpp"
+#include "database/database.hpp"
 #include "database/tag_parser.hpp"
 #include "database/track.hpp"
 #include "drivers/spi.hpp"
-#include "system_fsm/service_locator.hpp"
 #include "tasks.hpp"
 #include "types.hpp"
 
@@ -30,12 +29,13 @@
 
 namespace audio {
 
-FatfsStreamFactory::FatfsStreamFactory(system_fsm::ServiceLocator& services)
-    : services_(services) {}
+FatfsStreamFactory::FatfsStreamFactory(database::Handle&& handle,
+                                       database::ITagParser& parser)
+    : db_(handle), tag_parser_(parser) {}
 
 auto FatfsStreamFactory::create(database::TrackId id, uint32_t offset)
     -> std::shared_ptr<TaggedStream> {
-  auto db = services_.database().lock();
+  auto db = db_.lock();
   if (!db) {
     return {};
   }
@@ -48,7 +48,7 @@ auto FatfsStreamFactory::create(database::TrackId id, uint32_t offset)
 
 auto FatfsStreamFactory::create(std::string path, uint32_t offset)
     -> std::shared_ptr<TaggedStream> {
-  auto tags = services_.tag_parser().ReadAndParseTags(path);
+  auto tags = tag_parser_.ReadAndParseTags(path);
   if (!tags) {
     ESP_LOGE(kTag, "failed to read tags");
     return {};
