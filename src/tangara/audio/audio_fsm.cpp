@@ -237,11 +237,11 @@ void AudioState::react(const system_fsm::BluetoothEvent& ev) {
         break;
     }
   }
-  if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(ev.event)) {
-    auto volume_chg = std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol;
-        events::Ui().Dispatch(RemoteVolumeChanged{
-          .value = volume_chg
-        });
+  if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(
+          ev.event)) {
+    auto volume_chg =
+        std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol;
+    events::Ui().Dispatch(RemoteVolumeChanged{.value = volume_chg});
   }
 }
 
@@ -356,7 +356,8 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
 
   sDrainBuffer = std::make_unique<drivers::PcmBuffer>(kDrainLatencySamples);
 
-  sStreamFactory.reset(new FatfsStreamFactory(*sServices));
+  sStreamFactory.reset(
+      new FatfsStreamFactory(sServices->database(), sServices->tag_parser()));
   sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffer));
   sBtOutput.reset(new BluetoothAudioOutput(
       sServices->bluetooth(), *sDrainBuffer, sServices->bg_worker()));

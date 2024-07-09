@@ -684,6 +684,12 @@ auto Database::countRecords(const SearchKey& c) -> size_t {
   return count;
 }
 
+Handle::Handle(std::shared_ptr<Database>& db) : db_(db) {}
+
+auto Handle::lock() -> std::shared_ptr<Database> {
+  return db_;
+}
+
 auto SearchKey::startKey() const -> std::string_view {
   if (key) {
     return *key;

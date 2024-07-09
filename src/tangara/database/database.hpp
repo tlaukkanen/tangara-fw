@@ -128,6 +128,16 @@ class Database {
   auto countRecords(const SearchKey& c) -> size_t;
 };
 
+class Handle {
+ public:
+  Handle(std::shared_ptr<Database>& db);
+
+  auto lock() -> std::shared_ptr<Database>;
+
+ private:
+  std::shared_ptr<Database>& db_;
+};
+
 /*
  * Container for the data needed to iterate through database records. This is a
  * lower-level type that the higher-level iterators are built from; most users
