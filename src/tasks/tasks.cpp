@@ -83,11 +83,11 @@ auto Priority() -> UBaseType_t;
 // highest priority.
 template <>
 auto Priority<Type::kAudioDecoder>() -> UBaseType_t {
-  return configMAX_PRIORITIES - 1;
+  return 15;
 }
 template <>
 auto Priority<Type::kAudioConverter>() -> UBaseType_t {
-  return configMAX_PRIORITIES - 1;
+  return 15;
 }
 // After audio issues, UI jank is the most noticeable kind of scheduling-induced
 // slowness that the user is likely to notice or care about. Therefore we place
