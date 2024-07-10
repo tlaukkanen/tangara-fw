@@ -13,6 +13,7 @@
 #include <string>
 
 #include "esp_console.h"
+#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp_system.h"
 
@@ -66,12 +67,34 @@ void RegisterLogLevel() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdInterrupts(int argc, char** argv) {
+  static const std::pmr::string usage = "usage: intr";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+  esp_intr_dump(NULL);
+  return 0;
+}
+
+void RegisterInterrupts() {
+  esp_console_cmd_t cmd{.command = "intr",
+                        .help = "Dumps a table of all allocated interrupts",
+                        .hint = NULL,
+                        .func = &CmdInterrupts,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+  cmd.command = "interrupts";
+  esp_console_cmd_register(&cmd);
+}
+
 Console::Console() {}
 Console::~Console() {}
 
 auto Console::RegisterCommonComponents() -> void {
   esp_console_register_help_command();
   RegisterLogLevel();
+  RegisterInterrupts();
 }
 
 static Console* sInstance;
