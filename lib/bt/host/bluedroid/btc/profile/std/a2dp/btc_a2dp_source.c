@@ -97,8 +97,8 @@ enum {
 #define BTC_A2DP_NON_EDR_MAX_RATE              229
 #endif
 
-/* Middle quality quality setting @ 44.1 khz */
-#define DEFAULT_SBC_BITRATE                    328
+/* Extreme quality quality setting @ 48 khz */
+#define DEFAULT_SBC_BITRATE                    672
 
 /*
  * CONGESTION COMPENSATION CTRL ::
