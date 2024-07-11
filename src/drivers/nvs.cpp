@@ -26,6 +26,7 @@ static constexpr uint8_t kSchemaVersion = 1;
 static constexpr char kKeyVersion[] = "ver";
 static constexpr char kKeyBluetoothPreferred[] = "bt_dev";
 static constexpr char kKeyBluetoothVolumes[] = "bt_vols";
+static constexpr char kKeyBluetoothNames[] = "bt_names";
 static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
@@ -130,6 +131,44 @@ auto Setting<bluetooth::MacAndName>::store(nvs_handle_t nvs,
 }
 
 template <>
+auto Setting<std::vector<bluetooth::MacAndName>>::load(nvs_handle_t nvs)
+    -> std::optional<std::vector<bluetooth::MacAndName>> {
+  auto raw = nvs_get_string(nvs, name_);
+  if (!raw) {
+    return {};
+  }
+  auto [parsed, unused, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(raw->data()), raw->size());
+  if (parsed->type() != cppbor::MAP) {
+    return {};
+  }
+  std::vector<bluetooth::MacAndName> res;
+  for (const auto& i : *parsed->asMap()) {
+    auto mac = i.first->asViewBstr()->view();
+    auto name = i.second->asViewTstr()->view();
+    bluetooth::MacAndName entry{
+        .mac = {},
+        .name = {name.begin(), name.end()},
+    };
+    std::copy(mac.begin(), mac.end(), entry.mac.begin());
+    res.push_back(entry);
+  }
+  return res;
+}
+
+template <>
+auto Setting<std::vector<bluetooth::MacAndName>>::store(
+    nvs_handle_t nvs,
+    std::vector<bluetooth::MacAndName> v) -> void {
+  cppbor::Map cbor{};
+  for (const auto& i : v) {
+    cbor.add(cppbor::Bstr{{i.mac.data(), i.mac.size()}}, cppbor::Tstr{i.name});
+  }
+  auto encoded = cbor.encode();
+  nvs_set_blob(nvs, name_, encoded.data(), encoded.size());
+}
+
+template <>
 auto Setting<NvsStorage::LraData>::load(nvs_handle_t nvs)
     -> std::optional<NvsStorage::LraData> {
   auto raw = nvs_get_string(nvs, name_);
@@ -208,6 +247,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
       input_mode_(kKeyPrimaryInput),
       output_mode_(kKeyOutput),
       bt_preferred_(kKeyBluetoothPreferred),
+      bt_names_(kKeyBluetoothNames),
       db_auto_index_(kKeyDbAutoIndex),
       bt_volumes_(),
       bt_volumes_dirty_(false) {}
@@ -232,6 +272,7 @@ auto NvsStorage::Read() -> void {
   input_mode_.read(handle_);
   output_mode_.read(handle_);
   bt_preferred_.read(handle_);
+  bt_names_.read(handle_);
   db_auto_index_.read(handle_);
   readBtVolumes();
 }
@@ -251,6 +292,7 @@ auto NvsStorage::Write() -> bool {
   input_mode_.write(handle_);
   output_mode_.write(handle_);
   bt_preferred_.write(handle_);
+  bt_names_.write(handle_);
   db_auto_index_.write(handle_);
   writeBtVolumes();
   return nvs_commit(handle_) == ESP_OK;
@@ -339,6 +381,47 @@ auto NvsStorage::BluetoothVolume(const bluetooth::mac_addr_t& mac, uint8_t vol)
   std::lock_guard<std::mutex> lock{mutex_};
   bt_volumes_dirty_ = true;
   bt_volumes_.Put(mac, vol);
+}
+
+auto NvsStorage::BluetoothNames() -> std::vector<bluetooth::MacAndName> {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return bt_names_.get().value_or(std::vector<bluetooth::MacAndName>{});
+}
+
+auto NvsStorage::BluetoothName(const bluetooth::mac_addr_t& mac,
+                               std::optional<std::string> name) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  auto& val = bt_names_.get();
+  if (!val) {
+    val.emplace();
+  }
+
+  bool mut = false;
+  bool found = false;
+  for (auto it = val->begin(); it != val->end(); it++) {
+    if (it->mac == mac) {
+      if (name) {
+        it->name = *name;
+      } else {
+        val->erase(it);
+      }
+      found = true;
+      mut = true;
+      break;
+    }
+  }
+
+  if (!found && name) {
+    val->push_back(bluetooth::MacAndName{
+        .mac = mac,
+        .name = *name,
+    });
+    mut = true;
+  }
+
+  if (mut) {
+    bt_names_.set(*val);
+  }
 }
 
 auto NvsStorage::OutputMode() -> Output {

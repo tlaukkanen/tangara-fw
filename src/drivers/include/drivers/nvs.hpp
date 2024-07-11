@@ -96,6 +96,10 @@ class NvsStorage {
   auto BluetoothVolume(const bluetooth::mac_addr_t&) -> uint8_t;
   auto BluetoothVolume(const bluetooth::mac_addr_t&, uint8_t) -> void;
 
+  auto BluetoothNames() -> std::vector<bluetooth::MacAndName>;
+  auto BluetoothName(const bluetooth::mac_addr_t&, std::optional<std::string>)
+      -> void;
+
   enum class Output : uint8_t {
     kHeadphones = 0,
     kBluetooth = 1,
@@ -154,7 +158,10 @@ class NvsStorage {
   Setting<int8_t> amp_left_bias_;
   Setting<uint8_t> input_mode_;
   Setting<uint8_t> output_mode_;
+
   Setting<bluetooth::MacAndName> bt_preferred_;
+  Setting<std::vector<bluetooth::MacAndName>> bt_names_;
+
   Setting<uint8_t> db_auto_index_;
 
   util::LruCache<10, bluetooth::mac_addr_t, uint8_t> bt_volumes_;

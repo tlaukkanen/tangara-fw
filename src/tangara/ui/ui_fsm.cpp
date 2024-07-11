@@ -7,11 +7,13 @@
 #include "ui/ui_fsm.hpp"
 #include <stdint.h>
 
+#include <algorithm>
 #include <memory>
 #include <memory_resource>
 #include <variant>
 
 #include "FreeRTOSConfig.h"
+#include "drivers/bluetooth.hpp"
 #include "lvgl.h"
 
 #include "core/lv_group.h"
@@ -100,32 +102,57 @@ lua::Property UiState::sBluetoothEnabled{
       if (!std::holds_alternative<bool>(val)) {
         return false;
       }
+      // Note we always write the OutputMode NVS change before actually
+      // modifying the peripheral. We do this because ESP-IDF's Bluetooth stack
+      // breaks in surprising ways when repeatedly initialised/uninitialised.
       if (std::get<bool>(val)) {
         sServices->nvs().OutputMode(drivers::NvsStorage::Output::kBluetooth);
-        sServices->bluetooth().Enable();
+        sServices->bluetooth().enable(true);
       } else {
         sServices->nvs().OutputMode(drivers::NvsStorage::Output::kHeadphones);
-        sServices->bluetooth().Disable();
+        sServices->bluetooth().enable(false);
       }
       events::Audio().Dispatch(audio::OutputModeChanged{});
       return true;
     }};
 
+lua::Property UiState::sBluetoothConnecting{false};
 lua::Property UiState::sBluetoothConnected{false};
+
+lua::Property UiState::sBluetoothDiscovering{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      // Note we always write the OutputMode NVS change before actually
+      // modifying the peripheral. We do this because ESP-IDF's Bluetooth stack
+      // breaks in surprising ways when repeatedly initialised/uninitialised.
+      if (std::get<bool>(val)) {
+        sServices->bluetooth().discoveryEnabled(true);
+      } else {
+        sServices->bluetooth().discoveryEnabled(false);
+      }
+      return true;
+    }};
+
 lua::Property UiState::sBluetoothPairedDevice{
     std::monostate{}, [](const lua::LuaValue& val) {
-      if (std::holds_alternative<drivers::bluetooth::Device>(val)) {
-        auto dev = std::get<drivers::bluetooth::Device>(val);
-        sServices->bluetooth().SetPreferredDevice(
-            drivers::bluetooth::MacAndName{
-                .mac = dev.address,
-                .name = {dev.name.data(), dev.name.size()},
-            });
+      if (std::holds_alternative<drivers::bluetooth::MacAndName>(val)) {
+        auto dev = std::get<drivers::bluetooth::MacAndName>(val);
+        sServices->bluetooth().pairedDevice(dev);
+      } else if (std::holds_alternative<std::monostate>(val)) {
+        sServices->bluetooth().pairedDevice({});
+      } else {
+        // Don't accept any other types.
+        return false;
       }
-      return false;
+      return true;
     }};
-lua::Property UiState::sBluetoothDevices{
-    std::vector<drivers::bluetooth::Device>{}};
+
+lua::Property UiState::sBluetoothKnownDevices{
+    std::vector<drivers::bluetooth::MacAndName>{}};
+lua::Property UiState::sBluetoothDiscoveredDevices{
+    std::vector<drivers::bluetooth::MacAndName>{}};
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
@@ -412,8 +439,13 @@ void UiState::react(const audio::VolumeLimitChanged& ev) {
 
 void UiState::react(const system_fsm::BluetoothEvent& ev) {
   using drivers::bluetooth::SimpleEvent;
+  using ConnectionState = drivers::Bluetooth::ConnectionState;
+  ConnectionState state;
   auto bt = sServices->bluetooth();
-  auto dev = bt.ConnectedDevice();
+
+  std::optional<drivers::bluetooth::MacAndName> dev;
+  std::vector<drivers::bluetooth::MacAndName> devs;
+
   if (std::holds_alternative<SimpleEvent>(ev.event)) {
     switch (std::get<SimpleEvent>(ev.event)) {
       case SimpleEvent::kPlayPause:
@@ -438,30 +470,36 @@ void UiState::react(const system_fsm::BluetoothEvent& ev) {
         break;
       case SimpleEvent::kFastForward:
         break;
-      case SimpleEvent::kKnownDevicesChanged:
-        sBluetoothDevices.setDirect(bt.KnownDevices());
-        break;
       case SimpleEvent::kConnectionStateChanged:
-        sBluetoothConnected.setDirect(bt.IsConnected());
+        state = bt.connectionState();
+        sBluetoothConnected.setDirect(state == ConnectionState::kConnected);
+        sBluetoothConnecting.setDirect(state == ConnectionState::kConnecting);
+        break;
+      case SimpleEvent::kPairedDeviceChanged:
+        dev = bt.pairedDevice();
         if (dev) {
-          sBluetoothPairedDevice.setDirect(drivers::bluetooth::Device{
-              .address = dev->mac,
-              .name = {dev->name.data(), dev->name.size()},
-              .class_of_device = 0,
-              .signal_strength = 0,
-          });
+          sBluetoothPairedDevice.setDirect(*dev);
         } else {
           sBluetoothPairedDevice.setDirect(std::monostate{});
         }
         break;
-      case SimpleEvent::kPreferredDeviceChanged:
+      case SimpleEvent::kKnownDevicesChanged:
+        sBluetoothKnownDevices.setDirect(bt.knownDevices());
+        break;
+      case SimpleEvent::kDiscoveryChanged:
+        sBluetoothDiscovering.setDirect(bt.discoveryEnabled());
+        // Dump the old list of discovered devices when discovery is toggled.
+        sBluetoothDiscoveredDevices.setDirect(bt.discoveredDevices());
+        break;
+      case SimpleEvent::kDeviceDiscovered:
+        sBluetoothDiscoveredDevices.setDirect(bt.discoveredDevices());
         break;
       default:
         break;
     }
   } else if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(
                  ev.event)) {
-    // Todo: Do something with this (ie, bt volume alert)
+    // TODO: Do something with this (ie, bt volume alert)
     ESP_LOGI(
         kTag, "Recieved volume changed event with new volume: %d",
         std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol);
@@ -517,13 +555,16 @@ void Lua::entry() {
                                             {"battery_millivolts", &sBatteryMv},
                                             {"plugged_in", &sBatteryCharging},
                                         });
-    registry.AddPropertyModule("bluetooth",
-                               {
-                                   {"enabled", &sBluetoothEnabled},
-                                   {"connected", &sBluetoothConnected},
-                                   {"paired_device", &sBluetoothPairedDevice},
-                                   {"devices", &sBluetoothDevices},
-                               });
+    registry.AddPropertyModule(
+        "bluetooth", {
+                         {"enabled", &sBluetoothEnabled},
+                         {"connected", &sBluetoothConnected},
+                         {"connecting", &sBluetoothConnecting},
+                         {"discovering", &sBluetoothDiscovering},
+                         {"paired_device", &sBluetoothPairedDevice},
+                         {"discovered_devices", &sBluetoothDiscoveredDevices},
+                         {"known_devices", &sBluetoothKnownDevices},
+                     });
     registry.AddPropertyModule("playback", {
                                                {"playing", &sPlaybackPlaying},
                                                {"track", &sPlaybackTrack},
@@ -601,9 +642,12 @@ void Lua::entry() {
     sDatabaseAutoUpdate.setDirect(sServices->nvs().DbAutoIndex());
 
     auto bt = sServices->bluetooth();
-    sBluetoothEnabled.setDirect(bt.IsEnabled());
-    sBluetoothConnected.setDirect(bt.IsConnected());
-    sBluetoothDevices.setDirect(bt.KnownDevices());
+    sBluetoothEnabled.setDirect(bt.enabled());
+    auto paired = bt.pairedDevice();
+    if (paired) {
+      sBluetoothPairedDevice.setDirect(*paired);
+    }
+    sBluetoothKnownDevices.setDirect(bt.knownDevices());
 
     if (sServices->sd() == drivers::SdState::kMounted) {
       sLua->RunScript("/sdcard/config.lua");

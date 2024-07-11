@@ -30,10 +30,37 @@ local SettingsScreen = widgets.MenuScreen:new {
   end
 }
 
+local BluetoothPairing = SettingsScreen:new {
+  title = "Nearby Devices",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+
+    local devices = self.content:List {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+    }
+
+    self.bindings = self.bindings + {
+      bluetooth.discovered_devices:bind(function(devs)
+        devices:clean()
+        for _, dev in pairs(devs) do
+          devices:add_btn(nil, dev.name):onClicked(function()
+            bluetooth.paired_device:set(dev)
+          end)
+        end
+      end)
+    }
+  end,
+  onShown = function() bluetooth.discovering:set(true) end,
+  onHidden = function() bluetooth.discovering:set(false) end,
+}
+
 local BluetoothSettings = SettingsScreen:new {
   title = "Bluetooth",
   createUi = function(self)
     SettingsScreen.createUi(self)
+
+    -- Enable/Disable switch
     local enable_container = self.content:Object {
       flex = {
         flex_direction = "row",
@@ -52,11 +79,43 @@ local BluetoothSettings = SettingsScreen:new {
       bluetooth.enabled:set(enabled)
     end)
 
-    theme.set_style(self.content:Label {
-      text = "Paired Device",
-      pad_bottom = 1,
-    }, "settings_title")
+    self.bindings = self.bindings + {
+      bluetooth.enabled:bind(function(en)
+        if en then
+          enable_sw:add_state(lvgl.STATE.CHECKED)
+        else
+          enable_sw:clear_state(lvgl.STATE.CHECKED)
+        end
+      end),
+    }
 
+    -- Connection status
+    -- This is presented as a label on the field showing the currently paired
+    -- device.
+
+    local paired_label =
+        self.content:Label {
+          text = "",
+          pad_bottom = 1,
+        }
+    theme.set_style(paired_label, "settings_title")
+
+    self.bindings = self.bindings + {
+      bluetooth.connected:bind(function(conn)
+        if conn then
+          paired_label:set { text = "Connected to:" }
+        else
+          paired_label:set { text = "Paired with:" }
+        end
+      end),
+      bluetooth.connecting:bind(function(conn)
+        if conn then
+          paired_label:set { text = "Connecting to:" }
+        end
+      end),
+    }
+
+    -- The name of the currently paired device.
     local paired_container = self.content:Object {
       flex = {
         flex_direction = "row",
@@ -78,24 +137,7 @@ local BluetoothSettings = SettingsScreen:new {
       bluetooth.paired_device:set()
     end)
 
-    theme.set_style(self.content:Label {
-      text = "Nearby Devices",
-      pad_bottom = 1,
-    }, "settings_title")
-
-    local devices = self.content:List {
-      w = lvgl.PCT(100),
-      h = lvgl.SIZE_CONTENT,
-    }
-
     self.bindings = self.bindings + {
-      bluetooth.enabled:bind(function(en)
-        if en then
-          enable_sw:add_state(lvgl.STATE.CHECKED)
-        else
-          enable_sw:clear_state(lvgl.STATE.CHECKED)
-        end
-      end),
       bluetooth.paired_device:bind(function(device)
         if device then
           paired_device:set { text = device.name }
@@ -105,7 +147,20 @@ local BluetoothSettings = SettingsScreen:new {
           clear_paired:add_flag(lvgl.FLAG.HIDDEN)
         end
       end),
-      bluetooth.devices:bind(function(devs)
+    }
+
+    theme.set_style(self.content:Label {
+      text = "Known Devices",
+      pad_bottom = 1,
+    }, "settings_title")
+
+    local devices = self.content:List {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+    }
+
+    self.bindings = self.bindings + {
+      bluetooth.known_devices:bind(function(devs)
         devices:clean()
         for _, dev in pairs(devs) do
           devices:add_btn(nil, dev.name):onClicked(function()
@@ -114,6 +169,12 @@ local BluetoothSettings = SettingsScreen:new {
         end
       end)
     }
+
+    local pair_new = self.content:Button {}
+    pair_new:Label { text = "Pair new device" }
+    pair_new:onClicked(function()
+      backstack.push(BluetoothPairing:new())
+    end)
   end
 }
 

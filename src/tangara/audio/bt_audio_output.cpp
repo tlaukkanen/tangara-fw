@@ -13,6 +13,7 @@
 #include <memory>
 #include <variant>
 
+#include "drivers/bluetooth.hpp"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
@@ -32,6 +33,8 @@ namespace audio {
 
 static constexpr uint16_t kVolumeRange = 60;
 
+using ConnectionState = drivers::Bluetooth::ConnectionState;
+
 BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth& bt,
                                            drivers::PcmBuffer& buffer,
                                            tasks::WorkerPool& p)
@@ -45,9 +48,9 @@ BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
 auto BluetoothAudioOutput::changeMode(Modes mode) -> void {
   if (mode == Modes::kOnPlaying) {
-    bluetooth_.SetSource(&buffer_);
+    bluetooth_.source(&buffer_);
   } else {
-    bluetooth_.SetSource(nullptr);
+    bluetooth_.source(nullptr);
   }
 }
 
@@ -60,7 +63,7 @@ auto BluetoothAudioOutput::SetVolume(uint16_t v) -> void {
   bg_worker_.Dispatch<void>([&]() {
     float factor =
         pow(10, static_cast<double>(kVolumeRange) * (volume_ - 100) / 100 / 20);
-    bluetooth_.SetVolumeFactor(factor);
+    bluetooth_.softVolume(factor);
   });
 }
 
@@ -95,7 +98,7 @@ auto BluetoothAudioOutput::SetVolumeDb(int_fast16_t val) -> bool {
 }
 
 auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
-  if (volume_ == 100 || !bluetooth_.IsConnected()) {
+  if (volume_ == 100) {
     return false;
   }
   volume_++;
@@ -104,7 +107,7 @@ auto BluetoothAudioOutput::AdjustVolumeUp() -> bool {
 }
 
 auto BluetoothAudioOutput::AdjustVolumeDown() -> bool {
-  if (volume_ == 0 || !bluetooth_.IsConnected()) {
+  if (volume_ == 0) {
     return false;
   }
   volume_--;

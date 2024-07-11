@@ -104,8 +104,7 @@ auto Booting::entry() -> void {
 
   ESP_LOGI(kTag, "init bluetooth");
   sServices->bluetooth(std::make_unique<drivers::Bluetooth>(
-      sServices->nvs(), sServices->bg_worker()));
-  sServices->bluetooth().SetEventHandler(bt_event_cb);
+      sServices->nvs(), sServices->bg_worker(), bt_event_cb));
 
   BootComplete ev{.services = sServices};
   events::Audio().Dispatch(ev);

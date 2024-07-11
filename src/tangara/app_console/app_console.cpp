@@ -418,28 +418,21 @@ int CmdBtList(int argc, char** argv) {
     return 1;
   }
 
-  auto devices = AppConsole::sServices->bluetooth().KnownDevices();
+  auto devices = AppConsole::sServices->bluetooth().knownDevices();
   if (argc == 2) {
     int index = std::atoi(argv[1]);
     if (index < 0 || index >= devices.size()) {
       std::cout << "index out of range" << std::endl;
       return -1;
     }
-    drivers::bluetooth::MacAndName dev{
-        .mac = devices[index].address,
-        .name = {devices[index].name.data(), devices[index].name.size()},
-    };
-    AppConsole::sServices->bluetooth().SetPreferredDevice(dev);
+    AppConsole::sServices->bluetooth().pairedDevice(devices[index]);
   } else {
-    std::cout << "mac\t\trssi\tname" << std::endl;
+    std::cout << "mac\t\tname" << std::endl;
     for (const auto& device : devices) {
-      for (size_t i = 0; i < device.address.size(); i++) {
+      for (size_t i = 0; i < device.mac.size(); i++) {
         std::cout << std::hex << std::setfill('0') << std::setw(2)
-                  << static_cast<int>(device.address[i]);
+                  << static_cast<int>(device.mac[i]);
       }
-      float perc =
-          (static_cast<double>(device.signal_strength) + 127.0) / 256.0 * 100;
-      std::cout << "\t" << std::fixed << std::setprecision(0) << perc << "%";
       std::cout << "\t" << device.name << std::endl;
     }
   }

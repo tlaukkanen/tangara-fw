@@ -27,9 +27,12 @@ struct Device {
 };
 
 enum class SimpleEvent {
-  kKnownDevicesChanged,
   kConnectionStateChanged,
-  kPreferredDeviceChanged,
+  kPairedDeviceChanged,
+  kKnownDevicesChanged,
+  kDiscoveryChanged,
+  kDeviceDiscovered,
+
   // Passthrough events
   kPlayPause,
   kStop,

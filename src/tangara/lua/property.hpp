@@ -24,8 +24,8 @@ using LuaValue = std::variant<std::monostate,
                               bool,
                               std::string,
                               audio::TrackInfo,
-                              drivers::bluetooth::Device,
-                              std::vector<drivers::bluetooth::Device>>;
+                              drivers::bluetooth::MacAndName,
+                              std::vector<drivers::bluetooth::MacAndName>>;
 
 using LuaFunction = std::function<int(lua_State*)>;
 

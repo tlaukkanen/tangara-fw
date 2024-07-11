@@ -289,13 +289,14 @@ static void pushTrack(lua_State* L, const audio::TrackInfo& track) {
   lua_settable(L, -3);
 }
 
-static void pushDevice(lua_State* L, const drivers::bluetooth::Device& dev) {
+static void pushDevice(lua_State* L,
+                       const drivers::bluetooth::MacAndName& dev) {
   lua_createtable(L, 0, 4);
 
   lua_pushliteral(L, "address");
   auto* mac = reinterpret_cast<drivers::bluetooth::mac_addr_t*>(
       lua_newuserdata(L, sizeof(drivers::bluetooth::mac_addr_t)));
-  *mac = dev.address;
+  *mac = dev.mac;
   lua_rawset(L, -3);
 
   // What I just did there was perfectly safe. Look, I can prove it:
@@ -308,14 +309,8 @@ static void pushDevice(lua_State* L, const drivers::bluetooth::Device& dev) {
   lua_pushlstring(L, dev.name.data(), dev.name.size());
   lua_rawset(L, -3);
 
-  // FIXME: This field deserves a little more structure.
-  lua_pushliteral(L, "class");
-  lua_pushinteger(L, dev.class_of_device);
-  lua_rawset(L, -3);
-
-  lua_pushliteral(L, "signal_strength");
-  lua_pushinteger(L, dev.signal_strength);
-  lua_rawset(L, -3);
+  // FIXME: Plumbing through device classes to here could be useful if we ever
+  // want to show cute little icons.
 }
 
 auto Property::pushValue(lua_State& s) -> int {
@@ -332,10 +327,12 @@ auto Property::pushValue(lua_State& s) -> int {
           lua_pushstring(&s, arg.c_str());
         } else if constexpr (std::is_same_v<T, audio::TrackInfo>) {
           pushTrack(&s, arg);
-        } else if constexpr (std::is_same_v<T, drivers::bluetooth::Device>) {
+        } else if constexpr (std::is_same_v<T,
+                                            drivers::bluetooth::MacAndName>) {
           pushDevice(&s, arg);
         } else if constexpr (std::is_same_v<
-                                 T, std::vector<drivers::bluetooth::Device>>) {
+                                 T,
+                                 std::vector<drivers::bluetooth::MacAndName>>) {
           lua_createtable(&s, arg.size(), 0);
           size_t i = 1;
           for (const auto& dev : arg) {
@@ -364,15 +361,10 @@ auto popRichType(lua_State* L) -> LuaValue {
     lua_pushliteral(L, "name");
     lua_gettable(L, -2);
 
-    std::pmr::string name = lua_tostring(L, -1);
+    std::string name = lua_tostring(L, -1);
     lua_pop(L, 1);
 
-    return drivers::bluetooth::Device{
-        .address = mac,
-        .name = name,
-        .class_of_device = 0,
-        .signal_strength = 0,
-    };
+    return drivers::bluetooth::MacAndName{.mac = mac, .name = name};
   }
 
   return std::monostate{};

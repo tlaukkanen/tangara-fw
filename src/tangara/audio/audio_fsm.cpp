@@ -222,7 +222,12 @@ void AudioState::react(const system_fsm::BluetoothEvent& ev) {
     auto simpleEvent = std::get<SimpleEvent>(ev.event);
     switch (simpleEvent) {
       case SimpleEvent::kConnectionStateChanged: {
-        auto dev = sServices->bluetooth().ConnectedDevice();
+        auto bt = sServices->bluetooth();
+        if (bt.connectionState() !=
+            drivers::Bluetooth::ConnectionState::kConnected) {
+          return;
+        }
+        auto dev = sServices->bluetooth().pairedDevice();
         if (!dev) {
           return;
         }
@@ -341,7 +346,7 @@ auto AudioState::commitVolume() -> void {
   if (mode == drivers::NvsStorage::Output::kHeadphones) {
     sServices->nvs().AmpCurrentVolume(vol);
   } else if (mode == drivers::NvsStorage::Output::kBluetooth) {
-    auto dev = sServices->bluetooth().ConnectedDevice();
+    auto dev = sServices->bluetooth().pairedDevice();
     if (!dev) {
       return;
     }
@@ -372,7 +377,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
     sOutput = sI2SOutput;
   } else {
     // Ensure Bluetooth gets enabled if it's the default sink.
-    sServices->bluetooth().Enable();
+    sServices->bluetooth().enable(true);
     sOutput = sBtOutput;
   }
   sOutput->mode(IAudioOutput::Modes::kOnPaused);
