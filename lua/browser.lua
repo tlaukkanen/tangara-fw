@@ -84,6 +84,7 @@ return screen:new{
         local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
         play:onClicked(function()
             queue.clear()
+            queue.random:set(false)
             queue.add(original_iterator)
             playback.playing:set(true)
             backstack.push(playing:new())
