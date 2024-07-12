@@ -46,6 +46,7 @@ local BluetoothPairing = SettingsScreen:new {
         for _, dev in pairs(devs) do
           devices:add_btn(nil, dev.name):onClicked(function()
             bluetooth.paired_device:set(dev)
+            backstack.pop()
           end)
         end
       end)
@@ -101,16 +102,15 @@ local BluetoothSettings = SettingsScreen:new {
     theme.set_style(paired_label, "settings_title")
 
     self.bindings = self.bindings + {
-      bluetooth.connected:bind(function(conn)
-        if conn then
-          paired_label:set { text = "Connected to:" }
-        else
-          paired_label:set { text = "Paired with:" }
-        end
-      end),
       bluetooth.connecting:bind(function(conn)
         if conn then
           paired_label:set { text = "Connecting to:" }
+        else
+          if bluetooth.connected:get() then
+            paired_label:set { text = "Connected to:" }
+          else
+            paired_label:set { text = "Paired with:" }
+          end
         end
       end),
     }
@@ -159,22 +159,42 @@ local BluetoothSettings = SettingsScreen:new {
       h = lvgl.SIZE_CONTENT,
     }
 
+    -- 'Pair new device' button that goes to the discovery screen.
+
+    local button_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    local pair_new = button_container:Button {}
+    pair_new:Label { text = "Pair new device" }
+    pair_new:onClicked(function()
+      backstack.push(BluetoothPairing:new())
+    end)
+
+
     self.bindings = self.bindings + {
       bluetooth.known_devices:bind(function(devs)
+        local group = lvgl.group.get_default()
+        group.remove_obj(pair_new)
         devices:clean()
         for _, dev in pairs(devs) do
           devices:add_btn(nil, dev.name):onClicked(function()
             bluetooth.paired_device:set(dev)
           end)
         end
+        group:add_obj(pair_new)
       end)
     }
-
-    local pair_new = self.content:Button {}
-    pair_new:Label { text = "Pair new device" }
-    pair_new:onClicked(function()
-      backstack.push(BluetoothPairing:new())
-    end)
   end
 }
 

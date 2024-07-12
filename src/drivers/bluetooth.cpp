@@ -603,16 +603,21 @@ void Disabled::react(const events::Enable&) {
 
 void Idle::entry() {
   ESP_LOGI(kTag, "bt is idle");
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
 }
 
-void Idle::exit() {}
+void Idle::exit() {
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
+}
 
 void Idle::react(const events::Disable& ev) {
   transit<Disabled>();
 }
 
 void Idle::react(const events::PairedDeviceChanged& ev) {
-  connect(*sPairedWith_);
+  if (sPairedWith_) {
+    connect(*sPairedWith_);
+  }
 }
 
 void Idle::react(events::internal::Gap ev) {
@@ -633,18 +638,10 @@ void Connecting::entry() {
   sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
                                timeoutCallback);
   xTimerStart(sTimeoutTimer, portMAX_DELAY);
-
-  if (sEventHandler_) {
-    std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
-  }
 }
 
 void Connecting::exit() {
   xTimerDelete(sTimeoutTimer, portMAX_DELAY);
-
-  if (sEventHandler_) {
-    std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
-  }
 }
 
 void Connecting::react(const events::ConnectTimedOut& ev) {
@@ -751,12 +748,16 @@ void Connected::entry() {
     sStorage_->PreferredBluetoothDevice(sPairedWith_);
   }
 
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
+
   // TODO: if we already have a source, immediately start playing
 }
 
 void Connected::exit() {
   ESP_LOGI(kTag, "exiting connected state");
   esp_a2d_source_disconnect(connected_to_.data());
+
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
 }
 
 void Connected::react(const events::Disable& ev) {
@@ -765,6 +766,9 @@ void Connected::react(const events::Disable& ev) {
 
 void Connected::react(const events::PairedDeviceChanged& ev) {
   transit<Idle>();
+  if (sPairedWith_) {
+    connect(*sPairedWith_);
+  }
 }
 
 void Connected::react(const events::SourceChanged& ev) {

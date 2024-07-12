@@ -371,33 +371,34 @@ auto popRichType(lua_State* L) -> LuaValue {
 }
 
 auto Property::popValue(lua_State& s) -> bool {
-  LuaValue new_val;
-  switch (lua_type(&s, 2)) {
-    case LUA_TNIL:
-      new_val = std::monostate{};
-      break;
-    case LUA_TNUMBER:
-      if (lua_isinteger(&s, 2)) {
-        new_val = lua_tointeger(&s, 2);
-      } else {
-        new_val = static_cast<lua_Integer>(std::round(lua_tonumber(&s, 2)));
-      }
-      break;
-    case LUA_TBOOLEAN:
-      new_val = static_cast<bool>(lua_toboolean(&s, 2));
-      break;
-    case LUA_TSTRING:
-      new_val = lua_tostring(&s, 2);
-      break;
-    default:
-      if (lua_istable(&s, 2)) {
-        new_val = popRichType(&s);
-        if (std::holds_alternative<std::monostate>(new_val)) {
+  LuaValue new_val{std::monostate{}};
+  if (lua_gettop(&s) >= 2) {
+    switch (lua_type(&s, 2)) {
+      case LUA_TNIL:
+        break;
+      case LUA_TNUMBER:
+        if (lua_isinteger(&s, 2)) {
+          new_val = lua_tointeger(&s, 2);
+        } else {
+          new_val = static_cast<lua_Integer>(std::round(lua_tonumber(&s, 2)));
+        }
+        break;
+      case LUA_TBOOLEAN:
+        new_val = static_cast<bool>(lua_toboolean(&s, 2));
+        break;
+      case LUA_TSTRING:
+        new_val = lua_tostring(&s, 2);
+        break;
+      default:
+        if (lua_istable(&s, 2)) {
+          new_val = popRichType(&s);
+          if (std::holds_alternative<std::monostate>(new_val)) {
+            return false;
+          }
+        } else {
           return false;
         }
-      } else {
-        return false;
-      }
+    }
   }
 
   return set(new_val);

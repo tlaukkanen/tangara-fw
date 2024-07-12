@@ -79,11 +79,10 @@ function widgets.Row(parent, left, right)
   }
 end
 
-local bindings_meta = {
-  __add = function(a, b)
-    return table.move(a, 1, #a, #b + 1, b)
-  end
-}
+local bindings_meta = {}
+bindings_meta["__add"] = function(a, b)
+  return setmetatable(table.move(a, 1, #a, #b + 1, b), bindings_meta)
+end
 
 function widgets.StatusBar(parent, opts)
   local root = parent.root:Object {

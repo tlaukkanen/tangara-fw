@@ -391,7 +391,7 @@ auto NvsStorage::BluetoothNames() -> std::vector<bluetooth::MacAndName> {
 auto NvsStorage::BluetoothName(const bluetooth::mac_addr_t& mac,
                                std::optional<std::string> name) -> void {
   std::lock_guard<std::mutex> lock{mutex_};
-  auto& val = bt_names_.get();
+  auto val = bt_names_.get();
   if (!val) {
     val.emplace();
   }

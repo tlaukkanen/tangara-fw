@@ -34,7 +34,7 @@ class Setting {
       dirty_ = true;
     }
   }
-  auto get() -> std::optional<T>& { return val_; }
+  auto get() -> std::optional<T> { return val_; }
 
   /* Reads the stored value from NVS and parses it into the correct type. */
   auto load(nvs_handle_t) -> std::optional<T>;
