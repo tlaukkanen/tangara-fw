@@ -398,10 +398,12 @@ void UiState::react(const system_fsm::BatteryStateChanged& ev) {
 
 void UiState::react(const audio::QueueUpdate&) {
   auto& queue = sServices->track_queue();
-  sQueueSize.setDirect(static_cast<int>(queue.totalSize()));
+  auto queue_size = queue.totalSize();
+  sQueueSize.setDirect(static_cast<int>(queue_size));
 
   int current_pos = queue.currentPosition();
-  if (queue.current()) {
+  // If there is nothing in the queue, the position should be 0, otherwise, add one because lua
+  if (queue_size > 0) {
     current_pos++;
   }
   sQueuePosition.setDirect(current_pos);

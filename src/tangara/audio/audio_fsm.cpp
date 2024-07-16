@@ -96,9 +96,7 @@ void AudioState::react(const QueueUpdate& ev) {
   };
 
   auto current = sServices->track_queue().current();
-  if (current) {
-    cmd.new_track = *current;
-  }
+  cmd.new_track = current;
 
   switch (ev.reason) {
     case QueueUpdate::kExplicitUpdate:
@@ -176,18 +174,21 @@ void AudioState::react(const internal::DecodingFinished& ev) {
   sServices->bg_worker().Dispatch<void>([=]() {
     auto& queue = sServices->track_queue();
     auto current = queue.current();
-    if (!current) {
+    if (std::holds_alternative<std::monostate>(current)) {
       return;
     }
     auto db = sServices->database().lock();
     if (!db) {
       return;
     }
-    auto path = db->getTrackPath(*current);
-    if (!path) {
-      return;
+    std::string path;
+    if (std::holds_alternative<std::string>(current)) {
+      path = std::get<std::string>(current);
+    } else if (std::holds_alternative<database::TrackId>(current)) {
+      auto tid = std::get<database::TrackId>(current);
+      path = db->getTrackPath(tid).value_or("");
     }
-    if (*path == ev.track->uri) {
+    if (path == ev.track->uri) {
       queue.finish();
     }
   });
@@ -448,6 +449,9 @@ void Standby::react(const system_fsm::SdStateChanged& ev) {
     if (!db) {
       return;
     }
+
+    // Open the queue file
+    sServices->track_queue().open();
 
     // Restore the currently playing file before restoring the queue. This way,
     // we can fall back to restarting the queue's current track if there's any
