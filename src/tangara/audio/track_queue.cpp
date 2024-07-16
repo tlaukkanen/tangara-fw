@@ -160,9 +160,9 @@ auto TrackQueue::append(Item i) -> void {
   if (std::holds_alternative<database::TrackId>(i)) {
     {
       const std::unique_lock<std::shared_mutex> lock(mutex_);
-      auto filename = getFilepath(std::get<database::TrackId>(i)); 
-      if (filename) {
-        playlist_.append(*filename);
+      auto filename = getFilepath(std::get<database::TrackId>(i)).value_or(""); 
+      if (!filename.empty()) {
+        playlist_.append(filename);
       }
       update_shuffler();
     }
@@ -182,7 +182,7 @@ auto TrackQueue::append(Item i) -> void {
         // like current().
         {
           const std::unique_lock<std::shared_mutex> lock(mutex_);
-          auto filename = *getFilepath(*next); 
+          auto filename = getFilepath(*next).value_or(""); 
           if (!filename.empty()) {
             playlist_.append(filename);
           }
