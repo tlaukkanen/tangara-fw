@@ -53,6 +53,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  void react(const Screenshot&);
   virtual void react(const OnLuaError&) {}
   virtual void react(const DumpLuaStack&) {}
   virtual void react(const internal::BackPressed&) {}

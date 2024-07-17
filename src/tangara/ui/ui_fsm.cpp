@@ -13,6 +13,7 @@
 #include <variant>
 
 #include "FreeRTOSConfig.h"
+#include "draw/lv_draw_buf.h"
 #include "drivers/bluetooth.hpp"
 #include "lvgl.h"
 
@@ -26,6 +27,9 @@
 #include "freertos/projdefs.h"
 #include "lua.hpp"
 #include "luavgl.h"
+#include "misc/lv_color.h"
+#include "misc/lv_utils.h"
+#include "others/snapshot/lv_snapshot.h"
 #include "tick/lv_tick.h"
 #include "tinyfsm.hpp"
 
@@ -361,6 +365,28 @@ int UiState::PopScreen() {
   sCurrentScreen->onShown();
 
   return sScreens.size();
+}
+
+void UiState::react(const Screenshot& ev) {
+  if (!sCurrentScreen) {
+    return;
+  }
+  ESP_LOGI(kTag, "taking snapshot");
+  lv_draw_buf_t* buf =
+      lv_snapshot_take(sCurrentScreen->root(), LV_COLOR_FORMAT_RGB888);
+  if (!buf) {
+    ESP_LOGW(kTag, "snapshot failed");
+    return;
+  }
+  ESP_LOGI(kTag, "writing to file");
+  std::string fullpath = "//sdcard/" + ev.filename;
+  auto res = lv_draw_buf_save_to_file(buf, fullpath.c_str());
+  lv_draw_buf_destroy(buf);
+  if (res == LV_RESULT_OK) {
+    ESP_LOGI(kTag, "write okay!");
+  } else {
+    ESP_LOGE(kTag, "write failed!");
+  }
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {

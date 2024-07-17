@@ -30,6 +30,10 @@ struct OnLuaError : tinyfsm::Event {
 
 struct DumpLuaStack : tinyfsm::Event {};
 
+struct Screenshot : tinyfsm::Event {
+  std::string filename;
+};
+
 namespace internal {
 
 struct InitDisplay : tinyfsm::Event {

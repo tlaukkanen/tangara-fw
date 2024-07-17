@@ -683,6 +683,26 @@ void RegisterLua() {
   esp_console_cmd_register(&cmd_luarun);
 }
 
+int CmdSnapshot(int argc, char** argv) {
+  if (argc != 2) {
+    std::cout << "snapshot expects 1 argument" << std::endl;
+    return 1;
+  }
+
+  events::Ui().Dispatch(ui::Screenshot{.filename = argv[1]});
+  return 0;
+}
+
+void RegisterSnapshot() {
+  esp_console_cmd_t cmd_snapshot{
+      .command = "snapshot",
+      .help = "Saves a screenshot of the display to a file",
+      .hint = "filename",
+      .func = &CmdSnapshot,
+      .argtable = NULL};
+  esp_console_cmd_register(&cmd_snapshot);
+}
+
 auto AppConsole::PrerunCallback() -> void {
   Console::PrerunCallback();
   esp_log_level_set("*", ESP_LOG_NONE);
@@ -713,6 +733,7 @@ auto AppConsole::RegisterExtraComponents() -> void {
 
   RegisterHapticEffect();
   RegisterLua();
+  RegisterSnapshot();
 }
 
 }  // namespace console
