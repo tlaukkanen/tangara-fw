@@ -65,6 +65,7 @@
 #include "ui/screen.hpp"
 #include "ui/screen_lua.hpp"
 #include "ui/screen_splash.hpp"
+#include "ui/screenshot.hpp"
 #include "ui/ui_events.hpp"
 
 namespace ui {
@@ -371,22 +372,7 @@ void UiState::react(const Screenshot& ev) {
   if (!sCurrentScreen) {
     return;
   }
-  ESP_LOGI(kTag, "taking snapshot");
-  lv_draw_buf_t* buf =
-      lv_snapshot_take(sCurrentScreen->root(), LV_COLOR_FORMAT_RGB888);
-  if (!buf) {
-    ESP_LOGW(kTag, "snapshot failed");
-    return;
-  }
-  ESP_LOGI(kTag, "writing to file");
-  std::string fullpath = "//sdcard/" + ev.filename;
-  auto res = lv_draw_buf_save_to_file(buf, fullpath.c_str());
-  lv_draw_buf_destroy(buf);
-  if (res == LV_RESULT_OK) {
-    ESP_LOGI(kTag, "write okay!");
-  } else {
-    ESP_LOGE(kTag, "write failed!");
-  }
+  SaveScreenshot(sCurrentScreen->root(), ev.filename);
 }
 
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
