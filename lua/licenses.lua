@@ -64,7 +64,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 end
 
 return function(self)
-  local container = self.root:Object {
+  local container = self.content:Object {
     flex = {
       flex_direction = "column",
       flex_wrap = "nowrap",
