@@ -9,6 +9,7 @@ local bluetooth = require("bluetooth")
 local theme = require("theme")
 local database = require("database")
 local usb = require("usb")
+local font = require("font")
 
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
@@ -551,7 +552,107 @@ local LicensesScreen = SettingsScreen:new {
   title = "Licenses",
   createUi = function(self)
     SettingsScreen.createUi(self)
-    self.root = require("licenses")(self)
+    require("licenses")(self)
+  end
+}
+
+local FccStatementScreen = SettingsScreen:new {
+  title = "FCC Statement",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+
+    local text_part = function(text)
+      self.content:Label {
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT,
+        text = text,
+        text_font = font.fusion_10,
+        long_mode = lvgl.LABEL.LONG_WRAP,
+      }
+    end
+
+    text_part(
+      "This device complies with part 15 of the FCC Rules. Operation is subject to the following two conditions:")
+    text_part("(1) This device may not cause harmful interference, and")
+    text_part(
+      "(2) this device must accept any interference received, including interference that may cause undesired operation.")
+
+    local scroller = self.content:Object { w = 1, h = 1 }
+    scroller:onevent(lvgl.EVENT.FOCUSED, function()
+      scroller:scroll_to_view(1);
+    end)
+    lvgl.group.get_default():add_obj(scroller)
+  end
+}
+
+local RegulatoryScreen = SettingsScreen:new {
+  title = "Regulatory",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+    local version = require("version")
+
+    local small_row = function(left, right)
+      local container = self.content:Object {
+        flex = {
+          flex_direction = "row",
+          justify_content = "flex-start",
+          align_items = "flex-start",
+          align_content = "flex-start"
+        },
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT
+      }
+      container:add_style(styles.list_item)
+      container:Label {
+        text = left,
+        flex_grow = 1,
+        text_font = font.fusion_10,
+      }
+      container:Label {
+        text = right,
+        text_font = font.fusion_10,
+      }
+    end
+    small_row("Manufacturer", "cool tech zone")
+    small_row("Product model", "CTZ-1")
+    small_row("FCC ID", "2BG33-CTZ1")
+
+    local button_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    local button = button_container:Button {}
+    button:Label { text = "FCC Statement" }
+    button:onClicked(function()
+      backstack.push(FccStatementScreen:new())
+    end)
+
+    local logo_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "center",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    logo_container:Image { src = "//lua/img/ce.png" }
+    logo_container:Image { src = "//lua/img/weee.png" }
   end
 }
 
@@ -597,5 +698,6 @@ return widgets.MenuScreen:new {
     submenu("Database", DatabaseSettings)
     submenu("Firmware", FirmwareSettings)
     submenu("Licenses", LicensesScreen)
+    submenu("Regulatory", RegulatoryScreen)
   end
 }
