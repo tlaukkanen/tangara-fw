@@ -113,6 +113,16 @@ function widgets.StatusBar(parent, opts)
     local label = back:Label({ text = "<", align = lvgl.ALIGN.CENTER })
     widgets.Description(label, "Back")
     back:onClicked(opts.back_cb)
+    back:onevent(lvgl.EVENT.FOCUSED, function()
+      local first_view = parent.content
+      if not first_view then return end
+      while first_view:get_child_cnt() > 0 do
+        first_view = first_view:get_child(0)
+      end
+      if first_view then
+        first_view:scroll_to_view_recursive(1)
+      end
+    end)
   end
 
   local title = root:Label {
