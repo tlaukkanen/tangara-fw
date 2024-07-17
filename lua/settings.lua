@@ -344,7 +344,7 @@ local InputSettings = SettingsScreen:new {
       controls.scheme:set(scheme)
     end)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Scroll Sensitivity",
     }, "settings_title")
 
