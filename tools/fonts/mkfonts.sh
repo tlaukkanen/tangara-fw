@@ -7,6 +7,7 @@ fusion_12() {
     -r 0x2000-0x206F \
     -r 0x20-0x7F,0xA0-0xFF \
     -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF,0xFF00-0xFFEF,0x4E00-0x9FAF \
+    -r 0xAC00-0xD7AF \
     --size 12 \
     --bpp 1 --format bin -o fusion12
   echo "finished fusion_12"
@@ -20,6 +21,8 @@ fusion_10() {
     --font fusion/fusion-pixel-10px-proportional/fusion-pixel-10px-proportional-ja.ttf \
     -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF \
     -r 0xFF00-0xFFEF,0x4E00-0x9FAF \
+    --font fusion/fusion-pixel-10px-proportional/fusion-pixel-10px-proportional-ko.ttf \
+    -r 0xAC00-0xD7AF \
     --size 10 \
     --bpp 1 --format bin -o fusion10
   echo "finished fusion_10"
@@ -33,6 +36,8 @@ fusion_8() {
     --font fusion/fusion-pixel-8px-monospaced/fusion-pixel-8px-monospaced-ja.ttf \
     -r 0x3000-0x303f,0x3040-0x309F,0x30A0-0x30FF \
     -r 0xFF00-0xFFEF,0x4E00-0x9FAF \
+    --font fusion/fusion-pixel-8px-monospaced/fusion-pixel-8px-monospaced-ko.ttf \
+    -r 0xAC00-0xD7AF \
     --size 8 \
     --bpp 1 --format lvgl -o font_fusion_8.c
   echo "finished fusion_8"
@@ -41,5 +46,5 @@ fusion_8() {
 echo "creating all fonts"
 fusion_12&
 fusion_10&
-fusion_8&
+# fusion_8&
 wait
