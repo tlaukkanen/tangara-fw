@@ -43,6 +43,7 @@
 #include "sample.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
+#include "tts/player.hpp"
 
 namespace audio {
 
@@ -368,6 +369,11 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffers));
   sBtOutput.reset(new BluetoothAudioOutput(
       sServices->bluetooth(), *sDrainBuffers, sServices->bg_worker()));
+
+  auto& tts_provider = sServices->tts();
+  auto tts_player = std::make_unique<tts::Player>(
+      sServices->bg_worker(), sDrainBuffers->second, *sStreamFactory);
+  tts_provider.player(std::move(tts_player));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
