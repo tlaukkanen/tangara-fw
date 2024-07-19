@@ -20,3 +20,5 @@ test/dependencies.lock
 test/sdkconfig
 sdkconfig.bak
 *.ignore
+
+/sdkconfig.local
