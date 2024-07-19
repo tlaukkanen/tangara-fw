@@ -72,3 +72,15 @@ If you get errors involving missing C++ includes, then you may need to edit
 your editor's LSP invocation to include `--query-driver=**`.
 
 You should then get proper LSP integration via clangd.
+
+# ESP-IDF configuration
+
+Espressif exposes a large collection of configuration options[1] for its
+framework; you can use `idf.py menuconfig` to generate a custom `sdkconfig`
+file, eg. to change the logging level.
+
+To avoid needing to select the same set of options every time you regenerate
+the sdkconfig, you can also set some defaults in `sdkconfig.local`; this is not
+tracked in git, and is ideal for local / per-checkout changes.
+
+1. https://docs.espressif.com/projects/esp-idf/en/release-v3.3/api-reference/kconfig.html
