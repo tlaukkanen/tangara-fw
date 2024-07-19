@@ -19,6 +19,7 @@
 
 #include "cppbor.h"
 #include "cppbor_parse.h"
+#include "debug.hpp"
 #include "esp_log.h"
 
 #include "database/index.hpp"
@@ -229,16 +230,16 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
   std::istringstream in(key_data.substr(header_length + 1));
   std::stringbuf buffer{};
 
+  // FIXME: what if the item contains a '\0'? Probably we make a big mess.
   in.get(buffer, kFieldSeparator);
   if (buffer.str().size() > 0) {
     result.item = buffer.str();
   }
 
-  buffer = {};
-  in.get(buffer);
-  std::string id_str = buffer.str();
+  std::string id_str =
+      key_data.substr(header_length + 1 + buffer.str().size() + 1);
   if (id_str.size() > 1) {
-    result.track = BytesToTrackId(id_str.substr(1));
+    result.track = BytesToTrackId(id_str);
   }
 
   return result;
@@ -252,6 +253,7 @@ auto BytesToTrackId(std::span<const char> bytes) -> std::optional<TrackId> {
   auto [res, unused, err] = cppbor::parse(
       reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!res || res->type() != cppbor::UINT) {
+    ESP_LOGE(kTag, "Track ID parsing failed!!");
     return {};
   }
   return res->asUint()->unsignedValue();

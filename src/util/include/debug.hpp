@@ -31,8 +31,8 @@ inline std::string format_hex_string(std::span<const std::byte> data) {
       oss << " ";
     }
     int byte_val = (int)byte;
-    oss << "[0x" << std::uppercase << std::setfill('0') << std::setw(2)
-        << std::hex << byte_val << ']';
+    oss << std::uppercase << std::setfill('0') << std::setw(2) << std::hex
+        << byte_val << ' ';
     if (byte_val >= 32 && byte_val < 127) {
       ascii_values << (char)byte;
     } else {
