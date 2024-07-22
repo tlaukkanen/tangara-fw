@@ -97,6 +97,7 @@ auto Playlist::skipTo(size_t position) -> void {
     ESP_LOGW(kTag, "File offset cache failed, falling back...");
     f_rewind(&file_);
     advanceBy(pos_);
+    return;
   }
   auto entry = offset_cache_.at(quotient);
   // Go to byte offset
