@@ -50,7 +50,16 @@ class Playlist {
   FIL file_;
   std::string current_value_;
 
+
+  std::pmr::vector<FSIZE_t> offset_cache_; // List of offsets determined by sample size;
+  /*
+  * How many tracks per offset saved (ie, a value of 100 means every 100 tracks the file offset is saved)
+  * This speeds up searches, especially in the case of shuffling a lot of tracks.
+  */
+  const uint32_t sample_size_; 
+
   auto consumeAndCount(ssize_t upto) -> bool;
+  auto advanceBy(ssize_t amt) -> bool;
 };
 
 }  // namespace audio
