@@ -92,7 +92,7 @@ auto Playlist::skipTo(size_t position) -> void {
   pos_ = position;
   auto remainder = position % sample_size_;
   auto quotient = (position - remainder) / sample_size_;
-  if (offset_cache_.size() < quotient) {
+  if (offset_cache_.size() <= quotient) {
     // Fall back case
     ESP_LOGW(kTag, "File offset cache failed, falling back...");
     f_rewind(&file_);
