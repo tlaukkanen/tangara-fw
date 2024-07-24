@@ -137,9 +137,14 @@ auto TremorVorbisDecoder::DecodeTo(std::span<sample::Sample> output)
               ((output.size() - 1) * sizeof(sample::Sample)), &unused);
   if (bytes_written == OV_HOLE) {
     ESP_LOGE(kTag, "got OV_HOLE");
-    return cpp::fail(Error::kMalformedData);
+    return OutputInfo{
+        .samples_written = 0,
+        .is_stream_finished = false,
+    };
   } else if (bytes_written == OV_EBADLINK) {
     ESP_LOGE(kTag, "got OV_EBADLINK");
+    return cpp::fail(Error::kMalformedData);
+  } else if (bytes_written == OV_EINVAL) {
     return cpp::fail(Error::kMalformedData);
   }
 
