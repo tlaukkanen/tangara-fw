@@ -27,6 +27,7 @@ class Battery {
     uint_fast8_t percent;
     uint32_t millivolts;
     bool is_charging;
+    drivers::Samd::ChargeStatus raw_status;
 
     bool operator==(const BatteryState& other) const {
       return percent == other.percent && is_charging == other.is_charging;

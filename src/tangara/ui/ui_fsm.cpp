@@ -101,6 +101,15 @@ static auto lvgl_delay_cb(uint32_t ms) -> void {
 lua::Property UiState::sBatteryPct{0};
 lua::Property UiState::sBatteryMv{0};
 lua::Property UiState::sBatteryCharging{false};
+lua::Property UiState::sPowerChargeState{"unknown"};
+lua::Property UiState::sPowerFastChargeEnabled{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      sServices->samd().SetFastChargeEnabled(std::get<bool>(val));
+      return true;
+    }};
 
 lua::Property UiState::sBluetoothEnabled{
     false, [](const lua::LuaValue& val) {
@@ -406,6 +415,13 @@ void UiState::react(const system_fsm::BatteryStateChanged& ev) {
   sBatteryPct.setDirect(static_cast<int>(ev.new_state.percent));
   sBatteryMv.setDirect(static_cast<int>(ev.new_state.millivolts));
   sBatteryCharging.setDirect(ev.new_state.is_charging);
+  sPowerChargeState.setDirect(
+      drivers::Samd::chargeStatusToString(ev.new_state.raw_status));
+
+  // FIXME: Avoid calling these event handlers before boot.
+  if (sServices) {
+    sPowerFastChargeEnabled.setDirect(sServices->nvs().FastCharge());
+  }
 }
 
 void UiState::react(const audio::QueueUpdate&) {
@@ -414,7 +430,8 @@ void UiState::react(const audio::QueueUpdate&) {
   sQueueSize.setDirect(static_cast<int>(queue_size));
 
   int current_pos = queue.currentPosition();
-  // If there is nothing in the queue, the position should be 0, otherwise, add one because lua
+  // If there is nothing in the queue, the position should be 0, otherwise, add
+  // one because lua
   if (queue_size > 0) {
     current_pos++;
   }
@@ -564,11 +581,14 @@ void Lua::entry() {
 
     auto& registry = lua::Registry::instance(*sServices);
     sLua = registry.uiThread();
-    registry.AddPropertyModule("power", {
-                                            {"battery_pct", &sBatteryPct},
-                                            {"battery_millivolts", &sBatteryMv},
-                                            {"plugged_in", &sBatteryCharging},
-                                        });
+    registry.AddPropertyModule("power",
+                               {
+                                   {"battery_pct", &sBatteryPct},
+                                   {"battery_millivolts", &sBatteryMv},
+                                   {"plugged_in", &sBatteryCharging},
+                                   {"charge_state", &sPowerChargeState},
+                                   {"fast_charge", &sPowerFastChargeEnabled},
+                               });
     registry.AddPropertyModule(
         "bluetooth", {
                          {"enabled", &sBluetoothEnabled},
@@ -662,6 +682,8 @@ void Lua::entry() {
       sBluetoothPairedDevice.setDirect(*paired);
     }
     sBluetoothKnownDevices.setDirect(bt.knownDevices());
+
+    sPowerFastChargeEnabled.setDirect(sServices->nvs().FastCharge());
 
     if (sServices->sd() == drivers::SdState::kMounted) {
       sLua->RunScript("/sdcard/config.lua");

@@ -58,7 +58,7 @@ widgets.MenuScreen = screen:new {
   end
 }
 
-function widgets.Row(parent, left, right)
+function widgets.Row(parent, left_text, right_text)
   local container = parent:Object {
     flex = {
       flex_direction = "row",
@@ -70,12 +70,16 @@ function widgets.Row(parent, left, right)
     h = lvgl.SIZE_CONTENT
   }
   container:add_style(styles.list_item)
-  container:Label {
-    text = left,
-    flex_grow = 1
+  local left = container:Label {
+    text = left_text,
+    flex_grow = 1,
   }
-  container:Label {
-    text = right
+  local right = container:Label {
+    text = right_text or "",
+  }
+  return {
+    left = left,
+    right = right,
   }
 end
 

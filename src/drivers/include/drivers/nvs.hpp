@@ -90,6 +90,9 @@ class NvsStorage {
   auto LraCalibration() -> std::optional<LraData>;
   auto LraCalibration(const LraData&) -> void;
 
+  auto FastCharge() -> bool;
+  auto FastCharge(bool) -> void;
+
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> void;
 
@@ -150,6 +153,7 @@ class NvsStorage {
   Setting<uint16_t> display_rows_;
   Setting<uint8_t> haptic_motor_type_;
   Setting<LraData> lra_calibration_;
+  Setting<uint8_t> fast_charge_;
 
   Setting<uint8_t> brightness_;
   Setting<uint8_t> sensitivity_;

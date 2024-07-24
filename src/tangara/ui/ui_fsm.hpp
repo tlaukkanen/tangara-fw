@@ -101,6 +101,8 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sBatteryPct;
   static lua::Property sBatteryMv;
   static lua::Property sBatteryCharging;
+  static lua::Property sPowerChargeState;
+  static lua::Property sPowerFastChargeEnabled;
 
   static lua::Property sBluetoothEnabled;
   static lua::Property sBluetoothConnecting;

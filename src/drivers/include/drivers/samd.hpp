@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 
+#include "drivers/nvs.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -17,9 +18,7 @@ namespace drivers {
 
 class Samd {
  public:
-  static auto Create() -> Samd* { return new Samd(); }
-
-  Samd();
+  Samd(NvsStorage& nvs);
   ~Samd();
 
   auto Version() -> std::string;
@@ -37,7 +36,13 @@ class Samd {
     kChargingFast,
     // The battery is full charged, and we are still plugged in.
     kFullCharge,
+    // Charging failed.
+    kFault,
+    // The battery status returned isn't a known enum value.
+    kUnknown,
   };
+
+  static auto chargeStatusToString(ChargeStatus) -> std::string;
 
   auto GetChargeStatus() -> std::optional<ChargeStatus>;
   auto UpdateChargeStatus() -> void;
@@ -68,6 +73,8 @@ class Samd {
   Samd& operator=(const Samd&) = delete;
 
  private:
+  NvsStorage& nvs_;
+
   uint8_t version_;
   std::optional<ChargeStatus> charge_status_;
   UsbStatus usb_status_;

@@ -485,6 +485,59 @@ local DatabaseSettings = SettingsScreen:new {
   end
 }
 
+local PowerSettings = SettingsScreen:new {
+  title = "Power",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+    local power = require("power")
+
+    local charge_pct = widgets.Row(self.content, "Charge").right
+    local charge_volts = widgets.Row(self.content, "Voltage").right
+    local charge_state = widgets.Row(self.content, "Status").right
+
+    self.bindings = self.bindings + {
+      power.battery_pct:bind(function(pct)
+        charge_pct:set { text = string.format("%d%%", pct) }
+      end),
+      power.battery_millivolts:bind(function(mv)
+        charge_volts:set { text = string.format("%.2fV", mv / 1000) }
+      end),
+      power.charge_state:bind(function(state)
+        charge_state:set { text = state }
+      end),
+    }
+
+    local fast_charge_container = self.content:Object {
+      flex = {
+        flex_direction = "row",
+        justify_content = "flex-start",
+        align_items = "center",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      pad_bottom = 4,
+    }
+    fast_charge_container:add_style(styles.list_item)
+    fast_charge_container:Label { text = "Fast Charging", flex_grow = 1 }
+    local fast_charge_sw = fast_charge_container:Switch {}
+
+    fast_charge_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      power.fast_charge:set(fast_charge_sw:enabled())
+    end)
+
+    self.bindings = self.bindings + {
+      power.fast_charge:bind(function(en)
+        if en then
+          fast_charge_sw:add_state(lvgl.STATE.CHECKED)
+        else
+          fast_charge_sw:clear_state(lvgl.STATE.CHECKED)
+        end
+      end),
+    }
+  end
+}
+
 local SamdConfirmation = SettingsScreen:new {
   title = "Are you sure?",
   createUi = function(self)
@@ -696,6 +749,9 @@ return widgets.MenuScreen:new {
 
     section("System")
     submenu("Database", DatabaseSettings)
+    submenu("Power", PowerSettings)
+
+    section("About")
     submenu("Firmware", FirmwareSettings)
     submenu("Licenses", LicensesScreen)
     submenu("Regulatory", RegulatoryScreen)

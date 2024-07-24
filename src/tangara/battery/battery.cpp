@@ -93,6 +93,8 @@ auto Battery::Update() -> void {
       .percent = percent,
       .millivolts = mV,
       .is_charging = is_charging,
+      .raw_status =
+          charge_state.value_or(drivers::Samd::ChargeStatus::kUnknown),
   };
   EmitEvent();
 }

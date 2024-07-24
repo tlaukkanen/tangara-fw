@@ -87,7 +87,7 @@ auto Booting::entry() -> void {
 
   ESP_LOGI(kTag, "installing remaining drivers");
   drivers::spiffs_mount();
-  sServices->samd(std::unique_ptr<drivers::Samd>(drivers::Samd::Create()));
+  sServices->samd(std::make_unique<drivers::Samd>(sServices->nvs()));
   sServices->touchwheel(
       std::unique_ptr<drivers::TouchWheel>{drivers::TouchWheel::Create()});
   sServices->haptics(std::make_unique<drivers::Haptics>(sServices->nvs()));
@@ -96,8 +96,8 @@ auto Booting::entry() -> void {
   sServices->battery(std::make_unique<battery::Battery>(
       sServices->samd(), std::unique_ptr<drivers::AdcBattery>(adc)));
 
-  sServices->track_queue(
-      std::make_unique<audio::TrackQueue>(sServices->bg_worker(), sServices->database()));
+  sServices->track_queue(std::make_unique<audio::TrackQueue>(
+      sServices->bg_worker(), sServices->database()));
   sServices->tag_parser(std::make_unique<database::TagParserImpl>());
   sServices->collator(locale::CreateCollator());
   sServices->tts(std::make_unique<tts::Provider>());

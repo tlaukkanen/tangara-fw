@@ -40,6 +40,7 @@ static constexpr char kKeyDisplayRows[] = "disprows";
 static constexpr char kKeyHapticMotorType[] = "hapticmtype";
 static constexpr char kKeyLraCalibration[] = "lra_cali";
 static constexpr char kKeyDbAutoIndex[] = "dbautoindex";
+static constexpr char kKeyFastCharge[] = "fastchg";
 
 static auto nvs_get_string(nvs_handle_t nvs, const char* key)
     -> std::optional<std::string> {
@@ -239,6 +240,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
       display_rows_(kKeyDisplayRows),
       haptic_motor_type_(kKeyHapticMotorType),
       lra_calibration_(kKeyLraCalibration),
+      fast_charge_(kKeyFastCharge),
       brightness_(kKeyBrightness),
       sensitivity_(kKeyScrollSensitivity),
       amp_max_vol_(kKeyAmpMaxVolume),
@@ -442,6 +444,16 @@ auto NvsStorage::OutputMode(Output out) -> void {
   // toggling the output mode.
   output_mode_.write(handle_);
   nvs_commit(handle_);
+}
+
+auto NvsStorage::FastCharge() -> bool {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return fast_charge_.get().value_or(true);
+}
+
+auto NvsStorage::FastCharge(bool en) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  fast_charge_.set(en);
 }
 
 auto NvsStorage::ScreenBrightness() -> uint_fast8_t {

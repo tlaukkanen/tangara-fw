@@ -465,26 +465,7 @@ int CmdSamd(int argc, char** argv) {
   } else if (cmd == "charge") {
     auto res = samd.GetChargeStatus();
     if (res) {
-      switch (res.value()) {
-        case drivers::Samd::ChargeStatus::kNoBattery:
-          std::cout << "kNoBattery" << std::endl;
-          break;
-        case drivers::Samd::ChargeStatus::kBatteryCritical:
-          std::cout << "kBatteryCritical" << std::endl;
-          break;
-        case drivers::Samd::ChargeStatus::kDischarging:
-          std::cout << "kDischarging" << std::endl;
-          break;
-        case drivers::Samd::ChargeStatus::kChargingRegular:
-          std::cout << "kChargingRegular" << std::endl;
-          break;
-        case drivers::Samd::ChargeStatus::kChargingFast:
-          std::cout << "kChargingFast" << std::endl;
-          break;
-        case drivers::Samd::ChargeStatus::kFullCharge:
-          std::cout << "kFullCharge" << std::endl;
-          break;
-      }
+      std::cout << drivers::Samd::chargeStatusToString(*res) << std::endl;
     } else {
       std::cout << "unknown" << std::endl;
     }
