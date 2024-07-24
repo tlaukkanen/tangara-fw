@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <iomanip>
 #include <ostream>
 #include <span>
@@ -41,6 +42,14 @@ inline std::string format_hex_string(std::span<const std::byte> data) {
     count++;
   }
   return oss.str();
+}
+
+inline std::string format_hex_string(std::span<const uint8_t> data) {
+  return format_hex_string(std::as_bytes(data));
+}
+
+inline std::string format_hex_string(std::span<const char> data) {
+  return format_hex_string(std::as_bytes(data));
 }
 
 }  // namespace util
