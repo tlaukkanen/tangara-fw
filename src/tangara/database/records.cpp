@@ -238,7 +238,7 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
 
   std::string id_str =
       key_data.substr(header_length + 1 + buffer.str().size() + 1);
-  if (id_str.size() > 1) {
+  if (id_str.size() > 0) {
     result.track = BytesToTrackId(id_str);
   }
 
