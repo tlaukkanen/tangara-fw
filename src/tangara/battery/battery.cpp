@@ -26,6 +26,8 @@ static const TickType_t kBatteryCheckPeriod = pdMS_TO_TICKS(60 * 1000);
  */
 static const uint32_t kFullChargeMilliVolts = 4200;
 
+static const uint32_t kCriticalChargeMilliVolts = 3500;
+
 /*
  * Battery voltage, in millivolts, at which *we* will consider the battery to
  * be completely discharged. This is intentionally higher than the charger IC
@@ -65,12 +67,35 @@ auto Battery::Update() -> void {
   // Ideally the way you're 'supposed' to measure battery charge percent is to
   // keep continuous track of the amps going in and out of it at any point. I'm
   // skeptical of this approach, and we're not set up with the hardware needed
-  // to do it anyway. Instead, we use a curve-fitting formula by StackOverflow
-  // user 'Roho' to estimate the remaining capacity based on the battery's
-  // voltage. This seems to work pretty good!
-  double v = mV / 1000.0;
-  uint_fast8_t percent = static_cast<uint_fast8_t>(std::clamp<double>(
-      123 - (123 / std::pow(1 + std::pow(v / 3.7, 80.0), 0.165)), 0.0, 100.0));
+  // to do it anyway. Instead, we use a piecewise linear formula derived from
+  // voltage measurements of our actual cells.
+  uint_fast8_t percent;
+  if (mV > kCriticalChargeMilliVolts) {
+    // Above the 'critical' point, the relationship between battery voltage and
+    // charge percentage is close enough to linear.
+    percent = ((mV - kCriticalChargeMilliVolts) * 100 /
+               (kFullChargeMilliVolts - kCriticalChargeMilliVolts)) +
+              5;
+  } else {
+    // Below the 'critical' point, battery voltage drops very very quickly.
+    // Give this part of the curve the lowest 5% to work with.
+    percent = (mV - kEmptyChargeMilliVolts) * 5 /
+              (kCriticalChargeMilliVolts - kEmptyChargeMilliVolts);
+  }
+
+  // A full charge is always 100%.
+  if (charge_state == ChargeStatus::kFullCharge) {
+    percent = 100;
+  }
+  // Critical charge is always <= 5%
+  if (charge_state == ChargeStatus::kBatteryCritical) {
+    percent = std::min<uint_fast8_t>(percent, 5);
+  }
+  // When very close to full, the BMS transitions to a constant-voltage charge
+  // algorithm. Hold off on reporting 100% charge until this stage is finished.
+  if (percent >= 95 && charge_state != ChargeStatus::kFullCharge) {
+    percent = std::min<uint_fast8_t>(percent, 95);
+  }
 
   bool is_charging;
   if (!charge_state) {
