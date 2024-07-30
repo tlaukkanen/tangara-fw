@@ -142,7 +142,20 @@ void AudioState::react(const SetTrack& ev) {
           sStreamFactory->create(std::get<std::string>(new_track), seek_to);
     }
 
+    // Always give the stream to the decoder, even if it turns out to be empty.
+    // This has the effect of stopping the current playback, which is generally
+    // what the user expects to happen when they say "Play this track!", even
+    // if the new track has an issue.
     sDecoder->open(stream);
+
+    // ...but if the stream that failed is the front of the queue, then we
+    // should advance to the next track in order to keep the tunes flowing.
+    if (!stream) {
+      auto& queue = sServices->track_queue();
+      if (new_track == queue.current()) {
+        queue.finish();
+      }
+    }
   });
 }
 
