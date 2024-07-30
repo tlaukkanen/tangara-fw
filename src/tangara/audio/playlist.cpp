@@ -15,7 +15,7 @@
 namespace audio {
 [[maybe_unused]] static constexpr char kTag[] = "playlist";
 
-Playlist::Playlist(std::string playlistFilepath)
+Playlist::Playlist(const std::string& playlistFilepath)
     : filepath_(playlistFilepath),
       mutex_(),
       total_size_(0),
@@ -49,7 +49,7 @@ auto Playlist::size() const -> size_t {
   return total_size_;
 }
 
-auto Playlist::append(Item i) -> void {
+auto MutablePlaylist::append(Item i) -> void {
   std::unique_lock<std::mutex> lock(mutex_);
   auto offset = f_tell(&file_);
   bool first_entry = current_value_.empty();
@@ -126,7 +126,9 @@ auto Playlist::value() const -> std::string {
   return current_value_;
 }
 
-auto Playlist::clear() -> bool {
+MutablePlaylist::MutablePlaylist(const std::string& playlistFilepath) : Playlist(playlistFilepath) {}
+
+auto MutablePlaylist::clear() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);
   auto res = f_close(&file_);
   if (res != FR_OK) {

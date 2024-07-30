@@ -15,8 +15,8 @@ namespace lua {
 
 [[maybe_unused]] static const char* kTag = "FileIterator";
 
-FileIterator::FileIterator(std::string filepath)
-    : original_path_(filepath), current_(), offset_(-1) {
+FileIterator::FileIterator(std::string filepath, bool showHidden)
+    : original_path_(filepath), show_hidden_(showHidden), current_(), offset_(-1) {
   const TCHAR* path = static_cast<const TCHAR*>(filepath.c_str());
   FRESULT res = f_opendir(&dir_, path);
   if (res != FR_OK) {
@@ -33,7 +33,16 @@ auto FileIterator::value() const -> const std::optional<FileEntry>& {
 }
 
 auto FileIterator::next() -> void {
-  iterate(false);
+  size_t prev_index = -1;
+  if (current_) {
+    prev_index = current_->index;
+  }
+  do {
+    bool res = iterate(show_hidden_);
+    if (!res) {
+      break;
+    }
+  } while (!current_ || current_->index == prev_index);
 }
 
 auto FileIterator::prev() -> void {
@@ -45,11 +54,11 @@ auto FileIterator::prev() -> void {
   auto new_offset = offset_ - 1;
   offset_ = -1;
   for (int i = 0; i <= new_offset; i++) {
-    iterate(false);
+    iterate(show_hidden_);
   }
 }
 
-auto FileIterator::iterate(bool reverse) -> bool {
+auto FileIterator::iterate(bool show_hidden) -> bool {
   FILINFO info;
   auto res = f_readdir(&dir_, &info);
   if (res != FR_OK) {
@@ -60,18 +69,22 @@ auto FileIterator::iterate(bool reverse) -> bool {
     // End of directory
     // Set value to nil
     current_.reset();
+    return false;
   } else {
     // Update current value
     offset_++;
-    current_ = FileEntry{
-        .index = offset_,
-        .isHidden = (info.fattrib & AM_HID) > 0,
-        .isDirectory = (info.fattrib & AM_DIR) > 0,
-        .isTrack = false,  // TODO
-        .filepath = original_path_ + (original_path_.size() > 0 ? "/" : "") +
-                    info.fname,
-
-    };
+    bool hidden =  (info.fattrib & AM_HID) > 0 || info.fname[0] == '.';
+    if (!hidden || show_hidden) {
+      current_ = FileEntry{
+          .index = offset_,
+          .isHidden = hidden,
+          .isDirectory = (info.fattrib & AM_DIR) > 0,
+          .isTrack = false,  // TODO
+          .filepath = original_path_ + (original_path_.size() > 0 ? "/" : "") +
+                      info.fname,
+          .name = info.fname,
+      };
+    }
   }
   return true;
 }

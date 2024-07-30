@@ -26,23 +26,21 @@ namespace audio {
  */
 class Playlist {
  public:
-  Playlist(std::string playlistFilepath);
-  ~Playlist();
+  Playlist(const std::string& playlistFilepath);
+  virtual ~Playlist();
   using Item =
       std::variant<database::TrackId, database::TrackIterator, std::string>;
   auto open() -> bool;
   auto currentPosition() const -> size_t;
   auto size() const -> size_t;
-  auto append(Item i) -> void;
   auto skipTo(size_t position) -> void;
   auto next() -> void;
   auto prev() -> void;
   auto value() const -> std::string;
-  auto clear() -> bool;
   auto atEnd() -> bool;
   auto filepath() -> std::string;
 
- private:
+ protected:
   std::string filepath_;
   std::mutex mutex_;
   size_t total_size_;
@@ -60,6 +58,13 @@ class Playlist {
 
   auto consumeAndCount(ssize_t upto) -> bool;
   auto advanceBy(ssize_t amt) -> bool;
+};
+
+class MutablePlaylist : public Playlist {
+public:
+  MutablePlaylist(const std::string& playlistFilepath);
+  auto clear() -> bool;
+  auto append(Item i) -> void;
 };
 
 }  // namespace audio

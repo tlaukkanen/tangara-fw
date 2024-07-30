@@ -57,8 +57,22 @@ static auto queue_clear(lua_State* state) -> int {
   return 0;
 }
 
+static auto queue_open_playlist(lua_State* state) -> int {
+  Bridge* instance = Bridge::Get(state);
+  audio::TrackQueue& queue = instance->services().track_queue();
+  size_t len = 0;
+  const char* str = luaL_checklstring(state, 1, &len);
+  if (!str) {
+    return 0;
+  }
+  queue.clear();
+  queue.openPlaylist(str);
+  return 0;
+}
+
 static const struct luaL_Reg kQueueFuncs[] = {{"add", queue_add},
                                               {"clear", queue_clear},
+                                              {"open_playlist", queue_open_playlist},
                                               {NULL, NULL}};
 
 static auto lua_queue(lua_State* state) -> int {

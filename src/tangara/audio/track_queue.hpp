@@ -74,10 +74,13 @@ class TrackQueue {
   auto currentPosition() const -> size_t;
   auto totalSize() const -> size_t;
   auto open() -> bool;
+  auto openPlaylist(const std::string& playlist_file) -> bool;
 
   using Item = std::variant<database::TrackId, database::TrackIterator>;
   auto insert(Item, size_t index = 0) -> void;
   auto append(Item i) -> void;
+
+  auto updateShuffler() -> void;
 
   /*
    * Advances to the next track in the queue, placing the current track at the
@@ -114,6 +117,7 @@ class TrackQueue {
 
  private:
   auto next(QueueUpdate::Reason r) -> void;
+  auto goTo(size_t position);
   auto getFilepath(database::TrackId id) -> std::optional<std::string>;
 
   mutable std::shared_mutex mutex_;
@@ -121,7 +125,10 @@ class TrackQueue {
   tasks::WorkerPool& bg_worker_;
   database::Handle db_;
 
-  Playlist playlist_;
+  MutablePlaylist playlist_;
+  std::optional<Playlist> opened_playlist_;
+
+  size_t position_;
 
   std::optional<RandomIterator> shuffle_;
   bool repeat_;

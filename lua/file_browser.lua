@@ -62,9 +62,13 @@ return screen:new{
                     if is_dir then
                         backstack.push(require("file_browser"):new{
                             title = self.title,
-                            iterator = filesystem.iterator(tostring(item)),
-                            breadcrumb = tostring(item)
+                            iterator = filesystem.iterator(item:filepath()),
+                            breadcrumb = item:filepath()
                         })
+                    end
+                    if item:filepath():match("%.playlist$") then
+                        queue.open_playlist(item:filepath())
+                        backstack.push(playing:new())
                     end
                 end
             end

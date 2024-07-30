@@ -84,18 +84,25 @@ auto notifyChanged(bool current_changed, Reason reason) -> void {
   events::Audio().Dispatch(ev);
 }
 
+
 TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker, database::Handle db)
     : mutex_(),
       bg_worker_(bg_worker),
       db_(db),
-      playlist_("queue.playlist"), // TODO
+      playlist_(".queue.playlist"),
+      position_(0),
       shuffle_(),
       repeat_(false),
       replay_(false) {}
 
 auto TrackQueue::current() const -> TrackItem {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
-  std::string val = playlist_.value();
+  std::string val;
+  if (opened_playlist_ && position_ < opened_playlist_->size()) {
+    val = opened_playlist_->value();
+  } else {
+    val = playlist_.value();
+  }
   if (val.empty()) {
     return {};
   }
@@ -104,18 +111,38 @@ auto TrackQueue::current() const -> TrackItem {
 
 auto TrackQueue::currentPosition() const -> size_t {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
-  return playlist_.currentPosition();
+  return position_;
 }
 
 auto TrackQueue::totalSize() const -> size_t {
-  const std::shared_lock<std::shared_mutex> lock(mutex_);
-  return playlist_.size();
+  size_t sum = playlist_.size();
+  if (opened_playlist_) {
+    sum += opened_playlist_->size();
+  }
+  return sum;
+}
+
+auto TrackQueue::updateShuffler() -> void {
+  if (shuffle_) {
+    shuffle_->resize(totalSize());
+  }
 }
 
 auto TrackQueue::open() -> bool {
   // FIX ME: If playlist opening fails, should probably fall back to a vector of tracks or something 
   // so that we're not necessarily always needing mounted storage
   return playlist_.open();
+}
+
+auto TrackQueue::openPlaylist(const std::string& playlist_file) -> bool {
+  opened_playlist_.emplace(playlist_file);
+  auto res = opened_playlist_->open();
+  if (!res) {
+    return false;
+  }
+  updateShuffler();
+  notifyChanged(true, Reason::kExplicitUpdate);
+  return true;
 }
 
 auto TrackQueue::getFilepath(database::TrackId id) -> std::optional<std::string> {
@@ -142,20 +169,15 @@ auto TrackQueue::append(Item i) -> void {
     current_changed = was_queue_empty; // Dont support inserts yet
   }
 
-  auto update_shuffler = [=, this]() {
-    if (shuffle_) {
-      shuffle_->resize(playlist_.size());
-      // If there wasn't anything already playing, then we should make sure we
-      // begin playback at a random point, instead of always starting with
-      // whatever was inserted first and *then* shuffling.
-      // We don't base this purely off of current_changed because we would like
-      // 'play this track now' (by inserting at the current pos) to work even
-      // when shuffling is enabled.
-      if (was_queue_empty) {
-        playlist_.skipTo(shuffle_->current());
-      }
-    }
-  };
+  // If there wasn't anything already playing, then we should make sure we
+  // begin playback at a random point, instead of always starting with
+  // whatever was inserted first and *then* shuffling.
+  // We don't base this purely off of current_changed because we would like
+  // 'play this track now' (by inserting at the current pos) to work even
+  // when shuffling is enabled.
+  if (was_queue_empty && shuffle_) {
+    playlist_.skipTo(shuffle_->current());
+  }
 
   if (std::holds_alternative<database::TrackId>(i)) {
     {
@@ -164,7 +186,7 @@ auto TrackQueue::append(Item i) -> void {
       if (!filename.empty()) {
         playlist_.append(filename);
       }
-      update_shuffler();
+      updateShuffler();
     }
     notifyChanged(current_changed, Reason::kExplicitUpdate);
   } else if (std::holds_alternative<database::TrackIterator>(i)) {
@@ -191,7 +213,7 @@ auto TrackQueue::append(Item i) -> void {
       }
       {
         const std::unique_lock<std::shared_mutex> lock(mutex_);
-        update_shuffler();
+        updateShuffler();
       }
       notifyChanged(current_changed, Reason::kExplicitUpdate);
     });
@@ -202,6 +224,20 @@ auto TrackQueue::next() -> void {
   next(Reason::kExplicitUpdate);
 }
 
+auto TrackQueue::goTo(size_t position) {
+  position_ = position;
+  if (opened_playlist_) {
+    if (position_ < opened_playlist_->size()) {
+      opened_playlist_->skipTo(position_);
+    } else {
+      playlist_.skipTo(position_ - opened_playlist_->size());
+    }
+  } else {
+    playlist_.skipTo(position_);
+  }
+}
+
+
 auto TrackQueue::next(Reason r) -> void {
   bool changed = true;
 
@@ -209,18 +245,13 @@ auto TrackQueue::next(Reason r) -> void {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
     if (shuffle_) {
       shuffle_->next();
-      playlist_.skipTo(shuffle_->current());
+      position_ = shuffle_->current();
     } else {
-      if (playlist_.atEnd()) {
-        if (replay_) {
-          playlist_.skipTo(0);
-        } else {
-          changed = false;
-        }
-      } else {
-        playlist_.next();
+      if (position_ + 1 < totalSize()) {
+        position_++;
       }
     }
+    goTo(position_);
   }
 
   notifyChanged(changed, r);
@@ -233,18 +264,13 @@ auto TrackQueue::previous() -> void {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
     if (shuffle_) {
       shuffle_->prev();
-      playlist_.skipTo(shuffle_->current());
+      position_ = shuffle_->current();
     } else {
-      if (playlist_.currentPosition() == 0) {
-        if (repeat_) {
-          playlist_.skipTo(playlist_.size()-1);
-        } else {
-          changed = false;
-        }
-      } else {
-        playlist_.prev();
+      if (position_ > 0) {
+        position_--;
       }
     }
+    goTo(position_);
   }
 
   notifyChanged(changed, Reason::kExplicitUpdate);
@@ -262,6 +288,7 @@ auto TrackQueue::clear() -> void {
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
     playlist_.clear();
+    opened_playlist_.reset();
     if (shuffle_) {
       shuffle_->resize(0);
     }
@@ -274,7 +301,7 @@ auto TrackQueue::random(bool en) -> void {
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
     if (en) {
-      shuffle_.emplace(playlist_.size());
+      shuffle_.emplace(totalSize());
       shuffle_->replay(replay_);
     } else {
       shuffle_.reset();
@@ -326,7 +353,8 @@ auto TrackQueue::serialise() -> std::string {
   encoded.add(cppbor::Uint{0}, cppbor::Array{
                                    cppbor::Bool{repeat_},
                                    cppbor::Bool{replay_},
-                                   cppbor::Uint{playlist_.currentPosition()},
+                                   cppbor::Uint{position_},
+                                   cppbor::Tstr{opened_playlist_->filepath()}
                                });
   if (shuffle_) {
     encoded.add(cppbor::Uint{1}, cppbor::Array{
@@ -368,7 +396,10 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::item(
       i_ = 0;
     } else if (item->type() == cppbor::UINT) {
       auto val = item->asUint()->unsignedValue();
-      queue_.playlist_.skipTo(val);
+      queue_.goTo(val);
+    } else if (item->type() == cppbor::TSTR) {
+      auto val = item->asTstr();
+      queue_.openPlaylist(val->value());
     } else if (item->type() == cppbor::SIMPLE) {
       bool val = item->asBool()->value();
       if (i_ == 0) {
