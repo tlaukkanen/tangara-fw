@@ -27,8 +27,8 @@
 #include "events/event_queue.hpp"
 #include "memory_resource.hpp"
 #include "tasks.hpp"
-#include "ui/ui_fsm.hpp"
 #include "track_queue.hpp"
+#include "ui/ui_fsm.hpp"
 
 namespace audio {
 
@@ -84,7 +84,6 @@ auto notifyChanged(bool current_changed, Reason reason) -> void {
   events::Audio().Dispatch(ev);
 }
 
-
 TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker, database::Handle db)
     : mutex_(),
       bg_worker_(bg_worker),
@@ -129,8 +128,9 @@ auto TrackQueue::updateShuffler() -> void {
 }
 
 auto TrackQueue::open() -> bool {
-  // FIX ME: If playlist opening fails, should probably fall back to a vector of tracks or something 
-  // so that we're not necessarily always needing mounted storage
+  // FIX ME: If playlist opening fails, should probably fall back to a vector of
+  // tracks or something so that we're not necessarily always needing mounted
+  // storage
   return playlist_.open();
 }
 
@@ -145,7 +145,8 @@ auto TrackQueue::openPlaylist(const std::string& playlist_file) -> bool {
   return true;
 }
 
-auto TrackQueue::getFilepath(database::TrackId id) -> std::optional<std::string> {
+auto TrackQueue::getFilepath(database::TrackId id)
+    -> std::optional<std::string> {
   auto db = db_.lock();
   if (!db) {
     return {};
@@ -153,9 +154,8 @@ auto TrackQueue::getFilepath(database::TrackId id) -> std::optional<std::string>
   return db->getTrackPath(id);
 }
 
-
-// TODO WIP: Atm only appends are allowed, this will only ever append regardless of what index
-// is given. But it is kept like this for compatability for now.
+// TODO WIP: Atm only appends are allowed, this will only ever append regardless
+// of what index is given. But it is kept like this for compatability for now.
 auto TrackQueue::insert(Item i, size_t index) -> void {
   append(i);
 }
@@ -166,7 +166,7 @@ auto TrackQueue::append(Item i) -> void {
   {
     const std::shared_lock<std::shared_mutex> lock(mutex_);
     was_queue_empty = playlist_.currentPosition() >= playlist_.size();
-    current_changed = was_queue_empty; // Dont support inserts yet
+    current_changed = was_queue_empty;  // Dont support inserts yet
   }
 
   // If there wasn't anything already playing, then we should make sure we
@@ -182,7 +182,7 @@ auto TrackQueue::append(Item i) -> void {
   if (std::holds_alternative<database::TrackId>(i)) {
     {
       const std::unique_lock<std::shared_mutex> lock(mutex_);
-      auto filename = getFilepath(std::get<database::TrackId>(i)).value_or(""); 
+      auto filename = getFilepath(std::get<database::TrackId>(i)).value_or("");
       if (!filename.empty()) {
         playlist_.append(filename);
       }
@@ -204,7 +204,7 @@ auto TrackQueue::append(Item i) -> void {
         // like current().
         {
           const std::unique_lock<std::shared_mutex> lock(mutex_);
-          auto filename = getFilepath(*next).value_or(""); 
+          auto filename = getFilepath(*next).value_or("");
           if (!filename.empty()) {
             playlist_.append(filename);
           }
@@ -236,7 +236,6 @@ auto TrackQueue::goTo(size_t position) {
     playlist_.skipTo(position_);
   }
 }
-
 
 auto TrackQueue::next(Reason r) -> void {
   bool changed = true;
@@ -350,12 +349,19 @@ auto TrackQueue::replay() const -> bool {
 auto TrackQueue::serialise() -> std::string {
   cppbor::Array tracks{};
   cppbor::Map encoded;
-  encoded.add(cppbor::Uint{0}, cppbor::Array{
-                                   cppbor::Bool{repeat_},
-                                   cppbor::Bool{replay_},
-                                   cppbor::Uint{position_},
-                                   cppbor::Tstr{opened_playlist_->filepath()}
-                               });
+
+  cppbor::Array metadata{
+      cppbor::Bool{repeat_},
+      cppbor::Bool{replay_},
+      cppbor::Uint{position_},
+  };
+
+  if (opened_playlist_) {
+    metadata.add(cppbor::Tstr{opened_playlist_->filepath()});
+  }
+
+  encoded.add(cppbor::Uint{0}, std::move(metadata));
+
   if (shuffle_) {
     encoded.add(cppbor::Uint{1}, cppbor::Array{
                                      cppbor::Uint{shuffle_->size()},
