@@ -137,8 +137,12 @@ TouchWheelData TouchWheel::GetTouchWheelData() const {
   return data_;
 }
 
-auto TouchWheel::PowerDown() -> void {
-  WriteRegister(LOW_POWER, 0);
+auto TouchWheel::Recalibrate() -> void {
+  WriteRegister(CALIBRATE, 1);
+}
+
+auto TouchWheel::LowPowerMode(bool en) -> void {
+  WriteRegister(LOW_POWER, en ? 0 : 1);
 }
 
 }  // namespace drivers

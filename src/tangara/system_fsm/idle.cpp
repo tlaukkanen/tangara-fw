@@ -76,7 +76,7 @@ void Idle::react(const internal::IdleTimeout& ev) {
   // other state machines, etc.
   auto touchwheel = sServices->touchwheel();
   if (touchwheel) {
-    touchwheel.value()->PowerDown();
+    touchwheel.value()->LowPowerMode(true);
   }
 
   auto& gpios = sServices->gpios();

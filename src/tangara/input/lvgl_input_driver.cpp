@@ -132,6 +132,17 @@ auto LvglInputDriver::feedback(uint8_t event) -> void {
   }
 }
 
+auto LvglInputDriver::lock(bool l) -> void {
+  is_locked_ = l;
+  for (auto&& device : inputs_) {
+    if (l) {
+      device->onLock();
+    } else {
+      device->onUnlock();
+    }
+  }
+}
+
 LvglInputDriver::LuaTrigger::LuaTrigger(LvglInputDriver& driver,
                                         IInputDevice& dev,
                                         TriggerHooks& trigger)

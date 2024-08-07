@@ -40,8 +40,7 @@ class LvglInputDriver {
   auto setGroup(lv_group_t*) -> void;
   auto read(lv_indev_data_t* data) -> void;
   auto feedback(uint8_t) -> void;
-
-  auto lock(bool l) -> void { is_locked_ = l; }
+  auto lock(bool l) -> void;
 
   auto pushHooks(lua_State* L) -> int;
 

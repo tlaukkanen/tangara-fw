@@ -32,6 +32,11 @@ class IInputDevice {
   virtual auto triggers() -> std::vector<std::reference_wrapper<TriggerHooks>> {
     return {};
   }
+
+  /* Called by the LVGL driver when controls are being locked. */
+  virtual auto onLock() -> void {}
+  /* Called by the LVGL driver when controls are being unlocked. */
+  virtual auto onUnlock() -> void {}
 };
 
 }  // namespace input

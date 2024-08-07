@@ -108,6 +108,15 @@ auto TouchWheel::triggers()
   return {centre_, up_, right_, down_, left_};
 }
 
+auto TouchWheel::onLock() -> void {
+  wheel_.LowPowerMode(true);
+}
+
+auto TouchWheel::onUnlock() -> void {
+  wheel_.LowPowerMode(false);
+  wheel_.Recalibrate();
+}
+
 auto TouchWheel::sensitivity() -> lua::Property& {
   return sensitivity_;
 }
