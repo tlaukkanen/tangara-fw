@@ -144,10 +144,10 @@ auto Database::Open(IFileGatherer& gatherer,
 
             leveldb::Options options;
             options.env = sEnv.env();
-            options.write_buffer_size = 4 * 1024;
-            options.max_file_size = 16 * 1024;
+            // Match the write buffer size to the MMU page size in order to
+            // make most efficient use of PSRAM mapping.
+            options.write_buffer_size = CONFIG_MMU_PAGE_SIZE;
             options.block_cache = cache.get();
-            options.block_size = 2048;
 
             auto status = leveldb::DB::Open(options, kDbPath, &db);
             if (!status.ok()) {
