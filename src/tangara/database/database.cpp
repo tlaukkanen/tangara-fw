@@ -24,6 +24,7 @@
 #include "cppbor.h"
 #include "cppbor_parse.h"
 #include "database/index.hpp"
+#include "debug.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "ff.h"
@@ -60,7 +61,6 @@ static const char kKeyDbVersion[] = "schema_version";
 
 static const char kKeyCustom[] = "U\0";
 static const char kKeyCollator[] = "collator";
-static const char kKeyTrackId[] = "next_track_id";
 
 static std::atomic<bool> sIsDbOpen(false);
 
@@ -190,7 +190,10 @@ Database::Database(leveldb::DB* db,
       file_gatherer_(file_gatherer),
       tag_parser_(tag_parser),
       collator_(collator),
-      is_updating_(false) {}
+      is_updating_(false) {
+  dbCalculateNextTrackId();
+  ESP_LOGI(kTag, "next track id is %lu", next_track_id_.load());
+}
 
 Database::~Database() {
   // Delete db_ first so that any outstanding background work finishes before
@@ -492,24 +495,45 @@ auto Database::isUpdating() -> bool {
   return is_updating_;
 }
 
+auto Database::dbCalculateNextTrackId() -> void {
+  std::unique_ptr<leveldb::Iterator> it{
+      db_->NewIterator(leveldb::ReadOptions())};
+
+  // Track data entries are of the format 'D/trackid', where track ids are
+  // encoded as big-endian cbor types. They can therefore be compared through
+  // byte ordering, which means we can determine what the next id should be by
+  // looking at the larged track data record in the database.
+  std::string prefix = EncodeDataPrefix();
+  std::string prefixPlusOne = prefix;
+  prefixPlusOne[prefixPlusOne.size() - 1]++;
+
+  // Seek to just past the track data section.
+  it->Seek(prefixPlusOne);
+  if (!it->Valid()) {
+    next_track_id_ = 1;
+    return;
+  }
+
+  // Go back to the last track data record.
+  it->Prev();
+  if (!it->Valid() || !it->key().starts_with(prefix)) {
+    next_track_id_ = 1;
+    return;
+  }
+
+  // Parse the track id back out of the key.
+  std::span<const char> key{it->key().data(), it->key().size()};
+  auto id_part = key.subspan(prefix.size());
+  if (id_part.empty()) {
+    next_track_id_ = 1;
+    return;
+  }
+
+  next_track_id_ = BytesToTrackId(id_part).value_or(0) + 1;
+}
+
 auto Database::dbMintNewTrackId() -> TrackId {
-  TrackId next_id = 1;
-  std::string val;
-  auto status = db_->Get(leveldb::ReadOptions(), kKeyTrackId, &val);
-  if (status.ok()) {
-    next_id = BytesToTrackId(val).value_or(next_id);
-  } else if (!status.IsNotFound()) {
-    // TODO(jacqueline): Handle this more.
-    ESP_LOGE(kTag, "failed to get next track id");
-  }
-
-  if (!db_->Put(leveldb::WriteOptions(), kKeyTrackId,
-                TrackIdToBytes(next_id + 1))
-           .ok()) {
-    ESP_LOGE(kTag, "failed to write next track id");
-  }
-
-  return next_id;
+  return next_track_id_++;
 }
 
 auto Database::dbEntomb(TrackId id, uint64_t hash) -> void {

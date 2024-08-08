@@ -100,6 +100,7 @@ class Database {
   locale::ICollator& collator_;
 
   std::atomic<bool> is_updating_;
+  std::atomic<TrackId> next_track_id_;
 
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
@@ -107,6 +108,7 @@ class Database {
            ITagParser& tag_parser,
            locale::ICollator& collator);
 
+  auto dbCalculateNextTrackId() -> void;
   auto dbMintNewTrackId() -> TrackId;
 
   auto dbEntomb(TrackId track, uint64_t hash) -> void;
