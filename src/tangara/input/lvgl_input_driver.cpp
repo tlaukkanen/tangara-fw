@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <variant>
 
 #include "core/lv_group.h"

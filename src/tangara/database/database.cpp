@@ -24,6 +24,7 @@
 #include "cppbor.h"
 #include "cppbor_parse.h"
 #include "database/index.hpp"
+#include "database/track_finder.hpp"
 #include "debug.hpp"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -40,7 +41,6 @@
 
 #include "database/db_events.hpp"
 #include "database/env_esp.hpp"
-#include "database/file_gatherer.hpp"
 #include "database/records.hpp"
 #include "database/tag_parser.hpp"
 #include "database/track.hpp"
@@ -122,8 +122,7 @@ static auto CheckDatabase(leveldb::DB& db, locale::ICollator& col) -> bool {
   return true;
 }
 
-auto Database::Open(IFileGatherer& gatherer,
-                    ITagParser& parser,
+auto Database::Open(ITagParser& parser,
                     locale::ICollator& collator,
                     tasks::WorkerPool& bg_worker)
     -> cpp::result<Database*, DatabaseError> {
@@ -168,8 +167,7 @@ auto Database::Open(IFileGatherer& gatherer,
             }
 
             ESP_LOGI(kTag, "Database opened successfully");
-            return new Database(db, cache.release(), gatherer, parser,
-                                collator);
+            return new Database(db, cache.release(), parser, collator);
           })
       .get();
 }
@@ -182,12 +180,10 @@ auto Database::Destroy() -> void {
 
 Database::Database(leveldb::DB* db,
                    leveldb::Cache* cache,
-                   IFileGatherer& file_gatherer,
                    ITagParser& tag_parser,
                    locale::ICollator& collator)
     : db_(db),
       cache_(cache),
-      file_gatherer_(file_gatherer),
       tag_parser_(tag_parser),
       collator_(collator),
       is_updating_(false) {
@@ -401,7 +397,11 @@ auto Database::updateIndexes() -> void {
   // Stage 2: search for newly added files.
   ESP_LOGI(kTag, "scanning for new tracks");
   uint64_t num_files = 0;
-  file_gatherer_.FindFiles("", [&](std::string_view path, const FILINFO& info) {
+
+  auto track_finder = std::make_shared<TrackFinder>("");
+
+  FILINFO info;
+  while (auto path = track_finder->next(info)) {
     num_files++;
     events::Ui().Dispatch(event::UpdateProgress{
         .stage = event::UpdateProgress::Stage::kScanningForNewTracks,
@@ -409,15 +409,15 @@ auto Database::updateIndexes() -> void {
     });
 
     std::string unused;
-    if (db_->Get(read_options, EncodePathKey(path), &unused).ok()) {
+    if (db_->Get(read_options, EncodePathKey(*path), &unused).ok()) {
       // This file is already in the database; skip it.
-      return;
+      continue;
     }
 
-    std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(path);
+    std::shared_ptr<TrackTags> tags = tag_parser_.ReadAndParseTags(*path);
     if (!tags || tags->encoding() == Container::kUnsupported) {
       // No parseable tags; skip this fiile.
-      return;
+      continue;
     }
 
     // Check for any existing track with the same hash.
@@ -438,14 +438,14 @@ auto Database::updateIndexes() -> void {
       if (!data) {
         data = std::make_shared<TrackData>();
         data->id = *existing_id;
-      } else if (data->filepath != path) {
+      } else if (std::string_view{data->filepath} != *path) {
         ESP_LOGW(kTag, "hash collision: %s, %s, %s",
                  tags->title().value_or("no title").c_str(),
                  tags->artist().value_or("no artist").c_str(),
                  tags->album().value_or("no album").c_str());
         // Don't commit anything if there's a hash collision, since we're
         // likely to make a big mess.
-        return;
+        continue;
       }
     } else {
       num_new_tracks++;
@@ -454,7 +454,7 @@ auto Database::updateIndexes() -> void {
     }
 
     // Make sure the file-based metadata on the TrackData is up to date.
-    data->filepath = path;
+    data->filepath = *path;
     data->tags_hash = hash;
     data->modified_at = {info.fdate, info.ftime};
 
@@ -467,10 +467,10 @@ auto Database::updateIndexes() -> void {
     dbCreateIndexesForTrack(*data, *tags, batch);
     batch.Put(EncodeDataKey(data->id), EncodeDataValue(*data));
     batch.Put(EncodeHashKey(data->tags_hash), EncodeHashValue(data->id));
-    batch.Put(EncodePathKey(path), TrackIdToBytes(data->id));
+    batch.Put(EncodePathKey(*path), TrackIdToBytes(data->id));
 
     db_->Write(leveldb::WriteOptions(), &batch);
-  });
+  };
 
   uint64_t end_time = esp_timer_get_time();
 

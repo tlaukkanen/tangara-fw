@@ -19,7 +19,6 @@
 
 #include "collation.hpp"
 #include "cppbor.h"
-#include "database/file_gatherer.hpp"
 #include "database/index.hpp"
 #include "database/records.hpp"
 #include "database/tag_parser.hpp"
@@ -56,8 +55,7 @@ class Database {
     ALREADY_OPEN,
     FAILED_TO_OPEN,
   };
-  static auto Open(IFileGatherer& file_gatherer,
-                   ITagParser& tag_parser,
+  static auto Open(ITagParser& tag_parser,
                    locale::ICollator& collator,
                    tasks::WorkerPool& bg_worker)
       -> cpp::result<Database*, DatabaseError>;
@@ -96,7 +94,6 @@ class Database {
   leveldb::Cache* cache_;
 
   // Not owned.
-  IFileGatherer& file_gatherer_;
   ITagParser& tag_parser_;
   locale::ICollator& collator_;
 
@@ -105,7 +102,6 @@ class Database {
 
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
-           IFileGatherer& file_gatherer,
            ITagParser& tag_parser,
            locale::ICollator& collator);
 

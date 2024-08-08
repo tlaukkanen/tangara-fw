@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <future>
 #include <memory>
+#include <sstream>
 #include <variant>
 
 #include "audio/audio_source.hpp"
