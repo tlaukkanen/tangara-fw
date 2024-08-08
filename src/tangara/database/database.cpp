@@ -352,11 +352,19 @@ auto Database::updateIndexes() -> void {
         // We couldn't read the tags for this track. Either they were
         // malformed, or perhaps the file is missing. Either way, tombstone
         // this record.
-        ESP_LOGW(kTag, "entombing missing #%lx", track->id);
+        ESP_LOGI(kTag, "entombing missing #%lx", track->id);
+
+        // Remove the indexes first, so that interrupted operations don't leave
+        // dangling index records.
         dbRemoveIndexes(track);
+
+        // Do the rest of the tombstoning as one atomic write.
+        leveldb::WriteBatch batch;
         track->is_tombstoned = true;
-        dbPutTrackData(*track);
-        db_->Delete(leveldb::WriteOptions{}, EncodePathKey(track->filepath));
+        batch.Put(EncodeDataKey(track->id), EncodeDataValue(*track));
+        batch.Delete(EncodePathKey(track->filepath));
+
+        db_->Write(leveldb::WriteOptions(), &batch);
         continue;
       }
 
@@ -370,12 +378,20 @@ auto Database::updateIndexes() -> void {
         // database.
         ESP_LOGI(kTag, "updating hash (%llx -> %llx)", track->tags_hash,
                  new_hash);
+
+        // Again, we remove the old index records first so has to avoid
+        // dangling references.
         dbRemoveIndexes(track);
 
+        // Atomically correct the hash + create the new index records.
+        leveldb::WriteBatch batch;
         track->tags_hash = new_hash;
-        dbIngestTagHashes(*tags, track->individual_tag_hashes);
-        dbPutTrackData(*track);
-        dbPutHash(new_hash, track->id);
+        dbIngestTagHashes(*tags, track->individual_tag_hashes, batch);
+
+        dbCreateIndexesForTrack(*track, *tags, batch);
+        batch.Put(EncodeDataKey(track->id), EncodeDataValue(*track));
+        batch.Put(EncodeHashKey(new_hash), EncodeHashValue(track->id));
+        db_->Write(leveldb::WriteOptions(), &batch);
       }
     }
   }
@@ -404,72 +420,56 @@ auto Database::updateIndexes() -> void {
       return;
     }
 
-    // Check for any existing record with the same hash.
+    // Check for any existing track with the same hash.
     uint64_t hash = tags->Hash();
-    std::string key = EncodeHashKey(hash);
-    std::optional<TrackId> existing_hash;
+    std::optional<TrackId> existing_id;
     std::string raw_entry;
-    if (db_->Get(leveldb::ReadOptions(), key, &raw_entry).ok()) {
-      existing_hash = ParseHashValue(raw_entry);
+    if (db_->Get(leveldb::ReadOptions(), EncodeHashKey(hash), &raw_entry)
+            .ok()) {
+      existing_id = ParseHashValue(raw_entry);
     }
 
-    std::pair<uint16_t, uint16_t> modified{info.fdate, info.ftime};
-    if (!existing_hash) {
-      // We've never met this track before! Or we have, but the entry is
-      // malformed. Either way, record this as a new track.
-      TrackId id = dbMintNewTrackId();
-      ESP_LOGD(kTag, "recording new 0x%lx", id);
+    std::shared_ptr<TrackData> data;
+    if (existing_id) {
+      // Do we have any existing data for this track? This could be the case if
+      // this is a tombstoned entry. In such as case, we want to reuse the
+      // previous TrackData so that any extra metadata is preserved.
+      data = dbGetTrackData(*existing_id);
+      if (!data) {
+        data = std::make_shared<TrackData>();
+        data->id = *existing_id;
+      } else if (data->filepath != path) {
+        ESP_LOGW(kTag, "hash collision: %s, %s, %s",
+                 tags->title().value_or("no title").c_str(),
+                 tags->artist().value_or("no artist").c_str(),
+                 tags->album().value_or("no album").c_str());
+        // Don't commit anything if there's a hash collision, since we're
+        // likely to make a big mess.
+        return;
+      }
+    } else {
       num_new_tracks++;
-
-      auto data = std::make_shared<TrackData>();
-      data->id = id;
-      data->filepath = path;
-      data->tags_hash = hash;
-      data->modified_at = modified;
-      dbIngestTagHashes(*tags, data->individual_tag_hashes);
-
-      dbPutTrackData(*data);
-      dbPutHash(hash, id);
-      auto t = std::make_shared<Track>(data, tags);
-      dbCreateIndexesForTrack(*t);
-      db_->Put(leveldb::WriteOptions{}, EncodePathKey(path),
-               TrackIdToBytes(id));
-      return;
+      data = std::make_shared<TrackData>();
+      data->id = dbMintNewTrackId();
     }
 
-    std::shared_ptr<TrackData> existing_data = dbGetTrackData(*existing_hash);
-    if (!existing_data) {
-      // We found a hash that matches, but there's no data record? Weird.
-      auto new_data = std::make_shared<TrackData>();
-      new_data->id = dbMintNewTrackId();
-      new_data->filepath = path;
-      new_data->tags_hash = hash;
-      new_data->modified_at = modified;
-      dbIngestTagHashes(*tags, new_data->individual_tag_hashes);
-      dbPutTrackData(*new_data);
-      auto t = std::make_shared<Track>(new_data, tags);
-      dbCreateIndexesForTrack(*t);
-      db_->Put(leveldb::WriteOptions{}, EncodePathKey(path),
-               TrackIdToBytes(new_data->id));
-      return;
-    }
+    // Make sure the file-based metadata on the TrackData is up to date.
+    data->filepath = path;
+    data->tags_hash = hash;
+    data->modified_at = {info.fdate, info.ftime};
 
-    if (existing_data->is_tombstoned) {
-      ESP_LOGI(kTag, "exhuming track %lu", existing_data->id);
-      existing_data->is_tombstoned = false;
-      existing_data->modified_at = modified;
-      dbPutTrackData(*existing_data);
-      auto t = std::make_shared<Track>(existing_data, tags);
-      dbCreateIndexesForTrack(*t);
-      db_->Put(leveldb::WriteOptions{}, EncodePathKey(path),
-               TrackIdToBytes(existing_data->id));
-    } else if (existing_data->filepath !=
-               std::pmr::string{path.data(), path.size()}) {
-      ESP_LOGW(kTag, "hash collision: %s, %s, %s",
-               tags->title().value_or("no title").c_str(),
-               tags->artist().value_or("no artist").c_str(),
-               tags->album().value_or("no album").c_str());
-    }
+    // Apply all the actual database changes as one atomic batch. This makes
+    // the whole 'new track' operation atomic, and also reduces the amount of
+    // lock contention when adding many tracks at once.
+    leveldb::WriteBatch batch;
+    dbIngestTagHashes(*tags, data->individual_tag_hashes, batch);
+
+    dbCreateIndexesForTrack(*data, *tags, batch);
+    batch.Put(EncodeDataKey(data->id), EncodeDataValue(*data));
+    batch.Put(EncodeHashKey(data->tags_hash), EncodeHashValue(data->id));
+    batch.Put(EncodePathKey(path), TrackIdToBytes(data->id));
+
+    db_->Write(leveldb::WriteOptions(), &batch);
   });
 
   uint64_t end_time = esp_timer_get_time();
@@ -536,22 +536,6 @@ auto Database::dbMintNewTrackId() -> TrackId {
   return next_track_id_++;
 }
 
-auto Database::dbEntomb(TrackId id, uint64_t hash) -> void {
-  std::string key = EncodeHashKey(hash);
-  std::string val = EncodeHashValue(id);
-  if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
-    ESP_LOGE(kTag, "failed to entomb #%llx (id #%lx)", hash, id);
-  }
-}
-
-auto Database::dbPutTrackData(const TrackData& s) -> void {
-  std::string key = EncodeDataKey(s.id);
-  std::string val = EncodeDataValue(s);
-  if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
-    ESP_LOGE(kTag, "failed to write data for #%lx", s.id);
-  }
-}
-
 auto Database::dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData> {
   std::string key = EncodeDataKey(id);
   std::string raw_val;
@@ -562,33 +546,19 @@ auto Database::dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData> {
   return ParseDataValue(raw_val);
 }
 
-auto Database::dbPutHash(const uint64_t& hash, TrackId i) -> void {
-  std::string key = EncodeHashKey(hash);
-  std::string val = EncodeHashValue(i);
-  if (!db_->Put(leveldb::WriteOptions(), key, val).ok()) {
-    ESP_LOGE(kTag, "failed to write hash for #%lx", i);
-  }
+auto Database::dbCreateIndexesForTrack(const Track& track,
+                                       leveldb::WriteBatch& batch) -> void {
+  dbCreateIndexesForTrack(track.data(), track.tags(), batch);
 }
 
-auto Database::dbGetHash(const uint64_t& hash) -> std::optional<TrackId> {
-  std::string key = EncodeHashKey(hash);
-  std::string raw_val;
-  if (!db_->Get(leveldb::ReadOptions(), key, &raw_val).ok()) {
-    ESP_LOGW(kTag, "no key found for hash #%llx", hash);
-    return {};
-  }
-  return ParseHashValue(raw_val);
-}
-
-auto Database::dbCreateIndexesForTrack(const Track& track) -> void {
+auto Database::dbCreateIndexesForTrack(const TrackData& data,
+                                       const TrackTags& tags,
+                                       leveldb::WriteBatch& batch) -> void {
   for (const IndexInfo& index : getIndexes()) {
-    leveldb::WriteBatch writes;
-    auto entries = Index(collator_, index, track);
+    auto entries = Index(collator_, index, data, tags);
     for (const auto& it : entries) {
-      writes.Put(EncodeIndexKey(it.first),
-                 {it.second.data(), it.second.size()});
+      batch.Put(EncodeIndexKey(it.first), {it.second.data(), it.second.size()});
     }
-    db_->Write(leveldb::WriteOptions(), &writes);
   }
 }
 
@@ -597,9 +567,8 @@ auto Database::dbRemoveIndexes(std::shared_ptr<TrackData> data) -> void {
   if (!tags) {
     return;
   }
-  Track track{data, tags};
   for (const IndexInfo& index : getIndexes()) {
-    auto entries = Index(collator_, index, track);
+    auto entries = Index(collator_, index, *data, *tags);
     for (auto it = entries.rbegin(); it != entries.rend(); it++) {
       auto key = EncodeIndexKey(it->first);
       auto status = db_->Delete(leveldb::WriteOptions{}, key);
@@ -626,16 +595,14 @@ auto Database::dbRemoveIndexes(std::shared_ptr<TrackData> data) -> void {
 }
 
 auto Database::dbIngestTagHashes(const TrackTags& tags,
-                                 std::pmr::unordered_map<Tag, uint64_t>& out)
-    -> void {
-  leveldb::WriteBatch batch{};
+                                 std::pmr::unordered_map<Tag, uint64_t>& out,
+                                 leveldb::WriteBatch& batch) -> void {
   for (const auto& tag : tags.allPresent()) {
     auto val = tags.get(tag);
     auto hash = tagHash(val);
     batch.Put(EncodeTagHashKey(hash), tagToString(val));
     out[tag] = hash;
   }
-  db_->Write(leveldb::WriteOptions{}, &batch);
 }
 
 auto Database::dbRecoverTagsFromHashes(

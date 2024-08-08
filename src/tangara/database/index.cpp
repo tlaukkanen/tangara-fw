@@ -52,10 +52,29 @@ const IndexInfo kAllAlbums{
     .components = {Tag::kAlbum, Tag::kAlbumOrder},
 };
 
+static auto titleOrFilename(const TrackData& data, const TrackTags& tags)
+    -> std::pmr::string {
+  auto title = tags.title();
+  if (title) {
+    return *title;
+  }
+  auto start = data.filepath.find_last_of('/');
+  if (start == std::pmr::string::npos) {
+    return data.filepath;
+  }
+  return data.filepath.substr(start + 1);
+}
+
 class Indexer {
  public:
-  Indexer(locale::ICollator& collator, const Track& t, const IndexInfo& idx)
-      : collator_(collator), track_(t), index_(idx) {}
+  Indexer(locale::ICollator& collator,
+          const IndexInfo& idx,
+          const TrackData& data,
+          const TrackTags& tags)
+      : collator_(collator),
+        index_(idx),
+        track_data_(data),
+        track_tags_(tags) {}
 
   auto index() -> std::vector<std::pair<IndexKey, std::string>>;
 
@@ -70,14 +89,13 @@ class Indexer {
   auto missing_value(Tag tag) -> TagValue {
     switch (tag) {
       case Tag::kTitle:
-        return track_.TitleOrFilename();
+        return titleOrFilename(track_data_, track_tags_);
       case Tag::kArtist:
         return "Unknown Artist";
       case Tag::kAlbum:
         return "Unknown Album";
       case Tag::kAlbumArtist:
-        return track_.tags().artist().value_or("Unknown Artist");
-        return "Unknown Album";
+        return track_tags_.artist().value_or("Unknown Artist");
       case Tag::kGenres:
         return std::pmr::vector<std::pmr::string>{};
       case Tag::kDisc:
@@ -91,8 +109,9 @@ class Indexer {
   }
 
   locale::ICollator& collator_;
-  const Track& track_;
   const IndexInfo index_;
+  const TrackData& track_data_;
+  const TrackTags& track_tags_;
 
   std::vector<std::pair<IndexKey, std::string>> out_;
 };
@@ -113,7 +132,7 @@ auto Indexer::index() -> std::vector<std::pair<IndexKey, std::string>> {
 auto Indexer::handleLevel(const IndexKey::Header& header,
                           std::span<const Tag> components) -> void {
   Tag component = components.front();
-  TagValue value = track_.tags().get(component);
+  TagValue value = track_tags_.get(component);
   if (std::holds_alternative<std::monostate>(value)) {
     value = missing_value(component);
   }
@@ -157,21 +176,17 @@ auto Indexer::handleItem(const IndexKey::Header& header,
           auto xfrm = collator_.Transform(value);
           key.item = {xfrm.data(), xfrm.size()};
         } else if constexpr (std::is_same_v<T, uint32_t>) {
-          value = std::to_string(arg);
-          // FIXME: this sucks lol. we should just write the number directly,
-          // LSB-first, but then we need to be able to parse it back properly.
-          std::ostringstream str;
-          str << std::setw(8) << std::setfill('0') << arg;
-          std::string encoded = str.str();
-          key.item = {encoded.data(), encoded.size()};
+          // CBOR's varint encoding actually works great for lexicographical
+          // sorting.
+          key.item = cppbor::Uint{arg}.toString();
         }
       },
       item);
 
   std::optional<IndexKey::Header> next_level;
   if (components.size() == 1) {
-    value = track_.TitleOrFilename();
-    key.track = track_.data().id;
+    value = titleOrFilename(track_data_, track_tags_);
+    key.track = track_data_.id;
   } else {
     next_level = ExpandHeader(key.header, key.item);
   }
@@ -183,10 +198,12 @@ auto Indexer::handleItem(const IndexKey::Header& header,
   }
 }
 
-auto Index(locale::ICollator& c,
-           const IndexInfo& i,
-           const Track& t) -> std::vector<std::pair<IndexKey, std::string>> {
-  Indexer indexer{c, t, i};
+auto Index(locale::ICollator& collator,
+           const IndexInfo& index,
+           const TrackData& data,
+           const TrackTags& tags)
+    -> std::vector<std::pair<IndexKey, std::string>> {
+  Indexer indexer{collator, index, data, tags};
   return indexer.index();
 }
 

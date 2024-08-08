@@ -195,8 +195,6 @@ class Track {
   auto data() const -> const TrackData& { return *data_; }
   auto tags() const -> const TrackTags& { return *tags_; }
 
-  auto TitleOrFilename() const -> std::pmr::string;
-
  private:
   std::shared_ptr<const TrackData> data_;
   std::shared_ptr<TrackTags> tags_;

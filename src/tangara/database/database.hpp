@@ -29,6 +29,7 @@
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
+#include "leveldb/write_batch.h"
 #include "memory_resource.hpp"
 #include "result.hpp"
 #include "tasks.hpp"
@@ -111,17 +112,18 @@ class Database {
   auto dbCalculateNextTrackId() -> void;
   auto dbMintNewTrackId() -> TrackId;
 
-  auto dbEntomb(TrackId track, uint64_t hash) -> void;
-  auto dbPutTrackData(const TrackData& s) -> void;
   auto dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData>;
-  auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
-  auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
 
-  auto dbCreateIndexesForTrack(const Track& track) -> void;
+  auto dbCreateIndexesForTrack(const Track&, leveldb::WriteBatch&) -> void;
+  auto dbCreateIndexesForTrack(const TrackData&,
+                               const TrackTags&,
+                               leveldb::WriteBatch&) -> void;
+
   auto dbRemoveIndexes(std::shared_ptr<TrackData>) -> void;
 
   auto dbIngestTagHashes(const TrackTags&,
-                         std::pmr::unordered_map<Tag, uint64_t>&) -> void;
+                         std::pmr::unordered_map<Tag, uint64_t>&,
+                         leveldb::WriteBatch&) -> void;
   auto dbRecoverTagsFromHashes(const std::pmr::unordered_map<Tag, uint64_t>&)
       -> std::shared_ptr<TrackTags>;
 
