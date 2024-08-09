@@ -24,12 +24,12 @@ namespace database {
 
 static_assert(sizeof(TCHAR) == sizeof(char), "TCHAR must be CHAR");
 
-TrackFinder::TrackFinder(std::string_view root)
+CandidateIterator::CandidateIterator(std::string_view root)
     : to_explore_(&memory::kSpiRamResource) {
   to_explore_.push_back({root.data(), root.size()});
 }
 
-auto TrackFinder::next(FILINFO& out_info) -> std::optional<std::string> {
+auto CandidateIterator::next(FILINFO& info) -> std::optional<std::string> {
   std::scoped_lock<std::mutex> lock{mut_};
   while (!to_explore_.empty() || current_) {
     if (!current_) {
@@ -49,7 +49,6 @@ auto TrackFinder::next(FILINFO& out_info) -> std::optional<std::string> {
       }
     }
 
-    FILINFO info;
     FRESULT res = f_readdir(&current_->second, &info);
     if (res != FR_OK || info.fname[0] == 0) {
       // No more files in the directory.
@@ -71,14 +70,49 @@ auto TrackFinder::next(FILINFO& out_info) -> std::optional<std::string> {
         to_explore_.push_back(full_path);
       } else {
         // This is a file! We can return now.
-        out_info = info;
         return {{full_path.data(), full_path.size()}};
       }
     }
   }
 
-  // Out of things to explore.
+  // Out of paths to explore.
   return {};
+}
+
+TrackFinder::TrackFinder(
+    tasks::WorkerPool& pool,
+    size_t parallelism,
+    std::function<void(FILINFO&, std::string_view)> processor,
+    std::function<void()> complete_cb)
+    : pool_{pool},
+      parallelism_(parallelism),
+      processor_(processor),
+      complete_cb_(complete_cb) {}
+
+auto TrackFinder::launch(std::string_view root) -> void {
+  iterator_ = std::make_unique<CandidateIterator>(root);
+  num_workers_ = parallelism_;
+  for (size_t i = 0; i < parallelism_; i++) {
+    schedule();
+  }
+}
+
+auto TrackFinder::schedule() -> void {
+  pool_.Dispatch<void>([&]() {
+    FILINFO info;
+    auto next = iterator_->next(info);
+    if (next) {
+      std::invoke(processor_, info, *next);
+      schedule();
+    } else {
+      std::scoped_lock<std::mutex> lock{workers_mutex_};
+      num_workers_ -= 1;
+      if (num_workers_ == 0) {
+        iterator_.reset();
+        std::invoke(complete_cb_);
+      }
+    }
+  });
 }
 
 }  // namespace database
