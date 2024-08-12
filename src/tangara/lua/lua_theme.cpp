@@ -75,8 +75,41 @@ static auto set_theme(lua_State* L) -> int {
   return 0;
 }
 
+
+static auto load_theme(lua_State* L) -> int {
+  std::string filename = luaL_checkstring(L, -1);
+  // Set the theme filename in non-volatile storage
+  Bridge* instance = Bridge::Get(L);
+  // Load the theme using lua
+  auto status = luaL_loadfile(L, filename.c_str());
+  if (status != LUA_OK) {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  status = lua::CallProtected(L, 0, 1);
+  if (status == LUA_OK) {
+    ui::themes::Theme::instance()->Reset();
+    set_theme(L);
+    instance->services().nvs().InterfaceTheme(filename);
+    lua_pushboolean(L, true);
+  } else {
+    lua_pushboolean(L, false);
+  }
+
+  return 1;
+}
+
+static auto theme_filename(lua_State* L) -> int {
+  Bridge* instance = Bridge::Get(L);
+  auto file = instance->services().nvs().InterfaceTheme().value_or("/lua/theme_light.lua");
+  lua_pushstring(L, file.c_str());
+  return 1;
+}
+
 static const struct luaL_Reg kThemeFuncs[] = {{"set", set_theme},
                                               {"set_style", set_style},
+                                              {"load_theme", load_theme},
+                                              {"theme_filename", theme_filename},
                                               {NULL, NULL}};
 
 static auto lua_theme(lua_State* L) -> int {

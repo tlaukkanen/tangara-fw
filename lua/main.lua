@@ -14,9 +14,15 @@ local backstack = require("backstack")
 local main_menu = require("main_menu")
 
 local function init_ui()
-  -- Load the theme within init_ui because the theme needs fonts to be ready.
-  local theme_dark = require("theme_dark")
-  theme.set(theme_dark)
+  -- Theme is set within init_ui because the theme needs fonts to be ready.
+  -- Set the theme to the saved theme if available
+  local saved_theme = theme.theme_filename()
+  local res = theme.load_theme(saved_theme)
+  if not res then
+    -- Set a default theme (in case the saved theme does not load)
+    local default_theme = require("theme_light")
+    theme.set(default_theme)
+  end
 
   local lock_time = time.ticks()
 

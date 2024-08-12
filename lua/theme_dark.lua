@@ -95,24 +95,27 @@ local theme_dark = {
   switch = {
     {lvgl.PART.MAIN, lvgl.Style {
       bg_opa = lvgl.OPA(100),
-      width = 28,
-      height = 8,
+      width = 18,
+      height = 10,
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       bg_color = background_muted,
-      border_color = highlight_color,
+      border_color = text_color,
+      border_width = 1,
     }},
     {lvgl.PART.INDICATOR, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
-      bg_color = background_muted,
+      bg_color = background_color,
     }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,
+      bg_opa = lvgl.OPA(100),
     }},
     {lvgl.PART.KNOB, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
-      pad_all = 2,
       bg_opa = lvgl.OPA(100),
       bg_color = background_muted,
+      border_color = text_color,
+      border_width = 1,
     }},
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
@@ -170,7 +173,21 @@ local theme_dark = {
       image_recolor = icon_enabled_color,
     }},
   },
-
+  now_playing = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      bg_opa = lvgl.OPA(100),
+      radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
+      border_width = 1,
+      border_color = highlight_color,
+      border_side = 15, -- LV_BORDER_SIDE_FULL
+    }},
+  },
+  menu_icon = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      pad_all = 4,
+      radius = 4
+    }},
+  },
 }
 
 return theme_dark

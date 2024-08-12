@@ -113,6 +113,9 @@ class NvsStorage {
   auto ScreenBrightness() -> uint_fast8_t;
   auto ScreenBrightness(uint_fast8_t) -> void;
 
+  auto InterfaceTheme() -> std::optional<std::string>;
+  auto InterfaceTheme(std::string) -> void;
+
   auto ScrollSensitivity() -> uint_fast8_t;
   auto ScrollSensitivity(uint_fast8_t) -> void;
 
@@ -162,6 +165,8 @@ class NvsStorage {
   Setting<int8_t> amp_left_bias_;
   Setting<uint8_t> input_mode_;
   Setting<uint8_t> output_mode_;
+
+  Setting<std::string> theme_;
 
   Setting<bluetooth::MacAndName> bt_preferred_;
   Setting<std::vector<bluetooth::MacAndName>> bt_names_;

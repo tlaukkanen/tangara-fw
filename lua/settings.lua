@@ -7,9 +7,11 @@ local display = require("display")
 local controls = require("controls")
 local bluetooth = require("bluetooth")
 local theme = require("theme")
+local filesystem = require("filesystem")
 local database = require("database")
 local usb = require("usb")
 local font = require("font")
+local main_menu = require("main_menu")
 
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
@@ -298,6 +300,64 @@ local DisplaySettings = SettingsScreen:new {
         brightness_pct:set { text = tostring(b) .. "%" }
       end)
     }
+  end
+}
+
+local ThemeSettings = SettingsScreen:new {
+  title = "Theme",
+  createUi = function(self)
+    SettingsScreen.createUi(self)
+
+    theme.set_style(self.content:Label {
+      text = "Theme",
+    }, "settings_title")
+
+    local themeOptions = {}
+    themeOptions["Dark"] = "/lua/theme_dark.lua"
+    themeOptions["Light"] = "/lua/theme_light.lua"
+
+    -- Parse theme directory for more themes
+    local theme_dir_iter = filesystem.iterator("/.themes/")
+    for dir in theme_dir_iter do
+      local theme_name = tostring(dir):match("(.+).lua$")
+      themeOptions[theme_name] = "/sdcard/.themes/" .. theme_name .. ".lua"
+    end
+
+    local saved_theme = theme.theme_filename();
+    local saved_theme_name = saved_theme:match(".+/(.*).lua$")
+
+    local options = ""
+    local idx = 0
+    local selected_idx = -1
+    for i, v in pairs(themeOptions) do
+      if (saved_theme == v) then
+          selected_idx = idx
+      end
+      if idx > 0 then
+        options = options .. "\n"
+      end
+      options = options .. i 
+      idx = idx + 1
+    end
+
+    if (selected_idx == -1) then
+      options = options .. "\n" .. saved_theme_name
+      selected_idx = idx
+    end
+
+    local theme_chooser = self.content:Dropdown {
+      options = options,
+    }
+    theme_chooser:set({selected = selected_idx})
+
+    theme_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      local option = theme_chooser:get('selected_str')
+      local selectedTheme = themeOptions[option]
+      if (selectedTheme) then
+        theme.load_theme(tostring(selectedTheme)) 
+        backstack.reset(main_menu:new())
+      end
+    end)
   end
 }
 
@@ -742,6 +802,7 @@ return widgets.MenuScreen:new {
 
     section("Interface")
     submenu("Display", DisplaySettings)
+    submenu("Theme", ThemeSettings)
     submenu("Input Method", InputSettings)
 
     section("USB")

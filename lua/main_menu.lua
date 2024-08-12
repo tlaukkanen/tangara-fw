@@ -33,9 +33,9 @@ return widgets.MenuScreen:new {
       margin_all = 2,
       pad_bottom = 2,
       pad_column = 4,
-      border_color = "#FFFFFF",
       border_width = 1,
     })
+    theme.set_style(now_playing, "now_playing");
 
     local play_pause = now_playing:Image { src = img.play_small }
     local title = now_playing:Label {
@@ -140,6 +140,7 @@ return widgets.MenuScreen:new {
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
       pad_top = 4,
+      pad_bottom = 2,
     })
 
     -- local queue_btn = bottom_bar:Button {}
@@ -154,13 +155,13 @@ return widgets.MenuScreen:new {
       })
     end)
     files_btn:Image { src = img.files }
-    theme.set_style(files_btn, "icon_enabled")
+    theme.set_style(files_btn, "menu_icon")
 
     local settings_btn = bottom_bar:Button {}
     settings_btn:onClicked(function()
       backstack.push(require("settings"):new())
     end)
     settings_btn:Image { src = img.settings }
-    theme.set_style(settings_btn, "icon_enabled")
+    theme.set_style(settings_btn, "menu_icon")
   end,
 }

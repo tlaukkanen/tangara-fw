@@ -16,6 +16,7 @@
 #include "widgets/bar/lv_bar.h"
 #include "widgets/button/lv_button.h"
 #include "widgets/slider/lv_slider.h"
+#include "themes.hpp"
 
 namespace ui {
 namespace themes {
@@ -79,6 +80,10 @@ void Theme::ApplyStyle(lv_obj_t* obj, std::string style_key) {
       lv_obj_add_style(obj, pair.second, pair.first);
     }
   }
+}
+
+void Theme::Reset() {
+  style_map.clear();
 }
 
 auto Theme::instance() -> Theme* {

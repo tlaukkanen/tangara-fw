@@ -29,6 +29,7 @@ static constexpr char kKeyBluetoothVolumes[] = "bt_vols";
 static constexpr char kKeyBluetoothNames[] = "bt_names";
 static constexpr char kKeyOutput[] = "out";
 static constexpr char kKeyBrightness[] = "bright";
+static constexpr char kKeyInterfaceTheme[] = "ui_theme";
 static constexpr char kKeyAmpMaxVolume[] = "hp_vol_max";
 static constexpr char kKeyAmpCurrentVolume[] = "hp_vol";
 static constexpr char kKeyAmpLeftBias[] = "hp_bias";
@@ -170,6 +171,31 @@ auto Setting<std::vector<bluetooth::MacAndName>>::store(
 }
 
 template <>
+auto Setting<std::string>::store(
+    nvs_handle_t nvs,
+    std::string v) -> void {
+  cppbor::Tstr cbor{v};
+  auto encoded = cbor.encode();
+  nvs_set_blob(nvs, name_, encoded.data(), encoded.size());
+}
+
+template <>
+auto Setting<std::string>::load(nvs_handle_t nvs)
+    -> std::optional<std::string> {
+  auto raw = nvs_get_string(nvs, name_);
+  if (!raw) {
+    return {};
+  }
+  auto [parsed, unused, err] = cppbor::parseWithViews(
+      reinterpret_cast<const uint8_t*>(raw->data()), raw->size());
+  if (parsed->type() != cppbor::TSTR) {
+    return {};
+  }
+  auto v = parsed->asViewTstr()->view();
+  return std::string{v.begin(), v.end()};
+}
+
+template <>
 auto Setting<NvsStorage::LraData>::load(nvs_handle_t nvs)
     -> std::optional<NvsStorage::LraData> {
   auto raw = nvs_get_string(nvs, name_);
@@ -248,6 +274,7 @@ NvsStorage::NvsStorage(nvs_handle_t handle)
       amp_left_bias_(kKeyAmpLeftBias),
       input_mode_(kKeyPrimaryInput),
       output_mode_(kKeyOutput),
+      theme_{kKeyInterfaceTheme},
       bt_preferred_(kKeyBluetoothPreferred),
       bt_names_(kKeyBluetoothNames),
       db_auto_index_(kKeyDbAutoIndex),
@@ -273,6 +300,7 @@ auto NvsStorage::Read() -> void {
   amp_left_bias_.read(handle_);
   input_mode_.read(handle_);
   output_mode_.read(handle_);
+  theme_.read(handle_);
   bt_preferred_.read(handle_);
   bt_names_.read(handle_);
   db_auto_index_.read(handle_);
@@ -293,6 +321,7 @@ auto NvsStorage::Write() -> bool {
   amp_left_bias_.write(handle_);
   input_mode_.write(handle_);
   output_mode_.write(handle_);
+  theme_.write(handle_);
   bt_preferred_.write(handle_);
   bt_names_.write(handle_);
   db_auto_index_.write(handle_);
@@ -464,6 +493,16 @@ auto NvsStorage::ScreenBrightness() -> uint_fast8_t {
 auto NvsStorage::ScreenBrightness(uint_fast8_t val) -> void {
   std::lock_guard<std::mutex> lock{mutex_};
   brightness_.set(val);
+}
+
+auto NvsStorage::InterfaceTheme() -> std::optional<std::string> {
+  std::lock_guard<std::mutex> lock{mutex_};
+  return theme_.get();
+}
+
+auto NvsStorage::InterfaceTheme(std::string themeFile) -> void {
+  std::lock_guard<std::mutex> lock{mutex_};
+  theme_.set(themeFile);
 }
 
 auto NvsStorage::ScrollSensitivity() -> uint_fast8_t {
