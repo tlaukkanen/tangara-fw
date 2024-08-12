@@ -47,7 +47,7 @@ auto AllocateStack<Type::kAudioDecoder>() -> std::span<StackType_t> {
 // separately.
 template <>
 auto AllocateStack<Type::kUi>() -> std::span<StackType_t> {
-  constexpr std::size_t size = 14 * 1024;
+  constexpr std::size_t size = 20 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
 }
