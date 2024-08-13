@@ -146,7 +146,7 @@ STATS_NAME_END(hci_sock_stats)
 #define BLE_HCI_UART_H4_SKIP_CMD    0x81
 #define BLE_HCI_UART_H4_SKIP_ACL    0x82
 
-#if MYNEWT
+#ifdef MYNEWT
 
 #define BLE_SOCK_STACK_SIZE         \
     OS_STACK_ALIGN(MYNEWT_VAL(BLE_SOCK_STACK_SIZE))
@@ -334,6 +334,7 @@ ble_hci_sock_cmdevt_tx(uint8_t *hci_ev, uint8_t h4_type)
 
     memcpy(&addr, &addr, sizeof(struct sockaddr_hci));
 
+    len = 0;
     if (h4_type == BLE_HCI_UART_H4_CMD) {
         len = sizeof(struct ble_hci_cmd) + hci_ev[2];
         STATS_INC(hci_sock_stats, ocmd);
@@ -356,7 +357,7 @@ ble_hci_sock_cmdevt_tx(uint8_t *hci_ev, uint8_t h4_type)
                (struct sockaddr *)&addr, sizeof(struct sockaddr_hci));
 
     free(buf);
-    ble_hci_trans_buf_free(hci_ev);
+    ble_transport_free(hci_ev);
     if (i != len + 1) {
         if (i < 0) {
             dprintf(1, "sendto() failed : %d\n", errno);
@@ -778,7 +779,7 @@ ble_hci_sock_init_task(void)
     ble_npl_callout_init(&ble_hci_sock_state.timer, &ble_hci_sock_state.evq,
                     ble_hci_sock_rx_ev, NULL);
 
-#if MYNEWT
+#ifdef MYNEWT
     {
         os_stack_t *pstack;
 

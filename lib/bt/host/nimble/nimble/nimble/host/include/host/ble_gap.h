@@ -153,12 +153,14 @@ struct hci_conn_update;
 #define BLE_GAP_EVENT_PERIODIC_TRANSFER     24
 #define BLE_GAP_EVENT_PATHLOSS_THRESHOLD    25
 #define BLE_GAP_EVENT_TRANSMIT_POWER        26
-#define BLE_GAP_EVENT_SUBRATE_CHANGE        27
-#define BLE_GAP_EVENT_VS_HCI                28
-#define BLE_GAP_EVENT_REATTEMPT_COUNT       29
-#define BLE_GAP_EVENT_AUTHORIZE             30
-#define BLE_GAP_EVENT_TEST_UPDATE           31
-
+#define BLE_GAP_EVENT_PARING_COMPLETE       27
+#define BLE_GAP_EVENT_SUBRATE_CHANGE        28
+#define BLE_GAP_EVENT_VS_HCI                29
+#define BLE_GAP_EVENT_BIGINFO_REPORT        30
+#define BLE_GAP_EVENT_REATTEMPT_COUNT       31
+#define BLE_GAP_EVENT_AUTHORIZE             32
+#define BLE_GAP_EVENT_TEST_UPDATE           33
+#define BLE_GAP_EVENT_DATA_LEN_CHG          34
 
 /* DTM events */
 #define BLE_GAP_DTM_TX_START_EVT            0
@@ -850,6 +852,8 @@ struct ble_gap_event {
         struct {
             /** The handle of the relevant connection. */
             uint16_t conn_handle;
+            /** Peer identity address */
+            ble_addr_t peer_id_addr;
         } identity_resolved;
 
         /**
@@ -1022,6 +1026,54 @@ struct ble_gap_event {
         } periodic_transfer;
 #endif
 
+#if MYNEWT_VAL(BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS)
+        /**
+         * Represents a periodic advertising sync transfer received. Valid for
+         * the following event types:
+         *     o BLE_GAP_EVENT_BIGINFO_REPORT
+         */
+        struct {
+            /** Synchronization handle */
+            uint16_t sync_handle;
+
+            /** Number of present BISes */
+            uint8_t bis_cnt;
+
+            /** Number of SubEvents */
+            uint8_t nse;
+
+            /** ISO Interval */
+            uint16_t iso_interval;
+
+            /** Burst Number */
+            uint8_t bn;
+
+            /** Pre-Transmission Offset */
+            uint8_t pto;
+
+            /** Immediate Repetition Count */
+            uint8_t irc;
+
+            /** Maximum PDU size */
+            uint16_t max_pdu;
+
+            /** Maximum SDU size */
+            uint16_t max_sdu;
+
+            /** Service Data Unit Interval */
+            uint32_t sdu_interval;
+
+            /** BIG PHY */
+            uint8_t phy;
+
+            /** Framing of BIS Data PDUs */
+            uint8_t framing : 1;
+
+            /** Encryption */
+            uint8_t encryption : 1;
+        } biginfo_report;
+#endif
+
 #if MYNEWT_VAL(BLE_POWER_CONTROL)
         /**
          * Represents a change in either local transmit power or remote transmit
@@ -1069,6 +1121,24 @@ struct ble_gap_event {
 	    int8_t delta;
 	} transmit_power;
 #endif
+        /**
+         * Represents a received Pairing Complete message
+         *
+         * Valid for the following event types:
+         *     o BLE_GAP_EVENT_PARING_COMPLETE
+         */
+        struct {
+            /**
+             * Indicates the result of the encryption state change attempt;
+             *     o 0: the encrypted state was successfully updated;
+             *     o BLE host error code: the encryption state change attempt
+             *       failed for the specified reason.
+             */
+            int status;
+
+            /** The handle of the relevant connection. */
+            uint16_t conn_handle;
+        } pairing_complete;
 
 #if MYNEWT_VAL(BLE_CONN_SUBRATING)
         /**
@@ -1174,8 +1244,31 @@ struct ble_gap_event {
 	     * Valid only for BLE_GAP_DTM_END_EVT
 	     * shall be 0 for a transmitter.
 	     */
-            uint8_t num_pkt;
+            uint16_t num_pkt;
 	} dtm_state;
+
+        /**
+	 * Represent an event for LE Data length change
+	 *
+	 * Valid for the following event types:
+	 *      o BLE_GAP_EVENT_DATA_LEN_CHG
+	 */
+	struct {
+            /* Connection handle */
+	    uint16_t conn_handle;
+
+	    /* Max Tx Payload octotes */
+	    uint16_t max_tx_octets;
+
+	    /* Max Tx Time */
+	    uint16_t max_tx_time;
+
+	    /* Max Rx payload octet */
+	    uint16_t max_rx_octets;
+
+	    /* Max Rx Time */
+	    uint16_t max_rx_time;
+	} data_len_chg;
     };
 };
 
@@ -1226,6 +1319,7 @@ struct ble_gap_multi_conn_params {
 #endif // MYNEWT_VAL(OPTIMIZE_MULTI_CONN)
 
 typedef int ble_gap_event_fn(struct ble_gap_event *event, void *arg);
+typedef int ble_gap_conn_foreach_handle_fn(uint16_t conn_handle, void *arg);
 
 #define BLE_GAP_CONN_MODE_NON               0
 #define BLE_GAP_CONN_MODE_DIR               1
@@ -1633,7 +1727,7 @@ int ble_gap_ext_adv_active(uint8_t instance);
 /** @brief Periodic advertising parameters  */
 struct ble_gap_periodic_adv_params {
     /** If include TX power in advertising PDU */
-    unsigned int include_tx_power:1;
+    unsigned int include_tx_power : 1;
 
     /** Minimum advertising interval in 1.25ms units, if 0 stack use sane
      *  defaults
@@ -2248,17 +2342,57 @@ int ble_gap_update_params(uint16_t conn_handle,
  * Configure LE Data Length in controller (OGF = 0x08, OCF = 0x0022).
  *
  * @param conn_handle      Connection handle.
- * @param tx_octets        The preferred value of payload octets that the Controller
- *                         should use for a new connection (Range
- *                         0x001B-0x00FB).
- * @param tx_time          The preferred maximum number of microseconds that the local Controller
- *                         should use to transmit a single link layer packet
- *                         (Range 0x0148-0x4290).
+ * @param tx_octets        The preferred value of payload octets that the
+ *                         Controller should use for a new connection
+ *                         (Range 0x001B-0x00FB).
+ * @param tx_time          The preferred maximum number of microseconds that
+ *                         the local Controller should use to transmit a single
+ *                         link layer packet (Range 0x0148-0x4290).
  *
  * @return                 0 on success,
  *                         other error code on failure.
  */
-int ble_gap_set_data_len(uint16_t conn_handle, uint16_t tx_octets, uint16_t tx_time);
+int ble_gap_set_data_len(uint16_t conn_handle, uint16_t tx_octets,
+                         uint16_t tx_time);
+
+/**
+ * Read LE Suggested Default Data Length in controller
+ * (OGF = 0x08, OCF = 0x0024).
+ *
+ * @param out_sugg_max_tx_octets    The Host's suggested value for the
+ *                                  Controller's maximum transmitted number of
+ *                                  payload octets in LL Data PDUs to be used
+ *                                  for new connections. (Range 0x001B-0x00FB).
+ * @param out_sugg_max_tx_time      The Host's suggested value for the
+ *                                  Controller's maximum packet transmission
+ *                                  time for packets containing LL Data PDUs to
+ *                                  be used for new connections.
+ *                                  (Range 0x0148-0x4290).
+ *
+ * @return                          0 on success,
+ *                                  other error code on failure.
+ */
+int ble_gap_read_sugg_def_data_len(uint16_t *out_sugg_max_tx_octets,
+                                   uint16_t *out_sugg_max_tx_time);
+
+/**
+ * Configure LE Suggested Default Data Length in controller
+ * (OGF = 0x08, OCF = 0x0024).
+ *
+ * @param sugg_max_tx_octets    The Host's suggested value for the Controller's
+ *                              maximum transmitted number of payload octets in
+ *                              LL Data PDUs to be used for new connections.
+ *                              (Range 0x001B-0x00FB).
+ * @param sugg_max_tx_time      The Host's suggested value for the Controller's
+ *                              maximum packet transmission time for packets
+ *                              containing LL Data PDUs to be used for new
+ *                              connections. (Range 0x0148-0x4290).
+ *
+ * @return                      0 on success,
+ *                              other error code on failure.
+ */
+int ble_gap_write_sugg_def_data_len(uint16_t sugg_max_tx_octets,
+                                    uint16_t sugg_max_tx_time);
 
 /**
  * Read LE Suggested Default Data Length in controller (OGF = 0x08, OCF = 0x0024).
@@ -2534,8 +2668,8 @@ int ble_gap_set_default_subrate(uint16_t subrate_min, uint16_t subrate_max, uint
 
 int
 ble_gap_subrate_req(uint16_t conn_handle, uint16_t subrate_min, uint16_t subrate_max,
-                        uint16_t max_latency, uint16_t cont_num,
-                        uint16_t supervision_timeout);
+                    uint16_t max_latency, uint16_t cont_num,
+                    uint16_t supervision_timeout);
 #endif
 /**
  * Event listener structure

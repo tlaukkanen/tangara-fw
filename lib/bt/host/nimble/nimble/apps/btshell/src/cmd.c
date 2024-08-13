@@ -260,7 +260,7 @@ cmd_advertise_configure(int argc, char **argv)
 
     params.own_addr_type = parse_arg_kv_dflt("own_addr_type",
                                              cmd_own_addr_types,
-                                             BLE_OWN_ADDR_PUBLIC, &rc);
+                                             btshell_get_default_own_addr_type(), &rc);
     if (rc != 0) {
         console_printf("invalid 'own_addr_type' parameter\n");
         return rc;
@@ -473,7 +473,7 @@ static const struct shell_param advertise_configure_params[] = {
     {"directed", "directed advertising, usage: =[0-1], default: 0"},
     {"peer_addr_type", "usage: =[public|random|public_id|random_id], default: public"},
     {"peer_addr", "usage: =[XX:XX:XX:XX:XX:XX]"},
-    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public"},
+    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public if available, otherwise random"},
     {"channel_map", "usage: =[0x00-0xff], default: 0"},
     {"filter", "usage: =[none|scan|conn|both], default: none"},
     {"interval_min", "usage: =[0-UINT32_MAX], default: 0"},
@@ -615,7 +615,7 @@ cmd_advertise(int argc, char **argv)
     }
 
     own_addr_type = parse_arg_kv_dflt("own_addr_type", cmd_own_addr_types,
-                                      BLE_OWN_ADDR_PUBLIC, &rc);
+                                      btshell_get_default_own_addr_type(), &rc);
     if (rc != 0) {
         console_printf("invalid 'own_addr_type' parameter\n");
         return rc;
@@ -676,7 +676,7 @@ static const struct shell_param advertise_params[] = {
     {"discov", "discoverable mode, usage: =[non|ltd|gen], default: gen"},
     {"peer_addr_type", "usage: =[public|random|public_id|random_id], default: public"},
     {"peer_addr", "usage: =[XX:XX:XX:XX:XX:XX]"},
-    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public"},
+    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public if available, otherwise random"},
     {"channel_map", "usage: =[0x00-0xff], default: 0"},
     {"filter", "usage: =[none|scan|conn|both], default: none"},
     {"interval_min", "usage: =[0-UINT16_MAX], default: 0"},
@@ -752,7 +752,7 @@ cmd_connect(int argc, char **argv)
     }
 
     own_addr_type = parse_arg_kv_dflt("own_addr_type", cmd_own_addr_types,
-                                      BLE_OWN_ADDR_PUBLIC, &rc);
+                                      btshell_get_default_own_addr_type(), &rc);
     if (rc != 0) {
         console_printf("invalid 'own_addr_type' parameter\n");
         return rc;
@@ -969,7 +969,7 @@ static const struct shell_param connect_params[] = {
     {"extended", "usage: =[none|1M|coded|both|all], default: none"},
     {"peer_addr_type", "usage: =[public|random|public_id|random_id], default: public"},
     {"peer_addr", "usage: =[XX:XX:XX:XX:XX:XX]"},
-    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public"},
+    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public if available, otherwise random"},
     {"duration", "usage: =[1-INT32_MAX], default: 0"},
     {"scan_interval", "usage: =[0-UINT16_MAX], default: 0x0010"},
     {"scan_window", "usage: =[0-UINT16_MAX], default: 0x0010"},
@@ -1209,7 +1209,7 @@ cmd_scan(int argc, char **argv)
         return rc;
     }
 
-    if (argc > 1 && strcmp(argv[1], "cancel") == 0) {
+    if (argc > 1 && (strcmp(argv[1], "cancel") == 0 || strcmp(argv[1], "off") == 0)) {
         rc = btshell_scan_cancel();
         if (rc != 0) {
             console_printf("scan cancel fail: %d\n", rc);
@@ -1268,7 +1268,7 @@ cmd_scan(int argc, char **argv)
     }
 
     own_addr_type = parse_arg_kv_dflt("own_addr_type", cmd_own_addr_types,
-                                      BLE_OWN_ADDR_PUBLIC, &rc);
+                                      btshell_get_default_own_addr_type(), &rc);
     if (rc != 0) {
         console_printf("invalid 'own_addr_type' parameter\n");
         return rc;
@@ -1353,6 +1353,7 @@ cmd_scan(int argc, char **argv)
 #if MYNEWT_VAL(SHELL_CMD_HELP)
 static const struct shell_param scan_params[] = {
     {"cancel", "cancel scan procedure"},
+    {"off", "\"cancel\" param substitute"},
     {"extended", "usage: =[none|1M|coded|both], default: none"},
     {"duration", "usage: =[1-INT32_MAX], default: INT32_MAX"},
     {"limited", "usage: =[0-1], default: 0"},
@@ -1361,7 +1362,7 @@ static const struct shell_param scan_params[] = {
     {"window", "usage: =[0-UINT16_MAX], default: 0"},
     {"filter", "usage: =[no_wl|use_wl|no_wl_inita|use_wl_inita], default: no_wl"},
     {"nodups", "usage: =[0-1], default: 0"},
-    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public"},
+    {"own_addr_type", "usage: =[public|random|rpa_pub|rpa_rnd], default: public if available, otherwise random"},
     {"extended_duration", "usage: =[0-UINT16_MAX], default: 0"},
     {"extended_period", "usage: =[0-UINT16_MAX], default: 0"},
     {"longrange_interval", "usage: =[0-UINT16_MAX], default: 0"},
@@ -2257,17 +2258,6 @@ cmd_keystore_parse_keydata(int argc, char **argv, union ble_store_key *out,
             return rc;
         }
 
-        out->sec.ediv = parse_arg_uint16("ediv", &rc);
-        if (rc != 0) {
-            console_printf("invalid 'ediv' parameter\n");
-            return rc;
-        }
-
-        out->sec.rand_num = parse_arg_uint64("rand", &rc);
-        if (rc != 0) {
-            console_printf("invalid 'rand' parameter\n");
-            return rc;
-        }
         return 0;
 
     default:
@@ -2316,8 +2306,6 @@ cmd_keystore_parse_valuedata(int argc, char **argv,
                 return rc;
             }
             out->sec.peer_addr = key->sec.peer_addr;
-            out->sec.ediv = key->sec.ediv;
-            out->sec.rand_num = key->sec.rand_num;
             break;
     }
 

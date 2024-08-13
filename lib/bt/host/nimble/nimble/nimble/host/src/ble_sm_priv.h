@@ -386,7 +386,8 @@ uint8_t *ble_sm_our_pair_rand(struct ble_sm_proc *proc);
 uint8_t *ble_sm_peer_pair_rand(struct ble_sm_proc *proc);
 int ble_sm_ioact_state(uint8_t action);
 int ble_sm_proc_can_advance(struct ble_sm_proc *proc);
-void ble_sm_process_result(uint16_t conn_handle, struct ble_sm_result *res);
+void ble_sm_process_result(uint16_t conn_handle, struct ble_sm_result *res,
+                           bool tx_fail);
 void ble_sm_confirm_advance(struct ble_sm_proc *proc);
 void ble_sm_ia_ra(struct ble_sm_proc *proc,
                   uint8_t *out_iat, uint8_t *out_ia,
@@ -432,7 +433,6 @@ int ble_sm_init(void);
 struct ble_l2cap_chan *ble_sm_create_chan(uint16_t handle);
 void *ble_sm_cmd_get(uint8_t opcode, size_t len, struct os_mbuf **txom);
 int ble_sm_tx(uint16_t conn_handle, struct os_mbuf *txom);
-int ble_sm_alg_aes_cmac(const uint8_t *key, const uint8_t *in, size_t len, uint8_t *out);
 
 
 #ifdef __cplusplus

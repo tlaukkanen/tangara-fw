@@ -842,112 +842,105 @@ struct ble_hci_le_set_default_periodic_sync_transfer_params_cp {
 #define BLE_HCI_OCF_LE_GENERATE_DHKEY_V2                 (0x005E)
 #define BLE_HCI_OCF_LE_MODIFY_SCA                        (0x005F)
 
-#if MYNEWT_VAL(BLE_ISO)
 #define BLE_HCI_OCF_LE_READ_ISO_TX_SYNC                  (0x0061)
 struct ble_hci_le_read_iso_tx_sync_cp {
     uint16_t conn_handle;
 } __attribute__((packed));
-
 struct ble_hci_le_read_iso_tx_sync_rp {
     uint16_t conn_handle;
     uint16_t packet_seq_num;
-    uint32_t timestamp;
-    uint8_t timeoffset[3];
+    uint32_t tx_timestamp;
+    uint8_t time_offset[3];
 } __attribute__((packed));
 
-#define BLE_HCI_LE_SET_CIG_CIS_MAX_NUM                   (0x1F)
-#define BLE_HCI_OCF_LE_SET_CIG_PARAM                     (0x0062)
+#define BLE_HCI_OCF_LE_SET_CIG_PARAMS                    (0x0062)
 struct ble_hci_le_cis_params {
     uint8_t cis_id;
-    uint16_t max_sdu_mtos;
-    uint16_t max_sdu_stom;
-    uint8_t phy_mtos;
-    uint8_t phy_stom;
-    uint8_t rnt_mtos;
-    uint8_t rnt_stom;
+    uint16_t max_sdu_c_to_p;
+    uint16_t max_sdu_p_to_c;
+    uint8_t phy_c_to_p;
+    uint8_t phy_p_to_c;
+    uint8_t rnt_c_to_p;
+    uint8_t rnt_p_to_c;
 } __attribute__((packed));
-
 struct ble_hci_le_set_cig_params_cp {
     uint8_t cig_id;
-    uint8_t sdu_interval_mtos[3];
-    uint8_t sdu_interval_stom[3];
-    uint8_t sca;
+    uint8_t sdu_interval_c_to_p[3];
+    uint8_t sdu_interval_p_to_c[3];
+    uint8_t worst_sca;
     uint8_t packing;
     uint8_t framing;
-    uint16_t max_latency_mtos;
-    uint16_t max_latency_stom;
-    uint8_t cis_cnt;
-    struct ble_hci_le_cis_params cis_params[0];
+    uint16_t max_latency_c_to_p;
+    uint16_t max_latency_p_to_c;
+    uint8_t cis_count;
+    struct ble_hci_le_cis_params cis[0];
 } __attribute__((packed));
-
 struct ble_hci_le_set_cig_params_rp {
     uint8_t cig_id;
-    uint8_t cis_cnt;
-    uint16_t cis_handle[0];
+    uint8_t cis_count;
+    uint16_t conn_handle[0];
 } __attribute__((packed));
 
-#if MYNEWT_VAL(BLE_ISO_TEST)
-#define BLE_HCI_OCF_LE_SET_CIG_PARAM_TEST                (0x0063)
+#define BLE_HCI_OCF_LE_SET_CIG_PARAMS_TEST               (0x0063)
 struct ble_hci_le_cis_params_test {
     uint8_t cis_id;
     uint8_t nse;
-    uint16_t max_sdu_mtos;
-    uint16_t max_sdu_stom;
-    uint16_t max_pdu_mtos;
-    uint16_t max_pdu_stom;
-    uint8_t phy_mtos;
-    uint8_t phy_stom;
-    uint8_t bn_mtos;
-    uint8_t bn_stom;
+    uint16_t max_sdu_c_to_p;
+    uint16_t max_sdu_p_to_c;
+    uint16_t max_pdu_c_to_p;
+    uint16_t max_pdu_p_to_c;
+    uint8_t phy_c_to_p;
+    uint8_t phy_p_to_c;
+    uint8_t bn_c_to_p;
+    uint8_t bn_p_to_c;
 } __attribute__((packed));
-
 struct ble_hci_le_set_cig_params_test_cp {
     uint8_t cig_id;
-    uint8_t sdu_interval_mtos[3];
-    uint8_t sdu_interval_stom[3];
-    uint8_t ft_mtos;
-    uint8_t ft_stom;
+    uint8_t sdu_interval_c_to_p[3];
+    uint8_t sdu_interval_p_to_c[3];
+    uint8_t ft_c_to_p;
+    uint8_t ft_p_to_c;
     uint16_t iso_interval;
-    uint8_t sca;
+    uint8_t worst_sca;
     uint8_t packing;
     uint8_t framing;
-    uint8_t cis_cnt;
-    struct ble_hci_le_cis_params_test cis_params[0];
+    uint8_t cis_count;
+    struct ble_hci_le_cis_params_test cis[0];
 } __attribute__((packed));
-#endif
+struct ble_hci_le_set_cig_params_test_rp {
+    uint8_t cig_id;
+    uint8_t cis_count;
+    uint16_t conn_handle[0];
+} __attribute__((packed));
 
-#define BLE_HCI_LE_CREATE_CIS_MAX_CIS_NUM                (0x1F)
 #define BLE_HCI_OCF_LE_CREATE_CIS                        (0x0064)
 struct ble_hci_le_create_cis_params {
     uint16_t cis_handle;
     uint16_t conn_handle;
 } __attribute__((packed));
-
 struct ble_hci_le_create_cis_cp {
-    uint8_t cis_cnt;
-    struct ble_hci_le_create_cis_params params[0];
+    uint8_t cis_count;
+    struct ble_hci_le_create_cis_params cis[0];
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_REMOVE_CIG                        (0x0065)
 struct ble_hci_le_remove_cig_cp {
     uint8_t cig_id;
 } __attribute__((packed));
-
 struct ble_hci_le_remove_cig_rp {
     uint8_t cig_id;
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_ACCEPT_CIS_REQ                    (0x0066)
 struct ble_hci_le_accept_cis_request_cp {
-    uint16_t cis_handle;
+    uint16_t conn_handle;
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_REJECT_CIS_REQ                    (0x0067)
 struct ble_hci_le_reject_cis_request_cp {
-    uint16_t cis_handle;
+    uint16_t conn_handle;
     uint8_t reason;
 } __attribute__((packed));
-
 struct ble_hci_le_reject_cis_request_rp {
     uint16_t conn_handle;
 } __attribute__((packed));
@@ -956,11 +949,11 @@ struct ble_hci_le_reject_cis_request_rp {
 struct ble_hci_le_create_big_cp {
     uint8_t big_handle;
     uint8_t adv_handle;
-    uint8_t bis_cnt;
+    uint8_t num_bis;
     uint8_t sdu_interval[3];
     uint16_t max_sdu;
     uint16_t max_transport_latency;
-    uint8_t rnt;
+    uint8_t rtn;
     uint8_t phy;
     uint8_t packing;
     uint8_t framing;
@@ -968,12 +961,11 @@ struct ble_hci_le_create_big_cp {
     uint8_t broadcast_code[16];
 } __attribute__((packed));
 
-#if MYNEWT_VAL(BLE_ISO_TEST)
 #define BLE_HCI_OCF_LE_CREATE_BIG_TEST                   (0x0069)
 struct ble_hci_le_create_big_test_cp {
     uint8_t big_handle;
     uint8_t adv_handle;
-    uint8_t bis_cnt;
+    uint8_t num_bis;
     uint8_t sdu_interval[3];
     uint16_t iso_interval;
     uint8_t nse;
@@ -988,7 +980,6 @@ struct ble_hci_le_create_big_test_cp {
     uint8_t encryption;
     uint8_t broadcast_code[16];
 } __attribute__((packed));
-#endif
 
 #define BLE_HCI_OCF_LE_TERMINATE_BIG                     (0x006a)
 struct ble_hci_le_terminate_big_cp {
@@ -996,78 +987,113 @@ struct ble_hci_le_terminate_big_cp {
     uint8_t reason;
 } __attribute__((packed));
 
-#define BLE_HCI_LE_BIG_CREATE_SYNC_LEN_MIN               (25)
 #define BLE_HCI_OCF_LE_BIG_CREATE_SYNC                   (0x006b)
 struct ble_hci_le_big_create_sync_cp {
     uint8_t big_handle;
     uint16_t sync_handle;
-    uint8_t big_cnt;
     uint8_t encryption;
     uint8_t broadcast_code[16];
     uint8_t mse;
-    uint16_t timeout;
+    uint16_t sync_timeout;
+    uint8_t num_bis;
     uint8_t bis[0];
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_BIG_TERMINATE_SYNC                (0x006c)
-struct ble_hci_le_terminate_big_sync_cp {
+struct ble_hci_le_big_terminate_sync_cp {
     uint8_t big_handle;
 } __attribute__((packed));
-#endif
+struct ble_hci_le_big_terminate_sync_rp {
+    uint8_t big_handle;
+} __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_REQ_PEER_SCA                      (0x006d)
 struct ble_hci_le_request_peer_sca_cp {
     uint16_t conn_handle;
 } __attribute__((packed));
 
-#if MYNEWT_VAL(BLE_ISO)
 #define BLE_HCI_OCF_LE_SETUP_ISO_DATA_PATH               (0x006e)
-struct ble_hci_le_iso_setup_data_path_cp {
-    uint16_t iso_handle;
-    uint8_t direction;
-    uint8_t id;
+struct ble_hci_le_setup_iso_data_path_cp {
+    uint16_t conn_handle;
+    uint8_t data_path_dir;
+    uint8_t data_path_id;
     uint8_t codec_id[5];
     uint8_t controller_delay[3];
-    uint8_t codec_conf_len;
-    uint8_t codec_conf[0];
+    uint8_t codec_config_len;
+    uint8_t codec_config[0];
+} __attribute__((packed));
+struct ble_hci_le_setup_iso_data_path_rp {
+    uint16_t conn_handle;
 } __attribute__((packed));
 
-#define BLE_HCI_LE_REMOVE_INPUT_DATA_PATH_BIT            (0x01)
-#define BLE_HCI_LE_REMOVE_OUTPUT_DATA_PATH_BIT           (0x02)
 #define BLE_HCI_OCF_LE_REMOVE_ISO_DATA_PATH              (0x006f)
-struct ble_hci_le_iso_remove_data_path_cp {
-    uint16_t iso_handle;
-    uint8_t direction;
+struct ble_hci_le_remove_iso_data_path_cp {
+    uint16_t conn_handle;
+    uint8_t data_path_dir;
+} __attribute__((packed));
+struct ble_hci_le_remove_iso_data_path_rp {
+    uint16_t conn_handle;
 } __attribute__((packed));
 
-#if MYNEWT_VAL(BLE_ISO_TEST)
 #define BLE_HCI_OCF_LE_ISO_TRANSMIT_TEST                 (0x0070)
 struct ble_hci_le_iso_transmit_test_cp {
-    uint16_t iso_handle;
+    uint16_t conn_handle;
     uint8_t payload_type;
+} __attribute__((packed));
+struct ble_hci_le_iso_transmit_test_rp {
+    uint16_t conn_handle;
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_ISO_RECEIVE_TEST                  (0x0071)
 struct ble_hci_le_iso_receive_test_cp {
-    uint16_t iso_handle;
+    uint16_t conn_handle;
+    uint8_t payload_type;
+} __attribute__((packed));
+struct ble_hci_le_iso_receive_test_rp {
+    uint16_t conn_handle;
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_ISO_READ_TEST_COUNTERS            (0x0072)
 struct ble_hci_le_iso_read_test_counters_cp {
-    uint16_t iso_handle;
+    uint16_t conn_handle;
+} __attribute__((packed));
+struct ble_hci_le_iso_read_test_counters_rp {
+    uint16_t conn_handle;
+    uint32_t received_sdu_count;
+    uint32_t missed_sdu_count;
+    uint32_t failed_sdu_count;
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_ISO_TEST_END                      (0x0073)
 struct ble_hci_le_iso_test_end_cp {
-    uint16_t iso_handle;
+    uint16_t conn_handle;
 } __attribute__((packed));
-#endif
-#endif
+struct ble_hci_le_iso_test_end_rp {
+    uint16_t conn_handle;
+    uint32_t received_sdu_count;
+    uint32_t missed_sdu_count;
+    uint32_t failed_sdu_count;
+} __attribute__((packed));
 
-#define BLE_HCI_OCF_LE_SET_HOST_FEAT                     (0x0074)
-struct ble_hci_le_set_host_feat_cp {
+#define BLE_HCI_OCF_LE_SET_HOST_FEATURE                  (0x0074)
+struct ble_hci_le_set_host_feature_cp {
     uint8_t bit_num;
-    uint8_t val;
+    uint8_t bit_val;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_LE_READ_ISO_LINK_QUALITY             (0x0075)
+struct ble_hci_le_read_iso_link_quality_cp {
+    uint16_t conn_handle;
+} __attribute__((packed));
+struct ble_hci_le_read_iso_link_quality_rp {
+    uint16_t conn_handle;
+    uint32_t tx_unacked_pkts;
+    uint32_t tx_flushed_pkts;
+    uint32_t tx_last_subevent_pkts;
+    uint32_t retransmitted_pkts;
+    uint32_t crc_error_pkts;
+    uint32_t rx_unreceived_pkts;
+    uint32_t duplicate_pkts;
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_LE_ENH_READ_TRANSMIT_POWER_LEVEL     (0x0076)
@@ -1131,7 +1157,6 @@ struct ble_hci_le_subrate_req_cp {
     uint16_t conn_handle;
     uint16_t subrate_min;
     uint16_t subrate_max;
-    uint16_t max_latency;
     uint16_t cont_num;
     uint16_t supervision_tmo;
 } __attribute__((packed));
@@ -1154,27 +1179,49 @@ struct ble_hci_vs_set_tx_pwr_rp {
     int8_t tx_power;
 } __attribute__((packed));
 
-#define BLE_HCI_OCF_VS_CSS                              (0x0003)
-struct ble_hci_vs_css_cp {
-    uint8_t opcode;
-} __attribute__((packed));
-#define BLE_HCI_VS_CSS_OP_CONFIGURE                     0x01
+#define BLE_HCI_OCF_VS_CSS_CONFIGURE                    (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0003))
 struct ble_hci_vs_css_configure_cp {
-    uint8_t opcode;
     uint32_t slot_us;
     uint32_t period_slots;
 } __attribute__((packed));
-#define BLE_HCI_VS_CSS_OP_SET_NEXT_SLOT                 0x02
+#define BLE_HCI_OCF_VS_CSS_ENABLE                       (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0004))
+struct ble_hci_vs_css_enable_cp {
+    uint8_t enable;
+} __attribute__((packed));
+#define BLE_HCI_OCF_VS_CSS_SET_NEXT_SLOT                (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0005))
 struct ble_hci_vs_css_set_next_slot_cp {
-    uint8_t opcode;
     uint16_t slot_idx;
 } __attribute__((packed));
-#define BLE_HCI_VS_CSS_OP_SET_CONN_SLOT                 0x03
+#define BLE_HCI_OCF_VS_CSS_SET_CONN_SLOT                (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0006))
 struct ble_hci_vs_css_set_conn_slot_cp {
-    uint8_t opcode;
     uint16_t conn_handle;
     uint16_t slot_idx;
 } __attribute__((packed));
+#define BLE_HCI_OCF_VS_CSS_READ_CONN_SLOT               (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0007))
+struct ble_hci_vs_css_read_conn_slot_cp {
+    uint16_t conn_handle;
+} __attribute__((packed));
+struct ble_hci_vs_css_read_conn_slot_rp {
+    uint16_t conn_handle;
+    uint16_t slot_idx;
+} __attribute__((packed));
+#define BLE_HCI_OCF_VS_SET_DATA_LEN                     (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0008))
+struct ble_hci_vs_set_data_len_cp {
+    uint16_t conn_handle;
+    uint16_t tx_octets;
+    uint16_t tx_time;
+    uint16_t rx_octets;
+    uint16_t rx_time;
+} __attribute__((packed));
+struct ble_hci_vs_set_data_len_rp {
+    uint16_t conn_handle;
+} __attribute__((packed));
+#define BLE_HCI_OCF_VS_SET_ANTENNA                     (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0009))
+struct ble_hci_vs_set_antenna_cp {
+    uint8_t antenna;
+} __attribute__((packed));
+
+
 
 #define BLE_HCI_OCF_VS_DUPLICATE_EXCEPTION_LIST         (MYNEWT_VAL(BLE_HCI_VS_OCF_OFFSET) + (0x0108))
 struct ble_hci_vs_duplicate_exception_list_cp {
@@ -1245,8 +1292,6 @@ struct ble_hci_vs_duplicate_exception_list_cp {
 
 /*
  * Advertising filter policy
- *
- * Determines how an advertiser filters scan and connection requests.
  *
  *  NONE: no filtering (default value). No whitelist used.
  *  SCAN: process all connection requests but only scans from white list.
@@ -1344,10 +1389,10 @@ struct ble_hci_vs_duplicate_exception_list_cp {
 #define BLE_HCI_SET_DATALEN_TX_TIME_MAX     (0x4290)
 
 /* --- LE read/write suggested default data length (OCF 0x0023 and 0x0024) */
-#define BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MIN     (0x001b)
-#define BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MAX     (0x00fb)
-#define BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MIN       (0x0148)
-#define BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MAX       (0x4290)
+#define BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MIN      (0x001b)
+#define BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MAX      (0x00fb)
+#define BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MIN        (0x0148)
+#define BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MAX        (0x4290)
 
 /* --- LE read maximum default PHY (OCF 0x0030) */
 #define BLE_HCI_LE_PHY_1M                   (1)
@@ -1578,11 +1623,20 @@ struct ble_hci_ev_auth_pyld_tmo {
 
 #define BLE_HCI_EVCODE_SAM_STATUS_CHG       (0x58)
 
-#define BLE_HCI_EVCODE_VS_DEBUG             (0xFF)
-struct ble_hci_ev_vs_debug {
+#define BLE_HCI_EVCODE_VS                   (0xff)
+struct ble_hci_ev_vs {
     uint8_t id;
     uint8_t data[0];
 } __attribute__((packed));
+
+#define BLE_HCI_VS_SUBEV_ID_ASSERT              (0x01)
+#define BLE_HCI_VS_SUBEV_ID_CSS_SLOT_CHANGED    (0x02)
+struct ble_hci_ev_vs_css_slot_changed {
+    uint16_t conn_handle;
+    uint16_t slot_idx;
+};
+
+#define BLE_HCI_VS_SUBEV_ID_LLCP_TRACE          (0x17)
 
 /* LE sub-event codes */
 #define BLE_HCI_LE_SUBEV_CONN_COMPLETE          (0x01)
@@ -1814,43 +1868,43 @@ struct ble_hci_ev_le_subev_periodic_adv_sync_transfer {
     uint8_t  aca;
 } __attribute__((packed));
 
-#define BLE_HCI_LE_SUBEV_CIS_ESTAB              (0x19)
+#define BLE_HCI_LE_SUBEV_CIS_ESTABLISHED        (0x19)
 struct ble_hci_ev_le_subev_cis_established {
     uint8_t subev_code;
     uint8_t status;
-    uint16_t cis_handle;
+    uint16_t conn_handle;
     uint8_t cig_sync_delay[3];
     uint8_t cis_sync_delay[3];
-    uint8_t trans_latency_mtos[3];
-    uint8_t trans_latency_stom[3];
-    uint8_t phy_mtos;
-    uint8_t phy_stom;
+    uint8_t transport_latency_c_to_p[3];
+    uint8_t transport_latency_p_to_c[3];
+    uint8_t phy_c_to_p;
+    uint8_t phy_p_to_c;
     uint8_t nse;
-    uint8_t bn_mtos;
-    uint8_t bn_stom;
-    uint8_t ft_mtos;
-    uint8_t ft_stom;
-    uint16_t max_pdu_mtos;
-    uint16_t max_pdu_stom;
+    uint8_t bn_c_to_p;
+    uint8_t bn_p_to_c;
+    uint8_t ft_c_to_p;
+    uint8_t ft_p_to_c;
+    uint16_t max_pdu_c_to_p;
+    uint16_t max_pdu_p_to_c;
     uint16_t iso_interval;
 } __attribute__((packed));
 
 #define BLE_HCI_LE_SUBEV_CIS_REQUEST            (0x1A)
 struct ble_hci_ev_le_subev_cis_request {
     uint8_t subev_code;
-    uint16_t conn_handle;
-    uint16_t cis_handle;
+    uint16_t acl_conn_handle;
+    uint16_t cis_conn_handle;
     uint8_t cig_id;
     uint8_t cis_id;
 } __attribute__((packed));
 
-#define BLE_HCI_LE_SUBEV_BIG_COMP               (0x1B)
-struct ble_hci_ev_le_subev_big_complete {
+#define BLE_HCI_LE_SUBEV_CREATE_BIG_COMPLETE    (0x1B)
+struct ble_hci_ev_le_subev_create_big_complete {
     uint8_t subev_code;
     uint8_t status;
     uint8_t big_handle;
     uint8_t big_sync_delay[3];
-    uint8_t transport_latency[3];
+    uint8_t transport_latency_big[3];
     uint8_t phy;
     uint8_t nse;
     uint8_t bn;
@@ -1858,31 +1912,31 @@ struct ble_hci_ev_le_subev_big_complete {
     uint8_t irc;
     uint16_t max_pdu;
     uint16_t iso_interval;
-    uint8_t bis_cnt;
-    uint16_t bis[0];
+    uint8_t num_bis;
+    uint16_t conn_handle[0];
 } __attribute__((packed));
 
-#define BLE_HCI_LE_SUBEV_BIG_TERMINATE_COMP     (0x1C)
-struct ble_hci_ev_le_subev_big_terminate_complete {
+#define BLE_HCI_LE_SUBEV_TERMINATE_BIG_COMPLETE (0x1C)
+struct ble_hci_ev_le_subev_terminate_big_complete {
     uint8_t subev_code;
     uint8_t big_handle;
     uint8_t reason;
 } __attribute__((packed));
 
-#define BLE_HCI_LE_SUBEV_BIG_SYNC_ESTAB         (0x1D)
+#define BLE_HCI_LE_SUBEV_BIG_SYNC_ESTABLISHED    (0x1D)
 struct ble_hci_ev_le_subev_big_sync_established {
     uint8_t subev_code;
     uint8_t status;
     uint8_t big_handle;
-    uint8_t transport_latency[3];
+    uint8_t transport_latency_big[3];
     uint8_t nse;
     uint8_t bn;
     uint8_t pto;
     uint8_t irc;
     uint16_t max_pdu;
     uint16_t iso_interval;
-    uint8_t bis_cnt;
-    uint16_t bis_handles[0];
+    uint8_t num_bis;
+    uint16_t conn_handle[0];
 } __attribute__((packed));
 
 #define BLE_HCI_LE_SUBEV_BIG_SYNC_LOST          (0x1E)
@@ -1910,13 +1964,13 @@ struct ble_hci_ev_le_subev_path_loss_threshold {
 
 #define BLE_HCI_LE_SUBEV_TRANSMIT_POWER_REPORT   (0x21)
 struct ble_hci_ev_le_subev_transmit_power_report {
-    uint8_t  subev_code;
-    uint8_t  status;
+    uint8_t subev_code;
+    uint8_t status;
     uint16_t conn_handle;
-    uint8_t  reason;
-    uint8_t  phy;
-    int8_t  transmit_power_level;
-    uint8_t  transmit_power_level_flag;
+    uint8_t reason;
+    uint8_t phy;
+    int8_t transmit_power_level;
+    uint8_t transmit_power_level_flag;
     int8_t delta;
 } __attribute__((packed));
 
@@ -1948,6 +2002,11 @@ struct ble_hci_ev_le_subev_subrate_change {
     uint16_t cont_num;
     uint16_t supervision_tmo;
 } __attribute__((packed));
+
+#if (BLE_ADV_REPORT_FLOW_CONTROL == TRUE)
+// LE vendor hci event
+#define BLE_HCI_LE_SUBEV_DISCARD_REPORT_EVT      0XF0
+#endif // (BLE_ADV_REPORT_FLOW_CONTROL == TRUE)
 
 /* Data buffer overflow event */
 #define BLE_HCI_EVENT_ACL_BUF_OVERFLOW      (0x01)
@@ -1992,6 +2051,7 @@ struct ble_hci_ev_le_subev_subrate_change {
 #define BLE_HCI_VER_BCS_5_1                 (10)
 #define BLE_HCI_VER_BCS_5_2                 (11)
 #define BLE_HCI_VER_BCS_5_3                 (12)
+#define BLE_HCI_VER_BCS_5_4                 (13)
 
 #define BLE_LMP_VER_BCS_1_0b                (0)
 #define BLE_LMP_VER_BCS_1_1                 (1)
@@ -2006,6 +2066,7 @@ struct ble_hci_ev_le_subev_subrate_change {
 #define BLE_LMP_VER_BCS_5_1                 (10)
 #define BLE_LMP_VER_BCS_5_2                 (11)
 #define BLE_LMP_VER_BCS_5_3                 (12)
+#define BLE_LMP_VER_BCS_5_4                 (13)
 
 /* selected HCI and LMP version */
 #if MYNEWT_VAL(BLE_VERSION) == 50
@@ -2020,6 +2081,9 @@ struct ble_hci_ev_le_subev_subrate_change {
 #elif MYNEWT_VAL(BLE_VERSION) == 53
 #define BLE_HCI_VER_BCS BLE_HCI_VER_BCS_5_3
 #define BLE_LMP_VER_BCS BLE_LMP_VER_BCS_5_3
+#elif MYNEWT_VAL(BLE_VERSION) == 54
+#define BLE_HCI_VER_BCS BLE_HCI_VER_BCS_5_4
+#define BLE_LMP_VER_BCS BLE_LMP_VER_BCS_5_4
 #endif
 
 #define BLE_HCI_DATA_HDR_SZ                 4
@@ -2037,6 +2101,37 @@ struct hci_data_hdr
 #define BLE_HCI_PB_MIDDLE                   1
 #define BLE_HCI_PB_FIRST_FLUSH              2
 #define BLE_HCI_PB_FULL                     3
+
+#define BLE_HCI_ISO_CONN_HANDLE_MASK    (0x07ff)
+#define BLE_HCI_ISO_PB_FLAG_MASK        (0x3000)
+#define BLE_HCI_ISO_TS_FLAG_MASK        (0x4000)
+#define BLE_HCI_ISO_LENGTH_MASK         (0x7fff)
+
+#define BLE_HCI_ISO_HANDLE(ch, pb, ts)  ((ch) | ((pb) << 12) | ((ts) << 14))
+
+#define BLE_HCI_ISO_CONN_HANDLE(h)      ((h) & BLE_HCI_ISO_CONN_HANDLE_MASK)
+#define BLE_HCI_ISO_PB_FLAG(h)          (((h) & BLE_HCI_ISO_PB_FLAG_MASK) >> 12)
+#define BLE_HCI_ISO_TS_FLAG(h)          ((h) & BLE_HCI_ISO_TS_FLAG_MASK)
+#define BLE_HCI_ISO_LENGTH(l)           ((l) & BLE_HCI_ISO_LENGTH_MASK)
+
+#define BLE_HCI_ISO_PB_FIRST            (0)
+#define BLE_HCI_ISO_PB_CONTINUATION     (1)
+#define BLE_HCI_ISO_PB_COMPLETE         (2)
+#define BLE_HCI_ISO_PB_LAST             (3)
+
+struct ble_hci_iso {
+    uint16_t handle;
+    uint16_t length;
+    uint8_t data[0];
+};
+
+#define BLE_HCI_ISO_HDR_SDU_LENGTH_MASK     (0x07ff)
+
+struct ble_hci_iso_data {
+    uint16_t packet_seq_num;
+    uint16_t sdu_len;
+    uint8_t data[0];
+};
 
 #ifdef __cplusplus
 }

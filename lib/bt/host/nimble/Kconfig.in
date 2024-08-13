@@ -201,7 +201,7 @@ config BT_NIMBLE_LL_CFG_FEAT_LE_ENCRYPTION
     help
             Enable encryption connection
 
-config BT_NIMBLE_SM_SC_LVL
+config BT_NIMBLE_SM_LVL
     int "Security level"
     depends on BT_NIMBLE_SECURITY_ENABLE
     default 0
@@ -341,6 +341,13 @@ menu "Memory Settings"
             low-priority event buffers, then an incoming advertising report will
             get dropped
 
+    config BT_NIMBLE_L2CAP_COC_SDU_BUFF_COUNT
+        int "L2cap coc Service Data Unit Buffer count"
+        depends on BT_NIMBLE_ENABLED
+        default 1
+        help
+            This is the service data unit buffer count for l2cap coc.
+
 endmenu
 
 config BT_NIMBLE_GATT_MAX_PROCS
@@ -388,8 +395,7 @@ config BT_NIMBLE_RPA_TIMEOUT
     depends on BT_NIMBLE_ENABLED
     default 900
     help
-        Time interval between RPA address change. This is applicable in case of
-        Host based RPA
+        Time interval between RPA address change.
 
 menuconfig BT_NIMBLE_MESH
     bool "Enable BLE mesh functionality"
@@ -492,7 +498,6 @@ config BT_NIMBLE_CRYPTO_STACK_MBEDTLS
     bool "Override TinyCrypt with mbedTLS for crypto computations"
     default y
     depends on BT_NIMBLE_ENABLED
-    select MBEDTLS_ECP_RESTARTABLE
     select MBEDTLS_CMAC_C
     help
         Enable this option to choose mbedTLS instead of TinyCrypt for crypto
@@ -523,7 +528,7 @@ config BT_NIMBLE_ENABLE_CONN_REATTEMPT
 
 config BT_NIMBLE_MAX_CONN_REATTEMPT
     int "Maximum number connection reattempts"
-    range 1 7
+    range 1 255
     default 3
     depends on BT_NIMBLE_ENABLED && BT_NIMBLE_ENABLE_CONN_REATTEMPT
     help
@@ -591,7 +596,7 @@ if BT_NIMBLE_EXT_ADV
             Enable this option to start periodic advertisement.
 
     config BT_NIMBLE_PERIODIC_ADV_SYNC_TRANSFER
-        bool "Enable Transer Sync Events"
+        bool "Enable Transfer Sync Events"
         depends on BT_NIMBLE_ENABLE_PERIODIC_ADV
         default y
         help
@@ -634,8 +639,9 @@ config BT_NIMBLE_PERIODIC_ADV_ENH
 menuconfig BT_NIMBLE_GATT_CACHING
     bool "Enable GATT caching"
     depends on BT_NIMBLE_ENABLED && BT_NIMBLE_50_FEATURE_SUPPORT
+    select BT_NIMBLE_DYNAMIC_SERVICE
     help
-            Enable GATT caching
+        Enable GATT caching
 config BT_NIMBLE_GATT_CACHING_MAX_CONNS
     int "Maximum connections to be cached"
     depends on BT_NIMBLE_GATT_CACHING
@@ -659,7 +665,7 @@ config BT_NIMBLE_GATT_CACHING_MAX_DSCS
     depends on BT_NIMBLE_GATT_CACHING
     default 64
     help
-        Set this option to set the upper limit on number of discriptors per connection to be cached.
+        Set this option to set the upper limit on number of descriptors per connection to be cached.
 
 config BT_NIMBLE_WHITELIST_SIZE
     int "BLE white list size"
@@ -900,7 +906,6 @@ config BT_NIMBLE_OPTIMIZE_MULTI_CONN
 
 config BT_NIMBLE_ENC_ADV_DATA
     bool "Encrypted Advertising Data"
-    depends on SOC_ESP_NIMBLE_CONTROLLER
     select BT_NIMBLE_EXT_ADV
     help
         This option is used to enable encrypted advertising data.
@@ -942,9 +947,35 @@ menu "Host-controller Transport"
         help
             Uart port
 
+    choice BT_NIMBLE_HCI_USE_UART_BAUDRATE
+        prompt "Uart Hci Baud Rate"
+        default UART_BAUDRATE_921600
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        help
+            Uart Baud Rate
+
+        config UART_BAUDRATE_115200
+            bool "115200"
+        config UART_BAUDRATE_230400
+            bool "230400"
+        config UART_BAUDRATE_460800
+            bool "460800"
+        config UART_BAUDRATE_921600
+            bool "921600"
+    endchoice
+
+    config BT_NIMBLE_HCI_UART_BAUDRATE
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        int
+        default 115200 if  UART_BAUDRATE_115200
+        default 230400 if  UART_BAUDRATE_230400
+        default 460800 if  UART_BAUDRATE_460800
+        default 921600 if  UART_BAUDRATE_921600
+
     choice BT_NIMBLE_USE_HCI_UART_PARITY
         prompt "Uart PARITY"
         default UART_PARITY_NONE
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
         help
             Uart Parity
 
@@ -960,16 +991,19 @@ menu "Host-controller Transport"
         int
         default 0 if !UART_PARITY_NONE
         default 1 if UART_PARITY_NONE
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
 
     config BT_NIMBLE_TRANSPORT_UART_PARITY_ODD
         int
         default 0 if !UART_PARITY_ODD
         default 1 if UART_PARITY_ODD
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
 
     config BT_NIMBLE_TRANSPORT_UART_PARITY_EVEN
         int
         default 0 if !UART_PARITY_EVEN
         default 1 if UART_PARITY_EVEN
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
 
     config BT_NIMBLE_UART_RX_PIN
         int "UART Rx pin"

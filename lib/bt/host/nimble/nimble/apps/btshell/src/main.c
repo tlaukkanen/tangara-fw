@@ -76,6 +76,8 @@
 bssnz_t struct btshell_conn btshell_conns[MYNEWT_VAL(BLE_MAX_CONNECTIONS)];
 int btshell_num_conns;
 
+static uint8_t default_own_addr_type;
+
 static os_membuf_t btshell_svc_mem[
     OS_MEMPOOL_SIZE(BTSHELL_MAX_SVCS, sizeof(struct btshell_svc))
 ];
@@ -2131,6 +2133,8 @@ btshell_on_sync(void)
         console_printf("Failed to set identity address\n");
     }
 
+    ble_hs_id_infer_auto(0, &default_own_addr_type);
+
 #if MYNEWT_VAL(BLE_SM_SC)
     int rc;
 
@@ -2220,19 +2224,25 @@ btshell_l2cap_coc_recv(struct ble_l2cap_chan *chan, struct os_mbuf *sdu)
 
 static int
 btshell_l2cap_coc_accept(uint16_t conn_handle, uint16_t peer_mtu,
-                           struct ble_l2cap_chan *chan)
+                         struct ble_l2cap_chan *chan)
 {
     struct os_mbuf *sdu_rx;
+    int rc;
 
     console_printf("LE CoC accepting, chan: 0x%08lx, peer_mtu %d\n",
                    (uint32_t) chan, peer_mtu);
 
-    sdu_rx = os_mbuf_get_pkthdr(&sdu_os_mbuf_pool, 0);
-    if (!sdu_rx) {
-        return BLE_HS_ENOMEM;
+    for (int i = 0; i < MYNEWT_VAL(BLE_L2CAP_COC_SDU_BUFF_COUNT); i++) {
+        sdu_rx = os_mbuf_get_pkthdr(&sdu_os_mbuf_pool, 0);
+        if (!sdu_rx) {
+            return BLE_HS_ENOMEM;
+        }
+
+        rc = ble_l2cap_recv_ready(chan, sdu_rx);
+        assert(rc == 0);
     }
 
-    return ble_l2cap_recv_ready(chan, sdu_rx);
+    return rc;
 }
 
 static void
@@ -2567,6 +2577,12 @@ btshell_init_ext_adv_restart(void)
         ext_adv_restart[i].conn_handle = BLE_HS_CONN_HANDLE_NONE;
     }
 #endif
+}
+
+uint8_t
+btshell_get_default_own_addr_type(void)
+{
+    return default_own_addr_type;
 }
 
 /**

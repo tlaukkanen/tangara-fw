@@ -35,6 +35,10 @@ syscfg.defs:
 
 # Settings this app overrides.
 syscfg.vals:
+    CONSOLE_IMPLEMENTATION: full
+    LOG_IMPLEMENTATION: full
+    STATS_IMPLEMENTATION: full
+
     # Change these settings:
 
     # Set 0 to print all debug logs, but keep in mind that plenty of
@@ -66,6 +70,9 @@ syscfg.vals:
 
     #
     BLE_L2CAP_COC_MAX_NUM: 2
+
+    # L2CAP COC SDU buffers in RX endpoint
+    BLE_L2CAP_COC_SDU_BUFF_COUNT: 1
 
     # Enable 2M PHY
     BLE_LL_CFG_FEAT_LE_2M_PHY: 1

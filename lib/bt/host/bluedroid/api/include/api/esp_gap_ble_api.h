@@ -54,7 +54,7 @@ typedef uint8_t   esp_ble_auth_req_t;         /*!< combination of the above bit 
 #define ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_DISABLE 0    /*!< authentication disable*/
 #define ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_ENABLE  1    /*!< authentication enable*/
 
-#define ESP_BLE_OOB_DISABLE 0    /*!< disbale the out of bond*/
+#define ESP_BLE_OOB_DISABLE 0    /*!< disable the out of bond*/
 #define ESP_BLE_OOB_ENABLE  1    /*!< enable the out of bond*/
 
 /// relate to BTM_IO_CAP_xxx in stack/btm_api.h
@@ -104,6 +104,7 @@ typedef uint8_t   esp_ble_auth_req_t;         /*!< combination of the above bit 
 #define ESP_BLE_APPEARANCE_CYCLING_CADENCE         0x0483 /*!< relate to BTM_BLE_APPEARANCE_CYCLING_CADENCE in stack/btm_ble_api.h */
 #define ESP_BLE_APPEARANCE_CYCLING_POWER           0x0484 /*!< relate to BTM_BLE_APPEARANCE_CYCLING_POWER in stack/btm_ble_api.h */
 #define ESP_BLE_APPEARANCE_CYCLING_SPEED_CADENCE   0x0485 /*!< relate to BTM_BLE_APPEARANCE_CYCLING_SPEED_CADENCE in stack/btm_ble_api.h */
+#define ESP_BLE_APPEARANCE_STANDALONE_SPEAKER      0x0841 /*!< relate to BTM_BLE_APPEARANCE_STANDALONE_SPEAKER in stack/btm_ble_api.h */
 #define ESP_BLE_APPEARANCE_GENERIC_PULSE_OXIMETER  0x0C40 /*!< relate to BTM_BLE_APPEARANCE_GENERIC_PULSE_OXIMETER in stack/btm_ble_api.h */
 #define ESP_BLE_APPEARANCE_PULSE_OXIMETER_FINGERTIP 0x0C41 /*!< relate to BTM_BLE_APPEARANCE_PULSE_OXIMETER_FINGERTIP in stack/btm_ble_api.h */
 #define ESP_BLE_APPEARANCE_PULSE_OXIMETER_WRIST    0x0C42 /*!< relate to BTM_BLE_APPEARANCE_PULSE_OXIMETER_WRIST in stack/btm_ble_api.h */
@@ -156,7 +157,7 @@ typedef enum {
     ESP_GAP_BLE_PASSKEY_REQ_EVT,                            /*!< passkey request event */
     ESP_GAP_BLE_OOB_REQ_EVT,                                /*!< OOB request event */
     ESP_GAP_BLE_LOCAL_IR_EVT,                               /*!< BLE local IR (identity Root 128-bit random static value used to generate Long Term Key) event */
-    ESP_GAP_BLE_LOCAL_ER_EVT,                               /*!< BLE local ER (Encryption Root vakue used to genrate identity resolving key) event */
+    ESP_GAP_BLE_LOCAL_ER_EVT,                               /*!< BLE local ER (Encryption Root value used to generate identity resolving key) event */
     ESP_GAP_BLE_NC_REQ_EVT,                                 /*!< Numeric Comparison request event */
     //BLE_42_FEATURE_SUPPORT
     ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT,                      /*!< When stop adv complete, the event comes */
@@ -224,6 +225,10 @@ typedef enum {
     ESP_GAP_BLE_DTM_TEST_UPDATE_EVT,                             /*!< when direct test mode state changes, the event comes */
     // BLE_INCLUDED
     ESP_GAP_BLE_ADV_CLEAR_COMPLETE_EVT,                          /*!< When clear advertising complete, the event comes */
+    ESP_GAP_BLE_SET_RPA_TIMEOUT_COMPLETE_EVT,                    /*!< When set the Resolvable Private Address (RPA) timeout completes, the event comes */
+    ESP_GAP_BLE_ADD_DEV_TO_RESOLVING_LIST_COMPLETE_EVT,          /*!< when add a device to the resolving list completes, the event comes*/
+    ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT,                         /*!< When vendor hci command complete, the event comes */
+    ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT,                   /*!< When set privacy mode complete, the event comes */
     ESP_GAP_BLE_EVT_MAX,                                         /*!< when maximum advertising event complete, the event comes */
 } esp_gap_ble_cb_event_t;
 
@@ -237,6 +242,8 @@ typedef uint8_t esp_gap_ble_channels[ESP_GAP_BLE_CHANNELS_LEN];
 #define ESP_BLE_ADV_DATA_LEN_MAX               31
 /// Scan response data maximum length
 #define ESP_BLE_SCAN_RSP_DATA_LEN_MAX          31
+
+#define VENDOR_HCI_CMD_MASK                    (0x3F << 10) /**!< 0xFC00 */
 
 /* relate to BTM_BLE_AD_TYPE_xxx in stack/btm_ble_api.h */
 /// The type of advertising data(not adv_type)
@@ -363,6 +370,15 @@ typedef enum {
     ///DTM test end event
     DTM_TEST_STOP_EVT,
 } esp_ble_dtm_update_evt_t;
+
+/**
+ * @brief Vendor HCI command parameters
+ */
+typedef struct {
+    uint16_t opcode;                /*!< vendor hci command opcode */
+    uint8_t param_len;              /*!< the length of parameter */
+    uint8_t *p_param_buf;           /*!< the point of parameter buffer */
+} esp_ble_vendor_cmd_params_t;
 
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
 /**
@@ -786,9 +802,9 @@ typedef uint8_t esp_ble_gap_all_phys_t;
 #define ESP_BLE_GAP_PRI_PHY_CODED  ESP_BLE_GAP_PHY_CODED  /*!< Primary Phy is LE CODED */
 typedef uint8_t esp_ble_gap_pri_phy_t; // primary phy
 
-#define ESP_BLE_GAP_PHY_1M_PREF_MASK                   (1 << 0) /*!< The Host prefers use the LE1M transmitter or reciever PHY */
-#define ESP_BLE_GAP_PHY_2M_PREF_MASK                   (1 << 1) /*!< The Host prefers use the LE2M transmitter or reciever PHY */
-#define ESP_BLE_GAP_PHY_CODED_PREF_MASK                (1 << 2) /*!< The Host prefers use the LE CODED transmitter or reciever PHY */
+#define ESP_BLE_GAP_PHY_1M_PREF_MASK                   (1 << 0) /*!< The Host prefers use the LE1M transmitter or receiver PHY */
+#define ESP_BLE_GAP_PHY_2M_PREF_MASK                   (1 << 1) /*!< The Host prefers use the LE2M transmitter or receiver PHY */
+#define ESP_BLE_GAP_PHY_CODED_PREF_MASK                (1 << 2) /*!< The Host prefers use the LE CODED transmitter or receiver PHY */
 typedef uint8_t esp_ble_gap_phy_mask_t;
 
 #define ESP_BLE_GAP_PHY_OPTIONS_NO_PREF                  0 /*!< The Host has no preferred coding when transmitting on the LE Coded PHY */
@@ -945,7 +961,7 @@ typedef struct {
     esp_ble_gap_ext_adv_data_status_t data_status;  /*!< data type */
     uint8_t adv_data_len;                           /*!< extend advertising data length */
     uint8_t adv_data[251];                          /*!< extend advertising data */
-} esp_ble_gap_ext_adv_reprot_t;
+} esp_ble_gap_ext_adv_report_t;
 
 /**
 * @brief periodic adv report parameters
@@ -1014,6 +1030,11 @@ typedef struct {
     uint8_t cte_type;                   /*!< periodic advertising sync transfer CET type */
 } esp_ble_gap_past_params_t;
 #endif // #if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)
+
+typedef enum{
+    ESP_BLE_NETWORK_PRIVACY_MODE    = 0X00,    /*!< Network Privacy Mode for peer device (default) */
+    ESP_BLE_DEVICE_PRIVACY_MODE     = 0X01,    /*!< Device Privacy Mode for peer device */
+} esp_ble_privacy_mode_t;
 
 /**
  * @brief Gap callback parameters union
@@ -1140,6 +1161,19 @@ typedef union {
     struct ble_local_privacy_cmpl_evt_param {
         esp_bt_status_t status;                     /*!< Indicate the set local privacy operation success status */
     } local_privacy_cmpl;                           /*!< Event parameter of ESP_GAP_BLE_SET_LOCAL_PRIVACY_COMPLETE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_SET_RPA_TIMEOUT_COMPLETE_EVT
+     */
+    struct ble_rpa_timeout_cmpl_evt_param {
+        esp_bt_status_t status;                     /*!< Indicate the set RPA timeout operation success status */
+    } set_rpa_timeout_cmpl;                         /*!< Event parameter of ESP_GAP_BLE_SET_RPA_TIMEOUT_COMPLETE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_ADD_DEV_TO_RESOLVING_LIST_COMPLETE_EVT
+     */
+    struct ble_add_dev_to_resolving_list_cmpl_evt_param {
+        esp_bt_status_t status;         /*!< Indicates the success status of adding a device to the resolving list */
+    } add_dev_to_resolving_list_cmpl;  /*!< Event parameter of ESP_GAP_BLE_ADD_DEV_TO_RESOLVING_LIST_COMPLETE_EVT */
+
     /**
      * @brief ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT
      */
@@ -1410,7 +1444,7 @@ typedef union {
      * @brief ESP_GAP_BLE_EXT_ADV_REPORT_EVT
      */
     struct ble_ext_adv_report_param {
-        esp_ble_gap_ext_adv_reprot_t params;   /*!< extend advertising report parameters */
+        esp_ble_gap_ext_adv_report_t params;   /*!< extend advertising report parameters */
     } ext_adv_report;                          /*!< Event parameter of ESP_GAP_BLE_EXT_ADV_REPORT_EVT */
     /**
      * @brief ESP_GAP_BLE_PERIODIC_ADV_REPORT_EVT
@@ -1471,6 +1505,20 @@ typedef union {
         esp_ble_dtm_update_evt_t update_evt;        /*!< DTM state change event, 0x00: DTM TX start, 0x01: DTM RX start, 0x02:DTM end */
         uint16_t num_of_pkt;                        /*!< number of packets received, only valid if update_evt is DTM_TEST_STOP_EVT and shall be reported as 0 for a transmitter */
     } dtm_state_update;                             /*!< Event parameter of ESP_GAP_BLE_DTM_TEST_UPDATE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT
+     */
+    struct vendor_cmd_cmpl_evt_param {
+        uint16_t        opcode;                     /*!< vendor hci command opcode */
+        uint16_t        param_len;                  /*!< The length of parameter buffer */
+        uint8_t         *p_param_buf;               /*!< The point of parameter buffer */
+    } vendor_cmd_cmpl;                              /*!< Event parameter of ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT
+     */
+    struct ble_set_privacy_mode_cmpl_evt_param {
+        esp_bt_status_t status;                     /*!< Indicate privacy mode set operation success status */
+    } set_privacy_mode_cmpl;                        /*!< Event parameter of ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT */
 } esp_ble_gap_cb_param_t;
 
 /**
@@ -1608,13 +1656,13 @@ esp_err_t esp_ble_gap_set_pkt_data_len(esp_bd_addr_t remote_device, uint16_t tx_
  *
  * @param[in]       rand_addr: The address to be configured. Refer to the table below for possible address subtypes:
  *
- *               | address [47:46] | Address Type             |
- *               |-----------------|--------------------------|
- *               |      0b00       | Non-Resolvable Private   |
- *               |                 | Address                  |
- *               |-----------------|--------------------------|
- *               |      0b11       | Static Random Address    |
- *               |-----------------|--------------------------|
+ *               | address [47:46] | Address Type                | Corresponding API                      |
+ *               |-----------------|-----------------------------|----------------------------------------|
+ *               |      0b00       | Non-Resolvable Private      | esp_ble_gap_addr_create_nrpa           |
+ *               |                 | Address (NRPA)              |                                        |
+ *               |-----------------|-----------------------------|----------------------------------------|
+ *               |      0b11       | Static Random Address       | esp_ble_gap_addr_create_static         |
+ *               |-----------------|-----------------------------|----------------------------------------|
  *
  * @return
  *                  - ESP_OK : success
@@ -1624,6 +1672,60 @@ esp_err_t esp_ble_gap_set_pkt_data_len(esp_bd_addr_t remote_device, uint16_t tx_
 esp_err_t esp_ble_gap_set_rand_addr(esp_bd_addr_t rand_addr);
 
 /**
+ * @brief           Create a static device address
+ * @param[out]      rand_addr: Pointer to the buffer where the static device address will be stored.
+ * @return          - ESP_OK : Success
+ *                  - Other  : Failed
+ */
+esp_err_t esp_ble_gap_addr_create_static(esp_bd_addr_t rand_addr);
+
+/**
+ * @brief           Create a non-resolvable private address (NRPA)
+ * @param[out]      rand_addr: Pointer to the buffer where the NRPA will be stored.
+ * @return          - ESP_OK : Success
+ *                  - Other  : Failed
+ */
+esp_err_t esp_ble_gap_addr_create_nrpa(esp_bd_addr_t rand_addr);
+
+/**
+ * @brief           This function sets the length of time the Controller uses a Resolvable Private Address
+ *                  before generating and starting to use a new resolvable private address.
+ *
+ * @note            Note: This function is currently not supported on the ESP32 but will be enabled in a future update.
+ *
+ * @param[in]       rpa_timeout: The timeout duration in seconds for how long a Resolvable Private Address
+ *                  is used before a new one is generated. The value must be within the range specified by
+ *                  the Bluetooth specification (0x0001 to 0x0E10), which corresponds to a time range of
+ *                  1 second to 1 hour. The default value is 0x0384 (900 seconds or 15 minutes).
+ * @return
+ *                  - ESP_OK : success
+ *                  - other  : failed
+ *
+ */
+esp_err_t esp_ble_gap_set_resolvable_private_address_timeout(uint16_t rpa_timeout);
+
+
+/**
+ * @brief           This function adds a device to the resolving list used to generate and resolve Resolvable Private Addresses
+ *                  in the Controller.
+ *
+ * @note            Note: This function shall not be used when address resolution is enabled in the Controller and:
+ *                      - Advertising (other than periodic advertising) is enabled,
+ *                      - Scanning is enabled, or
+ *                      - an HCI_LE_Create_Connection, HCI_LE_Extended_Create_Connection, or HCI_LE_Periodic_Advertising_Create_Sync command is pending.
+ *                  This command may be used at any time when address resolution is disabled in the Controller.
+ *                  The added device shall be set to Network Privacy mode.
+ *
+ * @param[in]       peer_addr: The peer identity address of the device to be added to the resolving list.
+ * @param[in]       addr_type: The address type of the peer identity address (BLE_ADDR_TYPE_PUBLIC or BLE_ADDR_TYPE_RANDOM).
+ * @param[in]       peer_irk: The Identity Resolving Key (IRK) of the device.
+ * @return
+ *                  - ESP_OK : success
+ *                  - other  : failed
+ *
+ */
+esp_err_t esp_ble_gap_add_device_to_resolving_list(esp_bd_addr_t peer_addr, uint8_t addr_type, uint8_t *peer_irk);
+/**
  * @brief           This function clears the random address for the application
  *
  * @return
@@ -1632,8 +1734,6 @@ esp_err_t esp_ble_gap_set_rand_addr(esp_bd_addr_t rand_addr);
  *
  */
 esp_err_t esp_ble_gap_clear_rand_addr(void);
-
-
 
 /**
  * @brief           Enable/disable privacy (including address resolution) on the local device
@@ -1948,7 +2048,6 @@ esp_err_t esp_ble_remove_bond_device(esp_bd_addr_t bd_addr);
 *
 */
 int esp_ble_get_bond_device_num(void);
-
 
 /**
 * @brief           Get the device from the security database list of peer device.
@@ -2539,6 +2638,34 @@ esp_err_t esp_ble_dtm_stop(void);
 *
 */
 esp_err_t esp_ble_gap_clear_advertising(void);
+
+/**
+ * @brief           This function is called to send vendor hci command.
+ *
+ *
+ *
+ * @param[in]       vendor_cmd_param: vendor hci command parameters
+ *
+ * @return
+ *                  - ESP_OK : success
+ *                  - other  : failed
+ */
+esp_err_t esp_ble_gap_vendor_command_send(esp_ble_vendor_cmd_params_t *vendor_cmd_param);
+
+/**
+ * @brief           This function set the privacy mode of the device in resolving list.
+ *
+ * @note            This feature is not supported on ESP32.
+ *
+ * @param[in]       addr_type: The address type of the peer identity address (BLE_ADDR_TYPE_PUBLIC or BLE_ADDR_TYPE_RANDOM).
+ * @param[in]       addr: The peer identity address of the device.
+ * @param[in]       mode: The privacy mode of the device.
+ *
+ * @return
+ *                  - ESP_OK : success
+ *                  - other  : failed
+ */
+esp_err_t esp_ble_gap_set_privacy_mode(esp_ble_addr_type_t addr_type, esp_bd_addr_t addr, esp_ble_privacy_mode_t mode);
 
 #ifdef __cplusplus
 }

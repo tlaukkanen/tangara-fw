@@ -27,7 +27,7 @@
 #include "nimble/ble.h"
 #include "mcu/mcu.h"
 #include "mcu/cmac_timer.h"
-#include "cmac_driver/cmac_shared.h"
+#include <ipc_cmac/shm.h>
 #include "controller/ble_phy.h"
 #include "controller/ble_ll.h"
 #include "stats/stats.h"
@@ -310,6 +310,7 @@ static bool ble_phy_rx_start_isr(void);
 static void ble_phy_rx_setup_fields(void);
 static void ble_phy_rx_setup_xcvr(void);
 static void ble_phy_mode_apply(uint8_t phy_mode);
+static int ble_phy_get_cur_phy(void);
 
 void
 FIELD_IRQHandler(void)
@@ -523,7 +524,7 @@ ble_phy_rx_start_isr(void)
     /* Read the latched RSSI value */
     ble_hdr->rxinfo.rssi = ble_rf_get_rssi();
 #if MYNEWT_VAL(CMAC_DEBUG_DATA_ENABLE)
-    g_cmac_shared_data.debug.last_rx_rssi = ble_hdr->rxinfo.rssi;
+    g_cmac_shm_debugdata.last_rx_rssi = ble_hdr->rxinfo.rssi;
 #endif
 
     /* Count rx starts */
@@ -1012,7 +1013,7 @@ ble_phy_mode_set(uint8_t tx_phy_mode, uint8_t rx_phy_mode)
     g_ble_phy_data.frame_offset_rxtx = g_ble_phy_frame_offset_rxtx[rxtx];
 }
 
-int
+static int
 ble_phy_get_cur_phy(void)
 {
 #if (BLE_LL_BT5_PHY_SUPPORTED == 1)
@@ -1327,7 +1328,7 @@ ble_phy_rx_setup_xcvr(void)
     g_ble_phy_data.phy_rx_started = 0;
 }
 
-int
+static int
 ble_phy_rx(void)
 {
     MCU_DIAG_SER('R');
@@ -1597,19 +1598,12 @@ ble_phy_rx_enc_start(uint8_t len)
 }
 
 void
-ble_phy_encrypt_enable(uint64_t pkt_counter, uint8_t *iv, uint8_t *key,
-                       uint8_t is_master)
+ble_phy_encrypt_enable(const uint8_t *key)
 {
     struct ble_phy_encrypt_obj *enc;
 
     enc = &g_ble_phy_encrypt_data;
     memcpy(enc->key, key, 16);
-    memcpy(&enc->b0[6], iv, 8);
-    put_le32(&enc->b0[1], pkt_counter);
-    enc->b0[5] = is_master ? 0x80 : 0;
-    memcpy(&enc->ai[6], iv, 8);
-    put_le32(&enc->ai[1], pkt_counter);
-    enc->ai[5] = enc->b0[5];
 
     g_ble_phy_data.phy_encrypted = 1;
 
@@ -1630,14 +1624,25 @@ ble_phy_encrypt_enable(uint64_t pkt_counter, uint8_t *iv, uint8_t *key,
 }
 
 void
-ble_phy_encrypt_set_pkt_cntr(uint64_t pkt_counter, int dir)
+ble_phy_encrypt_iv_set(const uint8_t *iv)
 {
     struct ble_phy_encrypt_obj *enc;
 
     enc = &g_ble_phy_encrypt_data;
-    put_le32(&enc->b0[1], pkt_counter);
-    enc->b0[5] = dir ? 0x80 : 0;
-    put_le32(&enc->ai[1], pkt_counter);
+    memcpy(&enc->b0[6], iv, 8);
+    memcpy(&enc->ai[6], iv, 8);
+}
+
+
+void
+ble_phy_encrypt_counter_set(uint64_t counter, uint8_t dir_bit)
+{
+    struct ble_phy_encrypt_obj *enc;
+
+    enc = &g_ble_phy_encrypt_data;
+    put_le32(&enc->b0[1], counter);
+    enc->b0[5] = dir_bit ? 0x80 : 0;
+    put_le32(&enc->ai[1], counter);
     enc->ai[5] = enc->b0[5];
 
     CMAC->CM_CRYPTO_CTRL_REG = CMAC_CM_CRYPTO_CTRL_REG_CM_CRYPTO_SW_REQ_PBUF_CLR_Msk;
@@ -1651,11 +1656,11 @@ ble_phy_encrypt_disable(void)
 #endif
 
 int
-ble_phy_txpwr_set(int dbm)
+ble_phy_tx_power_set(int dbm)
 {
 #if MYNEWT_VAL(CMAC_DEBUG_DATA_ENABLE)
-    if (g_cmac_shared_data.debug.tx_power_override != INT8_MAX) {
-        ble_rf_set_tx_power(g_cmac_shared_data.debug.tx_power_override);
+    if (g_cmac_shm_debugdata.tx_power_ovr_enable) {
+        ble_rf_set_tx_power(g_cmac_shm_debugdata.tx_power_ovr);
     } else {
         ble_rf_set_tx_power(dbm);
     }
@@ -1667,14 +1672,9 @@ ble_phy_txpwr_set(int dbm)
 }
 
 int
-ble_phy_txpower_round(int dbm)
+ble_phy_tx_power_round(int dbm)
 {
     return 0;
-}
-
-void
-ble_phy_set_rx_pwr_compensation(int8_t compensation)
-{
 }
 
 int
@@ -1695,6 +1695,12 @@ ble_phy_setchan(uint8_t chan, uint32_t access_addr, uint32_t crc_init)
     CMAC_SETREGF(CM_PHY_CTRL2_REG, PHY_RF_CHANNEL, rf_chan);
 
     return 0;
+}
+
+uint8_t
+ble_phy_chan_get(void)
+{
+    return g_ble_phy_data.channel;
 }
 
 void

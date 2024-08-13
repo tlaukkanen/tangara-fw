@@ -23,7 +23,7 @@
 #include "mcu/mcu.h"
 #include "mcu/cmac_timer.h"
 #include "controller/ble_phy.h"
-#include "cmac_driver/cmac_shared.h"
+#include <ipc_cmac/shm.h>
 #include "ble_rf_priv.h"
 
 #define RF_CALIBRATION_0        (0x01)
@@ -206,8 +206,7 @@ ble_rf_rfcu_apply_recommended_settings(void)
 static void
 ble_rf_rfcu_apply_settings(void)
 {
-    ble_rf_apply_trim(g_cmac_shared_data.trim.rfcu,
-                      g_cmac_shared_data.trim.rfcu_len);
+    ble_rf_apply_trim(g_cmac_shm_trim.rfcu, g_cmac_shm_trim.rfcu_len);
     ble_rf_rfcu_apply_recommended_settings();
 }
 
@@ -234,6 +233,9 @@ ble_rf_synth_is_enabled(void)
 static void
 ble_rf_synth_apply_recommended_settings(void)
 {
+    if (mcu_chip_variant_get() == MCU_CHIP_VARIANT_GF) {
+        set_reg32_mask(0x40022034, 0x00000018, 0x0215807B);
+    }
     set_reg32_mask(0x40022048, 0x0000000c, 0x000000d5);
     set_reg32_mask(0x40022050, 0x00000300, 0x00000300);
     set_reg16_mask(0x40022024, 0x0001, 0x0001);
@@ -242,8 +244,7 @@ ble_rf_synth_apply_recommended_settings(void)
 static void
 ble_rf_synth_apply_settings(void)
 {
-    ble_rf_apply_trim(g_cmac_shared_data.trim.synth,
-                      g_cmac_shared_data.trim.synth_len);
+    ble_rf_apply_trim(g_cmac_shm_trim.synth, g_cmac_shm_trim.synth_len);
     ble_rf_synth_apply_recommended_settings();
 }
 
@@ -337,7 +338,11 @@ ble_rf_calibration_1(void)
     set_reg32(0x40020000, 0x0f168820);
     set_reg32_bits(0x40022000, 0x00000001, 0);
     set_reg32_bits(0x4002101c, 0x00001e00, 0);
-    set_reg32_bits(0x4002001c, 0x0000003f, 47);
+    if (mcu_chip_variant_get() == MCU_CHIP_VARIANT_TSMC) {
+        set_reg32_bits(0x4002001c, 0x0000003f, 47);
+    } else {
+        set_reg32_bits(0x4002001c, 0x0000003f, 44);
+    }
     set_reg8(0x40020006, 1);
     set_reg32(0x40020020, 16);
     set_reg32_bits(0x4002003c, 0x00000800, 1);
@@ -495,8 +500,8 @@ ble_rf_calibrate_int(uint8_t mask)
     __enable_irq();
 
 #if MYNEWT_VAL(CMAC_DEBUG_DATA_ENABLE)
-    g_cmac_shared_data.debug.cal_res_1 = g_ble_phy_rf_data.cal_res_1;
-    g_cmac_shared_data.debug.cal_res_2 = g_ble_phy_rf_data.cal_res_2;
+    g_cmac_shm_debugdata.cal_res_1 = g_ble_phy_rf_data.cal_res_1;
+    g_cmac_shm_debugdata.cal_res_2 = g_ble_phy_rf_data.cal_res_2;
 #endif
 }
 
@@ -539,25 +544,27 @@ ble_rf_init(void)
     static bool done = false;
     uint32_t val;
 
+    assert(mcu_chip_variant_get());
+
     ble_rf_disable();
 
     if (done) {
         return;
     }
 
-    val = ble_rf_find_trim_reg(g_cmac_shared_data.trim.rfcu_mode1,
-                               g_cmac_shared_data.trim.rfcu_mode1_len,
+    val = ble_rf_find_trim_reg(g_cmac_shm_trim.rfcu_mode1,
+                               g_cmac_shm_trim.rfcu_mode1_len,
                                0x4002004c);
     g_ble_phy_rf_data.trim_val1_tx_1 = val;
 
-    val = ble_rf_find_trim_reg(g_cmac_shared_data.trim.rfcu_mode2,
-                               g_cmac_shared_data.trim.rfcu_mode2_len,
+    val = ble_rf_find_trim_reg(g_cmac_shm_trim.rfcu_mode2,
+                               g_cmac_shm_trim.rfcu_mode2_len,
                                0x4002004c);
     g_ble_phy_rf_data.trim_val1_tx_2 = val;
 
     if (!g_ble_phy_rf_data.trim_val1_tx_1 || !g_ble_phy_rf_data.trim_val1_tx_2) {
-        val = ble_rf_find_trim_reg(g_cmac_shared_data.trim.rfcu,
-                                   g_cmac_shared_data.trim.rfcu_len,
+        val = ble_rf_find_trim_reg(g_cmac_shm_trim.rfcu,
+                                   g_cmac_shm_trim.rfcu_len,
                                    0x4002004c);
         if (!val) {
             val = 0x0300;
@@ -566,8 +573,8 @@ ble_rf_init(void)
         g_ble_phy_rf_data.trim_val1_tx_2 = val;
     }
 
-    val = ble_rf_find_trim_reg(g_cmac_shared_data.trim.synth,
-                               g_cmac_shared_data.trim.synth_len,
+    val = ble_rf_find_trim_reg(g_cmac_shm_trim.synth,
+                               g_cmac_shm_trim.synth_len,
                                0x40022038);
     if (!val) {
         val = 0x0198ff03;
@@ -577,10 +584,10 @@ ble_rf_init(void)
     set_reg32_bits((uint32_t)&g_ble_phy_rf_data.trim_val2_tx, 0x0001ff00, 0x87);
 
 #if MYNEWT_VAL(CMAC_DEBUG_DATA_ENABLE)
-    g_cmac_shared_data.debug.trim_val1_tx_1 = g_ble_phy_rf_data.trim_val1_tx_1;
-    g_cmac_shared_data.debug.trim_val1_tx_2 = g_ble_phy_rf_data.trim_val1_tx_2;
-    g_cmac_shared_data.debug.trim_val2_tx = g_ble_phy_rf_data.trim_val2_tx;
-    g_cmac_shared_data.debug.trim_val2_rx = g_ble_phy_rf_data.trim_val2_rx;
+    g_cmac_shm_debugdata.trim_val1_tx_1 = g_ble_phy_rf_data.trim_val1_tx_1;
+    g_cmac_shm_debugdata.trim_val1_tx_2 = g_ble_phy_rf_data.trim_val1_tx_2;
+    g_cmac_shm_debugdata.trim_val2_tx = g_ble_phy_rf_data.trim_val2_tx;
+    g_cmac_shm_debugdata.trim_val2_rx = g_ble_phy_rf_data.trim_val2_rx;
 #endif
 
     ble_rf_rfcu_enable();

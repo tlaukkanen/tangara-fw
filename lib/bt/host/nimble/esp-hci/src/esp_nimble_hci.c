@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -169,7 +169,6 @@ static void ble_hci_rx_acl(uint8_t *data, uint16_t len)
     ble_transport_to_hs_acl(m);
     OS_EXIT_CRITICAL(sr);
 }
-
 
 /*
  * @brief: BT controller callback function, used to notify the upper layer that

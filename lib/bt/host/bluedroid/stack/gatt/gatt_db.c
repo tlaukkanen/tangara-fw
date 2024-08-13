@@ -1242,7 +1242,7 @@ tGATT_STATUS gatts_write_attr_perm_check (tGATT_SVC_DB *p_db, UINT8 op_code,
                     else if ( (p_attr->uuid_type == GATT_ATTR_UUID_TYPE_16) &&
                               (p_attr->uuid == GATT_UUID_CHAR_CLIENT_CONFIG ||
                                p_attr->uuid == GATT_UUID_CHAR_SRVR_CONFIG   ||
-                               p_attr->uuid == GATT_UUID_CLIENT_SUP_FEAT    ||
+                               p_attr->uuid == GATT_UUID_CLIENT_SUP_FEAT    || 
                                p_attr->uuid == GATT_UUID_GAP_ICON
                                ) )
 // btla-specific --

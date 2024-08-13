@@ -54,6 +54,25 @@ config BT_CLASSIC_ENABLED
     help
         For now this option needs "SMP_ENABLE" to be set to yes
 
+choice BT_ENC_KEY_SIZE_CTRL_ENABLED
+    prompt "configure encryption key size"
+    depends on BT_CLASSIC_ENABLED
+    default BT_ENC_KEY_SIZE_CTRL_VSC
+    help
+        This chooses the support status of configuring encryption key size
+
+    config BT_ENC_KEY_SIZE_CTRL_STD
+        depends on (BT_CONTROLLER_DISABLED || (BT_CONTROLLER_ENABLED && SOC_BT_H2C_ENC_KEY_CTRL_ENH_STD_SUPPORTED))
+        bool "Supported by standard HCI command"
+
+    config BT_ENC_KEY_SIZE_CTRL_VSC
+        depends on (BT_CONTROLLER_DISABLED || (BT_CONTROLLER_ENABLED && SOC_BT_H2C_ENC_KEY_CTRL_ENH_VSC_SUPPORTED))
+        bool "Supported by Vendor-specific HCI command"
+
+    config BT_ENC_KEY_SIZE_CTRL_NONE
+        bool "Not supported"
+endchoice
+
 config BT_CLASSIC_BQB_ENABLED
     bool "Host Qualitifcation support for Classic Bluetooth"
     depends on BT_CLASSIC_ENABLED
@@ -273,7 +292,7 @@ config BT_GATTC_CACHE_NVS_FLASH
 config BT_GATTC_CONNECT_RETRY_COUNT
     int "The number of attempts to reconnect if the connection establishment failed"
     depends on BT_GATTC_ENABLE
-    range 0 7
+    range 0 255
     default 3
     help
         The number of attempts to reconnect if the connection establishment failed
@@ -1168,21 +1187,21 @@ config BT_BLE_42_FEATURES_SUPPORTED
 
 config BT_BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER
     bool "Enable BLE periodic advertising sync transfer feature"
-    depends on (BT_BLE_50_FEATURES_SUPPORTED && ((BT_CONTROLLER_ENABLED && SOC_ESP_NIMBLE_CONTROLLER) || BT_CONTROLLER_DISABLED)) # NOERROR
+    depends on (BT_BLUEDROID_ENABLED && BT_BLE_50_FEATURES_SUPPORTED && ((BT_CONTROLLER_ENABLED && SOC_ESP_NIMBLE_CONTROLLER) || BT_CONTROLLER_DISABLED)) # NOERROR
     default n
     help
         This enables BLE periodic advertising sync transfer feature
 
 config BT_BLE_FEAT_PERIODIC_ADV_ENH
     bool "Enable periodic adv enhancements(adi support)"
-    depends on (BT_BLE_50_FEATURES_SUPPORTED && ((BT_CONTROLLER_ENABLED && SOC_ESP_NIMBLE_CONTROLLER) || BT_CONTROLLER_DISABLED)) # NOERROR
+    depends on (BT_BLUEDROID_ENABLED && BT_BLE_50_FEATURES_SUPPORTED && ((BT_CONTROLLER_ENABLED && SOC_ESP_NIMBLE_CONTROLLER) || BT_CONTROLLER_DISABLED)) # NOERROR
     default n
     help
         Enable the periodic advertising enhancements
 
 config BT_BLE_FEAT_CREATE_SYNC_ENH
     bool "Enable create sync enhancements(reporting disable and duplicate filtering enable support)"
-    depends on (BT_BLE_50_FEATURES_SUPPORTED && ((BT_CONTROLLER_ENABLED && SOC_ESP_NIMBLE_CONTROLLER) || BT_CONTROLLER_DISABLED)) # NOERROR
+    depends on (BT_BLUEDROID_ENABLED && BT_BLE_50_FEATURES_SUPPORTED && ((BT_CONTROLLER_ENABLED && SOC_ESP_NIMBLE_CONTROLLER) || BT_CONTROLLER_DISABLED)) # NOERROR
     default n
     help
         Enable the create sync enhancements
