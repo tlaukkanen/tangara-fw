@@ -528,7 +528,7 @@ void Disabled::react(const events::Enable&) {
 
   // Set a reasonable name for the device.
   std::pmr::string name = DeviceName();
-  esp_bt_dev_set_device_name(name.c_str());
+  esp_bt_gap_set_device_name(name.c_str());
 
   // Initialise GAP. This controls advertising our device, and scanning for
   // other devices.
