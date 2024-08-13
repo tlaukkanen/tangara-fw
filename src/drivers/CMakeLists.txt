@@ -8,5 +8,5 @@ idf_component_register(
   "samd.cpp" "wm8523.cpp" "nvs.cpp" "haptics.cpp" "spiffs.cpp" "pcm_buffer.cpp"
   INCLUDE_DIRS "include"
   REQUIRES "esp_adc" "fatfs" "result" "lvgl" "nvs_flash" "spiffs" "bt"
-  "tasks" "tinyfsm" "util" "libcppbor")
+  "tasks" "tinyfsm" "util" "libcppbor" "driver")
 target_compile_options(${COMPONENT_LIB} PRIVATE ${EXTRA_WARNINGS})

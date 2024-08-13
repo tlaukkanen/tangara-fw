@@ -28,4 +28,4 @@ idf_component_register(SRCS "commands.c"
                             ${argtable_srcs}
                     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
                     REQUIRES vfs
-                    PRIV_REQUIRES driver)
+                    PRIV_REQUIRES driver esp_vfs_console)
