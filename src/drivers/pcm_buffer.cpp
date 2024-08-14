@@ -66,10 +66,17 @@ IRAM_ATTR auto PcmBuffer::receive(std::span<int16_t> dest, bool isr)
 
 auto PcmBuffer::clear() -> void {
   while (!isEmpty()) {
-    size_t bytes_cleared;
+    size_t bytes_cleared = 0;
     void* data = xRingbufferReceive(ringbuf_, &bytes_cleared, 0);
-    vRingbufferReturnItem(ringbuf_, data);
-    received_ += bytes_cleared / sizeof(int16_t);
+    if (data) {
+      vRingbufferReturnItem(ringbuf_, data);
+      received_ += bytes_cleared / sizeof(int16_t);
+    } else {
+      // Defensively guard against looping forever if for some reason the
+      // buffer isn't draining.
+      ESP_LOGW(kTag, "PcmBuffer not draining");
+      break;
+    }
   }
 }
 
