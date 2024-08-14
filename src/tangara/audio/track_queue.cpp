@@ -286,6 +286,7 @@ auto TrackQueue::finish() -> void {
 auto TrackQueue::clear() -> void {
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
+    position_ = 0;
     playlist_.clear();
     opened_playlist_.reset();
     if (shuffle_) {
