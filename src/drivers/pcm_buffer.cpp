@@ -71,11 +71,6 @@ auto PcmBuffer::clear() -> void {
     if (data) {
       vRingbufferReturnItem(ringbuf_, data);
       received_ += bytes_cleared / sizeof(int16_t);
-    } else {
-      // Defensively guard against looping forever if for some reason the
-      // buffer isn't draining.
-      ESP_LOGW(kTag, "PcmBuffer not draining");
-      break;
     }
   }
 }
