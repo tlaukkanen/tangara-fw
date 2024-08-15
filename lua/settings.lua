@@ -227,7 +227,6 @@ local HeadphonesSettings = SettingsScreen:new {
 
     local balance = self.content:Slider {
       w = lvgl.PCT(100),
-      h = 5,
       range = { min = -100, max = 100 },
       value = 0,
     }
@@ -287,7 +286,6 @@ local DisplaySettings = SettingsScreen:new {
 
     local brightness = self.content:Slider {
       w = lvgl.PCT(100),
-      h = 5,
       range = { min = 0, max = 100 },
       value = display.brightness:get(),
     }
@@ -411,7 +409,6 @@ local InputSettings = SettingsScreen:new {
     local slider_scale = 4; -- Power steering
     local sensitivity = self.content:Slider {
       w = lvgl.PCT(90),
-      h = 5,
       range = { min = 0, max = 255 / slider_scale },
       value = controls.scroll_sensitivity:get() / slider_scale,
     }

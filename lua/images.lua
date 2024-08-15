@@ -1,6 +1,7 @@
 local lvgl = require("lvgl")
 
 local img = {
+  back = lvgl.ImgData("//lua/img/back.png"),
   play = lvgl.ImgData("//lua/img/play.png"),
   play_small = lvgl.ImgData("//lua/img/playcirc.png"),
   pause = lvgl.ImgData("//lua/img/pause.png"),

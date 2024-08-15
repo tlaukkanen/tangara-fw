@@ -8,6 +8,7 @@ local styles = require("styles")
 local database = require("database")
 local theme = require("theme")
 local screen = require("screen")
+local images = require("images")
 
 local img = {
   db = lvgl.ImgData("//lua/img/db.png"),
@@ -112,10 +113,11 @@ function widgets.StatusBar(parent, opts)
   if opts.back_cb then
     local back = root:Button {
       w = lvgl.SIZE_CONTENT,
-      h = 12,
+      h = lvgl.SIZE_CONTENT,
     }
-    local label = back:Label({ text = "<", align = lvgl.ALIGN.CENTER })
-    widgets.Description(label, "Back")
+    back:Image{src=images.back}
+    theme.set_style(back, "back_button")
+    widgets.Description(back, "Back")
     back:onClicked(opts.back_cb)
     back:onevent(lvgl.EVENT.FOCUSED, function()
       local first_view = parent.content
@@ -136,6 +138,7 @@ function widgets.StatusBar(parent, opts)
     text = "",
     align = lvgl.ALIGN.CENTER,
     flex_grow = 1,
+    pad_left = 2,
   }
   if opts.title then
     title:set { text = opts.title }

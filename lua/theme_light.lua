@@ -7,6 +7,7 @@ local text_color = "#2c2c2c"
 local highlight_color = "#ff82bc"
 local icon_enabled_color = "#ff82bc"
 local icon_disabled_color = "#999999"
+local border_color = "#888888"
 
 local theme_light = {
   base = {
@@ -43,7 +44,9 @@ local theme_light = {
       bg_color = background_color,
       image_recolor_opa = 180,
       image_recolor = highlight_color,
-      radius = 5,
+      radius = 4,
+      border_color = border_color,
+      border_width = 1,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_opa = lvgl.OPA(100),
@@ -70,17 +73,21 @@ local theme_light = {
       bg_opa = lvgl.OPA(100),
       bg_color = background_muted,
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
+      border_color = border_color,
+      border_width = 1,
+      height = 8,
     }},
     {lvgl.PART.INDICATOR, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       bg_color = highlight_color,
+      border_color = border_color,
+      border_width = 1,
     }},
     {lvgl.PART.KNOB, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       bg_color = background_muted,
-      shadow_width = 5,
-      shadow_opa = lvgl.OPA(100),
-      pad_all = 2,
+      border_color = border_color,
+      border_width = 1,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = background_muted,
@@ -123,9 +130,6 @@ local theme_light = {
       width = 18,
       height = 10,
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
-      bg_color = background_muted,
-      border_color = text_color,
-      border_width = 1,
     }},
     {lvgl.PART.INDICATOR, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
@@ -138,9 +142,6 @@ local theme_light = {
     {lvgl.PART.KNOB, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       bg_opa = lvgl.OPA(100),
-      bg_color = background_color,
-      border_color = text_color,
-      border_width = 1,
     }},
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
@@ -151,7 +152,7 @@ local theme_light = {
       radius = 2, 
       pad_all = 2,
       border_width = 1,
-      border_color = background_muted,
+      border_color = border_color,
       border_side = 15, -- LV_BORDER_SIDE_FULL
       bg_color = background_color,
     }},
@@ -164,7 +165,7 @@ local theme_light = {
       radius = 2, 
       pad_all = 2,
       border_width = 1,
-      border_color = highlight_color,
+      border_color = border_color,
       bg_opa = lvgl.OPA(100),
       bg_color = background_color
     }},
@@ -176,6 +177,17 @@ local theme_light = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 180,
       image_recolor = highlight_color,
+    }},
+  },
+  back_button = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 180,
+      image_recolor = icon_enabled_color,
+      pad_all = 0,
+    }},
+    {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
+      image_recolor_opa = 0,
+      image_recolor = "#ffffff",
     }},
   },
   settings_title = {
@@ -211,7 +223,7 @@ local theme_light = {
       bg_opa = lvgl.OPA(100),
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       border_width = 1,
-      border_color = highlight_color,
+      border_color = border_color,
       border_side = 15, -- LV_BORDER_SIDE_FULL
     }},
   },

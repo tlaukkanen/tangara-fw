@@ -79,14 +79,37 @@ local theme_dark = {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       pad_all = 2,
       bg_color = background_muted,
-      shadow_width = 5,
-      shadow_opa = lvgl.OPA(100)
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = background_muted,
     }},
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
+    }},
+    {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
+      bg_color = highlight_color,
+    }},
+  },
+  scrubber = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      bg_opa = lvgl.OPA(100),
+      bg_color = background_muted,
+      radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
+    }},
+    {lvgl.PART.INDICATOR, lvgl.Style {
+      radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
+      bg_color = highlight_color,
+    }},
+    {lvgl.PART.KNOB, lvgl.Style {
+      radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
+      bg_color = background_muted,
+    }},
+    {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
+      bg_color = background_muted,
+    }},
+    {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
+      bg_color = highlight_color,
+      pad_all = 1,
     }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,
@@ -107,8 +130,8 @@ local theme_dark = {
       bg_color = background_color,
     }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
-      bg_color = highlight_color,
       bg_opa = lvgl.OPA(100),
+      bg_color = highlight_color,
     }},
     {lvgl.PART.KNOB, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
