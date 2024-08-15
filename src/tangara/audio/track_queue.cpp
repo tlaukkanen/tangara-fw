@@ -121,9 +121,12 @@ auto TrackQueue::totalSize() const -> size_t {
   return sum;
 }
 
-auto TrackQueue::updateShuffler() -> void {
+auto TrackQueue::updateShuffler(bool andUpdatePosition) -> void {
   if (shuffle_) {
     shuffle_->resize(totalSize());
+    if (andUpdatePosition) {
+      goTo(shuffle_->current());
+    }
   }
 }
 
@@ -140,7 +143,7 @@ auto TrackQueue::openPlaylist(const std::string& playlist_file) -> bool {
   if (!res) {
     return false;
   }
-  updateShuffler();
+  updateShuffler(true);
   notifyChanged(true, Reason::kExplicitUpdate);
   return true;
 }
@@ -169,16 +172,6 @@ auto TrackQueue::append(Item i) -> void {
     current_changed = was_queue_empty;  // Dont support inserts yet
   }
 
-  // If there wasn't anything already playing, then we should make sure we
-  // begin playback at a random point, instead of always starting with
-  // whatever was inserted first and *then* shuffling.
-  // We don't base this purely off of current_changed because we would like
-  // 'play this track now' (by inserting at the current pos) to work even
-  // when shuffling is enabled.
-  if (was_queue_empty && shuffle_) {
-    playlist_.skipTo(shuffle_->current());
-  }
-
   if (std::holds_alternative<database::TrackId>(i)) {
     {
       const std::unique_lock<std::shared_mutex> lock(mutex_);
@@ -186,7 +179,7 @@ auto TrackQueue::append(Item i) -> void {
       if (!filename.empty()) {
         playlist_.append(filename);
       }
-      updateShuffler();
+      updateShuffler(was_queue_empty);
     }
     notifyChanged(current_changed, Reason::kExplicitUpdate);
   } else if (std::holds_alternative<database::TrackIterator>(i)) {
@@ -213,7 +206,7 @@ auto TrackQueue::append(Item i) -> void {
       }
       {
         const std::unique_lock<std::shared_mutex> lock(mutex_);
-        updateShuffler();
+        updateShuffler(was_queue_empty);
       }
       notifyChanged(current_changed, Reason::kExplicitUpdate);
     });
@@ -224,7 +217,7 @@ auto TrackQueue::next() -> void {
   next(Reason::kExplicitUpdate);
 }
 
-auto TrackQueue::goTo(size_t position) {
+auto TrackQueue::goTo(size_t position) -> void {
   position_ = position;
   if (opened_playlist_) {
     if (position_ < opened_playlist_->size()) {

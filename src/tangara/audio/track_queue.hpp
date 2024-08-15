@@ -80,7 +80,7 @@ class TrackQueue {
   auto insert(Item, size_t index = 0) -> void;
   auto append(Item i) -> void;
 
-  auto updateShuffler() -> void;
+  auto updateShuffler(bool andUpdatePosition) -> void;
 
   /*
    * Advances to the next track in the queue, placing the current track at the
@@ -117,7 +117,7 @@ class TrackQueue {
 
  private:
   auto next(QueueUpdate::Reason r) -> void;
-  auto goTo(size_t position);
+  auto goTo(size_t position) -> void;
   auto getFilepath(database::TrackId id) -> std::optional<std::string>;
 
   mutable std::shared_mutex mutex_;
