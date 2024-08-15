@@ -130,6 +130,9 @@ local theme_light = {
       width = 18,
       height = 10,
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
+      bg_color = background_muted,
+      border_color = border_color,
+      border_width = 1,
     }},
     {lvgl.PART.INDICATOR, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
@@ -142,6 +145,9 @@ local theme_light = {
     {lvgl.PART.KNOB, lvgl.Style {
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
       bg_opa = lvgl.OPA(100),
+      bg_color = background_muted,
+      border_color = border_color,
+      border_width = 1,
     }},
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
