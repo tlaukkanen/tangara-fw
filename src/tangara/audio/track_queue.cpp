@@ -235,6 +235,8 @@ auto TrackQueue::next(Reason r) -> void {
 
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
+    auto pos = position_;
+
     if (shuffle_) {
       shuffle_->next();
       position_ = shuffle_->current();
@@ -243,7 +245,9 @@ auto TrackQueue::next(Reason r) -> void {
         position_++;
       }
     }
+
     goTo(position_);
+    changed = pos != position_;
   }
 
   notifyChanged(changed, r);

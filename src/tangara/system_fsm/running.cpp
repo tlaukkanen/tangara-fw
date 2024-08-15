@@ -188,6 +188,10 @@ auto Running::mountStorage() -> void {
   // mounted card.
   if (sServices->nvs().DbAutoIndex()) {
     sServices->bg_worker().Dispatch<void>([&]() {
+      // Delay the index update for a bit, since we don't want to cause a lot
+      // of disk contention immediately after mounting (especially when we've
+      // just booted), or else we risk slowing down stuff like UI loading.
+      vTaskDelay(pdMS_TO_TICKS(6000));
       auto db = sServices->database().lock();
       if (!db) {
         return;
