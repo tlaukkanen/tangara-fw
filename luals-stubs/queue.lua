@@ -19,6 +19,11 @@ local queue = {}
 --- @param val TrackId|Iterator
 function queue.add(val) end
 
+--- Opens a playlist file from a filepath
+--- This will replace the existing queue
+--- @param filepath string
+function queue.open_playlist(filepath) end
+
 --- Removes all tracks from the queue.
 function queue.clear() end
 
