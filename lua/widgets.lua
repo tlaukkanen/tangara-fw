@@ -19,7 +19,6 @@ local img = {
   bat_40 = lvgl.ImgData("//lua/img/bat/40.png"),
   bat_20 = lvgl.ImgData("//lua/img/bat/20.png"),
   bat_0 = lvgl.ImgData("//lua/img/bat/0.png"),
-  bat_0chg = lvgl.ImgData("//lua/img/bat/0chg.png"),
   bt_conn = lvgl.ImgData("//lua/img/bt_conn.png"),
   bt = lvgl.ImgData("//lua/img/bt.png")
 }
@@ -102,6 +101,7 @@ function widgets.StatusBar(parent, opts)
     pad_top = 1,
     pad_bottom = 1,
     pad_left = 4,
+    pad_right = 4,
     pad_column = 1,
     scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
   }
@@ -157,24 +157,29 @@ function widgets.StatusBar(parent, opts)
   local function update_battery_icon()
     if is_charging == nil or percent == nil then return end
     local src
+    theme.set_style(battery_icon, "battery")
     if percent >= 95 then
+      theme.set_style(battery_icon, "battery_100")
       src = img.bat_100
     elseif percent >= 75 then
+      theme.set_style(battery_icon, "battery_80")
       src = img.bat_80
     elseif percent >= 55 then
+      theme.set_style(battery_icon, "battery_60")
       src = img.bat_60
     elseif percent >= 35 then
+      theme.set_style(battery_icon, "battery_40")
       src = img.bat_40
     elseif percent >= 15 then
+      theme.set_style(battery_icon, "battery_20")
       src = img.bat_20
     else
-      if is_charging then
-        src = img.bat_0chg
-      else
-        src = img.bat_0
-      end
+      theme.set_style(battery_icon, "battery_0")
+      src = img.bat_0
     end
     if is_charging then
+      theme.set_style(battery_icon, "battery_charging")
+      theme.set_style(charge_icon, "battery_charge_icon")
       charge_icon:clear_flag(lvgl.FLAG.HIDDEN)
     else
       charge_icon:add_flag(lvgl.FLAG.HIDDEN)
@@ -206,6 +211,7 @@ function widgets.StatusBar(parent, opts)
       end
     end),
     bluetooth.connected:bind(function(connected)
+      theme.set_style(bt_icon, "bluetooth_icon")
       if connected then
         bt_icon:set_src(img.bt_conn)
       else

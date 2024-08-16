@@ -246,6 +246,30 @@ local theme_light = {
       radius = 4
     }},
   },
+  battery = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 180,
+      image_recolor = highlight_color,
+    }},
+  },
+  battery_0 = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 180,
+      image_recolor = "#aa3333",
+    }},
+  },
+  battery_charging = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 180,
+      image_recolor = "#33aa33",
+    }},
+  },
+  battery_charge_icon = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 180,
+      image_recolor = "#fdd833",
+    }},
+  },
 }
 
 return theme_light
