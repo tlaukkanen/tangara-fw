@@ -496,11 +496,12 @@ local DatabaseSettings = SettingsScreen:new {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
-        align_items = "flex-start",
+        align_items = "center",
         align_content = "flex-start",
       },
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
+      pad_bottom = 4,
     }
     auto_update_container:add_style(styles.list_item)
     auto_update_container:Label { text = "Auto update", flex_grow = 1 }

@@ -58,7 +58,7 @@ return screen:new{
             flex = {
                 flex_direction = "row",
                 flex_wrap = "wrap",
-                justify_content = "center",
+                justify_content = "space-between",
                 align_items = "center",
                 align_content = "center"
             },

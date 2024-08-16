@@ -37,16 +37,18 @@ local theme_light = {
   },
   button = {
     {lvgl.PART.MAIN, lvgl.Style {
-      pad_left = 2,
-      pad_right = 2,
-      pad_top = 1,
-      pad_bottom = 1,
+      pad_left = 1,
+      pad_right = 1,
+      margin_all = 1,
       bg_color = background_color,
       image_recolor_opa = 180,
       image_recolor = highlight_color,
       radius = 4,
       border_color = border_color,
       border_width = 1,
+      border_side = 9,
+      outline_color = border_color,
+      outline_width = 1,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_opa = lvgl.OPA(100),
@@ -88,6 +90,9 @@ local theme_light = {
       bg_color = background_muted,
       border_color = border_color,
       border_width = 1,
+      border_side = 9,
+      outline_color = border_color,
+      outline_width = 1,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = background_muted,
@@ -148,6 +153,9 @@ local theme_light = {
       bg_color = background_muted,
       border_color = border_color,
       border_width = 1,
+      border_side = 9,
+      outline_color = border_color,
+      outline_width = 1,
     }},
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
@@ -157,10 +165,12 @@ local theme_light = {
     {lvgl.PART.MAIN, lvgl.Style{
       radius = 2, 
       pad_all = 2,
-      border_width = 1,
-      border_color = border_color,
-      border_side = 15, -- LV_BORDER_SIDE_FULL
       bg_color = background_color,
+      border_color = border_color,
+      border_width = 1,
+      border_side = 9,
+      outline_color = border_color,
+      outline_width = 1,
     }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       border_color = highlight_color,
@@ -228,9 +238,6 @@ local theme_light = {
     {lvgl.PART.MAIN, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       radius = 32767, -- LV_RADIUS_CIRCLE = 0x7fff
-      border_width = 1,
-      border_color = border_color,
-      border_side = 15, -- LV_BORDER_SIDE_FULL
     }},
   },
   menu_icon = {

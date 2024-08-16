@@ -226,10 +226,6 @@ function widgets.IconBtn(parent, icon, text)
     },
     w = lvgl.SIZE_CONTENT,
     h = lvgl.SIZE_CONTENT,
-    pad_top = 1,
-    pad_bottom = 1,
-    pad_left = 1,
-    pad_column = 1
   }
   btn:Image {
     src = icon
