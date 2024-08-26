@@ -242,6 +242,7 @@ void Display::SendInitialisationSequence(const uint8_t* data) {
   spi_device_release_bus(handle_);
 }
 
+IRAM_ATTR
 void Display::SendCommandWithData(uint8_t command,
                                   const uint8_t* data,
                                   size_t length) {
@@ -249,17 +250,20 @@ void Display::SendCommandWithData(uint8_t command,
   SendData(data, length);
 }
 
+IRAM_ATTR
 void Display::SendCmd(const uint8_t* data, size_t length) {
   SendTransaction(COMMAND, data, length);
 }
 
+IRAM_ATTR
 void Display::SendData(const uint8_t* data, size_t length) {
   SendTransaction(DATA, data, length);
 }
 
+IRAM_ATTR
 void Display::SendTransaction(TransactionType type,
-                              const uint8_t* data,
-                              size_t length) {
+                                        const uint8_t* data,
+                                        size_t length) {
   // TODO(jacqueline): What's sending this?
   if (length == 0) {
     return;
@@ -290,6 +294,7 @@ void Display::SendTransaction(TransactionType type,
   ESP_ERROR_CHECK(spi_device_transmit(handle_, &sTransaction));
 }
 
+IRAM_ATTR
 void Display::OnLvglFlush(const lv_area_t* area, uint8_t* color_map) {
   // Swap the pixel byte order first, since we don't want to do this whilst
   // holding the SPI bus lock.
