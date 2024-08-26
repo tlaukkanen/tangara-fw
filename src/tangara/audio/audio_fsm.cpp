@@ -231,6 +231,16 @@ void AudioState::react(const internal::StreamEnded& ev) {
   sStreamCues.addCue({}, ev.cue_at_sample);
 }
 
+void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
+  if (ev.has_headphones) {
+    events::Audio().Dispatch(audio::OutputModeChanged{.set_to = drivers::NvsStorage::Output::kHeadphones});
+  } else {
+    if (sServices->bluetooth().enabled()) {
+      events::Audio().Dispatch(audio::OutputModeChanged{.set_to = drivers::NvsStorage::Output::kBluetooth});
+    }
+  }
+}
+
 void AudioState::react(const system_fsm::BluetoothEvent& ev) {
   using drivers::bluetooth::SimpleEvent;
   if (std::holds_alternative<SimpleEvent>(ev.event)) {
@@ -334,6 +344,9 @@ void AudioState::react(const SetVolumeBalance& ev) {
 void AudioState::react(const OutputModeChanged& ev) {
   ESP_LOGI(kTag, "output mode changed");
   auto new_mode = sServices->nvs().OutputMode();
+  if (ev.set_to) {
+    new_mode = *ev.set_to;
+  }
   sOutput->mode(IAudioOutput::Modes::kOff);
   switch (new_mode) {
     case drivers::NvsStorage::Output::kBluetooth:

@@ -16,6 +16,7 @@
 #include "tinyfsm.hpp"
 
 #include "database/track.hpp"
+#include "drivers/nvs.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -137,7 +138,9 @@ struct SetVolumeLimit : tinyfsm::Event {
   int limit_db;
 };
 
-struct OutputModeChanged : tinyfsm::Event {};
+struct OutputModeChanged : tinyfsm::Event {
+  std::optional<drivers::NvsStorage::Output> set_to;
+};
 
 namespace internal {
 
