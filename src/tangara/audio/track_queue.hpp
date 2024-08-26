@@ -74,7 +74,7 @@ class TrackQueue {
   auto currentPosition() const -> size_t;
   auto totalSize() const -> size_t;
   auto open() -> bool;
-  auto openPlaylist(const std::string& playlist_file) -> bool;
+  auto openPlaylist(const std::string& playlist_file, bool notify = true) -> bool;
 
   using Item = std::variant<database::TrackId, database::TrackIterator>;
   auto insert(Item, size_t index = 0) -> void;
@@ -163,6 +163,7 @@ class TrackQueue {
     };
     State state_;
     size_t i_;
+    size_t position_to_set_;
   };
 };
 
