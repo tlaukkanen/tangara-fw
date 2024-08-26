@@ -137,14 +137,16 @@ auto TrackQueue::open() -> bool {
   return playlist_.open();
 }
 
-auto TrackQueue::openPlaylist(const std::string& playlist_file) -> bool {
+auto TrackQueue::openPlaylist(const std::string& playlist_file, bool notify) -> bool {
   opened_playlist_.emplace(playlist_file);
   auto res = opened_playlist_->open();
   if (!res) {
     return false;
   }
   updateShuffler(true);
-  notifyChanged(true, Reason::kExplicitUpdate);
+  if (notify) {
+    notifyChanged(true, Reason::kExplicitUpdate);
+  }
   return true;
 }
 
@@ -371,7 +373,7 @@ auto TrackQueue::serialise() -> std::string {
 }
 
 TrackQueue::QueueParseClient::QueueParseClient(TrackQueue& queue)
-    : queue_(queue), state_(State::kInit), i_(0) {}
+    : queue_(queue), state_(State::kInit), i_(0), position_to_set_(0) {}
 
 cppbor::ParseClient* TrackQueue::QueueParseClient::item(
     std::unique_ptr<cppbor::Item>& item,
@@ -400,10 +402,11 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::item(
       i_ = 0;
     } else if (item->type() == cppbor::UINT) {
       auto val = item->asUint()->unsignedValue();
-      queue_.goTo(val);
+      // Save the position so we can apply it later when we have finished serialising
+      position_to_set_ = val;
     } else if (item->type() == cppbor::TSTR) {
       auto val = item->asTstr();
-      queue_.openPlaylist(val->value());
+      queue_.openPlaylist(val->value(), false);
     } else if (item->type() == cppbor::SIMPLE) {
       bool val = item->asBool()->value();
       if (i_ == 0) {
@@ -448,6 +451,7 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::itemEnd(
   if (state_ == State::kInit) {
     state_ = State::kFinished;
   } else if (state_ == State::kRoot) {
+    queue_.goTo(position_to_set_);
     state_ = State::kFinished;
   } else if (state_ == State::kMetadata) {
     if (item->type() == cppbor::ARRAY) {
