@@ -87,15 +87,20 @@ class SampleProcessor {
   StreamBufferHandle_t source_;
   drivers::PcmBuffer& sink_;
 
+  /* Internal utility for managing buffering samples between our filters. */
   class Buffer {
    public:
     Buffer();
     ~Buffer();
 
+    /* Returns a span of the unused space within the buffer. */
     auto writeAcquire() -> std::span<sample::Sample>;
+    /* Signals how many samples were just added to the writeAcquire span. */
     auto writeCommit(size_t) -> void;
 
+    /* Returns a span of the samples stored within the buffer. */
     auto readAcquire() -> std::span<sample::Sample>;
+    /* Signals how many samples from the readAcquire span were consumed. */
     auto readCommit(size_t) -> void;
 
     auto isEmpty() -> bool;

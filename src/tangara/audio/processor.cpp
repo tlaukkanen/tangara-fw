@@ -1,11 +1,10 @@
 /*
- * Copyright 2023 jacqueline <me@jacqueline.id.au>
+ * Copyright 2024 jacqueline <me@jacqueline.id.au>
  *
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
 #include "audio/processor.hpp"
-#include <stdint.h>
 
 #include <algorithm>
 #include <cmath>
@@ -38,6 +37,11 @@ static const size_t kSourceBufferLength = kSampleBufferLength * 2;
 
 namespace audio {
 
+/*
+ * The output format to convert all sources to. This is currently fixed because
+ * the Bluetooth output doesn't support runtime configuration of its input
+ * format.
+ */
 static const I2SAudioOutput::Format kTargetFormat{
     .sample_rate = 48000,
     .num_channels = 2,
@@ -60,7 +64,10 @@ SampleProcessor::~SampleProcessor() {
 }
 
 auto SampleProcessor::SetOutput(std::shared_ptr<IAudioOutput> output) -> void {
+  // Make sure our fixed output format is valid.
+  assert(output->PrepareFormat(kTargetFormat) == kTargetFormat);
   output->Configure(kTargetFormat);
+
   // FIXME: We should add synchronisation here, but we should be careful
   // about not impacting performance given that the output will change only
   // very rarely (if ever).
@@ -337,7 +344,7 @@ auto SampleProcessor::discardCommand(Args& command) -> void {
   if (command.samples_available) {
     unprocessed_samples_ += command.samples_available;
   }
-  // End of stream commands can just be dropped. Without further actions.
+  // End of stream commands can just be dropped without further action.
 }
 
 SampleProcessor::Buffer::Buffer()
