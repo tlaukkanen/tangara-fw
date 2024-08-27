@@ -247,16 +247,20 @@ return screen:new {
       queue.random:bind(function(shuffling)
         theme.set_style(shuffle_btn, shuffling and icon_enabled_class or icon_disabled_class)
         if shuffling then
+          shuffle_img:set_src(img.shuffle)
           shuffle_desc:set { text = "Disable shuffle" }
         else
+          shuffle_img:set_src(img.shuffle_off)
           shuffle_desc:set { text = "Enable shuffle" }
         end
       end),
       queue.repeat_track:bind(function(en)
         theme.set_style(repeat_btn, en and icon_enabled_class or icon_disabled_class)
         if en then
+          repeat_img:set_src(img.repeat_src)
           repeat_desc:set { text = "Disable track repeat" }
         else
+          repeat_img:set_src(img.repeat_off)
           repeat_desc:set { text = "Enable track repeat" }
         end
       end),

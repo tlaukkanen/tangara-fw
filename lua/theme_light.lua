@@ -46,7 +46,7 @@ local theme_light = {
       radius = 4,
       border_color = border_color,
       border_width = 1,
-      border_side = 9,
+      border_side = 9, -- Bottom right
       outline_color = border_color,
       outline_width = 1,
     }},
@@ -55,6 +55,10 @@ local theme_light = {
       text_color = "#ffffff",
       bg_color = highlight_color,
       image_recolor_opa = 0,
+    }},
+    {lvgl.PART.MAIN | lvgl.STATE.PRESSED, lvgl.Style {
+      margin_left = 2,
+      border_width = 0,
     }},
   },
   listbutton = {
@@ -100,6 +104,9 @@ local theme_light = {
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
     }},
+    {lvgl.PART.KNOB | lvgl.STATE.EDITED, lvgl.Style {
+      pad_all = 2,
+    }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,
     }},
@@ -124,6 +131,9 @@ local theme_light = {
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
       pad_all = 1,
+    }},
+    {lvgl.PART.KNOB | lvgl.STATE.EDITED, lvgl.Style {
+      pad_all = 2,
     }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,

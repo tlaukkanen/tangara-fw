@@ -86,6 +86,9 @@ local theme_dark = {
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
     }},
+    {lvgl.PART.KNOB | lvgl.STATE.EDITED, lvgl.Style {
+      pad_all = 2,
+    }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,
     }},
@@ -110,6 +113,9 @@ local theme_dark = {
     {lvgl.PART.KNOB | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_color = highlight_color,
       pad_all = 1,
+    }},
+    {lvgl.PART.KNOB | lvgl.STATE.EDITED, lvgl.Style {
+      pad_all = 2,
     }},
     {lvgl.PART.INDICATOR | lvgl.STATE.CHECKED, lvgl.Style {
       bg_color = highlight_color,
