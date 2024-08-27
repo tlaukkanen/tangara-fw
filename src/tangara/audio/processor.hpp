@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 #include <cstdint>
+#include <functional>
+#include <list>
 #include <memory>
 
 #include "audio/audio_events.hpp"
@@ -33,18 +35,43 @@ class SampleProcessor {
 
   auto SetOutput(std::shared_ptr<IAudioOutput>) -> void;
 
+  /*
+   * Signals to the sample processor that a new discrete stream of audio is now
+   * being sent. This will typically represent a new track being played.
+   */
   auto beginStream(std::shared_ptr<TrackInfo>) -> void;
-  auto continueStream(std::span<sample::Sample>) -> void;
+
+  /*
+   * Sends a span of PCM samples to the processor. Returns a subspan of the
+   * given span containing samples that were not able to be sent during this
+   * call, e.g. because of congestion downstream from the processor.
+   */
+  auto continueStream(std::span<sample::Sample>) -> std::span<sample::Sample>;
+
+  /*
+   * Signals to the sample processor that the current stream is ending. This
+   * can either be because the stream has naturally finished, or because it is
+   * being interrupted.
+   * If `cancelled` is false, the sample processor will ensure all previous
+   * samples are processed and sent before communicating the end of the stream
+   * onwards. If `cancelled` is true, any samples from the current stream that
+   * have not yet been played will be discarded.
+   */
   auto endStream(bool cancelled) -> void;
+
+  SampleProcessor(const SampleProcessor&) = delete;
+  SampleProcessor& operator=(const SampleProcessor&) = delete;
 
  private:
   auto Main() -> void;
 
   auto handleBeginStream(std::shared_ptr<TrackInfo>) -> void;
-  auto handleContinueStream(size_t samples_available) -> void;
   auto handleEndStream(bool cancel) -> void;
 
-  auto handleSamples(std::span<sample::Sample>) -> size_t;
+  auto processSamples(bool finalise) -> bool;
+
+  auto hasPendingWork() -> bool;
+  auto flushOutputBuffer() -> bool;
 
   struct Args {
     std::shared_ptr<TrackInfo>* track;
@@ -53,21 +80,44 @@ class SampleProcessor {
     bool clear_buffers;
   };
   QueueHandle_t commands_;
+  std::list<Args> pending_commands_;
 
-  std::unique_ptr<Resampler> resampler_;
+  auto discardCommand(Args& command) -> void;
 
   StreamBufferHandle_t source_;
   drivers::PcmBuffer& sink_;
 
-  std::span<sample::Sample> input_buffer_;
-  std::span<std::byte> input_buffer_as_bytes_;
+  class Buffer {
+   public:
+    Buffer();
+    ~Buffer();
 
-  std::span<sample::Sample> resampled_buffer_;
+    auto writeAcquire() -> std::span<sample::Sample>;
+    auto writeCommit(size_t) -> void;
+
+    auto readAcquire() -> std::span<sample::Sample>;
+    auto readCommit(size_t) -> void;
+
+    auto isEmpty() -> bool;
+    auto clear() -> void;
+
+    Buffer(const Buffer&) = delete;
+    Buffer& operator=(const Buffer&) = delete;
+
+   private:
+    std::span<sample::Sample> buffer_;
+    std::span<sample::Sample> samples_in_buffer_;
+  };
+
+  Buffer input_buffer_;
+  Buffer resampled_buffer_;
+  Buffer output_buffer_;
+
+  std::unique_ptr<Resampler> resampler_;
+  bool double_samples_;
 
   std::shared_ptr<IAudioOutput> output_;
-  IAudioOutput::Format source_format_;
-  IAudioOutput::Format target_format_;
-  size_t leftover_bytes_;
+  size_t unprocessed_samples_;
 };
 
 }  // namespace audio

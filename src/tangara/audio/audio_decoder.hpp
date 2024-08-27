@@ -15,6 +15,7 @@
 #include "audio/processor.hpp"
 #include "codec.hpp"
 #include "database/track.hpp"
+#include "sample.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -55,6 +56,7 @@ class Decoder {
   std::shared_ptr<TrackInfo> track_;
 
   std::span<sample::Sample> codec_buffer_;
+  std::span<sample::Sample> leftover_samples_;
 };
 
 }  // namespace audio

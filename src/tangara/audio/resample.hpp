@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -23,6 +24,8 @@ class Resampler {
             uint8_t num_channels);
 
   ~Resampler();
+
+  auto sourceRate() -> uint32_t;
 
   auto Process(std::span<sample::Sample> input,
                std::span<sample::Sample> output,

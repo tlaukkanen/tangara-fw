@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 #include "audio/resample.hpp"
+#include <stdint.h>
 
 #include <algorithm>
 #include <cmath>
@@ -31,6 +32,7 @@ Resampler::Resampler(uint32_t source_sample_rate,
                                       kQuality,
                                       &err_)),
       num_channels_(num_channels) {
+  speex_resampler_skip_zeros(resampler_);
   assert(err_ == 0);
 }
 
@@ -38,18 +40,24 @@ Resampler::~Resampler() {
   speex_resampler_destroy(resampler_);
 }
 
+auto Resampler::sourceRate() -> uint32_t {
+  uint32_t input = 0;
+  uint32_t output = 0;
+  speex_resampler_get_rate(resampler_, &input, &output);
+  return input;
+}
+
 auto Resampler::Process(std::span<sample::Sample> input,
                         std::span<sample::Sample> output,
                         bool end_of_data) -> std::pair<size_t, size_t> {
-  uint32_t samples_used = input.size() / num_channels_;
-  uint32_t samples_produced = output.size() / num_channels_;
+  uint32_t frames_used = input.size() / num_channels_;
+  uint32_t frames_produced = output.size() / num_channels_;
 
   int err = speex_resampler_process_interleaved_int(
-      resampler_, input.data(), &samples_used, output.data(),
-      &samples_produced);
+      resampler_, input.data(), &frames_used, output.data(), &frames_produced);
   assert(err == 0);
 
-  return {samples_used * num_channels_, samples_produced * num_channels_};
+  return {frames_used * num_channels_, frames_produced * num_channels_};
 }
 
 }  // namespace audio
