@@ -38,6 +38,7 @@ UiTask::~UiTask() {
   assert(false);
 }
 
+IRAM_ATTR
 auto UiTask::Main() -> void {
   ESP_LOGI(kTag, "start ui task");
   lv_group_t* current_group = nullptr;
