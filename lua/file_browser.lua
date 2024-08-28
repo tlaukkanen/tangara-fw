@@ -65,9 +65,13 @@ return screen:new {
               iterator = filesystem.iterator(item:filepath()),
               breadcrumb = item:filepath()
             })
-          end
-          if item:filepath():match("%.playlist$") then
+          elseif item:filepath():match("%.playlist$") then
             queue.open_playlist(item:filepath())
+            playback.playing:set(true)
+            backstack.push(playing:new())
+          elseif playback.is_playable(item:filepath()) then
+            queue.clear()
+            queue.add(item:filepath())
             playback.playing:set(true)
             backstack.push(playing:new())
           end

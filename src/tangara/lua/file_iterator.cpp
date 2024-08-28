@@ -79,7 +79,6 @@ auto FileIterator::iterate(bool show_hidden) -> bool {
           .index = offset_,
           .isHidden = hidden,
           .isDirectory = (info.fattrib & AM_DIR) > 0,
-          .isTrack = false,  // TODO
           .filepath = original_path_ + (original_path_.size() > 0 ? "/" : "") +
                       info.fname,
           .name = info.fname,

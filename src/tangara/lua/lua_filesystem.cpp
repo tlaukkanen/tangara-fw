@@ -117,12 +117,6 @@ static auto file_entry_is_hidden(lua_State* state) -> int {
   return 1;
 }
 
-static auto file_entry_is_track(lua_State* state) -> int {
-  lua::FileEntry* entry = check_file_entry(state, 1);
-  lua_pushboolean(state, entry->isTrack);
-  return 1;
-}
-
 static auto file_entry_name(lua_State* state) -> int {
   lua::FileEntry* entry = check_file_entry(state, 1);
   lua_pushlstring(state, entry->name.c_str(), entry->name.size());
@@ -139,7 +133,6 @@ static const struct luaL_Reg kFileEntryFuncs[] = {{"filepath", file_entry_path},
                                                  {"name", file_entry_name},
                                                  {"is_directory", file_entry_is_dir},
                                                  {"is_hidden", file_entry_is_hidden},
-                                                 {"is_track", file_entry_is_track},
                                                  {"__tostring", file_entry_name},
                                                    {"__gc", file_entry_gc},
                                                  {NULL, NULL}};

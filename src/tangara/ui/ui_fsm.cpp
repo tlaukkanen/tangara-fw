@@ -15,6 +15,8 @@
 #include "FreeRTOSConfig.h"
 #include "draw/lv_draw_buf.h"
 #include "drivers/bluetooth.hpp"
+#include "lauxlib.h"
+#include "lua.h"
 #include "lvgl.h"
 
 #include "core/lv_group.h"
@@ -609,11 +611,25 @@ void Lua::entry() {
                          {"discovered_devices", &sBluetoothDiscoveredDevices},
                          {"known_devices", &sBluetoothKnownDevices},
                      });
-    registry.AddPropertyModule("playback", {
-                                               {"playing", &sPlaybackPlaying},
-                                               {"track", &sPlaybackTrack},
-                                               {"position", &sPlaybackPosition},
-                                           });
+    registry.AddPropertyModule(
+        "playback",
+        {
+            {"playing", &sPlaybackPlaying},
+            {"track", &sPlaybackTrack},
+            {"position", &sPlaybackPosition},
+            {"is_playable",
+             [&](lua_State* s) {
+               size_t len;
+               const char* path = luaL_checklstring(s, 1, &len);
+               auto res = sServices->tag_parser().ReadAndParseTags({path, len});
+               if (res) {
+                 lua_pushboolean(s, true);
+               } else {
+                 lua_pushboolean(s, false);
+               }
+               return 1;
+             }},
+        });
     registry.AddPropertyModule(
         "queue",
         {

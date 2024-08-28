@@ -19,7 +19,6 @@ struct FileEntry {
     int index;
     bool isHidden;
     bool isDirectory;
-    bool isTrack;
     std::string filepath;
     std::string name;
 };
