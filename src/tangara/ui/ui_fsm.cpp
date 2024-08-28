@@ -436,6 +436,9 @@ void UiState::react(const audio::QueueUpdate& update) {
   if (queue_size > 0) {
     current_pos++;
   }
+  if (current_pos > queue_size) {
+    current_pos = queue_size;
+  }
   sQueuePosition.setDirect(current_pos);
   sQueueRandom.setDirect(queue.random());
   sQueueRepeat.setDirect(queue.repeat());
