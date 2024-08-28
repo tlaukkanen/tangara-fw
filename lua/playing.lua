@@ -226,7 +226,18 @@ return screen:new {
         end
       end),
       playback.track:bind(function(track)
-        if not track then return end
+        if not track then
+          if queue.loading:get() then
+            title:set { text = "Loading..." }
+          else
+            title:set { text = "" }
+          end
+          artist:set { text = "" }
+          cur_time:set { text = format_time(0) }
+          end_time:set { text = format_time(0) }
+          scrubber:set { value = 0 }
+          return
+        end
         if track.duration then
           end_time:set { text = format_time(track.duration) }
         else

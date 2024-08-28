@@ -112,10 +112,13 @@ void AudioState::react(const QueueUpdate& ev) {
         cmd.new_track = std::monostate{};
       }
       break;
+    case QueueUpdate::kBulkLoadingUpdate:
+      // Bulk loading updates are informational only; a separate QueueUpdate
+      // event will be sent when loading is done.
     case QueueUpdate::kDeserialised:
-    default:
       // The current track is deserialised separately in order to retain seek
       // position.
+    default:
       return;
   }
 

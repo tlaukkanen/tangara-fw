@@ -103,6 +103,7 @@ struct QueueUpdate : tinyfsm::Event {
     kRepeatingLastTrack,
     kTrackFinished,
     kDeserialised,
+    kBulkLoadingUpdate,
   };
   Reason reason;
 };

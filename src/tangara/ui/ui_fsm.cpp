@@ -225,6 +225,7 @@ lua::Property UiState::sQueueRandom{false, [](const lua::LuaValue& val) {
                                       sServices->track_queue().random(new_val);
                                       return true;
                                     }};
+lua::Property UiState::sQueueLoading{false};
 
 lua::Property UiState::sVolumeCurrentPct{
     0, [](const lua::LuaValue& val) {
@@ -424,7 +425,7 @@ void UiState::react(const system_fsm::BatteryStateChanged& ev) {
   }
 }
 
-void UiState::react(const audio::QueueUpdate&) {
+void UiState::react(const audio::QueueUpdate& update) {
   auto& queue = sServices->track_queue();
   auto queue_size = queue.totalSize();
   sQueueSize.setDirect(static_cast<int>(queue_size));
@@ -439,6 +440,12 @@ void UiState::react(const audio::QueueUpdate&) {
   sQueueRandom.setDirect(queue.random());
   sQueueRepeat.setDirect(queue.repeat());
   sQueueReplay.setDirect(queue.replay());
+
+  if (update.reason == audio::QueueUpdate::Reason::kBulkLoadingUpdate) {
+    sQueueLoading.setDirect(true);
+  } else {
+    sQueueLoading.setDirect(false);
+  }
 }
 
 void UiState::react(const audio::PlaybackUpdate& ev) {
@@ -614,6 +621,7 @@ void Lua::entry() {
             {"replay", &sQueueReplay},
             {"repeat_track", &sQueueRepeat},
             {"random", &sQueueRandom},
+            {"loading", &sQueueLoading},
         });
     registry.AddPropertyModule("volume",
                                {

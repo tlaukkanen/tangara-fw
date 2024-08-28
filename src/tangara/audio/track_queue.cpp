@@ -26,6 +26,7 @@
 #include "database/track.hpp"
 #include "events/event_queue.hpp"
 #include "memory_resource.hpp"
+#include "random.hpp"
 #include "tasks.hpp"
 #include "track_queue.hpp"
 #include "ui/ui_fsm.hpp"
@@ -190,6 +191,8 @@ auto TrackQueue::append(Item i) -> void {
     // doesn't block.
     bg_worker_.Dispatch<void>([=, this]() {
       database::TrackIterator it = std::get<database::TrackIterator>(i);
+
+      size_t next_update_at = 10;
       while (true) {
         auto next = *it;
         if (!next) {
@@ -205,7 +208,16 @@ auto TrackQueue::append(Item i) -> void {
           }
         }
         it++;
+
+        // Appending very large iterators can take a while. Send out periodic
+        // queue updates during them so that the user has an idea what's going
+        // on.
+        if (!--next_update_at) {
+          next_update_at = util::sRandom->RangeInclusive(10, 20);
+          notifyChanged(false, Reason::kBulkLoadingUpdate);
+        }
       }
+
       {
         const std::unique_lock<std::shared_mutex> lock(mutex_);
         updateShuffler(was_queue_empty);
