@@ -161,12 +161,6 @@ auto TrackQueue::getFilepath(database::TrackId id)
   return db->getTrackPath(id);
 }
 
-// TODO WIP: Atm only appends are allowed, this will only ever append regardless
-// of what index is given. But it is kept like this for compatability for now.
-auto TrackQueue::insert(Item i, size_t index) -> void {
-  append(i);
-}
-
 auto TrackQueue::append(Item i) -> void {
   bool was_queue_empty;
   bool current_changed;
@@ -186,6 +180,16 @@ auto TrackQueue::append(Item i) -> void {
       updateShuffler(was_queue_empty);
     }
     notifyChanged(current_changed, Reason::kExplicitUpdate);
+  } else if (std::holds_alternative<std::string>(i)) {
+    auto& path = std::get<std::string>(i);
+    if (!path.empty()) {
+      {
+        const std::unique_lock<std::shared_mutex> lock(mutex_);
+        playlist_.append(std::get<std::string>(i));
+        updateShuffler(was_queue_empty);
+      }
+      notifyChanged(current_changed, Reason::kExplicitUpdate);
+    }
   } else if (std::holds_alternative<database::TrackIterator>(i)) {
     // Iterators can be very large, and retrieving items from them often
     // requires disk i/o. Handle them asynchronously so that inserting them

@@ -16,8 +16,8 @@
 #include "cppbor_parse.h"
 #include "database/database.hpp"
 #include "database/track.hpp"
-#include "tasks.hpp"
 #include "playlist.hpp"
+#include "tasks.hpp"
 
 namespace audio {
 
@@ -68,16 +68,18 @@ class TrackQueue {
   TrackQueue(tasks::WorkerPool& bg_worker, database::Handle db);
 
   /* Returns the currently playing track. */
-  using TrackItem = std::variant<std::string, database::TrackId, std::monostate>;
+  using TrackItem =
+      std::variant<std::string, database::TrackId, std::monostate>;
   auto current() const -> TrackItem;
 
   auto currentPosition() const -> size_t;
   auto totalSize() const -> size_t;
   auto open() -> bool;
-  auto openPlaylist(const std::string& playlist_file, bool notify = true) -> bool;
+  auto openPlaylist(const std::string& playlist_file, bool notify = true)
+      -> bool;
 
-  using Item = std::variant<database::TrackId, database::TrackIterator>;
-  auto insert(Item, size_t index = 0) -> void;
+  using Item =
+      std::variant<database::TrackId, database::TrackIterator, std::string>;
   auto append(Item i) -> void;
 
   auto updateShuffler(bool andUpdatePosition) -> void;
