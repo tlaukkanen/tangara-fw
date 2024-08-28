@@ -188,7 +188,7 @@ auto Decoder::continueDecode() -> bool {
   }
 
   // We might have already cleaned up the codec if the last decode pass of the
-  // stream resulted in leftoverr samples.
+  // stream resulted in leftover samples.
   if (!codec_) {
     return false;
   }
