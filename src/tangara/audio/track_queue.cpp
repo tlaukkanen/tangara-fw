@@ -138,7 +138,8 @@ auto TrackQueue::open() -> bool {
   return playlist_.open();
 }
 
-auto TrackQueue::openPlaylist(const std::string& playlist_file, bool notify) -> bool {
+auto TrackQueue::openPlaylist(const std::string& playlist_file, bool notify)
+    -> bool {
   opened_playlist_.emplace(playlist_file);
   auto res = opened_playlist_->open();
   if (!res) {
@@ -414,7 +415,8 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::item(
       i_ = 0;
     } else if (item->type() == cppbor::UINT) {
       auto val = item->asUint()->unsignedValue();
-      // Save the position so we can apply it later when we have finished serialising
+      // Save the position so we can apply it later when we have finished
+      // serialising
       position_to_set_ = val;
     } else if (item->type() == cppbor::TSTR) {
       auto val = item->asTstr();

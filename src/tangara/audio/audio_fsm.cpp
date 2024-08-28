@@ -237,10 +237,12 @@ void AudioState::react(const internal::StreamEnded& ev) {
 
 void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
   if (ev.has_headphones) {
-    events::Audio().Dispatch(audio::OutputModeChanged{.set_to = drivers::NvsStorage::Output::kHeadphones});
+    events::Audio().Dispatch(audio::OutputModeChanged{
+        .set_to = drivers::NvsStorage::Output::kHeadphones});
   } else {
     if (sServices->bluetooth().enabled()) {
-      events::Audio().Dispatch(audio::OutputModeChanged{.set_to = drivers::NvsStorage::Output::kBluetooth});
+      events::Audio().Dispatch(audio::OutputModeChanged{
+          .set_to = drivers::NvsStorage::Output::kBluetooth});
     }
   }
 }

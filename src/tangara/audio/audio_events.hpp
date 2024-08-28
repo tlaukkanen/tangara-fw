@@ -119,10 +119,11 @@ struct SetVolumeBalance : tinyfsm::Event {
 };
 
 /*
-  Event emitted when the hardware volume for a connected Bluetooth device has changed.
+  Event emitted when the hardware volume for a connected Bluetooth device has
+  changed.
 */
 struct RemoteVolumeChanged : tinyfsm::Event {
-  uint_fast8_t value; // 0..127
+  uint_fast8_t value;  // 0..127
 };
 struct VolumeChanged : tinyfsm::Event {
   uint_fast8_t percent;
