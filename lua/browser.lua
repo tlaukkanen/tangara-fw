@@ -10,7 +10,7 @@ local theme = require("theme")
 local screen = require("screen")
 
 return screen:new{
-    createUi = function(self)
+    create_ui = function(self)
         self.root = lvgl.Object(nil, {
             flex = {
                 flex_direction = "column",

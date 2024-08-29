@@ -8,8 +8,8 @@ local function show_license(text)
   backstack.push(widgets.MenuScreen:new {
     show_back = true,
     title = "Licenses",
-    createUi = function(self)
-      widgets.MenuScreen.createUi(self)
+    create_ui = function(self)
+      widgets.MenuScreen.create_ui(self)
       self.root:Label {
         w = lvgl.PCT(100),
         h = lvgl.SIZE_CONTENT,

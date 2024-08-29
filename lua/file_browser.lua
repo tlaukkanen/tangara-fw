@@ -11,7 +11,7 @@ local screen = require("screen")
 local filesystem = require("filesystem")
 
 return screen:new {
-  createUi = function(self)
+  create_ui = function(self)
     self.root = lvgl.Object(nil, {
       flex = {
         flex_direction = "column",

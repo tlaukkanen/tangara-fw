@@ -13,8 +13,8 @@ local img = require("images")
 local playback = require("playback")
 
 return widgets.MenuScreen:new {
-  createUi = function(self)
-    widgets.MenuScreen.createUi(self)
+  create_ui = function(self)
+    widgets.MenuScreen.create_ui(self)
 
     -- At the top, a card showing details about the current track. Hidden if
     -- there is no track currently playing.

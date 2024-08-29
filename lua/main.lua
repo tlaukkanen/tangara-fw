@@ -65,7 +65,7 @@ local function init_ui()
       elseif time.ticks() - lock_time > 8000 then
         local queue = require("queue")
         if queue.size:get() > 0 then
-          require("playing"):pushIfNotShown()
+          require("playing"):push_if_not_shown()
         end
       end
     end),

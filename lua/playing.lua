@@ -20,7 +20,7 @@ local icon_enabled_class = "icon_enabled"
 local icon_disabled_class = "icon_disabled"
 
 return screen:new {
-  createUi = function(self)
+  create_ui = function(self)
     self.root = lvgl.Object(nil, {
       flex = {
         flex_direction = "column",
@@ -281,9 +281,9 @@ return screen:new {
       end),
     }
   end,
-  onShown = function() is_now_playing_shown = true end,
-  onHidden = function() is_now_playing_shown = false end,
-  pushIfNotShown = function(self)
+  on_show = function() is_now_playing_shown = true end,
+  on_hide = function() is_now_playing_shown = false end,
+  push_if_not_shown = function(self)
     if not is_now_playing_shown then
       backstack.push(self:new())
     end

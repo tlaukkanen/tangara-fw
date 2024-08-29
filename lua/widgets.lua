@@ -37,7 +37,7 @@ end
 widgets.MenuScreen = screen:new {
   show_back = false,
   title = "",
-  createUi = function(self)
+  create_ui = function(self)
     self.root = lvgl.Object(nil, {
       flex = {
         flex_direction = "column",

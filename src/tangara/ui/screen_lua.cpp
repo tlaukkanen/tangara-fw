@@ -29,7 +29,7 @@ Lua::~Lua() {
 }
 
 auto Lua::onShown() -> void {
-  callMethod("onShown");
+  callMethod("on_show");
   forEachBinding([&](lua::Binding* b) {
     b->active = true;
     lua::Binding::apply(s_, -1);
@@ -37,7 +37,7 @@ auto Lua::onShown() -> void {
 }
 
 auto Lua::onHidden() -> void {
-  callMethod("onHidden");
+  callMethod("on_hide");
   forEachBinding([&](lua::Binding* b) { b->active = false; });
 }
 
@@ -46,7 +46,7 @@ auto Lua::canPop() -> bool {
     return true;
   }
   lua_rawgeti(s_, LUA_REGISTRYINDEX, *obj_ref_);
-  lua_pushliteral(s_, "canPop");
+  lua_pushliteral(s_, "can_pop");
 
   if (lua_gettable(s_, -2) == LUA_TFUNCTION) {
     // If we got a callback instead of a value, then invoke it to turn it into

@@ -754,7 +754,7 @@ auto Lua::PushLuaScreen(lua_State* s, bool replace) -> int {
 
   // Call the constructor for this screen.
   // lua_settop(s, 1);  // Make sure the screen is actually at top of stack
-  lua_pushliteral(s, "createUi");
+  lua_pushliteral(s, "create_ui");
   if (lua_gettable(s, 1) == LUA_TFUNCTION) {
     lua_pushvalue(s, 1);
     lua::CallProtected(s, 1, 0);

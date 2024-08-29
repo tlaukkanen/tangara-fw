@@ -56,9 +56,9 @@ static auto screen_true(lua_State* state) -> int {
 }
 
 static const struct luaL_Reg kScreenFuncs[] = {
-    {"new", screen_new},      {"createUi", screen_noop},
-    {"onShown", screen_noop}, {"onHidden", screen_noop},
-    {"canPop", screen_true},  {NULL, NULL}};
+    {"new", screen_new},      {"create_ui", screen_noop},
+    {"on_show", screen_noop}, {"on_hide", screen_noop},
+    {"can_pop", screen_true}, {NULL, NULL}};
 
 static auto lua_screen(lua_State* state) -> int {
   luaL_newlib(state, kScreenFuncs);

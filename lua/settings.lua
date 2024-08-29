@@ -15,8 +15,8 @@ local main_menu = require("main_menu")
 
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
-  createUi = function(self)
-    widgets.MenuScreen.createUi(self)
+  create_ui = function(self)
+    widgets.MenuScreen.create_ui(self)
     self.content = self.root:Object {
       flex = {
         flex_direction = "column",
@@ -35,8 +35,8 @@ local SettingsScreen = widgets.MenuScreen:new {
 
 local BluetoothPairing = SettingsScreen:new {
   title = "Nearby Devices",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local devices = self.content:List {
       w = lvgl.PCT(100),
@@ -55,14 +55,14 @@ local BluetoothPairing = SettingsScreen:new {
       end)
     }
   end,
-  onShown = function() bluetooth.discovering:set(true) end,
-  onHidden = function() bluetooth.discovering:set(false) end,
+  on_show = function() bluetooth.discovering:set(true) end,
+  on_hide = function() bluetooth.discovering:set(false) end,
 }
 
 local BluetoothSettings = SettingsScreen:new {
   title = "Bluetooth",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     -- Enable/Disable switch
     local enable_container = self.content:Object {
@@ -203,8 +203,8 @@ local BluetoothSettings = SettingsScreen:new {
 
 local HeadphonesSettings = SettingsScreen:new {
   title = "Headphones",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     theme.set_style(self.content:Label {
       text = "Maxiumum volume limit",
@@ -266,8 +266,8 @@ local HeadphonesSettings = SettingsScreen:new {
 
 local DisplaySettings = SettingsScreen:new {
   title = "Display",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local brightness_title = self.content:Object {
       flex = {
@@ -303,8 +303,8 @@ local DisplaySettings = SettingsScreen:new {
 
 local ThemeSettings = SettingsScreen:new {
   title = "Theme",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     theme.set_style(self.content:Label {
       text = "Theme",
@@ -361,8 +361,8 @@ local ThemeSettings = SettingsScreen:new {
 
 local InputSettings = SettingsScreen:new {
   title = "Input Method",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     theme.set_style(self.content:Label {
       text = "Control scheme",
@@ -420,8 +420,8 @@ local InputSettings = SettingsScreen:new {
 
 local MassStorageSettings = SettingsScreen:new {
   title = "USB Storage",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local version = require("version").samd()
     if tonumber(version) < 3 then
@@ -478,15 +478,15 @@ local MassStorageSettings = SettingsScreen:new {
       end)
     }
   end,
-  canPop = function()
+  can_pop = function()
     return not usb.msc_enabled:get()
   end
 }
 
 local DatabaseSettings = SettingsScreen:new {
   title = "Database",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local db = require("database")
     widgets.Row(self.content, "Schema version", db.version())
@@ -545,8 +545,8 @@ local DatabaseSettings = SettingsScreen:new {
 
 local PowerSettings = SettingsScreen:new {
   title = "Power",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     local power = require("power")
 
     local charge_pct = widgets.Row(self.content, "Charge").right
@@ -598,8 +598,8 @@ local PowerSettings = SettingsScreen:new {
 
 local SamdConfirmation = SettingsScreen:new {
   title = "Are you sure?",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     self.content:Label {
       w = lvgl.PCT(100),
       text = "After selecting 'flash', copy the new UF2 file onto the USB drive that appears. The screen will be blank until the update is finished.",
@@ -630,8 +630,8 @@ local SamdConfirmation = SettingsScreen:new {
 
 local FirmwareSettings = SettingsScreen:new {
   title = "Firmware",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     local version = require("version")
     widgets.Row(self.content, "ESP32", version.esp())
     widgets.Row(self.content, "SAMD21", version.samd())
@@ -661,16 +661,16 @@ local FirmwareSettings = SettingsScreen:new {
 
 local LicensesScreen = SettingsScreen:new {
   title = "Licenses",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     require("licenses")(self)
   end
 }
 
 local FccStatementScreen = SettingsScreen:new {
   title = "FCC Statement",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local text_part = function(text)
       self.content:Label {
@@ -698,8 +698,8 @@ local FccStatementScreen = SettingsScreen:new {
 
 local RegulatoryScreen = SettingsScreen:new {
   title = "Regulatory",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     local version = require("version")
 
     local small_row = function(left, right)
@@ -770,8 +770,8 @@ local RegulatoryScreen = SettingsScreen:new {
 return widgets.MenuScreen:new {
   show_back = true,
   title = "Settings",
-  createUi = function(self)
-    widgets.MenuScreen.createUi(self)
+  create_ui = function(self)
+    widgets.MenuScreen.create_ui(self)
     local list = self.root:List {
       w = lvgl.PCT(100),
       h = lvgl.PCT(100),
