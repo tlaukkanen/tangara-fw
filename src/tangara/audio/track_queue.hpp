@@ -73,6 +73,7 @@ class TrackQueue {
   auto current() const -> TrackItem;
 
   auto currentPosition() const -> size_t;
+  auto currentPosition(size_t position) -> bool;
   auto totalSize() const -> size_t;
   auto open() -> bool;
   auto openPlaylist(const std::string& playlist_file, bool notify = true)

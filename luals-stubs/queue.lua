@@ -13,10 +13,10 @@
 --- @field random Property Determines whether, when progressing to the next track in the queue, the next track will be chosen randomly. The random selection algorithm used is a Miller Shuffle, which guarantees that no repeat selections will be made until every item in the queue has been played. Writeable.
 local queue = {}
 
---- Adds the given track or database iterator to the end of the queue. Database
+--- Adds the given track, database iterator, or file to the end of the queue. Database
 --- iterators passed to this method will be unnested and expanded into the track
 --- ids they contain.
---- @param val TrackId|Iterator
+--- @param val TrackId|Iterator|string
 function queue.add(val) end
 
 --- Opens a playlist file from a filepath

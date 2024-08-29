@@ -236,6 +236,21 @@ auto TrackQueue::next() -> void {
   next(Reason::kExplicitUpdate);
 }
 
+auto TrackQueue::currentPosition(size_t position) -> bool {
+  {
+    const std::shared_lock<std::shared_mutex> lock(mutex_);
+    if (position >= totalSize()) {
+      return false;
+    }
+    goTo(position);
+  }
+
+  // If we're explicitly setting the position, we want to treat it as though 
+  // the current track has changed, even if the position was the same
+  notifyChanged(true, Reason::kExplicitUpdate);
+  return true;
+}
+
 auto TrackQueue::goTo(size_t position) -> void {
   position_ = position;
   if (opened_playlist_) {
