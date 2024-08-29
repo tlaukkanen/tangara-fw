@@ -760,6 +760,7 @@ local RegulatoryScreen = SettingsScreen:new {
       pad_top = 4,
       pad_column = 4,
     }
+    theme.set_style(logo_container, "regulatory_icons")
     button_container:add_style(styles.list_item)
 
     logo_container:Image { src = "//lua/img/ce.png" }

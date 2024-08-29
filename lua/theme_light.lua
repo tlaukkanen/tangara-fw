@@ -280,6 +280,12 @@ local theme_light = {
       image_recolor = "#fdd833",
     }},
   },
+  regulatory_icons = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = text_color,
+    }},
+  },
 }
 
 return theme_light
