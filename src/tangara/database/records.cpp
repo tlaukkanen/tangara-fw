@@ -227,19 +227,15 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
     return {};
   }
 
-  std::istringstream in(key_data.substr(header_length + 1));
-  std::stringbuf buffer{};
+  key_data = key_data.substr(header_length + 1);
+  size_t last_sep = key_data.find_last_of('\0');
 
-  // FIXME: what if the item contains a '\0'? Probably we make a big mess.
-  in.get(buffer, kFieldSeparator);
-  if (buffer.str().size() > 0) {
-    result.item = buffer.str();
+  if (last_sep > 0) {
+    result.item = key_data.substr(0, last_sep);
   }
 
-  std::string id_str =
-      key_data.substr(header_length + 1 + buffer.str().size() + 1);
-  if (id_str.size() > 0) {
-    result.track = BytesToTrackId(id_str);
+  if (last_sep + 1 < key_data.size()) {
+    result.track = BytesToTrackId(key_data.substr(last_sep + 1));
   }
 
   return result;

@@ -89,8 +89,8 @@ GLibCollator::~GLibCollator() {
 auto GLibCollator::Transform(const std::string& in) -> std::string {
   size_t size = glib_strxfrm(NULL, in.c_str(), 0, locale_data_.get());
   char* dest = new char[size + 1]{0};
-  glib_strxfrm(dest, in.c_str(), size, locale_data_.get());
-  std::string out{dest, strnlen(dest, size)};
+  size = glib_strxfrm(dest, in.c_str(), size, locale_data_.get());
+  std::string out{dest, size};
   delete[] dest;
   return out;
 }
