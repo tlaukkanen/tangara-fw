@@ -148,7 +148,7 @@ auto TrackTags::set(Tag t, std::string_view v) -> void {
       track(v);
       break;
     case Tag::kAlbumOrder:
-      // This tag is derices from disc and track, and so it can't be set.
+      // This tag is derived from disc and track, and so it can't be set.
       break;
     case Tag::kGenres:
       genres(v);
