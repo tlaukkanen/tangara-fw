@@ -51,6 +51,7 @@ static SingletonEnv<leveldb::EspEnv> sEnv;
 [[maybe_unused]] static const char* kTag = "DB";
 
 static const char kDbPath[] = "/.tangara-db";
+static const char kMusicPath[] = "Music";
 
 static const char kKeyDbVersion[] = "schema_version";
 static const char kKeyCustom[] = "U\0";
@@ -422,8 +423,14 @@ auto Database::updateIndexes() -> void {
   update_tracker_->onVerificationFinished();
 
   // Stage 2: search for newly added files.
-  ESP_LOGI(kTag, "scanning for new tracks");
-  track_finder_.launch("");
+  std::string root;
+  FF_DIR dir;
+  if (f_opendir(&dir, kMusicPath) == FR_OK) {
+    f_closedir(&dir);
+    root = kMusicPath;
+  }
+  ESP_LOGI(kTag, "scanning for new tracks in '%s'", root.c_str());
+  track_finder_.launch(root);
 };
 
 auto Database::processCandidateCallback(FILINFO& info, std::string_view path)
