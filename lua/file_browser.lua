@@ -67,7 +67,7 @@ return screen:new {
             })
           elseif
               item:filepath():match("%.playlist$") or
-              item:filepath():match("%.m3u$") then
+              item:filepath():match("%.m3u8?$") then
             queue.open_playlist(item:filepath())
             playback.playing:set(true)
             backstack.push(playing:new())
