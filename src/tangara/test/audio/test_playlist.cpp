@@ -9,18 +9,16 @@
 #include <dirent.h>
 
 #include <cstdio>
-#include <fstream>
-#include <iostream>
 
 #include "catch2/catch.hpp"
 
 #include "drivers/gpios.hpp"
 #include "drivers/i2c.hpp"
-#include "drivers/storage.hpp"
 #include "drivers/spi.hpp"
+#include "drivers/storage.hpp"
+#include "ff.h"
 #include "i2c_fixture.hpp"
 #include "spi_fixture.hpp"
-#include "ff.h"
 
 namespace audio {
 
@@ -39,9 +37,17 @@ TEST_CASE("playlist file", "[integration]") {
   }
 
   {
-    std::unique_ptr<drivers::SdStorage> result(drivers::SdStorage::Create(*gpios).value());
-    Playlist plist(kTestFilePath);
-    REQUIRE(plist.clear());
+    std::unique_ptr<drivers::SdStorage> result(
+        drivers::SdStorage::Create(*gpios).value());
+    MutablePlaylist plist(kTestFilePath);
+
+    SECTION("empty file appears empty") {
+      REQUIRE(plist.clear());
+
+      REQUIRE(plist.size() == 0);
+      REQUIRE(plist.currentPosition() == 0);
+      REQUIRE(plist.value().empty());
+    }
 
     SECTION("write to the playlist file") {
       plist.append("test1.mp3");
@@ -56,6 +62,7 @@ TEST_CASE("playlist file", "[integration]") {
 
       SECTION("read from the playlist file") {
         Playlist plist2(kTestFilePath);
+        REQUIRE(plist2.open());
         REQUIRE(plist2.size() == 8);
         REQUIRE(plist2.value() == "test1.mp3");
         plist2.next();
@@ -65,22 +72,58 @@ TEST_CASE("playlist file", "[integration]") {
       }
     }
 
-    BENCHMARK("appending item") {
-      plist.append("A/New/Item.wav");
+    REQUIRE(plist.clear());
+
+    size_t tracks = 0;
+
+    BENCHMARK("appending items") {
+      plist.append("track " + std::to_string(plist.size()));
+      return tracks++;
     };
 
-    BENCHMARK("opening playlist file") {
+    BENCHMARK("opening large playlist file") {
       Playlist plist2(kTestFilePath);
-      REQUIRE(plist2.size() > 100);
+      REQUIRE(plist2.open());
+      REQUIRE(plist2.size() == tracks);
       return plist2.size();
     };
 
-    BENCHMARK("opening playlist file and appending entry") {
+    BENCHMARK("seeking after appending a large file") {
+      REQUIRE(plist.size() == tracks);
+
+      plist.skipTo(50);
+      REQUIRE(plist.value() == "track 50");
+      plist.skipTo(99);
+      REQUIRE(plist.value() == "track 99");
+      plist.skipTo(1);
+      REQUIRE(plist.value() == "track 1");
+
+      return plist.size();
+    };
+
+    BENCHMARK("seeking after opening a large file") {
       Playlist plist2(kTestFilePath);
-      REQUIRE(plist2.size() > 100);
+      REQUIRE(plist2.open());
+      REQUIRE(plist.size() == tracks);
+      REQUIRE(tracks >= 100);
+
+      plist.skipTo(50);
+      REQUIRE(plist.value() == "track 50");
+      plist.skipTo(99);
+      REQUIRE(plist.value() == "track 99");
+      plist.skipTo(1);
+      REQUIRE(plist.value() == "track 1");
+
+      return plist.size();
+    };
+
+    BENCHMARK("opening a large file and appending") {
+      MutablePlaylist plist2(kTestFilePath);
+      REQUIRE(plist2.open());
+      REQUIRE(plist2.size() >= 100);
       plist2.append("A/Nother/New/Item.opus");
       return plist2.size();
     };
   }
 }
-} // namespace audio
+}  // namespace audio

@@ -6,11 +6,14 @@
  */
 
 #pragma once
+
 #include <string>
 #include <variant>
+
+#include "ff.h"
+
 #include "database/database.hpp"
 #include "database/track.hpp"
-#include "ff.h"
 
 namespace audio {
 
@@ -31,38 +34,52 @@ class Playlist {
   using Item =
       std::variant<database::TrackId, database::TrackIterator, std::string>;
   auto open() -> bool;
+
+  auto filepath() const -> std::string;
   auto currentPosition() const -> size_t;
   auto size() const -> size_t;
-  auto skipTo(size_t position) -> void;
+  auto value() const -> std::string;
+  auto atEnd() const -> bool;
+
   auto next() -> void;
   auto prev() -> void;
-  auto value() const -> std::string;
-  auto atEnd() -> bool;
-  auto filepath() -> std::string;
+  auto skipTo(size_t position) -> void;
 
  protected:
-  std::string filepath_;
-  std::mutex mutex_;
+  const std::string filepath_;
+
+  mutable std::mutex mutex_;
   size_t total_size_;
-  size_t pos_;
+  ssize_t pos_;
+
   FIL file_;
+  bool file_open_;
+  bool file_error_;
+
   std::string current_value_;
 
+  /* List of offsets determined by sample size */
+  std::pmr::vector<FSIZE_t> offset_cache_;
 
-  std::pmr::vector<FSIZE_t> offset_cache_; // List of offsets determined by sample size;
   /*
-  * How many tracks per offset saved (ie, a value of 100 means every 100 tracks the file offset is saved)
-  * This speeds up searches, especially in the case of shuffling a lot of tracks.
-  */
-  const uint32_t sample_size_; 
+   * How many tracks per offset saved (ie, a value of 100 means every 100 tracks
+   * the file offset is saved) This speeds up searches, especially in the case
+   * of shuffling a lot of tracks.
+   */
+  const uint32_t sample_size_;
 
-  auto consumeAndCount(ssize_t upto) -> bool;
+ private:
+  auto skipToLocked(size_t position) -> void;
+  auto countItems() -> void;
   auto advanceBy(ssize_t amt) -> bool;
+  auto nextItem(std::span<TCHAR>) -> std::optional<std::string_view>;
+  auto skipToWithoutCache(size_t position) -> void;
 };
 
 class MutablePlaylist : public Playlist {
-public:
+ public:
   MutablePlaylist(const std::string& playlistFilepath);
+
   auto clear() -> bool;
   auto append(Item i) -> void;
 };
