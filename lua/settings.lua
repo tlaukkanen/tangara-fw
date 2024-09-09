@@ -313,6 +313,7 @@ local ThemeSettings = SettingsScreen:new {
     local themeOptions = {}
     themeOptions["Dark"] = "/lua/theme_dark.lua"
     themeOptions["Light"] = "/lua/theme_light.lua"
+    themeOptions["High Contrast"] = "/lua/theme_hicon.lua"
 
     -- Parse theme directory for more themes
     local theme_dir_iter = filesystem.iterator("/.themes/")
