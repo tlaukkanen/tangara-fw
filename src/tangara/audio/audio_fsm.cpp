@@ -226,7 +226,7 @@ void AudioState::react(const internal::StreamStarted& ev) {
   }
 
   sStreamCues.addCue(ev.track, ev.cue_at_sample);
-  sStreamCues.update(sDrainBuffer->totalReceived());
+  sStreamCues.update(sDrainBuffers->first.totalReceived());
 
   if (!sIsPaused && !is_in_state<states::Playback>()) {
     transit<states::Playback>();

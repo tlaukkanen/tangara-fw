@@ -28,8 +28,7 @@ static const char* kTtsPath = "/.tangara-tts/";
 static auto textToFile(const std::string& text) -> std::optional<std::string> {
   uint64_t hash = komihash(text.data(), text.size(), 0);
   std::stringstream stream;
-  stream << drivers::kStoragePath << kTtsPath;
-  stream << std::hex << hash;
+  stream << kTtsPath << std::hex << hash << ".wav";
   return stream.str();
 }
 
