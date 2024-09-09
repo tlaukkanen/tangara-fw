@@ -68,7 +68,14 @@ syscfg.defs:
         restrictions:
             - 'BLE_PERIODIC_ADV if 1'
             - '(BLE_ROLE_CENTRAL || BLE_ROLE_PERIPHERAL) if 1'
-
+    BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS:
+        description: >
+            This enables BIGInfo reports.
+        value: 0
+        restrictions:
+            - 'BLE_PERIODIC_ADV if 1'
+            - '(BLE_VERSION >= 52) if 1'
+        experimental: 1
     BLE_EXT_ADV_MAX_SIZE:
         description: >
             This allows to configure maximum size of advertising data and
@@ -80,7 +87,7 @@ syscfg.defs:
             This allows to configure supported Bluetooth Core version. Some
             features may not be available if version is too low. Version is
             integer for easy comparison.
-        range: 50, 51, 52, 53
+        range: 50, 51, 52, 53, 54
         value: 50
     BLE_ISO:
         description: >
@@ -113,6 +120,10 @@ syscfg.defs:
             This enabled LE Power Control feature
         value: 0
 
+    BLE_CONN_SUBRATING:
+        description: >
+            This enables LE Connection Subrating feature
+        value: 0
     BLE_GATT_BLOB_TRANSFER:
         description: >
             This enables write blob feature

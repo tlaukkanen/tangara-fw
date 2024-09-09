@@ -8,4 +8,9 @@
 --- @field position Property The current playback position within the current track, in seconds.
 local playback = {}
 
+--- Returns whether or not this file can be played (i.e. is this an audio track) 
+--- @param filepath string
+--- @return boolean
+function playback.is_playable(filepath) end
+
 return playback

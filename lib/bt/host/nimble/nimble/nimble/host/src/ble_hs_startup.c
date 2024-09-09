@@ -260,6 +260,27 @@ ble_hs_startup_le_set_evmask_tx(void)
     }
 #endif
 
+#if MYNEWT_VAL(BLE_POWER_CONTROL)
+    if (version >= BLE_HCI_VER_BCS_5_2) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000080000000 LE Path Loss Threshold event
+         * 0x0000000100000000 LE Transmit Power Reporting event
+         */
+        mask |= 0x0000000180000000;
+    }
+#endif
+
+#if MYNEWT_VAL(BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS)
+    if (version >= BLE_HCI_VER_BCS_5_2) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000200000000 LE BIGInfo Advertising Report event
+         */
+        mask |= 0x0000000200000000;
+    }
+#endif
+
     cmd.event_mask = htole64(mask);
 
     rc = ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_LE,
@@ -328,6 +349,7 @@ ble_hs_startup_reset_tx(void)
 int
 ble_hs_startup_go(void)
 {
+    //struct ble_store_gen_key gen_key;
     int rc;
 
     rc = ble_hs_startup_reset_tx();
@@ -381,7 +403,22 @@ ble_hs_startup_go(void)
     if (rc != 0) {
         return rc;
     }
+#if 0
+    if (ble_hs_cfg.store_gen_key_cb) {
+        memset(&gen_key, 0, sizeof(gen_key));
+        rc = ble_hs_cfg.store_gen_key_cb(BLE_STORE_GEN_KEY_IRK, &gen_key,
+                                         BLE_HS_CONN_HANDLE_NONE);
+        if (rc == 0) {
+            ble_hs_pvcy_set_our_irk(gen_key.irk);
+        }
+    } else {
+        rc = -1;
+    }
 
+    if (rc != 0) {
+        ble_hs_pvcy_set_our_irk(NULL);
+    }
+#endif
     ble_hs_pvcy_set_default_irk();
 
     ble_hs_pvcy_set_our_irk(NULL);

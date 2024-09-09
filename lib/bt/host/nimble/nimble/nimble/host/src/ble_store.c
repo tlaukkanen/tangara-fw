@@ -299,10 +299,6 @@ ble_store_key_from_value_sec(struct ble_store_key_sec *out_key,
                              const struct ble_store_value_sec *value)
 {
     out_key->peer_addr = value->peer_addr;
-
-    out_key->ediv = value->ediv;
-    out_key->rand_num = value->rand_num;
-    out_key->ediv_rand_present = 1;
     out_key->idx = 0;
 }
 
@@ -487,33 +483,32 @@ ble_store_iterate(int obj_type,
     /* a magic value to retrieve anything */
     memset(&key, 0, sizeof(key));
     switch(obj_type) {
-        case BLE_STORE_OBJ_TYPE_PEER_SEC:
-        case BLE_STORE_OBJ_TYPE_OUR_SEC:
-            key.sec.peer_addr = *BLE_ADDR_ANY;
-            pidx = &key.sec.idx;
-            break;
-        case BLE_STORE_OBJ_TYPE_CCCD:
-            key.cccd.peer_addr = *BLE_ADDR_ANY;
-            pidx = &key.cccd.idx;
-            break;
+    case BLE_STORE_OBJ_TYPE_PEER_SEC:
+    case BLE_STORE_OBJ_TYPE_OUR_SEC:
+        key.sec.peer_addr = *BLE_ADDR_ANY;
+        pidx = &key.sec.idx;
+        break;
+    case BLE_STORE_OBJ_TYPE_CCCD:
+        key.cccd.peer_addr = *BLE_ADDR_ANY;
+        pidx = &key.cccd.idx;
+        break;
 #if MYNEWT_VAL(ENC_ADV_DATA)
-        case BLE_STORE_OBJ_TYPE_ENC_ADV_DATA:
-            key.ead.peer_addr = *BLE_ADDR_ANY;
-            pidx = &key.ead.idx;
-            break;
+    case BLE_STORE_OBJ_TYPE_ENC_ADV_DATA:
+        key.ead.peer_addr = *BLE_ADDR_ANY;
+        pidx = &key.ead.idx;
+        break;
 #endif
-        case BLE_STORE_OBJ_TYPE_PEER_ADDR:
-            key.rpa_rec.peer_rpa_addr = *BLE_ADDR_ANY;
-            pidx = &key.rpa_rec.idx;
-            break;
-        case BLE_STORE_OBJ_TYPE_LOCAL_IRK:
-            key.local_irk.addr = *BLE_ADDR_ANY;
-            pidx = &key.local_irk.idx;
-            break;
-
-        default:
-            BLE_HS_DBG_ASSERT(0);
-            return BLE_HS_EINVAL;
+    case BLE_STORE_OBJ_TYPE_PEER_ADDR:
+        key.rpa_rec.peer_rpa_addr = *BLE_ADDR_ANY;
+        pidx = &key.rpa_rec.idx;
+        break;
+    case BLE_STORE_OBJ_TYPE_LOCAL_IRK:
+        key.local_irk.addr = *BLE_ADDR_ANY;
+        pidx = &key.local_irk.idx;
+        break;
+    default:
+        BLE_HS_DBG_ASSERT(0);
+        return BLE_HS_EINVAL;
     }
 
     while (1) {
@@ -564,7 +559,7 @@ ble_store_clear(void)
     union ble_store_key key;
     int obj_type;
     int rc;
-    int i;
+    unsigned int i;
 
     /* A zeroed key will always retrieve the first value. */
     memset(&key, 0, sizeof key);

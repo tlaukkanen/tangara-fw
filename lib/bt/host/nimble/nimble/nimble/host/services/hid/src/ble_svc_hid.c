@@ -95,7 +95,7 @@ ble_svc_hid_get_dsc(uint8_t num)
 }
 
 static struct ble_gatt_chr_def*
-ble_svc_hid_get_chr_block()
+ble_svc_hid_get_chr_block(void)
 {
     if (ble_svc_hid_chr_index >= HID_MAX_CHRS) {
         return NULL;
@@ -106,14 +106,14 @@ ble_svc_hid_get_chr_block()
 
 /*returns current chr index */
 static uint8_t
-ble_svc_hid_get_curr_chr_idx()
+ble_svc_hid_get_curr_chr_idx(void)
 {
     return ble_svc_hid_chr_index;
 }
 
 /*returns current svc index */
 static uint8_t
-get_curr_svc_idx()
+get_curr_svc_idx(void)
 {
     return ble_svc_hid_svc_index;
 }
@@ -138,7 +138,7 @@ find_rpt_by_handle(uint16_t handle)
 }
 
 static struct ble_gatt_svc_def*
-ble_svc_get_svc_block()
+ble_svc_get_svc_block(void)
 {
     if (ble_svc_hid_svc_index >= HID_MAX_SVC_INSTANCES) {
         return NULL;
@@ -162,9 +162,9 @@ fill_proto_mode(uint8_t instance)
         .access_cb = ble_svc_hid_access,
         .val_handle = &hid_instances[instance].proto_mode_handle,
         .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE_NO_RSP |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_READ_AUTHEN | BLE_GATT_CHR_F_WRITE_AUTHEN |
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
 #endif
@@ -191,9 +191,9 @@ fill_boot_kbd_inp(uint8_t instance)
         .val_handle = &hid_instances[instance].kbd_inp_handle,
         .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY |
                  BLE_GATT_CHR_F_WRITE |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_READ_AUTHEN | BLE_GATT_CHR_F_WRITE_AUTHEN |
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
 #endif
@@ -220,9 +220,9 @@ fill_boot_kbd_out(uint8_t instance)
         .val_handle = &hid_instances[instance].kbd_out_handle,
         .flags = BLE_GATT_CHR_F_READ |
                  BLE_GATT_CHR_F_WRITE_NO_RSP | BLE_GATT_CHR_F_WRITE |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_READ_AUTHEN | BLE_GATT_CHR_F_WRITE_AUTHEN |
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
 #endif
@@ -248,9 +248,9 @@ fill_boot_mouse_inp(uint8_t instance)
         .val_handle = &hid_instances[instance].mouse_inp_handle,
         .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY |
                  BLE_GATT_CHR_F_WRITE |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_READ_AUTHEN | BLE_GATT_CHR_F_WRITE_AUTHEN |
                  BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
 #endif
@@ -283,9 +283,9 @@ fill_rpt_map(uint8_t instance)
         .access_cb = ble_svc_hid_access,
         .val_handle = &hid_instances[instance].report_map_handle,
         .flags = BLE_GATT_CHR_F_READ |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_READ_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_READ_AUTHEN |
                  BLE_GATT_CHR_F_READ_ENC |
 #endif
@@ -346,9 +346,9 @@ fill_reports(uint8_t instance)
             break;
         }
         demo_chr.flags |= (
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                               BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                               BLE_GATT_CHR_F_READ_AUTHEN | BLE_GATT_CHR_F_WRITE_AUTHEN |
                               BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
 #endif
@@ -372,9 +372,9 @@ fill_hid_info(uint8_t instance)
         .access_cb = ble_svc_hid_access,
         .val_handle = &hid_instances[instance].hid_info_handle,
         .flags = BLE_GATT_CHR_F_READ |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_READ_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_READ_AUTHEN |
                  BLE_GATT_CHR_F_READ_ENC |
 #endif
@@ -395,9 +395,9 @@ fill_ctrl_pt(uint8_t instance)
         .access_cb = ble_svc_hid_access,
         .val_handle = &hid_instances[instance].ctrl_pt_handle,
         .flags = BLE_GATT_CHR_F_WRITE_NO_RSP |
-#if MYNEWT_VAL(BLE_SM_SC_LVL) == 2
+#if MYNEWT_VAL(BLE_SM_LVL) == 2
                  BLE_GATT_CHR_F_WRITE_ENC |
-#elif MYNEWT_VAL(BLE_SM_SC_LVL) == 3
+#elif MYNEWT_VAL(BLE_SM_LVL) == 3
                  BLE_GATT_CHR_F_WRITE_AUTHEN |
                  BLE_GATT_CHR_F_WRITE_ENC |
 #endif
@@ -412,7 +412,7 @@ fill_ctrl_pt(uint8_t instance)
  * value set to zero
  */
 static void
-ble_svc_hid_end_chrs()
+ble_svc_hid_end_chrs(void)
 {
     struct ble_gatt_chr_def *chr;
     chr = ble_svc_hid_get_chr_block();
@@ -647,7 +647,7 @@ ble_svc_hid_add(struct ble_svc_hid_params params)
  * with value set to 0
  */
 static int
-ble_svc_hid_end()
+ble_svc_hid_end(void)
 {
     struct ble_gatt_svc_def *svc;
 
@@ -664,7 +664,7 @@ ble_svc_hid_end()
    call ble_svc_hid_reset() to reinitialize the service.
  */
 void
-ble_svc_hid_reset()
+ble_svc_hid_reset(void)
 {
     ble_svc_hid_dsc_index = 0;
     ble_svc_hid_chr_index = 0;
@@ -675,7 +675,7 @@ ble_svc_hid_reset()
  * Initialize the HID Service.
  */
 void
-ble_svc_hid_init()
+ble_svc_hid_init(void)
 {
     int rc;
 

@@ -26,9 +26,10 @@ class FakeAdc : public drivers::AdcBattery {
 
 TEST_CASE("battery charge state", "[unit]") {
   I2CFixture i2c;
+  std::unique_ptr<drivers::NvsStorage> nvs{drivers::NvsStorage::OpenSync()};
 
   // FIXME: mock the SAMD21 as well.
-  std::unique_ptr<drivers::Samd> samd{drivers::Samd::Create()};
+  auto samd = std::make_unique<drivers::Samd>(*nvs);
   FakeAdc* adc = new FakeAdc{};  // Freed by Battery.
   Battery battery{*samd, std::unique_ptr<drivers::AdcBattery>{adc}};
 

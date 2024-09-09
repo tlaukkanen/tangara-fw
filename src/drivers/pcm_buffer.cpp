@@ -17,6 +17,7 @@
 #include "freertos/FreeRTOS.h"
 
 #include "esp_heap_caps.h"
+#include "freertos/projdefs.h"
 #include "freertos/ringbuf.h"
 #include "portmacro.h"
 
@@ -39,9 +40,13 @@ PcmBuffer::~PcmBuffer() {
   heap_caps_free(buf_);
 }
 
-auto PcmBuffer::send(std::span<const int16_t> data) -> void {
-  xRingbufferSend(ringbuf_, data.data(), data.size_bytes(), portMAX_DELAY);
+auto PcmBuffer::send(std::span<const int16_t> data) -> size_t {
+  if (!xRingbufferSend(ringbuf_, data.data(), data.size_bytes(),
+                       pdMS_TO_TICKS(100))) {
+    return 0;
+  }
   sent_ += data.size();
+  return data.size();
 }
 
 IRAM_ATTR auto PcmBuffer::receive(std::span<int16_t> dest, bool mix, bool isr)
@@ -67,10 +72,12 @@ IRAM_ATTR auto PcmBuffer::receive(std::span<int16_t> dest, bool mix, bool isr)
 
 auto PcmBuffer::clear() -> void {
   while (!isEmpty()) {
-    size_t bytes_cleared;
+    size_t bytes_cleared = 0;
     void* data = xRingbufferReceive(ringbuf_, &bytes_cleared, 0);
-    vRingbufferReturnItem(ringbuf_, data);
-    received_ += bytes_cleared / sizeof(int16_t);
+    if (data) {
+      vRingbufferReturnItem(ringbuf_, data);
+      received_ += bytes_cleared / sizeof(int16_t);
+    }
   }
 }
 

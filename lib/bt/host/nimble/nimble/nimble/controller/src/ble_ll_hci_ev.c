@@ -16,8 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#include <stdint.h>
+
 #include <assert.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include "syscfg/syscfg.h"
 #include "nimble/ble.h"
@@ -132,7 +135,7 @@ ble_ll_hci_ev_encrypt_chg(struct ble_ll_conn_sm *connsm, uint8_t status)
     struct ble_hci_ev_enrypt_chg *ev_enc_chf;
     struct ble_hci_ev *hci_ev;
 
-    if (CONN_F_ENC_CHANGE_SENT(connsm) == 0) {
+    if (connsm->flags.encrypt_event_sent == 0) {
         if (ble_ll_hci_is_event_enabled(BLE_HCI_EVCODE_ENCRYPT_CHG)) {
             hci_ev = ble_transport_alloc_evt(0);
             if (hci_ev) {
@@ -148,7 +151,7 @@ ble_ll_hci_ev_encrypt_chg(struct ble_ll_conn_sm *connsm, uint8_t status)
             }
         }
 
-        CONN_F_ENC_CHANGE_SENT(connsm) = 1;
+        connsm->flags.encrypt_event_sent = 1;
         return;
     }
 
@@ -328,7 +331,7 @@ ble_ll_hci_ev_le_csa(struct ble_ll_conn_sm *connsm)
 
             ev->subev_code = BLE_HCI_LE_SUBEV_CHAN_SEL_ALG;
             ev->conn_handle = htole16(connsm->conn_handle);
-            ev->csa = connsm->csmflags.cfbit.csa2_supp ? 0x01 : 0x00;
+            ev->csa = connsm->flags.csa2 ? 0x01 : 0x00;
 
             ble_ll_hci_event_send(hci_ev);
         }
@@ -523,10 +526,36 @@ ble_ll_hci_ev_subrate_change(struct ble_ll_conn_sm *connsm, uint8_t status)
 }
 #endif
 
+#if MYNEWT_VAL(BLE_LL_HCI_VS_CONN_STRICT_SCHED)
+void
+ble_ll_hci_ev_send_vs_css_slot_changed(uint16_t conn_handle, uint16_t slot_idx)
+{
+    struct ble_hci_ev_vs_css_slot_changed *ev;
+    struct ble_hci_ev_vs *ev_vs;
+    struct ble_hci_ev *hci_ev;
+
+    hci_ev = ble_transport_alloc_evt(0);
+    if (!hci_ev) {
+        return;
+
+    }
+
+    hci_ev->opcode = BLE_HCI_EVCODE_VS;
+    hci_ev->length = sizeof(*ev_vs) + sizeof(*ev);
+    ev_vs = (void *)hci_ev->data;
+    ev_vs->id = BLE_HCI_VS_SUBEV_ID_CSS_SLOT_CHANGED;
+    ev = (void *)ev_vs->data;
+    ev->conn_handle = htole16(conn_handle);
+    ev->slot_idx = htole16(slot_idx);
+
+    ble_ll_hci_event_send(hci_ev);
+}
+#endif
+
 void
 ble_ll_hci_ev_send_vs_assert(const char *file, uint32_t line)
 {
-    struct ble_hci_ev_vs_debug *ev;
+    struct ble_hci_ev_vs *ev;
     struct ble_hci_ev *hci_ev;
     unsigned int str_len;
     bool skip = true;
@@ -541,12 +570,12 @@ ble_ll_hci_ev_send_vs_assert(const char *file, uint32_t line)
 
     hci_ev = ble_transport_alloc_evt(0);
     if (hci_ev) {
-        hci_ev->opcode = BLE_HCI_EVCODE_VS_DEBUG;
+        hci_ev->opcode = BLE_HCI_EVCODE_VS;
         hci_ev->length = sizeof(*ev);
         ev = (void *) hci_ev->data;
 
         /* Debug id for future use */
-        ev->id = 0x00;
+        ev->id = BLE_HCI_VS_SUBEV_ID_ASSERT;
 
         /* snprintf would be nicer but this is heavy on flash
          * len = snprintf((char *) ev->data, max_len, "%s:%u", file, line);
@@ -559,7 +588,7 @@ ble_ll_hci_ev_send_vs_assert(const char *file, uint32_t line)
          *  hci_ev->length += len;
          */
         str_len = strlen(file);
-        if (str_len > max_len) {
+        if (str_len > (unsigned int)max_len) {
             str_len = max_len;
         }
 
@@ -583,21 +612,47 @@ ble_ll_hci_ev_send_vs_assert(const char *file, uint32_t line)
     }
 }
 
+void
+ble_ll_hci_ev_send_vs_printf(uint8_t id, const char *fmt, ...)
+{
+    struct ble_hci_ev_vs *ev;
+    struct ble_hci_ev *hci_ev;
+    va_list ap;
+
+    hci_ev = ble_transport_alloc_evt(1);
+    if (!hci_ev) {
+        return;
+    }
+
+    hci_ev->opcode = BLE_HCI_EVCODE_VS;
+    hci_ev->length = sizeof(*ev);
+
+    ev = (void *) hci_ev->data;
+    ev->id = id;
+
+    va_start(ap, fmt);
+    hci_ev->length += vsnprintf((void *)ev->data,
+                                BLE_HCI_MAX_DATA_LEN - sizeof(*ev), fmt, ap);
+    va_end(ap);
+
+    ble_ll_hci_event_send(hci_ev);
+}
+
 #if MYNEWT_VAL(BLE_LL_HCI_LLCP_TRACE)
 void
 ble_ll_hci_ev_send_vs_llcp_trace(uint8_t type, uint16_t handle, uint16_t count,
                                  void *pdu, size_t length)
 {
-    struct ble_hci_ev_vs_debug *ev;
+    struct ble_hci_ev_vs *ev;
     struct ble_hci_ev *hci_ev;
 
     hci_ev = ble_transport_alloc_evt(1);
     if (hci_ev) {
-        hci_ev->opcode = BLE_HCI_EVCODE_VS_DEBUG;
+        hci_ev->opcode = BLE_HCI_EVCODE_VS;
         hci_ev->length = sizeof(*ev) + 8 + length;
         ev = (void *) hci_ev->data;
 
-        ev->id = 0x17;
+        ev->id = BLE_HCI_VS_SUBEV_ID_LLCP_TRACE;
         ev->data[0] = type;
         put_le16(&ev->data[1], handle);
         put_le16(&ev->data[3], count);

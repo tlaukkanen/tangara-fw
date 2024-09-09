@@ -16,6 +16,7 @@
 #include "tinyfsm.hpp"
 
 #include "database/track.hpp"
+#include "drivers/nvs.hpp"
 #include "types.hpp"
 
 namespace audio {
@@ -102,6 +103,7 @@ struct QueueUpdate : tinyfsm::Event {
     kRepeatingLastTrack,
     kTrackFinished,
     kDeserialised,
+    kBulkLoadingUpdate,
   };
   Reason reason;
 };
@@ -117,10 +119,11 @@ struct SetVolumeBalance : tinyfsm::Event {
 };
 
 /*
-  Event emitted when the hardware volume for a connected Bluetooth device has changed.
+  Event emitted when the hardware volume for a connected Bluetooth device has
+  changed.
 */
 struct RemoteVolumeChanged : tinyfsm::Event {
-  uint_fast8_t value; // 0..127
+  uint_fast8_t value;  // 0..127
 };
 struct VolumeChanged : tinyfsm::Event {
   uint_fast8_t percent;
@@ -137,7 +140,9 @@ struct SetVolumeLimit : tinyfsm::Event {
   int limit_db;
 };
 
-struct OutputModeChanged : tinyfsm::Event {};
+struct OutputModeChanged : tinyfsm::Event {
+  std::optional<drivers::NvsStorage::Output> set_to;
+};
 
 namespace internal {
 

@@ -26,7 +26,9 @@
 #include "database/track.hpp"
 #include "events/event_queue.hpp"
 #include "memory_resource.hpp"
+#include "random.hpp"
 #include "tasks.hpp"
+#include "track_queue.hpp"
 #include "ui/ui_fsm.hpp"
 
 namespace audio {
@@ -83,93 +85,119 @@ auto notifyChanged(bool current_changed, Reason reason) -> void {
   events::Audio().Dispatch(ev);
 }
 
-TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker)
+TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker, database::Handle db)
     : mutex_(),
       bg_worker_(bg_worker),
-      pos_(0),
-      tracks_(&memory::kSpiRamResource),
+      db_(db),
+      playlist_(".queue.playlist"),
+      position_(0),
       shuffle_(),
       repeat_(false),
       replay_(false) {}
 
-auto TrackQueue::current() const -> std::optional<database::TrackId> {
+auto TrackQueue::current() const -> TrackItem {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
-  if (pos_ >= tracks_.size()) {
+  std::string val;
+  if (opened_playlist_ && position_ < opened_playlist_->size()) {
+    val = opened_playlist_->value();
+  } else {
+    val = playlist_.value();
+  }
+  if (val.empty()) {
     return {};
   }
-  return tracks_[pos_];
-}
-
-auto TrackQueue::peekNext(std::size_t limit) const
-    -> std::vector<database::TrackId> {
-  const std::shared_lock<std::shared_mutex> lock(mutex_);
-  std::vector<database::TrackId> out;
-  for (size_t i = pos_ + 1; i < pos_ + limit + 1 && i < tracks_.size(); i++) {
-    out.push_back(i);
-  }
-  return out;
-}
-
-auto TrackQueue::peekPrevious(std::size_t limit) const
-    -> std::vector<database::TrackId> {
-  const std::shared_lock<std::shared_mutex> lock(mutex_);
-  std::vector<database::TrackId> out;
-  for (size_t i = pos_ - 1; i < pos_ - limit - 1 && i >= tracks_.size(); i--) {
-    out.push_back(i);
-  }
-  return out;
+  return val;
 }
 
 auto TrackQueue::currentPosition() const -> size_t {
   const std::shared_lock<std::shared_mutex> lock(mutex_);
-  return pos_;
+  return position_;
 }
 
 auto TrackQueue::totalSize() const -> size_t {
-  const std::shared_lock<std::shared_mutex> lock(mutex_);
-  return tracks_.size();
+  size_t sum = playlist_.size();
+  if (opened_playlist_) {
+    sum += opened_playlist_->size();
+  }
+  return sum;
 }
 
-auto TrackQueue::insert(Item i, size_t index) -> void {
+auto TrackQueue::updateShuffler(bool andUpdatePosition) -> void {
+  if (shuffle_) {
+    shuffle_->resize(totalSize());
+    if (andUpdatePosition) {
+      goTo(shuffle_->current());
+    }
+  }
+}
+
+auto TrackQueue::open() -> bool {
+  // FIX ME: If playlist opening fails, should probably fall back to a vector of
+  // tracks or something so that we're not necessarily always needing mounted
+  // storage
+  return playlist_.open();
+}
+
+auto TrackQueue::openPlaylist(const std::string& playlist_file, bool notify)
+    -> bool {
+  opened_playlist_.emplace(playlist_file);
+  auto res = opened_playlist_->open();
+  if (!res) {
+    return false;
+  }
+  updateShuffler(true);
+  if (notify) {
+    notifyChanged(true, Reason::kExplicitUpdate);
+  }
+  return true;
+}
+
+auto TrackQueue::getFilepath(database::TrackId id)
+    -> std::optional<std::string> {
+  auto db = db_.lock();
+  if (!db) {
+    return {};
+  }
+  return db->getTrackPath(id);
+}
+
+auto TrackQueue::append(Item i) -> void {
   bool was_queue_empty;
   bool current_changed;
   {
     const std::shared_lock<std::shared_mutex> lock(mutex_);
-    was_queue_empty = pos_ == tracks_.size();
-    current_changed = was_queue_empty || index == pos_;
+    was_queue_empty = playlist_.currentPosition() >= playlist_.size();
+    current_changed = was_queue_empty;  // Dont support inserts yet
   }
-
-  auto update_shuffler = [=, this]() {
-    if (shuffle_) {
-      shuffle_->resize(tracks_.size());
-      // If there wasn't anything already playing, then we should make sure we
-      // begin playback at a random point, instead of always starting with
-      // whatever was inserted first and *then* shuffling.
-      // We don't base this purely off of current_changed because we would like
-      // 'play this track now' (by inserting at the current pos) to work even
-      // when shuffling is enabled.
-      if (was_queue_empty) {
-        pos_ = shuffle_->current();
-      }
-    }
-  };
 
   if (std::holds_alternative<database::TrackId>(i)) {
     {
       const std::unique_lock<std::shared_mutex> lock(mutex_);
-      if (index <= tracks_.size()) {
-        tracks_.insert(tracks_.begin() + index, std::get<database::TrackId>(i));
-        update_shuffler();
+      auto filename = getFilepath(std::get<database::TrackId>(i)).value_or("");
+      if (!filename.empty()) {
+        playlist_.append(filename);
       }
+      updateShuffler(was_queue_empty);
     }
     notifyChanged(current_changed, Reason::kExplicitUpdate);
+  } else if (std::holds_alternative<std::string>(i)) {
+    auto& path = std::get<std::string>(i);
+    if (!path.empty()) {
+      {
+        const std::unique_lock<std::shared_mutex> lock(mutex_);
+        playlist_.append(std::get<std::string>(i));
+        updateShuffler(was_queue_empty);
+      }
+      notifyChanged(current_changed, Reason::kExplicitUpdate);
+    }
   } else if (std::holds_alternative<database::TrackIterator>(i)) {
     // Iterators can be very large, and retrieving items from them often
     // requires disk i/o. Handle them asynchronously so that inserting them
     // doesn't block.
     bg_worker_.Dispatch<void>([=, this]() {
       database::TrackIterator it = std::get<database::TrackIterator>(i);
-      size_t working_pos = index;
+
+      size_t next_update_at = 10;
       while (true) {
         auto next = *it;
         if (!next) {
@@ -179,33 +207,61 @@ auto TrackQueue::insert(Item i, size_t index) -> void {
         // like current().
         {
           const std::unique_lock<std::shared_mutex> lock(mutex_);
-          if (working_pos <= tracks_.size()) {
-            tracks_.insert(tracks_.begin() + working_pos, *next);
+          auto filename = getFilepath(*next).value_or("");
+          if (!filename.empty()) {
+            playlist_.append(filename);
           }
         }
-        working_pos++;
         it++;
+
+        // Appending very large iterators can take a while. Send out periodic
+        // queue updates during them so that the user has an idea what's going
+        // on.
+        if (!--next_update_at) {
+          next_update_at = util::sRandom->RangeInclusive(10, 20);
+          notifyChanged(false, Reason::kBulkLoadingUpdate);
+        }
       }
+
       {
         const std::unique_lock<std::shared_mutex> lock(mutex_);
-        update_shuffler();
+        updateShuffler(was_queue_empty);
       }
       notifyChanged(current_changed, Reason::kExplicitUpdate);
     });
   }
 }
 
-auto TrackQueue::append(Item i) -> void {
-  size_t end;
-  {
-    const std::shared_lock<std::shared_mutex> lock(mutex_);
-    end = tracks_.size();
-  }
-  insert(i, end);
-}
-
 auto TrackQueue::next() -> void {
   next(Reason::kExplicitUpdate);
+}
+
+auto TrackQueue::currentPosition(size_t position) -> bool {
+  {
+    const std::shared_lock<std::shared_mutex> lock(mutex_);
+    if (position >= totalSize()) {
+      return false;
+    }
+    goTo(position);
+  }
+
+  // If we're explicitly setting the position, we want to treat it as though 
+  // the current track has changed, even if the position was the same
+  notifyChanged(true, Reason::kExplicitUpdate);
+  return true;
+}
+
+auto TrackQueue::goTo(size_t position) -> void {
+  position_ = position;
+  if (opened_playlist_) {
+    if (position_ < opened_playlist_->size()) {
+      opened_playlist_->skipTo(position_);
+    } else {
+      playlist_.skipTo(position_ - opened_playlist_->size());
+    }
+  } else {
+    playlist_.skipTo(position_);
+  }
 }
 
 auto TrackQueue::next(Reason r) -> void {
@@ -213,21 +269,19 @@ auto TrackQueue::next(Reason r) -> void {
 
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
+    auto pos = position_;
+
     if (shuffle_) {
       shuffle_->next();
-      pos_ = shuffle_->current();
+      position_ = shuffle_->current();
     } else {
-      if (pos_ + 1 >= tracks_.size()) {
-        if (replay_) {
-          pos_ = 0;
-        } else {
-          pos_ = tracks_.size();
-          changed = false;
-        }
-      } else {
-        pos_++;
+      if (position_ + 1 < totalSize()) {
+        position_++;
       }
     }
+
+    goTo(position_);
+    changed = pos != position_;
   }
 
   notifyChanged(changed, r);
@@ -240,18 +294,13 @@ auto TrackQueue::previous() -> void {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
     if (shuffle_) {
       shuffle_->prev();
-      pos_ = shuffle_->current();
+      position_ = shuffle_->current();
     } else {
-      if (pos_ == 0) {
-        if (repeat_) {
-          pos_ = tracks_.size() - 1;
-        } else {
-          changed = false;
-        }
-      } else {
-        pos_--;
+      if (position_ > 0) {
+        position_--;
       }
     }
+    goTo(position_);
   }
 
   notifyChanged(changed, Reason::kExplicitUpdate);
@@ -265,39 +314,12 @@ auto TrackQueue::finish() -> void {
   }
 }
 
-auto TrackQueue::skipTo(database::TrackId id) -> void {
-  // Defer this work to the background not because it's particularly
-  // long-running (although it could be), but because we want to ensure we
-  // only search for the given id after any previously pending iterator
-  // insertions have finished.
-  bg_worker_.Dispatch<void>([=, this]() {
-    bool found = false;
-    {
-      const std::unique_lock<std::shared_mutex> lock(mutex_);
-      for (size_t i = 0; i < tracks_.size(); i++) {
-        if (tracks_[i] == id) {
-          pos_ = i;
-          found = true;
-          break;
-        }
-      }
-    }
-    if (found) {
-      notifyChanged(true, Reason::kExplicitUpdate);
-    }
-  });
-}
-
 auto TrackQueue::clear() -> void {
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
-    if (tracks_.empty()) {
-      return;
-    }
-
-    pos_ = 0;
-    tracks_.clear();
-
+    position_ = 0;
+    playlist_.clear();
+    opened_playlist_.reset();
     if (shuffle_) {
       shuffle_->resize(0);
     }
@@ -309,10 +331,8 @@ auto TrackQueue::clear() -> void {
 auto TrackQueue::random(bool en) -> void {
   {
     const std::unique_lock<std::shared_mutex> lock(mutex_);
-    // Don't check for en == true already; this has the side effect that
-    // repeated calls with en == true will re-shuffle.
     if (en) {
-      shuffle_.emplace(tracks_.size());
+      shuffle_.emplace(totalSize());
       shuffle_->replay(replay_);
     } else {
       shuffle_.reset();
@@ -360,15 +380,20 @@ auto TrackQueue::replay() const -> bool {
 
 auto TrackQueue::serialise() -> std::string {
   cppbor::Array tracks{};
-  for (database::TrackId track : tracks_) {
-    tracks.add(cppbor::Uint(track));
-  }
   cppbor::Map encoded;
-  encoded.add(cppbor::Uint{0}, cppbor::Array{
-                                   cppbor::Uint{pos_},
-                                   cppbor::Bool{repeat_},
-                                   cppbor::Bool{replay_},
-                               });
+
+  cppbor::Array metadata{
+      cppbor::Bool{repeat_},
+      cppbor::Bool{replay_},
+      cppbor::Uint{position_},
+  };
+
+  if (opened_playlist_) {
+    metadata.add(cppbor::Tstr{opened_playlist_->filepath()});
+  }
+
+  encoded.add(cppbor::Uint{0}, std::move(metadata));
+
   if (shuffle_) {
     encoded.add(cppbor::Uint{1}, cppbor::Array{
                                      cppbor::Uint{shuffle_->size()},
@@ -376,12 +401,11 @@ auto TrackQueue::serialise() -> std::string {
                                      cppbor::Uint{shuffle_->pos()},
                                  });
   }
-  encoded.add(cppbor::Uint{2}, std::move(tracks));
   return encoded.toString();
 }
 
 TrackQueue::QueueParseClient::QueueParseClient(TrackQueue& queue)
-    : queue_(queue), state_(State::kInit), i_(0) {}
+    : queue_(queue), state_(State::kInit), i_(0), position_to_set_(0) {}
 
 cppbor::ParseClient* TrackQueue::QueueParseClient::item(
     std::unique_ptr<cppbor::Item>& item,
@@ -401,9 +425,6 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::item(
         case 1:
           state_ = State::kShuffle;
           break;
-        case 2:
-          state_ = State::kTracks;
-          break;
         default:
           state_ = State::kFinished;
       }
@@ -412,7 +433,13 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::item(
     if (item->type() == cppbor::ARRAY) {
       i_ = 0;
     } else if (item->type() == cppbor::UINT) {
-      queue_.pos_ = item->asUint()->unsignedValue();
+      auto val = item->asUint()->unsignedValue();
+      // Save the position so we can apply it later when we have finished
+      // serialising
+      position_to_set_ = val;
+    } else if (item->type() == cppbor::TSTR) {
+      auto val = item->asTstr();
+      queue_.openPlaylist(val->value(), false);
     } else if (item->type() == cppbor::SIMPLE) {
       bool val = item->asBool()->value();
       if (i_ == 0) {
@@ -444,10 +471,6 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::item(
       }
       i_++;
     }
-  } else if (state_ == State::kTracks) {
-    if (item->type() == cppbor::UINT) {
-      queue_.tracks_.push_back(item->asUint()->unsignedValue());
-    }
   } else if (state_ == State::kFinished) {
   }
   return this;
@@ -461,16 +484,13 @@ cppbor::ParseClient* TrackQueue::QueueParseClient::itemEnd(
   if (state_ == State::kInit) {
     state_ = State::kFinished;
   } else if (state_ == State::kRoot) {
+    queue_.goTo(position_to_set_);
     state_ = State::kFinished;
   } else if (state_ == State::kMetadata) {
     if (item->type() == cppbor::ARRAY) {
       state_ = State::kRoot;
     }
   } else if (state_ == State::kShuffle) {
-    if (item->type() == cppbor::ARRAY) {
-      state_ = State::kRoot;
-    }
-  } else if (state_ == State::kTracks) {
     if (item->type() == cppbor::ARRAY) {
       state_ = State::kRoot;
     }

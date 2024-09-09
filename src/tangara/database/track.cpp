@@ -148,7 +148,7 @@ auto TrackTags::set(Tag t, std::string_view v) -> void {
       track(v);
       break;
     case Tag::kAlbumOrder:
-      // This tag is derices from disc and track, and so it can't be set.
+      // This tag is derived from disc and track, and so it can't be set.
       break;
     case Tag::kGenres:
       genres(v);
@@ -293,15 +293,4 @@ auto TrackTags::Hash() const -> uint64_t {
   return komihash_stream_final(&stream);
 }
 
-auto Track::TitleOrFilename() const -> std::pmr::string {
-  auto title = tags().title();
-  if (title) {
-    return *title;
-  }
-  auto start = data().filepath.find_last_of('/');
-  if (start == std::pmr::string::npos) {
-    return data().filepath;
-  }
-  return data().filepath.substr(start + 1);
-}
 }  // namespace database

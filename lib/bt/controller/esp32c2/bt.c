@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,26 +16,31 @@
 
 #include "sdkconfig.h"
 
+#if CONFIG_BT_NIMBLE_ENABLED
 #include "nimble/nimble_port.h"
+#endif // CONFIG_BT_NIMBLE_ENABLED
+
 #include "nimble/nimble_port_freertos.h"
 
 #ifdef ESP_PLATFORM
 #include "esp_log.h"
 #endif
 
-#if CONFIG_SW_COEXIST_ENABLE
+#ifdef CONFIG_ESP_COEX_ENABLED
 #include "private/esp_coexist_internal.h"
 #endif
 
 #include "nimble/nimble_npl_os.h"
-#include "nimble/ble_hci_trans.h"
+#include "ble_hci_trans.h"
 #include "os/endian.h"
 
 #include "esp_bt.h"
 #include "esp_intr_alloc.h"
 #include "esp_sleep.h"
 #include "esp_pm.h"
+#ifdef CONFIG_ESP_PHY_ENABLED
 #include "esp_phy_init.h"
+#endif
 #include "soc/syscon_reg.h"
 #include "soc/modem_clkrst_reg.h"
 #include "esp_private/periph_ctrl.h"
@@ -54,12 +59,14 @@
 #include "freertos/task.h"
 
 #include "esp_private/periph_ctrl.h"
+#include "esp_private/esp_clk.h"
 #include "esp_sleep.h"
 
 #include "soc/syscon_reg.h"
 #include "soc/dport_access.h"
 
 #include "hal/efuse_ll.h"
+#include "soc/rtc.h"
 /* Macro definition
  ************************************************************************
  */
@@ -77,6 +84,11 @@
 /* ACL_DATA_MBUF_LEADINGSPCAE: The leadingspace in user info header for ACL data */
 #define ACL_DATA_MBUF_LEADINGSPCAE    4
 #endif // CONFIG_BT_BLUEDROID_ENABLED
+
+typedef enum ble_rtc_slow_clk_src {
+    BT_SLOW_CLK_SRC_MAIN_XTAL,
+    BT_SLOW_CLK_SRC_32K_XTAL_ON_PIN0,
+} ble_rtc_slow_clk_src_t;
 
 /* Types definition
  ************************************************************************
@@ -156,14 +168,21 @@ extern int ble_txpwr_set(esp_ble_enhanced_power_type_t power_type, uint16_t hand
 extern int ble_txpwr_get(esp_ble_enhanced_power_type_t power_type, uint16_t handle);
 extern int ble_get_npl_element_info(esp_bt_controller_config_t *cfg, ble_npl_count_info_t * npl_info);
 extern void bt_track_pll_cap(void);
-
+extern char *ble_controller_get_compile_version(void);
+extern const char *r_ble_controller_get_rom_compile_version(void);
 #if CONFIG_BT_RELEASE_IRAM
 extern uint32_t _iram_bt_text_start;
 extern uint32_t _bss_bt_end;
-#else
-extern uint32_t _bt_bss_end;
-extern uint32_t _bt_controller_data_start;
 #endif
+
+extern uint32_t _bt_bss_start;
+extern uint32_t _bt_bss_end;
+extern uint32_t _bt_controller_bss_start;
+extern uint32_t _bt_controller_bss_end;
+extern uint32_t _bt_data_start;
+extern uint32_t _bt_data_end;
+extern uint32_t _bt_controller_data_start;
+extern uint32_t _bt_controller_data_end;
 
 /* Local Function Declaration
  *********************************************************************
@@ -362,7 +381,7 @@ esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callba
 #endif // CONFIG_BT_BLUEDROID_ENABLED
 static int task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    return (uint32_t)xTaskCreatePinnedToCore(task_func, name, stack_depth, param, prio, task_handle, (core_id < portNUM_PROCESSORS ? core_id : tskNO_AFFINITY));
+    return (uint32_t)xTaskCreatePinnedToCore(task_func, name, stack_depth, param, prio, task_handle, (core_id < CONFIG_FREERTOS_NUMBER_OF_CORES ? core_id : tskNO_AFFINITY));
 }
 
 static void task_delete_wrapper(void *task_handle)
@@ -486,7 +505,7 @@ IRAM_ATTR void controller_wakeup_cb(void *arg)
     s_ble_active = true;
 }
 
-esp_err_t controller_sleep_init(void)
+esp_err_t controller_sleep_init(ble_rtc_slow_clk_src_t slow_clk_src)
 {
     esp_err_t rc = 0;
 #ifdef CONFIG_BT_LE_SLEEP_ENABLE
@@ -494,7 +513,11 @@ esp_err_t controller_sleep_init(void)
     r_ble_lll_rfmgmt_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0, 500 + BLE_RTC_DELAY_US);
 
 #ifdef CONFIG_PM_ENABLE
-    esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_ON);
+    if (slow_clk_src == BT_SLOW_CLK_SRC_MAIN_XTAL) {
+        esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_ON);
+    } else {
+        esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_AUTO);
+    }
 #endif // CONFIG_PM_ENABLE
 
 #endif // CONFIG_BT_LE_SLEEP_ENABLE
@@ -545,37 +568,74 @@ void controller_sleep_deinit(void)
 #endif //CONFIG_PM_ENABLE
 }
 
-void ble_rtc_clk_init(void)
+static void esp_bt_rtc_slow_clk_select(ble_rtc_slow_clk_src_t slow_clk_src)
 {
-    // modem_clkrst_reg
-    // LP_TIMER_SEL_XTAL32K -> 0
-    // LP_TIMER_SEL_XTAL -> 1
-    // LP_TIMER_SEL_8M -> 0
-    // LP_TIMER_SEL_RTC_SLOW -> 0
-    SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_XTAL32K_S);
-    SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 1, MODEM_CLKRST_LP_TIMER_SEL_XTAL_S);
-    SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_8M_S);
-    SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_RTC_SLOW_S);
-
+    /* Select slow clock source for BT momdule */
+    switch (slow_clk_src) {
+        case BT_SLOW_CLK_SRC_MAIN_XTAL:
+            ESP_LOGI(NIMBLE_PORT_LOG_TAG, "Using main XTAL as clock source");
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_XTAL32K_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 1, MODEM_CLKRST_LP_TIMER_SEL_XTAL_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_8M_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_RTC_SLOW_S);
 #ifdef CONFIG_XTAL_FREQ_26
-    // LP_TIMER_CLK_DIV_NUM -> 130
-    SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM, 129, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM, 129, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM_S);
 #else
-    // LP_TIMER_CLK_DIV_NUM -> 250
-    SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM, 249, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM, 249, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM_S);
 #endif // CONFIG_XTAL_FREQ_26
-
-    // MODEM_CLKRST_ETM_CLK_ACTIVE -> 1
-    // MODEM_CLKRST_ETM_CLK_SEL -> 0
+            break;
+        case BT_SLOW_CLK_SRC_32K_XTAL_ON_PIN0:
+            ESP_LOGI(NIMBLE_PORT_LOG_TAG, "Using external 32.768 kHz XTAL as clock source");
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 1, MODEM_CLKRST_LP_TIMER_SEL_XTAL32K_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_XTAL_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_8M_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_RTC_SLOW_S);
+            SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM, 0, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM_S);
+            break;
+        default:
+            ESP_LOGE(NIMBLE_PORT_LOG_TAG, "Unsupported slow clock");
+            assert(0);
+            break;
+    }
     SET_PERI_REG_BITS(MODEM_CLKRST_ETM_CLK_CONF_REG, 1, 1, MODEM_CLKRST_ETM_CLK_ACTIVE_S);
     SET_PERI_REG_BITS(MODEM_CLKRST_ETM_CLK_CONF_REG, 1, 0, MODEM_CLKRST_ETM_CLK_SEL_S);
+}
 
+static ble_rtc_slow_clk_src_t ble_rtc_clk_init(esp_bt_controller_config_t *cfg)
+{
+    ble_rtc_slow_clk_src_t slow_clk_src;
+
+#if CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL
+#ifdef CONFIG_XTAL_FREQ_26
+   cfg->rtc_freq = 40000;
+#else
+   cfg->rtc_freq = 32000;
+#endif // CONFIG_XTAL_FREQ_26
+    slow_clk_src = BT_SLOW_CLK_SRC_MAIN_XTAL;
+#else
+    if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) {
+        cfg->rtc_freq = 32768;
+        slow_clk_src = BT_SLOW_CLK_SRC_32K_XTAL_ON_PIN0;
+    } else {
+        ESP_LOGW(NIMBLE_PORT_LOG_TAG, "32.768kHz XTAL not detected, fall back to main XTAL as Bluetooth sleep clock");
+#ifdef CONFIG_XTAL_FREQ_26
+        cfg->rtc_freq = 40000;
+#else
+        cfg->rtc_freq = 32000;
+#endif // CONFIG_XTAL_FREQ_26
+        slow_clk_src = BT_SLOW_CLK_SRC_MAIN_XTAL;
+    }
+#endif /* CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL */
+    esp_bt_rtc_slow_clk_select(slow_clk_src);
+    return slow_clk_src;
 }
 
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 {
     esp_err_t ret = ESP_OK;
     ble_npl_count_info_t npl_info;
+    ble_rtc_slow_clk_src_t rtc_clk_src;
+
     memset(&npl_info, 0, sizeof(ble_npl_count_info_t));
     if (ble_controller_status != ESP_BT_CONTROLLER_STATUS_IDLE) {
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "invalid controller state");
@@ -587,13 +647,22 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
         return ESP_ERR_INVALID_ARG;
     }
 
-    ble_rtc_clk_init();
+    rtc_clk_src = ble_rtc_clk_init(cfg);
 
     ret = esp_register_ext_funcs(&ext_funcs_ro);
     if (ret != ESP_OK) {
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "register extend functions failed");
         return ret;
     }
+
+#if DEFAULT_BT_LE_50_FEATURE_SUPPORT || DEFAULT_BT_LE_ROLE_CENTROL || DEFAULT_BT_LE_ROLE_OBSERVER
+    extern int esp_ble_rom_func_ptr_init_all(void);
+    esp_ble_rom_func_ptr_init_all();
+#else
+    ESP_LOGI(NIMBLE_PORT_LOG_TAG, "Init only legacy adv and slave function");
+    extern int esp_ble_rom_func_ptr_init_legacy_adv_and_slave(void);
+    esp_ble_rom_func_ptr_init_legacy_adv_and_slave();
+#endif
 
     /* Initialize the function pointers for OS porting */
     npl_freertos_funcs_init();
@@ -643,12 +712,14 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 #if CONFIG_SW_COEXIST_ENABLE
     coex_init();
 #endif
-
     ret = ble_controller_init(cfg);
     if (ret != ESP_OK) {
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "ble_controller_init failed %d", ret);
         goto modem_deint;
     }
+
+    ESP_LOGI(NIMBLE_PORT_LOG_TAG, "ble controller commit:[%s]", ble_controller_get_compile_version());
+    ESP_LOGI(NIMBLE_PORT_LOG_TAG, "ble rom commit:[%s]", r_ble_controller_get_rom_compile_version());
 
 #if CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
     interface_func_t bt_controller_log_interface;
@@ -671,7 +742,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     }
 #endif // CONFIG_BT_CONTROLLER_LOG_ENABLED
 
-    ret = controller_sleep_init();
+    ret = controller_sleep_init(rtc_clk_src);
     if (ret != ESP_OK) {
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "controller_sleep_init failed %d", ret);
         goto free_controller;
@@ -840,9 +911,48 @@ static esp_err_t try_heap_caps_add_region(intptr_t start, intptr_t end)
     return ret;
 }
 
+typedef struct {
+    intptr_t start;
+    intptr_t end;
+    const char* name;
+} bt_area_t;
+
+static esp_err_t esp_bt_mem_release_area(const bt_area_t *area)
+{
+    esp_err_t ret = ESP_OK;
+    intptr_t mem_start = area->start;
+    intptr_t mem_end = area->end;
+    if (mem_start != mem_end) {
+        ESP_LOGD(NIMBLE_PORT_LOG_TAG, "Release %s [0x%08x] - [0x%08x], len %d", area->name, mem_start, mem_end, mem_end - mem_start);
+        ret = try_heap_caps_add_region(mem_start, mem_end);
+    }
+    return ret;
+}
+
+#ifndef CONFIG_BT_RELEASE_IRAM
+static esp_err_t esp_bt_mem_release_areas(const bt_area_t *area1, const bt_area_t *area2)
+{
+    esp_err_t ret = ESP_OK;
+
+    if(area1->end == area2->start) {
+        bt_area_t merged_area = {
+            .start = area1->start,
+            .end = area2->end,
+            .name = area1->name
+        };
+        ret = esp_bt_mem_release_area(&merged_area);
+    } else {
+        esp_bt_mem_release_area(area1);
+        ret = esp_bt_mem_release_area(area2);
+    }
+
+    return ret;
+}
+#endif
+
 esp_err_t esp_bt_mem_release(esp_bt_mode_t mode)
 {
-    intptr_t mem_start, mem_end;
+    esp_err_t ret = ESP_OK;
 
 #if CONFIG_BT_RELEASE_IRAM && CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT
     /* Release Bluetooth text section and merge Bluetooth data, bss & text into a large free heap
@@ -851,26 +961,58 @@ esp_err_t esp_bt_mem_release(esp_bt_mode_t mode)
      * memory into 3 different regions (IRAM, BLE-IRAM, DRAM). So `ESP_SYSTEM_PMP_IDRAM_SPLIT` needs
      * to be disabled.
      */
-    ESP_LOGE(NIMBLE_PORT_LOG_TAG, "`ESP_SYSTEM_PMP_IDRAM_SPLIT` should be disabled!");
-    assert(0);
+    #error "ESP_SYSTEM_PMP_IDRAM_SPLIT should be disabled to allow BT to be released"
 #endif // CONFIG_BT_RELEASE_IRAM && CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT
 
-    if (mode & ESP_BT_MODE_BLE) {
-#if CONFIG_BT_RELEASE_IRAM
-        mem_start = (intptr_t)MAP_IRAM_TO_DRAM((intptr_t)&_iram_bt_text_start);
-        mem_end = (intptr_t)&_bss_bt_end;
-#else
-        mem_start = (intptr_t)&_bt_controller_data_start;
-        mem_end = (intptr_t)&_bt_bss_end;
-#endif // CONFIG_BT_RELEASE_IRAM
-        if (mem_start != mem_end) {
-            ESP_LOGI(NIMBLE_PORT_LOG_TAG, "Release BLE [0x%08x] - [0x%08x], len %d", mem_start,
-                     mem_end, mem_end - mem_start);
-            ESP_ERROR_CHECK(try_heap_caps_add_region(mem_start, mem_end));
-        }
+    if (ble_controller_status != ESP_BT_CONTROLLER_STATUS_IDLE) {
+        return ESP_ERR_INVALID_STATE;
     }
 
-    return ESP_OK;
+    if ((mode & ESP_BT_MODE_BLE) == 0) {
+        return ret;
+    }
+
+#if CONFIG_BT_RELEASE_IRAM
+    bt_area_t merged_region = {
+        .start = (intptr_t)MAP_IRAM_TO_DRAM((intptr_t)&_iram_bt_text_start),
+        .end = (intptr_t)&_bss_bt_end,
+        .name = "BT Text, BSS and Data"
+    };
+    ret = esp_bt_mem_release_area(&merged_region);
+#else
+    bt_area_t bss = {
+        .start = (intptr_t)&_bt_bss_start,
+        .end   = (intptr_t)&_bt_bss_end,
+        .name  = "BT BSS",
+    };
+    bt_area_t cont_bss = {
+        .start = (intptr_t)&_bt_controller_bss_start,
+        .end   = (intptr_t)&_bt_controller_bss_end,
+        .name  = "BT Controller BSS",
+    };
+    bt_area_t data = {
+        .start = (intptr_t)&_bt_data_start,
+        .end   = (intptr_t)&_bt_data_end,
+        .name  = "BT Data",
+    };
+    bt_area_t cont_data = {
+        .start = (intptr_t)&_bt_controller_data_start,
+        .end   = (intptr_t)&_bt_controller_data_end,
+        .name  = "BT Controller Data"
+    };
+
+    /* Start by freeing Bluetooth BSS section */
+    if (ret == ESP_OK) {
+        ret = esp_bt_mem_release_areas(&bss, &cont_bss);
+    }
+
+    /* Do the same thing with the Bluetooth data section */
+    if (ret == ESP_OK) {
+        ret = esp_bt_mem_release_areas(&data, &cont_data);
+    }
+#endif
+
+    return ret;
 }
 
 
@@ -1235,4 +1377,3 @@ int ble_sm_alg_gen_key_pair(uint8_t *pub, uint8_t *priv)
 
 #endif // CONFIG_BT_LE_SM_LEGACY || CONFIG_BT_LE_SM_SC
 #endif // (!CONFIG_BT_NIMBLE_ENABLED) && (CONFIG_BT_CONTROLLER_ENABLED)
-

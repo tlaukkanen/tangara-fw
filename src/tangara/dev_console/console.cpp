@@ -13,6 +13,7 @@
 #include <string>
 
 #include "esp_console.h"
+#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp_system.h"
 
@@ -22,34 +23,47 @@ namespace console {
 
 int CmdLogLevel(int argc, char** argv) {
   static const std::pmr::string usage =
-      "usage: loglevel [VERBOSE,DEBUG,INFO,WARN,ERROR,NONE]";
-  if (argc != 2) {
+      "usage: loglevel [tag] [VERBOSE,DEBUG,INFO,WARN,ERROR,NONE]";
+  if (argc < 2 || argc > 3) {
     std::cout << usage << std::endl;
     return 1;
   }
-  std::pmr::string level_str = argv[1];
-  std::transform(level_str.begin(), level_str.end(), level_str.begin(),
+
+  std::string tag;
+  if (argc == 2) {
+    tag = "*";
+  } else {
+    tag = argv[1];
+  }
+
+  std::string raw_level;
+  if (argc == 2) {
+    raw_level = argv[1];
+  } else {
+    raw_level = argv[2];
+  }
+  std::transform(raw_level.begin(), raw_level.end(), raw_level.begin(),
                  [](unsigned char c) { return std::toupper(c); });
 
   esp_log_level_t level;
-  if (level_str == "VERBOSE") {
+  if (raw_level == "VERBOSE") {
     level = ESP_LOG_VERBOSE;
-  } else if (level_str == "DEBUG") {
+  } else if (raw_level == "DEBUG") {
     level = ESP_LOG_DEBUG;
-  } else if (level_str == "INFO") {
+  } else if (raw_level == "INFO") {
     level = ESP_LOG_INFO;
-  } else if (level_str == "WARN") {
+  } else if (raw_level == "WARN") {
     level = ESP_LOG_WARN;
-  } else if (level_str == "ERROR") {
+  } else if (raw_level == "ERROR") {
     level = ESP_LOG_ERROR;
-  } else if (level_str == "NONE") {
+  } else if (raw_level == "NONE") {
     level = ESP_LOG_NONE;
   } else {
     std::cout << usage << std::endl;
     return 1;
   }
 
-  esp_log_level_set("*", level);
+  esp_log_level_set(tag.c_str(), level);
 
   return 0;
 }
@@ -66,12 +80,34 @@ void RegisterLogLevel() {
   esp_console_cmd_register(&cmd);
 }
 
+int CmdInterrupts(int argc, char** argv) {
+  static const std::pmr::string usage = "usage: intr";
+  if (argc != 1) {
+    std::cout << usage << std::endl;
+    return 1;
+  }
+  esp_intr_dump(NULL);
+  return 0;
+}
+
+void RegisterInterrupts() {
+  esp_console_cmd_t cmd{.command = "intr",
+                        .help = "Dumps a table of all allocated interrupts",
+                        .hint = NULL,
+                        .func = &CmdInterrupts,
+                        .argtable = NULL};
+  esp_console_cmd_register(&cmd);
+  cmd.command = "interrupts";
+  esp_console_cmd_register(&cmd);
+}
+
 Console::Console() {}
 Console::~Console() {}
 
 auto Console::RegisterCommonComponents() -> void {
   esp_console_register_help_command();
   RegisterLogLevel();
+  RegisterInterrupts();
 }
 
 static Console* sInstance;

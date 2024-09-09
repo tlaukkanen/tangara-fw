@@ -184,7 +184,7 @@ nrf_timer_set_ocmp(struct nrf52_hal_timer *bsptimer, uint32_t expiry)
         } else {
             rtctimer->INTENCLR = RTC_INTENCLR_TICK_Msk;
 
-            if (delta_t < (1UL << 24)) {
+            if (delta_t < (1L << 24)) {
                 rtctimer->CC[NRF_RTC_TIMER_CC_INT] = expiry & 0x00ffffff;
             } else {
                 /* CC too far ahead. Just make sure we set compare far ahead */
@@ -541,7 +541,7 @@ hal_timer_init(int timer_num, void *cfg)
 #ifndef RIOT_VERSION
     NVIC_SetPriority(irq_num, (1 << __NVIC_PRIO_BITS) - 1);
 #endif
-#if MYNEWT
+#ifdef MYNEWT
     NVIC_SetVector(irq_num, (uint32_t)irq_isr);
 #else
     ble_npl_hw_set_isr(irq_num, irq_isr);

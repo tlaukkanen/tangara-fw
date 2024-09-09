@@ -28,8 +28,12 @@ class PcmBuffer {
   PcmBuffer(size_t size_in_samples);
   ~PcmBuffer();
 
-  /* Adds samples to the buffer. */
-  auto send(std::span<const int16_t>) -> void;
+  /*
+   * Adds samples to the buffer. Returns the number of samples that were added,
+   * which may be less than the number of samples given if this PcmBuffer is
+   * close to full.
+   */
+  auto send(std::span<const int16_t>) -> size_t;
 
   /*
    * Fills the given span with samples. If enough samples are available in

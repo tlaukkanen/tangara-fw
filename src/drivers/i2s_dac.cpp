@@ -46,12 +46,12 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
   if (event == nullptr || user_ctx == nullptr) {
     return false;
   }
-  if (event->data == nullptr || event->size == 0) {
+  if (event->dma_buf == nullptr || event->size == 0) {
     return false;
   }
   assert(event->size % 4 == 0);
 
-  uint8_t* buf = *reinterpret_cast<uint8_t**>(event->data);
+  uint8_t* buf = reinterpret_cast<uint8_t*>(event->dma_buf);
   auto* src = reinterpret_cast<OutputBuffers*>(user_ctx);
 
   BaseType_t ret1 = src->first.receive(

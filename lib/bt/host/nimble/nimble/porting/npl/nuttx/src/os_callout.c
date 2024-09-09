@@ -44,21 +44,23 @@ callout_handler(pthread_addr_t arg)
 {
     struct ble_npl_callout *c;
 
-    pthread_mutex_lock(&callout_mutex);
-    while (!pending_callout) {
-      pthread_cond_wait(&callout_cond, &callout_mutex);
-    }
+    while (true) {
+        pthread_mutex_lock(&callout_mutex);
+        while (!pending_callout) {
+          pthread_cond_wait(&callout_cond, &callout_mutex);
+        }
 
-    c = pending_callout;
-    pending_callout = NULL;
-    pthread_mutex_unlock(&callout_mutex);
+        c = pending_callout;
+        pending_callout = NULL;
+        pthread_mutex_unlock(&callout_mutex);
 
-    /* Invoke callback */
+        /* Invoke callback */
 
-    if (c->c_evq) {
-        ble_npl_eventq_put(c->c_evq, &c->c_ev);
-    } else {
-        c->c_ev.ev_cb(&c->c_ev);
+        if (c->c_evq) {
+            ble_npl_eventq_put(c->c_evq, &c->c_ev);
+        } else {
+            c->c_ev.ev_cb(&c->c_ev);
+        }
     }
 
     return NULL;
@@ -89,6 +91,7 @@ ble_npl_callout_init(struct ble_npl_callout *c,
         pthread_attr_init(&attr);
         pthread_attr_setstacksize(&attr, CONFIG_NIMBLE_CALLOUT_THREAD_STACKSIZE);
         pthread_create(&callout_thread, &attr, callout_handler, NULL);
+        pthread_setname_np(callout_thread, "ble_npl_callout");
         thread_started = true;
     }
 

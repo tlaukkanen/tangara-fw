@@ -8,7 +8,6 @@
 
 #include <stdint.h>
 #include "irq_ctrl.h"
-#include "irq_sources.h"
 #include "os/sim.h"
 
 static int currently_running_irq = -1;
@@ -22,6 +21,12 @@ extern void (* const systemVectors[256])(void);
  * effectively the model of the interrupt controller passing context to the IRQ
  * handler and therefore its priority handling
  */
+
+int
+os_arch_in_isr(void)
+{
+    return currently_running_irq >= 0;
+}
 
 void posix_interrupt_raised(void)
 {

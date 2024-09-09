@@ -19,6 +19,7 @@
 
 #include "cppbor.h"
 #include "cppbor_parse.h"
+#include "debug.hpp"
 #include "esp_log.h"
 
 #include "database/index.hpp"
@@ -226,19 +227,15 @@ auto ParseIndexKey(const leveldb::Slice& slice) -> std::optional<IndexKey> {
     return {};
   }
 
-  std::istringstream in(key_data.substr(header_length + 1));
-  std::stringbuf buffer{};
+  key_data = key_data.substr(header_length + 1);
+  size_t last_sep = key_data.find_last_of('\0');
 
-  in.get(buffer, kFieldSeparator);
-  if (buffer.str().size() > 0) {
-    result.item = buffer.str();
+  if (last_sep > 0) {
+    result.item = key_data.substr(0, last_sep);
   }
 
-  buffer = {};
-  in.get(buffer);
-  std::string id_str = buffer.str();
-  if (id_str.size() > 1) {
-    result.track = BytesToTrackId(id_str.substr(1));
+  if (last_sep + 1 < key_data.size()) {
+    result.track = BytesToTrackId(key_data.substr(last_sep + 1));
   }
 
   return result;
@@ -252,6 +249,7 @@ auto BytesToTrackId(std::span<const char> bytes) -> std::optional<TrackId> {
   auto [res, unused, err] = cppbor::parse(
       reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!res || res->type() != cppbor::UINT) {
+    ESP_LOGE(kTag, "Track ID parsing failed!!");
     return {};
   }
   return res->asUint()->unsignedValue();

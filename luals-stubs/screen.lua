@@ -12,19 +12,19 @@ local screen = {}
 function screen:new(params) end
 
 --- Called just before this screen is first displayed to the user.
-function screen:createUi() end
+function screen:create_ui() end
 
 --- Called whenever this screen is displayed to the user.
-function screen:onShown() end
+function screen:on_show() end
 
 --- Called whenever this screen is being hidden by the user; either because a
 --- new screen is being pushed on top of this way, or because this screen has
 --- been popped off of the stack.
-function screen:onHidden() end
+function screen:on_hide() end
 
 --- Called when this screen is about to be popped off of the stack. If this
 --- returns false, it will not be popped. May be a function, or any boolean
 --- convertable value.
-function screen:canPop() end
+function screen:can_pop() end
 
 return screen

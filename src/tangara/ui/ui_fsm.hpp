@@ -53,6 +53,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   /* Fallback event handler. Does nothing. */
   void react(const tinyfsm::Event& ev) {}
 
+  void react(const Screenshot&);
   virtual void react(const OnLuaError&) {}
   virtual void react(const DumpLuaStack&) {}
   virtual void react(const internal::BackPressed&) {}
@@ -100,11 +101,16 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sBatteryPct;
   static lua::Property sBatteryMv;
   static lua::Property sBatteryCharging;
+  static lua::Property sPowerChargeState;
+  static lua::Property sPowerFastChargeEnabled;
 
   static lua::Property sBluetoothEnabled;
+  static lua::Property sBluetoothConnecting;
   static lua::Property sBluetoothConnected;
+  static lua::Property sBluetoothDiscovering;
   static lua::Property sBluetoothPairedDevice;
-  static lua::Property sBluetoothDevices;
+  static lua::Property sBluetoothKnownDevices;
+  static lua::Property sBluetoothDiscoveredDevices;
 
   static lua::Property sPlaybackPlaying;
 
@@ -116,6 +122,7 @@ class UiState : public tinyfsm::Fsm<UiState> {
   static lua::Property sQueueReplay;
   static lua::Property sQueueRepeat;
   static lua::Property sQueueRandom;
+  static lua::Property sQueueLoading;
 
   static lua::Property sVolumeCurrentPct;
   static lua::Property sVolumeCurrentDb;

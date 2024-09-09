@@ -47,7 +47,7 @@ auto AllocateStack<Type::kAudioDecoder>() -> std::span<StackType_t> {
 // separately.
 template <>
 auto AllocateStack<Type::kUi>() -> std::span<StackType_t> {
-  constexpr std::size_t size = 14 * 1024;
+  constexpr std::size_t size = 20 * 1024;
   static StackType_t sStack[size];
   return {sStack, size};
 }
@@ -64,7 +64,7 @@ auto AllocateStack<Type::kAudioConverter>() -> std::span<StackType_t> {
 // an eye-wateringly large amount of stack.
 template <>
 auto AllocateStack<Type::kBackgroundWorker>() -> std::span<StackType_t> {
-  std::size_t size = 64 * 1024;
+  std::size_t size = 32 * 1024;
   return {static_cast<StackType_t*>(heap_caps_malloc(size, MALLOC_CAP_SPIRAM)),
           size};
 }
@@ -83,11 +83,11 @@ auto Priority() -> UBaseType_t;
 // highest priority.
 template <>
 auto Priority<Type::kAudioDecoder>() -> UBaseType_t {
-  return configMAX_PRIORITIES - 1;
+  return 15;
 }
 template <>
 auto Priority<Type::kAudioConverter>() -> UBaseType_t {
-  return configMAX_PRIORITIES - 1;
+  return 15;
 }
 // After audio issues, UI jank is the most noticeable kind of scheduling-induced
 // slowness that the user is likely to notice or care about. Therefore we place

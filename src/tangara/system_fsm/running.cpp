@@ -8,7 +8,6 @@
 #include "audio/audio_events.hpp"
 #include "database/database.hpp"
 #include "database/db_events.hpp"
-#include "database/file_gatherer.hpp"
 #include "drivers/gpios.hpp"
 #include "drivers/spi.hpp"
 #include "ff.h"
@@ -35,8 +34,6 @@ static TimerHandle_t sUnmountTimer = nullptr;
 static void timer_callback(TimerHandle_t timer) {
   events::System().Dispatch(internal::UnmountTimeout{});
 }
-
-static database::IFileGatherer* sFileGatherer;
 
 void Running::entry() {
   if (!sUnmountTimer) {
@@ -174,10 +171,8 @@ auto Running::mountStorage() -> void {
   sStorage.reset(storage_res.value());
 
   ESP_LOGI(kTag, "opening database");
-  sFileGatherer = new database::FileGathererImpl();
-  auto database_res =
-      database::Database::Open(*sFileGatherer, sServices->tag_parser(),
-                               sServices->collator(), sServices->bg_worker());
+  auto database_res = database::Database::Open(
+      sServices->tag_parser(), sServices->collator(), sServices->bg_worker());
   if (database_res.has_error()) {
     unmountStorage();
     return;
@@ -193,6 +188,10 @@ auto Running::mountStorage() -> void {
   // mounted card.
   if (sServices->nvs().DbAutoIndex()) {
     sServices->bg_worker().Dispatch<void>([&]() {
+      // Delay the index update for a bit, since we don't want to cause a lot
+      // of disk contention immediately after mounting (especially when we've
+      // just booted), or else we risk slowing down stuff like UI loading.
+      vTaskDelay(pdMS_TO_TICKS(6000));
       auto db = sServices->database().lock();
       if (!db) {
         return;

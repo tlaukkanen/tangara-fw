@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <variant>
 
 #include "core/lv_group.h"
@@ -129,6 +130,17 @@ auto LvglInputDriver::feedback(uint8_t event) -> void {
   }
   for (auto&& device : feedbacks_) {
     device->feedback(lv_indev_get_group(device_), event);
+  }
+}
+
+auto LvglInputDriver::lock(bool l) -> void {
+  is_locked_ = l;
+  for (auto&& device : inputs_) {
+    if (l) {
+      device->onLock();
+    } else {
+      device->onUnlock();
+    }
   }
 }
 

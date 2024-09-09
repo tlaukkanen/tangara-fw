@@ -16,6 +16,7 @@
 #include "cppbor_parse.h"
 #include "database/database.hpp"
 #include "database/track.hpp"
+#include "playlist.hpp"
 #include "tasks.hpp"
 
 namespace audio {
@@ -64,26 +65,25 @@ class RandomIterator {
  */
 class TrackQueue {
  public:
-  TrackQueue(tasks::WorkerPool& bg_worker);
+  TrackQueue(tasks::WorkerPool& bg_worker, database::Handle db);
 
   /* Returns the currently playing track. */
-  auto current() const -> std::optional<database::TrackId>;
-
-  /* Returns, in order, tracks that have been queued to be played next. */
-  auto peekNext(std::size_t limit) const -> std::vector<database::TrackId>;
-
-  /*
-   * Returns the tracks in the queue that have already been played, ordered
-   * most recently played first.
-   */
-  auto peekPrevious(std::size_t limit) const -> std::vector<database::TrackId>;
+  using TrackItem =
+      std::variant<std::string, database::TrackId, std::monostate>;
+  auto current() const -> TrackItem;
 
   auto currentPosition() const -> size_t;
+  auto currentPosition(size_t position) -> bool;
   auto totalSize() const -> size_t;
+  auto open() -> bool;
+  auto openPlaylist(const std::string& playlist_file, bool notify = true)
+      -> bool;
 
-  using Item = std::variant<database::TrackId, database::TrackIterator>;
-  auto insert(Item, size_t index = 0) -> void;
+  using Item =
+      std::variant<database::TrackId, database::TrackIterator, std::string>;
   auto append(Item i) -> void;
+
+  auto updateShuffler(bool andUpdatePosition) -> void;
 
   /*
    * Advances to the next track in the queue, placing the current track at the
@@ -96,8 +96,6 @@ class TrackQueue {
    * Called when the current track finishes
    */
   auto finish() -> void;
-
-  auto skipTo(database::TrackId) -> void;
 
   /*
    * Removes all tracks from all queues, and stops any currently playing track.
@@ -122,13 +120,18 @@ class TrackQueue {
 
  private:
   auto next(QueueUpdate::Reason r) -> void;
+  auto goTo(size_t position) -> void;
+  auto getFilepath(database::TrackId id) -> std::optional<std::string>;
 
   mutable std::shared_mutex mutex_;
 
   tasks::WorkerPool& bg_worker_;
+  database::Handle db_;
 
-  size_t pos_;
-  std::pmr::vector<database::TrackId> tracks_;
+  MutablePlaylist playlist_;
+  std::optional<Playlist> opened_playlist_;
+
+  size_t position_;
 
   std::optional<RandomIterator> shuffle_;
   bool repeat_;
@@ -159,11 +162,11 @@ class TrackQueue {
       kRoot,
       kMetadata,
       kShuffle,
-      kTracks,
       kFinished,
     };
     State state_;
     size_t i_;
+    size_t position_to_set_;
   };
 };
 

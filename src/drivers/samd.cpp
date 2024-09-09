@@ -5,11 +5,13 @@
  */
 
 #include "drivers/samd.hpp"
+#include <stdint.h>
 
 #include <cstdint>
 #include <optional>
 #include <string>
 
+#include "drivers/nvs.hpp"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "hal/gpio_types.h"
@@ -32,7 +34,29 @@ namespace drivers {
 
 static constexpr gpio_num_t kIntPin = GPIO_NUM_35;
 
-Samd::Samd() {
+auto Samd::chargeStatusToString(ChargeStatus status) -> std::string {
+  switch (status) {
+    case ChargeStatus::kNoBattery:
+      return "no_battery";
+    case ChargeStatus::kBatteryCritical:
+      return "critical";
+    case ChargeStatus::kDischarging:
+      return "discharging";
+    case ChargeStatus::kChargingRegular:
+      return "charge_regular";
+    case ChargeStatus::kChargingFast:
+      return "charge_fast";
+    case ChargeStatus::kFullCharge:
+      return "full_charge";
+    case ChargeStatus::kFault:
+      return "fault";
+    case ChargeStatus::kUnknown:
+    default:
+      return "unknown";
+  }
+}
+
+Samd::Samd(NvsStorage& nvs) : nvs_(nvs) {
   gpio_set_direction(kIntPin, GPIO_MODE_INPUT);
 
   // Being able to interface with the SAMD properly is critical. To ensure we
@@ -51,7 +75,7 @@ Samd::Samd() {
 
   UpdateChargeStatus();
   UpdateUsbStatus();
-  SetFastChargeEnabled(true);
+  SetFastChargeEnabled(nvs.FastCharge());
 }
 Samd::~Samd() {}
 
@@ -78,16 +102,38 @@ auto Samd::UpdateChargeStatus() -> void {
     return;
   }
 
-  // FIXME: Ideally we should be using the three 'charge status' bits to work
-  // out whether we're actually charging, or if we've got a full charge,
-  // critically low charge, etc.
+  // Lower two bits are the usb power status, next three are the BMS status.
+  // See 'gpio.c' in the SAMD21 firmware for how these bits get packed.
+  uint8_t charge_state = (raw_res & 0b11100) >> 2;
   uint8_t usb_state = raw_res & 0b11;
-  if (usb_state == 0) {
-    charge_status_ = ChargeStatus::kDischarging;
-  } else if (usb_state == 1) {
-    charge_status_ = ChargeStatus::kChargingRegular;
-  } else {
-    charge_status_ = ChargeStatus::kChargingFast;
+  switch (charge_state) {
+    case 0b000:
+      charge_status_ = ChargeStatus::kNoBattery;
+      break;
+    case 0b001:
+      // BMS says we're charging; work out how fast we're charging.
+      if (usb_state >= 0b10 && nvs_.FastCharge()) {
+        charge_status_ = ChargeStatus::kChargingFast;
+      } else {
+        charge_status_ = ChargeStatus::kChargingRegular;
+      }
+      break;
+    case 0b010:
+      charge_status_ = ChargeStatus::kFullCharge;
+      break;
+    case 0b011:
+      charge_status_ = ChargeStatus::kFault;
+      break;
+    case 0b100:
+      charge_status_ = ChargeStatus::kBatteryCritical;
+      break;
+    case 0b101:
+      charge_status_ = ChargeStatus::kDischarging;
+      break;
+    case 0b110:
+    case 0b111:
+      charge_status_ = ChargeStatus::kUnknown;
+      break;
   }
 }
 
@@ -127,9 +173,15 @@ auto Samd::ResetToFlashSamd() -> void {
 }
 
 auto Samd::SetFastChargeEnabled(bool en) -> void {
+  // Always update NVS, so that the setting is right after the SAMD firmware is
+  // updated.
+  nvs_.FastCharge(en);
+
   if (version_ < 4) {
     return;
   }
+  ESP_LOGI(kTag, "set fast charge %u", en);
+
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)

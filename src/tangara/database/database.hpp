@@ -19,23 +19,25 @@
 
 #include "collation.hpp"
 #include "cppbor.h"
-#include "database/file_gatherer.hpp"
 #include "database/index.hpp"
 #include "database/records.hpp"
 #include "database/tag_parser.hpp"
 #include "database/track.hpp"
+#include "database/track_finder.hpp"
+#include "ff.h"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/slice.h"
+#include "leveldb/write_batch.h"
 #include "memory_resource.hpp"
 #include "result.hpp"
 #include "tasks.hpp"
 
 namespace database {
 
-const uint8_t kCurrentDbVersion = 6;
+const uint8_t kCurrentDbVersion = 7;
 
 struct SearchKey;
 class Record;
@@ -55,8 +57,7 @@ class Database {
     ALREADY_OPEN,
     FAILED_TO_OPEN,
   };
-  static auto Open(IFileGatherer& file_gatherer,
-                   ITagParser& tag_parser,
+  static auto Open(ITagParser& tag_parser,
                    locale::ICollator& collator,
                    tasks::WorkerPool& bg_worker)
       -> cpp::result<Database*, DatabaseError>;
@@ -94,32 +95,59 @@ class Database {
   leveldb::DB* db_;
   leveldb::Cache* cache_;
 
+  TrackFinder track_finder_;
+
   // Not owned.
-  IFileGatherer& file_gatherer_;
   ITagParser& tag_parser_;
   locale::ICollator& collator_;
 
+  /* Internal utility for tracking a currently in-progress index update. */
+  class UpdateTracker {
+   public:
+    UpdateTracker();
+    ~UpdateTracker();
+
+    auto onTrackVerified() -> void;
+    auto onVerificationFinished() -> void;
+    auto onTrackAdded() -> void;
+
+   private:
+    uint32_t num_old_tracks_;
+    uint32_t num_new_tracks_;
+    uint64_t start_time_;
+    uint64_t verification_finish_time_;
+  };
+
   std::atomic<bool> is_updating_;
+  std::unique_ptr<UpdateTracker> update_tracker_;
+
+  std::atomic<TrackId> next_track_id_;
 
   Database(leveldb::DB* db,
            leveldb::Cache* cache,
-           IFileGatherer& file_gatherer,
+           tasks::WorkerPool& pool,
            ITagParser& tag_parser,
            locale::ICollator& collator);
 
+  auto processCandidateCallback(FILINFO&, std::string_view) -> void;
+  auto indexingCompleteCallback() -> void;
+
+  auto dbCalculateNextTrackId() -> void;
   auto dbMintNewTrackId() -> TrackId;
 
-  auto dbEntomb(TrackId track, uint64_t hash) -> void;
-  auto dbPutTrackData(const TrackData& s) -> void;
-  auto dbGetTrackData(TrackId id) -> std::shared_ptr<TrackData>;
-  auto dbPutHash(const uint64_t& hash, TrackId i) -> void;
-  auto dbGetHash(const uint64_t& hash) -> std::optional<TrackId>;
+  auto dbGetTrackData(leveldb::ReadOptions, TrackId id)
+      -> std::shared_ptr<TrackData>;
 
-  auto dbCreateIndexesForTrack(const Track& track) -> void;
+  auto dbCreateIndexesForTrack(const Track&, leveldb::WriteBatch&) -> void;
+  auto dbCreateIndexesForTrack(const TrackData&,
+                               const TrackTags&,
+                               leveldb::WriteBatch&) -> void;
+
   auto dbRemoveIndexes(std::shared_ptr<TrackData>) -> void;
 
   auto dbIngestTagHashes(const TrackTags&,
-                         std::pmr::unordered_map<Tag, uint64_t>&) -> void;
+                         std::pmr::unordered_map<Tag, uint64_t>&,
+                         leveldb::WriteBatch&) -> void;
   auto dbRecoverTagsFromHashes(const std::pmr::unordered_map<Tag, uint64_t>&)
       -> std::shared_ptr<TrackTags>;
 

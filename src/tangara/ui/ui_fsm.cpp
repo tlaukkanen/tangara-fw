@@ -7,11 +7,16 @@
 #include "ui/ui_fsm.hpp"
 #include <stdint.h>
 
+#include <algorithm>
 #include <memory>
 #include <memory_resource>
 #include <variant>
 
 #include "FreeRTOSConfig.h"
+#include "draw/lv_draw_buf.h"
+#include "drivers/bluetooth.hpp"
+#include "lauxlib.h"
+#include "lua.h"
 #include "lvgl.h"
 
 #include "core/lv_group.h"
@@ -24,6 +29,9 @@
 #include "freertos/projdefs.h"
 #include "lua.hpp"
 #include "luavgl.h"
+#include "misc/lv_color.h"
+#include "misc/lv_utils.h"
+#include "others/snapshot/lv_snapshot.h"
 #include "tick/lv_tick.h"
 #include "tinyfsm.hpp"
 
@@ -59,6 +67,7 @@
 #include "ui/screen.hpp"
 #include "ui/screen_lua.hpp"
 #include "ui/screen_splash.hpp"
+#include "ui/screenshot.hpp"
 #include "ui/ui_events.hpp"
 
 namespace ui {
@@ -94,38 +103,72 @@ static auto lvgl_delay_cb(uint32_t ms) -> void {
 lua::Property UiState::sBatteryPct{0};
 lua::Property UiState::sBatteryMv{0};
 lua::Property UiState::sBatteryCharging{false};
+lua::Property UiState::sPowerChargeState{"unknown"};
+lua::Property UiState::sPowerFastChargeEnabled{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      sServices->samd().SetFastChargeEnabled(std::get<bool>(val));
+      return true;
+    }};
 
 lua::Property UiState::sBluetoothEnabled{
     false, [](const lua::LuaValue& val) {
       if (!std::holds_alternative<bool>(val)) {
         return false;
       }
+      // Note we always write the OutputMode NVS change before actually
+      // modifying the peripheral. We do this because ESP-IDF's Bluetooth stack
+      // breaks in surprising ways when repeatedly initialised/uninitialised.
       if (std::get<bool>(val)) {
         sServices->nvs().OutputMode(drivers::NvsStorage::Output::kBluetooth);
-        sServices->bluetooth().Enable();
+        sServices->bluetooth().enable(true);
       } else {
         sServices->nvs().OutputMode(drivers::NvsStorage::Output::kHeadphones);
-        sServices->bluetooth().Disable();
+        sServices->bluetooth().enable(false);
       }
       events::Audio().Dispatch(audio::OutputModeChanged{});
       return true;
     }};
 
+lua::Property UiState::sBluetoothConnecting{false};
 lua::Property UiState::sBluetoothConnected{false};
+
+lua::Property UiState::sBluetoothDiscovering{
+    false, [](const lua::LuaValue& val) {
+      if (!std::holds_alternative<bool>(val)) {
+        return false;
+      }
+      // Note we always write the OutputMode NVS change before actually
+      // modifying the peripheral. We do this because ESP-IDF's Bluetooth stack
+      // breaks in surprising ways when repeatedly initialised/uninitialised.
+      if (std::get<bool>(val)) {
+        sServices->bluetooth().discoveryEnabled(true);
+      } else {
+        sServices->bluetooth().discoveryEnabled(false);
+      }
+      return true;
+    }};
+
 lua::Property UiState::sBluetoothPairedDevice{
     std::monostate{}, [](const lua::LuaValue& val) {
-      if (std::holds_alternative<drivers::bluetooth::Device>(val)) {
-        auto dev = std::get<drivers::bluetooth::Device>(val);
-        sServices->bluetooth().SetPreferredDevice(
-            drivers::bluetooth::MacAndName{
-                .mac = dev.address,
-                .name = {dev.name.data(), dev.name.size()},
-            });
+      if (std::holds_alternative<drivers::bluetooth::MacAndName>(val)) {
+        auto dev = std::get<drivers::bluetooth::MacAndName>(val);
+        sServices->bluetooth().pairedDevice(dev);
+      } else if (std::holds_alternative<std::monostate>(val)) {
+        sServices->bluetooth().pairedDevice({});
+      } else {
+        // Don't accept any other types.
+        return false;
       }
-      return false;
+      return true;
     }};
-lua::Property UiState::sBluetoothDevices{
-    std::vector<drivers::bluetooth::Device>{}};
+
+lua::Property UiState::sBluetoothKnownDevices{
+    std::vector<drivers::bluetooth::MacAndName>{}};
+lua::Property UiState::sBluetoothDiscoveredDevices{
+    std::vector<drivers::bluetooth::MacAndName>{}};
 
 lua::Property UiState::sPlaybackPlaying{
     false, [](const lua::LuaValue& val) {
@@ -158,7 +201,14 @@ lua::Property UiState::sPlaybackPosition{
       return true;
     }};
 
-lua::Property UiState::sQueuePosition{0};
+lua::Property UiState::sQueuePosition{0, [](const lua::LuaValue& val){
+                                      if (!std::holds_alternative<int>(val)) {
+                                        return false;
+                                      }
+                                      int new_val = std::get<int>(val);
+                                      // val-1 because Lua uses 1-based indexing
+                                      return sServices->track_queue().currentPosition(new_val-1);
+                                    }};
 lua::Property UiState::sQueueSize{0};
 lua::Property UiState::sQueueRepeat{false, [](const lua::LuaValue& val) {
                                       if (!std::holds_alternative<bool>(val)) {
@@ -184,6 +234,7 @@ lua::Property UiState::sQueueRandom{false, [](const lua::LuaValue& val) {
                                       sServices->track_queue().random(new_val);
                                       return true;
                                     }};
+lua::Property UiState::sQueueLoading{false};
 
 lua::Property UiState::sVolumeCurrentPct{
     0, [](const lua::LuaValue& val) {
@@ -336,6 +387,13 @@ int UiState::PopScreen() {
   return sScreens.size();
 }
 
+void UiState::react(const Screenshot& ev) {
+  if (!sCurrentScreen) {
+    return;
+  }
+  SaveScreenshot(sCurrentScreen->root(), ev.filename);
+}
+
 void UiState::react(const system_fsm::KeyLockChanged& ev) {
   sDisplay->SetDisplayOn(!ev.locking);
   sInput->lock(ev.locking);
@@ -367,20 +425,39 @@ void UiState::react(const system_fsm::BatteryStateChanged& ev) {
   sBatteryPct.setDirect(static_cast<int>(ev.new_state.percent));
   sBatteryMv.setDirect(static_cast<int>(ev.new_state.millivolts));
   sBatteryCharging.setDirect(ev.new_state.is_charging);
+  sPowerChargeState.setDirect(
+      drivers::Samd::chargeStatusToString(ev.new_state.raw_status));
+
+  // FIXME: Avoid calling these event handlers before boot.
+  if (sServices) {
+    sPowerFastChargeEnabled.setDirect(sServices->nvs().FastCharge());
+  }
 }
 
-void UiState::react(const audio::QueueUpdate&) {
+void UiState::react(const audio::QueueUpdate& update) {
   auto& queue = sServices->track_queue();
-  sQueueSize.setDirect(static_cast<int>(queue.totalSize()));
+  auto queue_size = queue.totalSize();
+  sQueueSize.setDirect(static_cast<int>(queue_size));
 
   int current_pos = queue.currentPosition();
-  if (queue.current()) {
+  // If there is nothing in the queue, the position should be 0, otherwise, add
+  // one because lua
+  if (queue_size > 0) {
     current_pos++;
+  }
+  if (current_pos > queue_size) {
+    current_pos = queue_size;
   }
   sQueuePosition.setDirect(current_pos);
   sQueueRandom.setDirect(queue.random());
   sQueueRepeat.setDirect(queue.repeat());
   sQueueReplay.setDirect(queue.replay());
+
+  if (update.reason == audio::QueueUpdate::Reason::kBulkLoadingUpdate) {
+    sQueueLoading.setDirect(true);
+  } else {
+    sQueueLoading.setDirect(false);
+  }
 }
 
 void UiState::react(const audio::PlaybackUpdate& ev) {
@@ -412,8 +489,13 @@ void UiState::react(const audio::VolumeLimitChanged& ev) {
 
 void UiState::react(const system_fsm::BluetoothEvent& ev) {
   using drivers::bluetooth::SimpleEvent;
+  using ConnectionState = drivers::Bluetooth::ConnectionState;
+  ConnectionState state;
   auto bt = sServices->bluetooth();
-  auto dev = bt.ConnectedDevice();
+
+  std::optional<drivers::bluetooth::MacAndName> dev;
+  std::vector<drivers::bluetooth::MacAndName> devs;
+
   if (std::holds_alternative<SimpleEvent>(ev.event)) {
     switch (std::get<SimpleEvent>(ev.event)) {
       case SimpleEvent::kPlayPause:
@@ -438,30 +520,36 @@ void UiState::react(const system_fsm::BluetoothEvent& ev) {
         break;
       case SimpleEvent::kFastForward:
         break;
-      case SimpleEvent::kKnownDevicesChanged:
-        sBluetoothDevices.setDirect(bt.KnownDevices());
-        break;
       case SimpleEvent::kConnectionStateChanged:
-        sBluetoothConnected.setDirect(bt.IsConnected());
+        state = bt.connectionState();
+        sBluetoothConnected.setDirect(state == ConnectionState::kConnected);
+        sBluetoothConnecting.setDirect(state == ConnectionState::kConnecting);
+        break;
+      case SimpleEvent::kPairedDeviceChanged:
+        dev = bt.pairedDevice();
         if (dev) {
-          sBluetoothPairedDevice.setDirect(drivers::bluetooth::Device{
-              .address = dev->mac,
-              .name = {dev->name.data(), dev->name.size()},
-              .class_of_device = 0,
-              .signal_strength = 0,
-          });
+          sBluetoothPairedDevice.setDirect(*dev);
         } else {
           sBluetoothPairedDevice.setDirect(std::monostate{});
         }
         break;
-      case SimpleEvent::kPreferredDeviceChanged:
+      case SimpleEvent::kKnownDevicesChanged:
+        sBluetoothKnownDevices.setDirect(bt.knownDevices());
+        break;
+      case SimpleEvent::kDiscoveryChanged:
+        sBluetoothDiscovering.setDirect(bt.discoveryEnabled());
+        // Dump the old list of discovered devices when discovery is toggled.
+        sBluetoothDiscoveredDevices.setDirect(bt.discoveredDevices());
+        break;
+      case SimpleEvent::kDeviceDiscovered:
+        sBluetoothDiscoveredDevices.setDirect(bt.discoveredDevices());
         break;
       default:
         break;
     }
   } else if (std::holds_alternative<drivers::bluetooth::RemoteVolumeChanged>(
                  ev.event)) {
-    // Todo: Do something with this (ie, bt volume alert)
+    // TODO: Do something with this (ie, bt volume alert)
     ESP_LOGI(
         kTag, "Recieved volume changed event with new volume: %d",
         std::get<drivers::bluetooth::RemoteVolumeChanged>(ev.event).new_vol);
@@ -512,23 +600,53 @@ void Lua::entry() {
 
     auto& registry = lua::Registry::instance(*sServices);
     sLua = registry.uiThread();
-    registry.AddPropertyModule("power", {
-                                            {"battery_pct", &sBatteryPct},
-                                            {"battery_millivolts", &sBatteryMv},
-                                            {"plugged_in", &sBatteryCharging},
-                                        });
-    registry.AddPropertyModule("bluetooth",
+    registry.AddPropertyModule("power",
                                {
-                                   {"enabled", &sBluetoothEnabled},
-                                   {"connected", &sBluetoothConnected},
-                                   {"paired_device", &sBluetoothPairedDevice},
-                                   {"devices", &sBluetoothDevices},
+                                   {"battery_pct", &sBatteryPct},
+                                   {"battery_millivolts", &sBatteryMv},
+                                   {"plugged_in", &sBatteryCharging},
+                                   {"charge_state", &sPowerChargeState},
+                                   {"fast_charge", &sPowerFastChargeEnabled},
                                });
-    registry.AddPropertyModule("playback", {
-                                               {"playing", &sPlaybackPlaying},
-                                               {"track", &sPlaybackTrack},
-                                               {"position", &sPlaybackPosition},
-                                           });
+    registry.AddPropertyModule(
+        "bluetooth", {
+                         {"enabled", &sBluetoothEnabled},
+                         {"connected", &sBluetoothConnected},
+                         {"connecting", &sBluetoothConnecting},
+                         {"discovering", &sBluetoothDiscovering},
+                         {"paired_device", &sBluetoothPairedDevice},
+                         {"discovered_devices", &sBluetoothDiscoveredDevices},
+                         {"known_devices", &sBluetoothKnownDevices},
+                         {"enable", 
+                            [&](lua_State* s) {
+                              sBluetoothEnabled.set(true);
+                              return 0;
+                         }},
+                         {"disable", 
+                            [&](lua_State* s) {
+                              sBluetoothEnabled.set(false);
+                              return 0;
+                         }},
+                     });
+    registry.AddPropertyModule(
+        "playback",
+        {
+            {"playing", &sPlaybackPlaying},
+            {"track", &sPlaybackTrack},
+            {"position", &sPlaybackPosition},
+            {"is_playable",
+             [&](lua_State* s) {
+               size_t len;
+               const char* path = luaL_checklstring(s, 1, &len);
+               auto res = sServices->tag_parser().ReadAndParseTags({path, len});
+               if (res) {
+                 lua_pushboolean(s, true);
+               } else {
+                 lua_pushboolean(s, false);
+               }
+               return 1;
+             }},
+        });
     registry.AddPropertyModule(
         "queue",
         {
@@ -539,6 +657,7 @@ void Lua::entry() {
             {"replay", &sQueueReplay},
             {"repeat_track", &sQueueRepeat},
             {"random", &sQueueRandom},
+            {"loading", &sQueueLoading},
         });
     registry.AddPropertyModule("volume",
                                {
@@ -601,9 +720,14 @@ void Lua::entry() {
     sDatabaseAutoUpdate.setDirect(sServices->nvs().DbAutoIndex());
 
     auto bt = sServices->bluetooth();
-    sBluetoothEnabled.setDirect(bt.IsEnabled());
-    sBluetoothConnected.setDirect(bt.IsConnected());
-    sBluetoothDevices.setDirect(bt.KnownDevices());
+    sBluetoothEnabled.setDirect(bt.enabled());
+    auto paired = bt.pairedDevice();
+    if (paired) {
+      sBluetoothPairedDevice.setDirect(*paired);
+    }
+    sBluetoothKnownDevices.setDirect(bt.knownDevices());
+
+    sPowerFastChargeEnabled.setDirect(sServices->nvs().FastCharge());
 
     if (sServices->sd() == drivers::SdState::kMounted) {
       sLua->RunScript("/sdcard/config.lua");
@@ -630,7 +754,7 @@ auto Lua::PushLuaScreen(lua_State* s, bool replace) -> int {
 
   // Call the constructor for this screen.
   // lua_settop(s, 1);  // Make sure the screen is actually at top of stack
-  lua_pushliteral(s, "createUi");
+  lua_pushliteral(s, "create_ui");
   if (lua_gettable(s, 1) == LUA_TFUNCTION) {
     lua_pushvalue(s, 1);
     lua::CallProtected(s, 1, 0);

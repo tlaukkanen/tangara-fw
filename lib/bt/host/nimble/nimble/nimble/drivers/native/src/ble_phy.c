@@ -165,7 +165,7 @@ ble_phy_rxpdu_copy(uint8_t *dptr, struct os_mbuf *rxpdu)
     struct os_mbuf_pkthdr *pkthdr;
 
     /* Better be aligned */
-    assert(((uint32_t)dptr & 3) == 0);
+    assert(((uintptr_t)dptr & 3) == 0);
 
     pkthdr = OS_MBUF_PKTHDR(rxpdu);
     rem_bytes = pkthdr->omp_len;
@@ -342,24 +342,18 @@ ble_phy_restart_rx(void)
 }
 
 #if MYNEWT_VAL(BLE_LL_CFG_FEAT_LE_ENCRYPTION)
-/**
- * Called to enable encryption at the PHY. Note that this state will persist
- * in the PHY; in other words, if you call this function you have to call
- * disable so that future PHY transmits/receives will not be encrypted.
- *
- * @param pkt_counter
- * @param iv
- * @param key
- * @param is_master
- */
 void
-ble_phy_encrypt_enable(uint64_t pkt_counter, uint8_t *iv, uint8_t *key,
-                       uint8_t is_master)
+ble_phy_encrypt_enable(const uint8_t *key)
 {
 }
 
 void
-ble_phy_encrypt_set_pkt_cntr(uint64_t pkt_counter, int dir)
+ble_phy_encrypt_iv_set(const uint8_t *iv)
+{
+}
+
+void
+ble_phy_encrypt_counter_set(uint64_t counter, uint8_t dir_bit)
 {
 }
 
@@ -464,7 +458,7 @@ ble_phy_tx(ble_phy_tx_pducb_t pducb, void *pducb_arg, uint8_t end_trans)
  * @return int 0: success; anything else is an error
  */
 int
-ble_phy_txpwr_set(int dbm)
+ble_phy_tx_power_set(int dbm)
 {
     /* Check valid range */
     assert(dbm <= BLE_PHY_MAX_PWR_DBM);
@@ -492,7 +486,8 @@ ble_phy_txpwr_set(int dbm)
  *
  * @return int Rounded power in dBm
  */
-int ble_phy_txpower_round(int dbm)
+int
+ble_phy_tx_power_round(int dbm)
 {
     /* "Rail" power level if outside supported range */
     if (dbm > BLE_XCVR_TX_PWR_MAX_DBM) {
@@ -514,7 +509,7 @@ int ble_phy_txpower_round(int dbm)
  * @return int  The current PHY transmit power, in dBm
  */
 int
-ble_phy_txpwr_get(void)
+ble_phy_tx_power_get(void)
 {
     return g_ble_phy_data.phy_txpwr_dbm;
 }
@@ -554,6 +549,12 @@ ble_phy_setchan(uint8_t chan, uint32_t access_addr, uint32_t crcinit)
     g_ble_phy_data.phy_chan = chan;
 
     return 0;
+}
+
+uint8_t
+ble_phy_chan_get(void)
+{
+    return g_ble_phy_data.phy_chan;
 }
 
 /**

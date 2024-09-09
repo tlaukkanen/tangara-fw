@@ -8,8 +8,8 @@ local function show_license(text)
   backstack.push(widgets.MenuScreen:new {
     show_back = true,
     title = "Licenses",
-    createUi = function(self)
-      widgets.MenuScreen.createUi(self)
+    create_ui = function(self)
+      widgets.MenuScreen.create_ui(self)
       self.root:Label {
         w = lvgl.PCT(100),
         h = lvgl.SIZE_CONTENT,
@@ -64,7 +64,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 end
 
 return function(self)
-  local container = self.root:Object {
+  local container = self.content:Object {
     flex = {
       flex_direction = "column",
       flex_wrap = "nowrap",

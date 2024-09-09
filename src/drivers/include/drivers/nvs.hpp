@@ -34,7 +34,7 @@ class Setting {
       dirty_ = true;
     }
   }
-  auto get() -> std::optional<T>& { return val_; }
+  auto get() -> std::optional<T> { return val_; }
 
   /* Reads the stored value from NVS and parses it into the correct type. */
   auto load(nvs_handle_t) -> std::optional<T>;
@@ -90,11 +90,18 @@ class NvsStorage {
   auto LraCalibration() -> std::optional<LraData>;
   auto LraCalibration(const LraData&) -> void;
 
+  auto FastCharge() -> bool;
+  auto FastCharge(bool) -> void;
+
   auto PreferredBluetoothDevice() -> std::optional<bluetooth::MacAndName>;
   auto PreferredBluetoothDevice(std::optional<bluetooth::MacAndName>) -> void;
 
   auto BluetoothVolume(const bluetooth::mac_addr_t&) -> uint8_t;
   auto BluetoothVolume(const bluetooth::mac_addr_t&, uint8_t) -> void;
+
+  auto BluetoothNames() -> std::vector<bluetooth::MacAndName>;
+  auto BluetoothName(const bluetooth::mac_addr_t&, std::optional<std::string>)
+      -> void;
 
   enum class Output : uint8_t {
     kHeadphones = 0,
@@ -105,6 +112,9 @@ class NvsStorage {
 
   auto ScreenBrightness() -> uint_fast8_t;
   auto ScreenBrightness(uint_fast8_t) -> void;
+
+  auto InterfaceTheme() -> std::optional<std::string>;
+  auto InterfaceTheme(std::string) -> void;
 
   auto ScrollSensitivity() -> uint_fast8_t;
   auto ScrollSensitivity(uint_fast8_t) -> void;
@@ -146,6 +156,7 @@ class NvsStorage {
   Setting<uint16_t> display_rows_;
   Setting<uint8_t> haptic_motor_type_;
   Setting<LraData> lra_calibration_;
+  Setting<uint8_t> fast_charge_;
 
   Setting<uint8_t> brightness_;
   Setting<uint8_t> sensitivity_;
@@ -154,7 +165,12 @@ class NvsStorage {
   Setting<int8_t> amp_left_bias_;
   Setting<uint8_t> input_mode_;
   Setting<uint8_t> output_mode_;
+
+  Setting<std::string> theme_;
+
   Setting<bluetooth::MacAndName> bt_preferred_;
+  Setting<std::vector<bluetooth::MacAndName>> bt_names_;
+
   Setting<uint8_t> db_auto_index_;
 
   util::LruCache<10, bluetooth::mac_addr_t, uint8_t> bt_volumes_;

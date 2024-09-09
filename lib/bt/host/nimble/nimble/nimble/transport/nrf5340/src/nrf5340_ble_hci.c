@@ -19,11 +19,12 @@
 
 #include <assert.h>
 #include <string.h>
+#include <syscfg/syscfg.h>
 #include <sysinit/sysinit.h>
 #include <nimble/ble.h>
 #include <ipc_nrf5340/ipc_nrf5340.h>
 #include <nimble/transport.h>
-#include <nimble/transport/hci_h4.h>
+#include <nimble/transport/hci_ipc.h>
 
 #if MYNEWT_VAL(BLE_CONTROLLER)
 #define IPC_TX_CHANNEL 0
@@ -33,20 +34,23 @@
 #define IPC_RX_CHANNEL 0
 #endif
 
-static struct hci_h4_sm hci_nrf5340_h4sm;
+static struct hci_ipc_sm g_hci_ipc_sm;
 
 static int
 nrf5340_ble_hci_acl_tx(struct os_mbuf *om)
 {
-    uint8_t ind = HCI_H4_ACL;
+    struct hci_ipc_hdr hdr;
     struct os_mbuf *x;
     int rc;
 
-    rc = ipc_nrf5340_send(IPC_TX_CHANNEL, &ind, 1);
+    hdr.type = HCI_IPC_TYPE_ACL;
+    hdr.length = 4 + get_le16(&om->om_data[2]);
+
+    rc = ipc_nrf5340_write(IPC_TX_CHANNEL, &hdr, sizeof(hdr), false);
     if (rc == 0) {
         x = om;
         while (x) {
-            rc = ipc_nrf5340_send(IPC_TX_CHANNEL, x->om_data, x->om_len);
+            rc = ipc_nrf5340_write(IPC_TX_CHANNEL, x->om_data, x->om_len, true);
             if (rc < 0) {
                 break;
             }
@@ -59,36 +63,34 @@ nrf5340_ble_hci_acl_tx(struct os_mbuf *om)
     return (rc < 0) ? BLE_ERR_MEM_CAPACITY : 0;
 }
 
+#if !MYNEWT_VAL(BLE_CONTROLLER)
 static int
-nrf5340_ble_hci_frame_cb(uint8_t pkt_type, void *data)
+nrf5340_ble_hci_iso_tx(struct os_mbuf *om)
 {
+    struct hci_ipc_hdr hdr;
+    struct os_mbuf *x;
     int rc;
 
-    switch (pkt_type) {
-#if MYNEWT_VAL(BLE_CONTROLLER)
-    case HCI_H4_CMD:
-        rc = ble_transport_to_ll_cmd(data);
-        break;
-#endif
-    case HCI_H4_ACL:
-#if MYNEWT_VAL(BLE_CONTROLLER)
-        rc = ble_transport_to_ll_acl(data);
-#else
-        rc = ble_transport_to_hs_acl(data);
-#endif
-        break;
-#if !MYNEWT_VAL(BLE_CONTROLLER)
-    case HCI_H4_EVT:
-        rc = ble_transport_to_hs_evt(data);
-        break;
-#endif
-    default:
-        assert(0);
-        break;
+    hdr.type = HCI_IPC_TYPE_ISO;
+    hdr.length = 4 + get_le16(&om->om_data[2]);
+
+    rc = ipc_nrf5340_write(IPC_TX_CHANNEL, &hdr, sizeof(hdr), false);
+    if (rc == 0) {
+        x = om;
+        while (x) {
+            rc = ipc_nrf5340_write(IPC_TX_CHANNEL, x->om_data, x->om_len, true);
+            if (rc < 0) {
+                break;
+            }
+            x = SLIST_NEXT(x, om_next);
+        }
     }
 
-    return rc;
+    os_mbuf_free_chain(om);
+
+    return (rc < 0) ? BLE_ERR_MEM_CAPACITY : 0;
 }
+#endif
 
 static void
 nrf5340_ble_hci_trans_rx(int channel, void *user_data)
@@ -98,7 +100,7 @@ nrf5340_ble_hci_trans_rx(int channel, void *user_data)
 
     len = ipc_nrf5340_available_buf(channel, (void **)&buf);
     while (len > 0) {
-        len = hci_h4_sm_rx(&hci_nrf5340_h4sm, buf, len);
+        len = hci_ipc_rx(&g_hci_ipc_sm, buf, len);
         ipc_nrf5340_consume(channel, len);
         len = ipc_nrf5340_available_buf(channel, (void **)&buf);
     }
@@ -116,17 +118,19 @@ nrf5340_ble_hci_init(void)
 int
 ble_transport_to_hs_evt_impl(void *buf)
 {
-    uint8_t ind = HCI_H4_EVT;
-    uint8_t* hci_ev = buf;
-    int len = 2 + hci_ev[1];
+    struct hci_ipc_hdr hdr;
+    uint8_t *hci_ev = buf;
     int rc;
 
-    rc = ipc_nrf5340_send(IPC_TX_CHANNEL, &ind, 1);
+    hdr.type = ble_transport_ipc_buf_evt_type_get(buf);
+    hdr.length = 2 + hci_ev[1];
+
+    rc = ipc_nrf5340_write(IPC_TX_CHANNEL, &hdr, sizeof(hdr), false);
     if (rc == 0) {
-        rc = ipc_nrf5340_send(IPC_TX_CHANNEL, hci_ev, len);
+        rc = ipc_nrf5340_write(IPC_TX_CHANNEL, hci_ev, hdr.length, true);
     }
 
-    ble_transport_free(buf);
+    ble_transport_ipc_free(buf);
 
     return (rc < 0) ? BLE_ERR_MEM_CAPACITY : 0;
 }
@@ -140,8 +144,9 @@ ble_transport_to_hs_acl_impl(struct os_mbuf *om)
 void
 ble_transport_hs_init(void)
 {
-    hci_h4_sm_init(&hci_nrf5340_h4sm, &hci_h4_allocs_from_hs,
-                   nrf5340_ble_hci_frame_cb);
+    volatile struct hci_ipc_shm *shm = ipc_nrf5340_hci_shm_get();
+
+    hci_ipc_init(shm, &g_hci_ipc_sm);
     nrf5340_ble_hci_init();
 }
 #endif /* BLE_CONTROLLER */
@@ -150,17 +155,19 @@ ble_transport_hs_init(void)
 int
 ble_transport_to_ll_cmd_impl(void *buf)
 {
-    uint8_t ind = HCI_H4_CMD;
+    struct hci_ipc_hdr hdr;
     uint8_t *cmd = buf;
-    int len = 3 + cmd[2];
     int rc;
 
-    rc = ipc_nrf5340_send(IPC_TX_CHANNEL, &ind, 1);
+    hdr.type = HCI_IPC_TYPE_CMD;
+    hdr.length = 3 + cmd[2];
+
+    rc = ipc_nrf5340_write(IPC_TX_CHANNEL, &hdr, sizeof(hdr), false);
     if (rc == 0) {
-        rc = ipc_nrf5340_send(IPC_TX_CHANNEL, cmd, len);
+        rc = ipc_nrf5340_write(IPC_TX_CHANNEL, cmd, hdr.length, true);
     }
 
-    ble_transport_free(buf);
+    ble_transport_ipc_free(buf);
 
     return (rc < 0) ? BLE_ERR_MEM_CAPACITY :  0;
 }
@@ -171,11 +178,54 @@ ble_transport_to_ll_acl_impl(struct os_mbuf *om)
     return nrf5340_ble_hci_acl_tx(om);
 }
 
+int
+ble_transport_to_ll_iso_impl(struct os_mbuf *om)
+{
+    return nrf5340_ble_hci_iso_tx(om);
+}
+
 void
 ble_transport_ll_init(void)
 {
-    hci_h4_sm_init(&hci_nrf5340_h4sm, &hci_h4_allocs_from_ll,
-                   nrf5340_ble_hci_frame_cb);
+    volatile struct hci_ipc_shm *shm = ipc_nrf5340_hci_shm_get();
+
+    hci_ipc_init(shm, &g_hci_ipc_sm);
     nrf5340_ble_hci_init();
 }
 #endif /* !BLE_CONTROLLER */
+
+uint16_t
+hci_ipc_atomic_get(volatile uint16_t *num)
+{
+    int ret;
+
+    __asm__ volatile (".syntax unified                \n"
+                      "1: ldrexh r1, [%[addr]]        \n"
+                      "   mov %[ret], r1              \n"
+                      "   cmp r1, #0                  \n"
+                      "   itte ne                     \n"
+                      "   subne r2, r1, #1            \n"
+                      "   strexhne r1, r2, [%[addr]]  \n"
+                      "   clrexeq                     \n"
+                      "   cmp r1, #0                  \n"
+                      "   bne 1b                      \n"
+                      : [ret] "=&r" (ret)
+                      : [addr] "r" (num)
+                      : "r1", "r2", "memory");
+
+    return ret;
+}
+
+void
+hci_ipc_atomic_put(volatile uint16_t *num)
+{
+    __asm__ volatile (".syntax unified              \n"
+                      "1: ldrexh r1, [%[addr]]      \n"
+                      "   add r1, r1, #1            \n"
+                      "   strexh r2, r1, [%[addr]]  \n"
+                      "   cmp r2, #0                \n"
+                      "   bne 1b                    \n"
+                      :
+                      : [addr] "r" (num)
+                      : "r1", "r2", "memory");
+}

@@ -39,7 +39,8 @@ class TouchWheel {
   auto Update() -> void;
   auto GetTouchWheelData() const -> TouchWheelData;
 
-  auto PowerDown() -> void;
+  auto Recalibrate() -> void;
+  auto LowPowerMode(bool en) -> void;
 
  private:
   TouchWheelData data_;

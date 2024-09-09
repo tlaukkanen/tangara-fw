@@ -57,14 +57,6 @@ struct ble_store_key_sec {
      */
     ble_addr_t peer_addr;
 
-    /** Key by ediv; ediv_rand_present=0 means don't key off ediv. */
-    uint16_t ediv;
-
-    /** Key by rand_num; ediv_rand_present=0 means don't key off rand_num. */
-    uint64_t rand_num;
-
-    unsigned ediv_rand_present:1;
-
     /** Number of results to skip; 0 means retrieve the first match. */
     uint8_t idx;
 };
@@ -77,6 +69,7 @@ struct ble_store_key_sec {
  */
 struct ble_store_value_sec {
     ble_addr_t peer_addr;
+    uint16_t bond_count;
 
     uint8_t key_size;
     uint16_t ediv;
@@ -243,6 +236,42 @@ struct ble_store_status_event {
         } full;
     };
 };
+
+/* Generate LTK, EDIT and Rand */
+#define BLE_STORE_GEN_KEY_LTK       0x01
+/* Generate IRK */
+#define BLE_STORE_GEN_KEY_IRK       0x02
+/* Generate CSRK */
+#define BLE_STORE_GEN_KEY_CSRK      0x03
+
+struct ble_store_gen_key {
+    union {
+        uint8_t ltk_periph[16];
+        uint8_t irk[16];
+        uint8_t csrk[16];
+    };
+    uint16_t ediv;
+    uint64_t rand;
+};
+
+/**
+ * Generates key required by security module.
+ * This can be used to use custom routines to generate keys instead of simply
+ * randomizing them.
+ *
+ * \p conn_handle is set to \p BLE_HS_CONN_HANDLE_NONE if key is not requested
+ * for a specific connection (e.g. an IRK).
+ *
+ * @param key                   Key that shall be generated.
+ * @param gen_key               Storage for generated key.
+ * @param conn_handle           Connection handle for which keys are generated.
+ *
+ * @return                      0 if keys were generated successfully
+ *                              Other nonzero on error.
+ */
+typedef int ble_store_gen_key_fn(uint8_t key,
+                                 struct ble_store_gen_key *gen_key,
+                                 uint16_t conn_handle);
 
 /**
  * Searches the store for an object matching the specified criteria.  If a

@@ -8,6 +8,7 @@ local styles = require("styles")
 local database = require("database")
 local theme = require("theme")
 local screen = require("screen")
+local images = require("images")
 
 local img = {
   db = lvgl.ImgData("//lua/img/db.png"),
@@ -18,7 +19,6 @@ local img = {
   bat_40 = lvgl.ImgData("//lua/img/bat/40.png"),
   bat_20 = lvgl.ImgData("//lua/img/bat/20.png"),
   bat_0 = lvgl.ImgData("//lua/img/bat/0.png"),
-  bat_0chg = lvgl.ImgData("//lua/img/bat/0chg.png"),
   bt_conn = lvgl.ImgData("//lua/img/bt_conn.png"),
   bt = lvgl.ImgData("//lua/img/bt.png")
 }
@@ -37,7 +37,7 @@ end
 widgets.MenuScreen = screen:new {
   show_back = false,
   title = "",
-  createUi = function(self)
+  create_ui = function(self)
     self.root = lvgl.Object(nil, {
       flex = {
         flex_direction = "column",
@@ -58,7 +58,7 @@ widgets.MenuScreen = screen:new {
   end
 }
 
-function widgets.Row(parent, left, right)
+function widgets.Row(parent, left_text, right_text)
   local container = parent:Object {
     flex = {
       flex_direction = "row",
@@ -70,20 +70,23 @@ function widgets.Row(parent, left, right)
     h = lvgl.SIZE_CONTENT
   }
   container:add_style(styles.list_item)
-  container:Label {
-    text = left,
-    flex_grow = 1
+  local left = container:Label {
+    text = left_text,
+    flex_grow = 1,
   }
-  container:Label {
-    text = right
+  local right = container:Label {
+    text = right_text or "",
+  }
+  return {
+    left = left,
+    right = right,
   }
 end
 
-local bindings_meta = {
-  __add = function(a, b)
-    return table.move(a, 1, #a, #b + 1, b)
-  end
-}
+local bindings_meta = {}
+bindings_meta["__add"] = function(a, b)
+  return setmetatable(table.move(a, 1, #a, #b + 1, b), bindings_meta)
+end
 
 function widgets.StatusBar(parent, opts)
   local root = parent.root:Object {
@@ -98,6 +101,7 @@ function widgets.StatusBar(parent, opts)
     pad_top = 1,
     pad_bottom = 1,
     pad_left = 4,
+    pad_right = 4,
     pad_column = 1,
     scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF,
   }
@@ -109,11 +113,22 @@ function widgets.StatusBar(parent, opts)
   if opts.back_cb then
     local back = root:Button {
       w = lvgl.SIZE_CONTENT,
-      h = 12,
+      h = lvgl.SIZE_CONTENT,
     }
-    local label = back:Label({ text = "<", align = lvgl.ALIGN.CENTER })
-    widgets.Description(label, "Back")
+    back:Image{src=images.back}
+    theme.set_style(back, "back_button")
+    widgets.Description(back, "Back")
     back:onClicked(opts.back_cb)
+    back:onevent(lvgl.EVENT.FOCUSED, function()
+      local first_view = parent.content
+      if not first_view then return end
+      while first_view:get_child_cnt() > 0 do
+        first_view = first_view:get_child(0)
+      end
+      if first_view then
+        first_view:scroll_to_view_recursive(1)
+      end
+    end)
   end
 
   local title = root:Label {
@@ -123,6 +138,7 @@ function widgets.StatusBar(parent, opts)
     text = "",
     align = lvgl.ALIGN.CENTER,
     flex_grow = 1,
+    pad_left = 2,
   }
   if opts.title then
     title:set { text = opts.title }
@@ -141,24 +157,29 @@ function widgets.StatusBar(parent, opts)
   local function update_battery_icon()
     if is_charging == nil or percent == nil then return end
     local src
+    theme.set_style(battery_icon, "battery")
     if percent >= 95 then
+      theme.set_style(battery_icon, "battery_100")
       src = img.bat_100
     elseif percent >= 75 then
+      theme.set_style(battery_icon, "battery_80")
       src = img.bat_80
     elseif percent >= 55 then
+      theme.set_style(battery_icon, "battery_60")
       src = img.bat_60
     elseif percent >= 35 then
+      theme.set_style(battery_icon, "battery_40")
       src = img.bat_40
     elseif percent >= 15 then
+      theme.set_style(battery_icon, "battery_20")
       src = img.bat_20
     else
-      if is_charging then
-        src = img.bat_0chg
-      else
-        src = img.bat_0
-      end
+      theme.set_style(battery_icon, "battery_0")
+      src = img.bat_0
     end
     if is_charging then
+      theme.set_style(battery_icon, "battery_charging")
+      theme.set_style(charge_icon, "battery_charge_icon")
       charge_icon:clear_flag(lvgl.FLAG.HIDDEN)
     else
       charge_icon:add_flag(lvgl.FLAG.HIDDEN)
@@ -190,6 +211,7 @@ function widgets.StatusBar(parent, opts)
       end
     end),
     bluetooth.connected:bind(function(connected)
+      theme.set_style(bt_icon, "bluetooth_icon")
       if connected then
         bt_icon:set_src(img.bt_conn)
       else
@@ -210,10 +232,6 @@ function widgets.IconBtn(parent, icon, text)
     },
     w = lvgl.SIZE_CONTENT,
     h = lvgl.SIZE_CONTENT,
-    pad_top = 1,
-    pad_bottom = 1,
-    pad_left = 1,
-    pad_column = 1
   }
   btn:Image {
     src = icon

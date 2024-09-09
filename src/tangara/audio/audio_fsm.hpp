@@ -67,6 +67,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const system_fsm::KeyLockChanged&){};
   virtual void react(const system_fsm::SdStateChanged&) {}
   virtual void react(const system_fsm::BluetoothEvent&);
+  virtual void react(const system_fsm::HasPhonesChanged&);
 
  protected:
   auto emitPlaybackUpdate(bool paused) -> void;

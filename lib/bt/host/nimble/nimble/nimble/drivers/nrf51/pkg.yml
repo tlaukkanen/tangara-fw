@@ -29,3 +29,6 @@ pkg.apis: ble_driver
 pkg.deps:
     - nimble
     - nimble/controller
+
+# allows to override nimble/controller settings
+pkg.subpriority: 1

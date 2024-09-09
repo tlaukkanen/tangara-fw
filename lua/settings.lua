@@ -7,13 +7,16 @@ local display = require("display")
 local controls = require("controls")
 local bluetooth = require("bluetooth")
 local theme = require("theme")
+local filesystem = require("filesystem")
 local database = require("database")
 local usb = require("usb")
+local font = require("font")
+local main_menu = require("main_menu")
 
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
-  createUi = function(self)
-    widgets.MenuScreen.createUi(self)
+  create_ui = function(self)
+    widgets.MenuScreen.create_ui(self)
     self.content = self.root:Object {
       flex = {
         flex_direction = "column",
@@ -30,10 +33,38 @@ local SettingsScreen = widgets.MenuScreen:new {
   end
 }
 
+local BluetoothPairing = SettingsScreen:new {
+  title = "Nearby Devices",
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+
+    local devices = self.content:List {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+    }
+
+    self.bindings = self.bindings + {
+      bluetooth.discovered_devices:bind(function(devs)
+        devices:clean()
+        for _, dev in pairs(devs) do
+          devices:add_btn(nil, dev.name):onClicked(function()
+            bluetooth.paired_device:set(dev)
+            backstack.pop()
+          end)
+        end
+      end)
+    }
+  end,
+  on_show = function() bluetooth.discovering:set(true) end,
+  on_hide = function() bluetooth.discovering:set(false) end,
+}
+
 local BluetoothSettings = SettingsScreen:new {
   title = "Bluetooth",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+
+    -- Enable/Disable switch
     local enable_container = self.content:Object {
       flex = {
         flex_direction = "row",
@@ -52,11 +83,42 @@ local BluetoothSettings = SettingsScreen:new {
       bluetooth.enabled:set(enabled)
     end)
 
-    theme.set_style(self.content:Label {
-      text = "Paired Device",
-      pad_bottom = 1,
-    }, "settings_title")
+    self.bindings = self.bindings + {
+      bluetooth.enabled:bind(function(en)
+        if en then
+          enable_sw:add_state(lvgl.STATE.CHECKED)
+        else
+          enable_sw:clear_state(lvgl.STATE.CHECKED)
+        end
+      end),
+    }
 
+    -- Connection status
+    -- This is presented as a label on the field showing the currently paired
+    -- device.
+
+    local paired_label =
+        self.content:Label {
+          text = "",
+          pad_bottom = 1,
+        }
+    theme.set_style(paired_label, "settings_title")
+
+    self.bindings = self.bindings + {
+      bluetooth.connecting:bind(function(conn)
+        if conn then
+          paired_label:set { text = "Connecting to:" }
+        else
+          if bluetooth.connected:get() then
+            paired_label:set { text = "Connected to:" }
+          else
+            paired_label:set { text = "Paired with:" }
+          end
+        end
+      end),
+    }
+
+    -- The name of the currently paired device.
     local paired_container = self.content:Object {
       flex = {
         flex_direction = "row",
@@ -78,24 +140,7 @@ local BluetoothSettings = SettingsScreen:new {
       bluetooth.paired_device:set()
     end)
 
-    theme.set_style(self.content:Label {
-      text = "Nearby Devices",
-      pad_bottom = 1,
-    }, "settings_title")
-
-    local devices = self.content:List {
-      w = lvgl.PCT(100),
-      h = lvgl.SIZE_CONTENT,
-    }
-
     self.bindings = self.bindings + {
-      bluetooth.enabled:bind(function(en)
-        if en then
-          enable_sw:add_state(lvgl.STATE.CHECKED)
-        else
-          enable_sw:clear_state(lvgl.STATE.CHECKED)
-        end
-      end),
       bluetooth.paired_device:bind(function(device)
         if device then
           paired_device:set { text = device.name }
@@ -105,13 +150,52 @@ local BluetoothSettings = SettingsScreen:new {
           clear_paired:add_flag(lvgl.FLAG.HIDDEN)
         end
       end),
-      bluetooth.devices:bind(function(devs)
+    }
+
+    theme.set_style(self.content:Label {
+      text = "Known Devices",
+      pad_bottom = 1,
+    }, "settings_title")
+
+    local devices = self.content:List {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+    }
+
+    -- 'Pair new device' button that goes to the discovery screen.
+
+    local button_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    local pair_new = button_container:Button {}
+    pair_new:Label { text = "Pair new device" }
+    pair_new:onClicked(function()
+      backstack.push(BluetoothPairing:new())
+    end)
+
+
+    self.bindings = self.bindings + {
+      bluetooth.known_devices:bind(function(devs)
+        local group = lvgl.group.get_default()
+        group.remove_obj(pair_new)
         devices:clean()
         for _, dev in pairs(devs) do
           devices:add_btn(nil, dev.name):onClicked(function()
             bluetooth.paired_device:set(dev)
           end)
         end
+        group:add_obj(pair_new)
       end)
     }
   end
@@ -119,8 +203,8 @@ local BluetoothSettings = SettingsScreen:new {
 
 local HeadphonesSettings = SettingsScreen:new {
   title = "Headphones",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     theme.set_style(self.content:Label {
       text = "Maxiumum volume limit",
@@ -143,7 +227,6 @@ local HeadphonesSettings = SettingsScreen:new {
 
     local balance = self.content:Slider {
       w = lvgl.PCT(100),
-      h = 5,
       range = { min = -100, max = 100 },
       value = 0,
     }
@@ -183,8 +266,8 @@ local HeadphonesSettings = SettingsScreen:new {
 
 local DisplaySettings = SettingsScreen:new {
   title = "Display",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local brightness_title = self.content:Object {
       flex = {
@@ -203,7 +286,6 @@ local DisplaySettings = SettingsScreen:new {
 
     local brightness = self.content:Slider {
       w = lvgl.PCT(100),
-      h = 5,
       range = { min = 0, max = 100 },
       value = display.brightness:get(),
     }
@@ -219,10 +301,69 @@ local DisplaySettings = SettingsScreen:new {
   end
 }
 
+local ThemeSettings = SettingsScreen:new {
+  title = "Theme",
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+
+    theme.set_style(self.content:Label {
+      text = "Theme",
+    }, "settings_title")
+
+    local themeOptions = {}
+    themeOptions["Dark"] = "/lua/theme_dark.lua"
+    themeOptions["Light"] = "/lua/theme_light.lua"
+    themeOptions["High Contrast"] = "/lua/theme_hicon.lua"
+
+    -- Parse theme directory for more themes
+    local theme_dir_iter = filesystem.iterator("/.themes/")
+    for dir in theme_dir_iter do
+      local theme_name = tostring(dir):match("(.+).lua$")
+      themeOptions[theme_name] = "/sdcard/.themes/" .. theme_name .. ".lua"
+    end
+
+    local saved_theme = theme.theme_filename();
+    local saved_theme_name = saved_theme:match(".+/(.*).lua$")
+
+    local options = ""
+    local idx = 0
+    local selected_idx = -1
+    for i, v in pairs(themeOptions) do
+      if (saved_theme == v) then
+          selected_idx = idx
+      end
+      if idx > 0 then
+        options = options .. "\n"
+      end
+      options = options .. i 
+      idx = idx + 1
+    end
+
+    if (selected_idx == -1) then
+      options = options .. "\n" .. saved_theme_name
+      selected_idx = idx
+    end
+
+    local theme_chooser = self.content:Dropdown {
+      options = options,
+    }
+    theme_chooser:set({selected = selected_idx})
+
+    theme_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      local option = theme_chooser:get('selected_str')
+      local selectedTheme = themeOptions[option]
+      if (selectedTheme) then
+        theme.load_theme(tostring(selectedTheme)) 
+        backstack.reset(main_menu:new())
+      end
+    end)
+  end
+}
+
 local InputSettings = SettingsScreen:new {
   title = "Input Method",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     theme.set_style(self.content:Label {
       text = "Control scheme",
@@ -262,14 +403,13 @@ local InputSettings = SettingsScreen:new {
       controls.scheme:set(scheme)
     end)
 
-    theme.set_style(self.menu.content:Label {
+    theme.set_style(self.content:Label {
       text = "Scroll Sensitivity",
     }, "settings_title")
 
     local slider_scale = 4; -- Power steering
     local sensitivity = self.content:Slider {
       w = lvgl.PCT(90),
-      h = 5,
       range = { min = 0, max = 255 / slider_scale },
       value = controls.scroll_sensitivity:get() / slider_scale,
     }
@@ -281,8 +421,8 @@ local InputSettings = SettingsScreen:new {
 
 local MassStorageSettings = SettingsScreen:new {
   title = "USB Storage",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local version = require("version").samd()
     if tonumber(version) < 3 then
@@ -339,15 +479,15 @@ local MassStorageSettings = SettingsScreen:new {
       end)
     }
   end,
-  canPop = function()
+  can_pop = function()
     return not usb.msc_enabled:get()
   end
 }
 
 local DatabaseSettings = SettingsScreen:new {
   title = "Database",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
 
     local db = require("database")
     widgets.Row(self.content, "Schema version", db.version())
@@ -357,11 +497,12 @@ local DatabaseSettings = SettingsScreen:new {
       flex = {
         flex_direction = "row",
         justify_content = "flex-start",
-        align_items = "flex-start",
+        align_items = "center",
         align_content = "flex-start",
       },
       w = lvgl.PCT(100),
       h = lvgl.SIZE_CONTENT,
+      pad_bottom = 4,
     }
     auto_update_container:add_style(styles.list_item)
     auto_update_container:Label { text = "Auto update", flex_grow = 1 }
@@ -403,10 +544,63 @@ local DatabaseSettings = SettingsScreen:new {
   end
 }
 
+local PowerSettings = SettingsScreen:new {
+  title = "Power",
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+    local power = require("power")
+
+    local charge_pct = widgets.Row(self.content, "Charge").right
+    local charge_volts = widgets.Row(self.content, "Voltage").right
+    local charge_state = widgets.Row(self.content, "Status").right
+
+    self.bindings = self.bindings + {
+      power.battery_pct:bind(function(pct)
+        charge_pct:set { text = string.format("%d%%", pct) }
+      end),
+      power.battery_millivolts:bind(function(mv)
+        charge_volts:set { text = string.format("%.2fV", mv / 1000) }
+      end),
+      power.charge_state:bind(function(state)
+        charge_state:set { text = state }
+      end),
+    }
+
+    local fast_charge_container = self.content:Object {
+      flex = {
+        flex_direction = "row",
+        justify_content = "flex-start",
+        align_items = "center",
+        align_content = "flex-start",
+      },
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      pad_bottom = 4,
+    }
+    fast_charge_container:add_style(styles.list_item)
+    fast_charge_container:Label { text = "Fast Charging", flex_grow = 1 }
+    local fast_charge_sw = fast_charge_container:Switch {}
+
+    fast_charge_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
+      power.fast_charge:set(fast_charge_sw:enabled())
+    end)
+
+    self.bindings = self.bindings + {
+      power.fast_charge:bind(function(en)
+        if en then
+          fast_charge_sw:add_state(lvgl.STATE.CHECKED)
+        else
+          fast_charge_sw:clear_state(lvgl.STATE.CHECKED)
+        end
+      end),
+    }
+  end
+}
+
 local SamdConfirmation = SettingsScreen:new {
   title = "Are you sure?",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     self.content:Label {
       w = lvgl.PCT(100),
       text = "After selecting 'flash', copy the new UF2 file onto the USB drive that appears. The screen will be blank until the update is finished.",
@@ -437,8 +631,8 @@ local SamdConfirmation = SettingsScreen:new {
 
 local FirmwareSettings = SettingsScreen:new {
   title = "Firmware",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
     local version = require("version")
     widgets.Row(self.content, "ESP32", version.esp())
     widgets.Row(self.content, "SAMD21", version.samd())
@@ -468,17 +662,118 @@ local FirmwareSettings = SettingsScreen:new {
 
 local LicensesScreen = SettingsScreen:new {
   title = "Licenses",
-  createUi = function(self)
-    SettingsScreen.createUi(self)
-    self.root = require("licenses")(self)
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+    require("licenses")(self)
+  end
+}
+
+local FccStatementScreen = SettingsScreen:new {
+  title = "FCC Statement",
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+
+    local text_part = function(text)
+      self.content:Label {
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT,
+        text = text,
+        text_font = font.fusion_10,
+        long_mode = lvgl.LABEL.LONG_WRAP,
+      }
+    end
+
+    text_part(
+      "This device complies with part 15 of the FCC Rules. Operation is subject to the following two conditions:")
+    text_part("(1) This device may not cause harmful interference, and")
+    text_part(
+      "(2) this device must accept any interference received, including interference that may cause undesired operation.")
+
+    local scroller = self.content:Object { w = 1, h = 1 }
+    scroller:onevent(lvgl.EVENT.FOCUSED, function()
+      scroller:scroll_to_view(1);
+    end)
+    lvgl.group.get_default():add_obj(scroller)
+  end
+}
+
+local RegulatoryScreen = SettingsScreen:new {
+  title = "Regulatory",
+  create_ui = function(self)
+    SettingsScreen.create_ui(self)
+    local version = require("version")
+
+    local small_row = function(left, right)
+      local container = self.content:Object {
+        flex = {
+          flex_direction = "row",
+          justify_content = "flex-start",
+          align_items = "flex-start",
+          align_content = "flex-start"
+        },
+        w = lvgl.PCT(100),
+        h = lvgl.SIZE_CONTENT
+      }
+      container:add_style(styles.list_item)
+      container:Label {
+        text = left,
+        flex_grow = 1,
+        text_font = font.fusion_10,
+      }
+      container:Label {
+        text = right,
+        text_font = font.fusion_10,
+      }
+    end
+    small_row("Manufacturer", "cool tech zone")
+    small_row("Product model", "CTZ-1")
+    small_row("FCC ID", "2BG33-CTZ1")
+
+    local button_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "space-evenly",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    button_container:add_style(styles.list_item)
+
+    local button = button_container:Button {}
+    button:Label { text = "FCC Statement" }
+    button:onClicked(function()
+      backstack.push(FccStatementScreen:new())
+    end)
+
+    local logo_container = self.content:Object {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "center",
+        align_content = "center",
+      },
+      pad_top = 4,
+      pad_column = 4,
+    }
+    theme.set_style(logo_container, "regulatory_icons")
+    button_container:add_style(styles.list_item)
+
+    logo_container:Image { src = "//lua/img/ce.png" }
+    logo_container:Image { src = "//lua/img/weee.png" }
   end
 }
 
 return widgets.MenuScreen:new {
   show_back = true,
   title = "Settings",
-  createUi = function(self)
-    widgets.MenuScreen.createUi(self)
+  create_ui = function(self)
+    widgets.MenuScreen.create_ui(self)
     local list = self.root:List {
       w = lvgl.PCT(100),
       h = lvgl.PCT(100),
@@ -507,6 +802,7 @@ return widgets.MenuScreen:new {
 
     section("Interface")
     submenu("Display", DisplaySettings)
+    submenu("Theme", ThemeSettings)
     submenu("Input Method", InputSettings)
 
     section("USB")
@@ -514,7 +810,11 @@ return widgets.MenuScreen:new {
 
     section("System")
     submenu("Database", DatabaseSettings)
+    submenu("Power", PowerSettings)
+
+    section("About")
     submenu("Firmware", FirmwareSettings)
     submenu("Licenses", LicensesScreen)
+    submenu("Regulatory", RegulatoryScreen)
   end
 }

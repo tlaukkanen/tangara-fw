@@ -48,7 +48,7 @@ static const char* kTag = "decoder";
  * increasing its size.
  */
 static constexpr std::size_t kCodecBufferLength =
-    drivers::kI2SBufferLengthFrames * sizeof(sample::Sample);
+    drivers::kI2SBufferLengthFrames * 2;
 
 auto Decoder::Start(std::shared_ptr<SampleProcessor> sink) -> Decoder* {
   Decoder* task = new Decoder(sink);
@@ -78,11 +78,17 @@ Decoder::Decoder(std::shared_ptr<SampleProcessor> processor)
  * Main decoding loop. Handles watching for new streams, or continuing to nudge
  * along the current stream if we have one.
  */
+IRAM_ATTR
 void Decoder::Main() {
   for (;;) {
-    // Check whether there's a new stream to begin. If we're idle, then we
-    // simply park and wait forever for a stream to arrive.
-    TickType_t wait_time = stream_ ? 0 : portMAX_DELAY;
+    // How long should we spend waiting for a command? By default, assume we're
+    // idle and wait forever.
+    TickType_t wait_time = portMAX_DELAY;
+    if (!leftover_samples_.empty() || stream_) {
+      // If we have work to do, then don't block waiting for a new stream.
+      wait_time = 0;
+    }
+
     NextStream* next;
     if (xQueueReceive(next_stream_, &next, wait_time)) {
       // Copy the data out of the queue, then clean up the item.
@@ -103,7 +109,14 @@ void Decoder::Main() {
 
       // Start decoding the new stream.
       prepareDecode(new_stream);
+
+      // Keep handling commands until the command queue is empty.
+      continue;
     }
+
+    // We should always have a stream if we returned from xQueueReceive without
+    // receiving a new stream.
+    assert(stream_);
 
     if (!continueDecode()) {
       finishDecode(false);
@@ -167,16 +180,36 @@ auto Decoder::prepareDecode(std::shared_ptr<TaggedStream> stream) -> void {
 }
 
 auto Decoder::continueDecode() -> bool {
+  // First, see if we have any samples from a previous decode that still need
+  // to be sent.
+  if (!leftover_samples_.empty()) {
+    leftover_samples_ = processor_->continueStream(leftover_samples_);
+    return true;
+  }
+
+  // We might have already cleaned up the codec if the last decode pass of the
+  // stream resulted in leftover samples.
+  if (!codec_) {
+    return false;
+  }
+
   auto res = codec_->DecodeTo(codec_buffer_);
   if (res.has_error()) {
     return false;
   }
 
   if (res->samples_written > 0) {
-    processor_->continueStream(codec_buffer_.first(res->samples_written));
+    leftover_samples_ =
+        processor_->continueStream(codec_buffer_.first(res->samples_written));
   }
 
-  return !res->is_stream_finished;
+  if (res->is_stream_finished) {
+    // The codec has finished, so make sure we don't call it again.
+    codec_.reset();
+  }
+
+  // We're done iff the codec has finished and we sent everything.
+  return codec_ || !leftover_samples_.empty();
 }
 
 auto Decoder::finishDecode(bool cancel) -> void {
@@ -191,6 +224,7 @@ auto Decoder::finishDecode(bool cancel) -> void {
   processor_->endStream(cancel);
 
   // Clean up after ourselves.
+  leftover_samples_ = {};
   stream_.reset();
   codec_.reset();
   track_.reset();

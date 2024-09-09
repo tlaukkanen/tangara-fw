@@ -74,11 +74,11 @@ enum {
 
 /* Media task tick in milliseconds, must be set to multiple of
    (1000/TICKS_PER_SEC) */
-#define BTC_MEDIA_TIME_TICK_MS                 (30)
+#define BTC_MEDIA_TIME_TICK_MS                 (20)
 #define A2DP_DATA_READ_POLL_MS                 (BTC_MEDIA_TIME_TICK_MS / 2)
 
 #ifndef MAX_PCM_FRAME_NUM_PER_TICK
-#define MAX_PCM_FRAME_NUM_PER_TICK             21 // 14 for 20ms
+#define MAX_PCM_FRAME_NUM_PER_TICK             14 // 14 for 20ms
 #endif
 
 #define BTC_MEDIA_AA_BUF_SIZE                  (4096+16)
@@ -97,8 +97,8 @@ enum {
 #define BTC_A2DP_NON_EDR_MAX_RATE              229
 #endif
 
-/* Middle quality quality setting @ 44.1 khz */
-#define DEFAULT_SBC_BITRATE                    328
+/* Extreme quality quality setting @ 48 khz */
+#define DEFAULT_SBC_BITRATE                    672
 
 /*
  * CONGESTION COMPENSATION CTRL ::
@@ -120,8 +120,7 @@ enum {
    layers we might need to temporarily buffer up data */
 
 /* 5 frames is equivalent to 6.89*5*2.9 ~= 100 ms @ 44.1 khz, 20 ms mediatick */
-#define MAX_OUTPUT_A2DP_FRAME_QUEUE_SZ         (5)
-#define MAX_OUTPUT_A2DP_SRC_FRAME_QUEUE_SZ     (27) // 18 for 20ms tick
+#define MAX_OUTPUT_A2DP_SRC_FRAME_QUEUE_SZ     (50) // 18 for 20ms tick
 
 #define BTC_A2DP_SRC_DATA_QUEUE_IDX            (1)
 

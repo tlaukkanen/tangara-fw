@@ -17,4 +17,8 @@ function backstack.push(screen) end
 --- there are no other screens in the stack.
 function backstack.pop() end
 
+--- Sets a new root screen, replacing any existing screens
+--- @param screen screen The new root screen
+function backstack.reset(screen) end
+
 return backstack

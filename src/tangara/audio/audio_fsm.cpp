@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <future>
 #include <memory>
+#include <sstream>
 #include <variant>
 
 #include "audio/audio_source.hpp"
@@ -103,9 +104,7 @@ void AudioState::react(const QueueUpdate& ev) {
   };
 
   auto current = sServices->track_queue().current();
-  if (current) {
-    cmd.new_track = *current;
-  }
+  cmd.new_track = current;
 
   switch (ev.reason) {
     case QueueUpdate::kExplicitUpdate:
@@ -120,10 +119,13 @@ void AudioState::react(const QueueUpdate& ev) {
         cmd.new_track = std::monostate{};
       }
       break;
+    case QueueUpdate::kBulkLoadingUpdate:
+      // Bulk loading updates are informational only; a separate QueueUpdate
+      // event will be sent when loading is done.
     case QueueUpdate::kDeserialised:
-    default:
       // The current track is deserialised separately in order to retain seek
       // position.
+    default:
       return;
   }
 
@@ -151,7 +153,20 @@ void AudioState::react(const SetTrack& ev) {
           sStreamFactory->create(std::get<std::string>(new_track), seek_to);
     }
 
+    // Always give the stream to the decoder, even if it turns out to be empty.
+    // This has the effect of stopping the current playback, which is generally
+    // what the user expects to happen when they say "Play this track!", even
+    // if the new track has an issue.
     sDecoder->open(stream);
+
+    // ...but if the stream that failed is the front of the queue, then we
+    // should advance to the next track in order to keep the tunes flowing.
+    if (!stream) {
+      auto& queue = sServices->track_queue();
+      if (new_track == queue.current()) {
+        queue.finish();
+      }
+    }
   });
 }
 
@@ -183,18 +198,21 @@ void AudioState::react(const internal::DecodingFinished& ev) {
   sServices->bg_worker().Dispatch<void>([=]() {
     auto& queue = sServices->track_queue();
     auto current = queue.current();
-    if (!current) {
+    if (std::holds_alternative<std::monostate>(current)) {
       return;
     }
     auto db = sServices->database().lock();
     if (!db) {
       return;
     }
-    auto path = db->getTrackPath(*current);
-    if (!path) {
-      return;
+    std::string path;
+    if (std::holds_alternative<std::string>(current)) {
+      path = std::get<std::string>(current);
+    } else if (std::holds_alternative<database::TrackId>(current)) {
+      auto tid = std::get<database::TrackId>(current);
+      path = db->getTrackPath(tid).value_or("");
     }
-    if (*path == ev.track->uri) {
+    if (path == ev.track->uri) {
       queue.finish();
     }
   });
@@ -208,6 +226,7 @@ void AudioState::react(const internal::StreamStarted& ev) {
   }
 
   sStreamCues.addCue(ev.track, ev.cue_at_sample);
+  sStreamCues.update(sDrainBuffer->totalReceived());
 
   if (!sIsPaused && !is_in_state<states::Playback>()) {
     transit<states::Playback>();
@@ -223,13 +242,30 @@ void AudioState::react(const internal::StreamEnded& ev) {
   sStreamCues.addCue({}, ev.cue_at_sample);
 }
 
+void AudioState::react(const system_fsm::HasPhonesChanged& ev) {
+  if (ev.has_headphones) {
+    events::Audio().Dispatch(audio::OutputModeChanged{
+        .set_to = drivers::NvsStorage::Output::kHeadphones});
+  } else {
+    if (sServices->bluetooth().enabled()) {
+      events::Audio().Dispatch(audio::OutputModeChanged{
+          .set_to = drivers::NvsStorage::Output::kBluetooth});
+    }
+  }
+}
+
 void AudioState::react(const system_fsm::BluetoothEvent& ev) {
   using drivers::bluetooth::SimpleEvent;
   if (std::holds_alternative<SimpleEvent>(ev.event)) {
     auto simpleEvent = std::get<SimpleEvent>(ev.event);
     switch (simpleEvent) {
       case SimpleEvent::kConnectionStateChanged: {
-        auto dev = sServices->bluetooth().ConnectedDevice();
+        auto bt = sServices->bluetooth();
+        if (bt.connectionState() !=
+            drivers::Bluetooth::ConnectionState::kConnected) {
+          return;
+        }
+        auto dev = sServices->bluetooth().pairedDevice();
         if (!dev) {
           return;
         }
@@ -321,6 +357,9 @@ void AudioState::react(const SetVolumeBalance& ev) {
 void AudioState::react(const OutputModeChanged& ev) {
   ESP_LOGI(kTag, "output mode changed");
   auto new_mode = sServices->nvs().OutputMode();
+  if (ev.set_to) {
+    new_mode = *ev.set_to;
+  }
   sOutput->mode(IAudioOutput::Modes::kOff);
   switch (new_mode) {
     case drivers::NvsStorage::Output::kBluetooth:
@@ -348,7 +387,7 @@ auto AudioState::commitVolume() -> void {
   if (mode == drivers::NvsStorage::Output::kHeadphones) {
     sServices->nvs().AmpCurrentVolume(vol);
   } else if (mode == drivers::NvsStorage::Output::kBluetooth) {
-    auto dev = sServices->bluetooth().ConnectedDevice();
+    auto dev = sServices->bluetooth().pairedDevice();
     if (!dev) {
       return;
     }
@@ -385,7 +424,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
     sOutput = sI2SOutput;
   } else {
     // Ensure Bluetooth gets enabled if it's the default sink.
-    sServices->bluetooth().Enable();
+    sServices->bluetooth().enable(true);
     sOutput = sBtOutput;
   }
   sOutput->mode(IAudioOutput::Modes::kOnPaused);
@@ -456,6 +495,9 @@ void Standby::react(const system_fsm::SdStateChanged& ev) {
     if (!db) {
       return;
     }
+
+    // Open the queue file
+    sServices->track_queue().open();
 
     // Restore the currently playing file before restoring the queue. This way,
     // we can fall back to restarting the queue's current track if there's any

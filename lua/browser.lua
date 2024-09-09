@@ -10,7 +10,7 @@ local theme = require("theme")
 local screen = require("screen")
 
 return screen:new{
-    createUi = function(self)
+    create_ui = function(self)
         self.root = lvgl.Object(nil, {
             flex = {
                 flex_direction = "column",
@@ -58,7 +58,7 @@ return screen:new{
             flex = {
                 flex_direction = "row",
                 flex_wrap = "wrap",
-                justify_content = "center",
+                justify_content = "space-between",
                 align_items = "center",
                 align_content = "center"
             },
@@ -84,6 +84,7 @@ return screen:new{
         local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
         play:onClicked(function()
             queue.clear()
+            queue.random:set(false)
             queue.add(original_iterator)
             playback.playing:set(true)
             backstack.push(playing:new())

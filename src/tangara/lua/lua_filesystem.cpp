@@ -21,29 +21,21 @@ struct LuaFileEntry {
   bool isHidden;
   bool isDirectory;
   bool isTrack;
-  size_t path_size;
-  char path[];
+  std::string path;
+  std::string name;
 };
 
-static_assert(std::is_trivially_destructible<LuaFileEntry>());
-static_assert(std::is_trivially_copy_assignable<LuaFileEntry>());
-
 static auto push_lua_file_entry(lua_State* L, const lua::FileEntry& r) -> void {
-  // Create and init the userdata.
-  LuaFileEntry* file_entry = reinterpret_cast<LuaFileEntry*>(
-      lua_newuserdata(L, sizeof(LuaFileEntry) + r.filepath.size()));
+  lua::FileEntry** entry = reinterpret_cast<lua::FileEntry**>(
+      lua_newuserdata(L, sizeof(uintptr_t)));
+  *entry = new lua::FileEntry(r);
   luaL_setmetatable(L, kFileEntryMetatable);
+}
 
-  // Init all the fields
-  *file_entry = {
-      .isHidden = r.isHidden,
-      .isDirectory = r.isDirectory,
-      .isTrack = r.isTrack,
-      .path_size = r.filepath.size(),
-  };
-
-  // Copy the string data across.
-  std::memcpy(file_entry->path, r.filepath.data(), r.filepath.size());
+auto check_file_entry(lua_State* L, int stack_pos) -> lua::FileEntry* {
+  lua::FileEntry* entry = *reinterpret_cast<lua::FileEntry**>(
+      luaL_checkudata(L, stack_pos, kFileEntryMetatable));
+  return entry;
 }
 
 auto check_file_iterator(lua_State* L, int stack_pos) -> lua::FileIterator* {
@@ -56,7 +48,7 @@ static auto push_iterator(lua_State* state, const lua::FileIterator& it)
     -> void {
   lua::FileIterator** data = reinterpret_cast<lua::FileIterator**>(
       lua_newuserdata(state, sizeof(uintptr_t)));
-  *data = new lua::FileIterator(it); // TODO...
+  *data = new lua::FileIterator(it);
   luaL_setmetatable(state, kFileIteratorMetatable);
 }
 
@@ -108,45 +100,48 @@ static const struct luaL_Reg kFileIteratorFuncs[] = {{"next", fs_iterate},
                                                    {NULL, NULL}};
 
 static auto file_entry_path(lua_State* state) -> int {
-  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
-      luaL_checkudata(state, 1, kFileEntryMetatable));
-  lua_pushlstring(state, data->path, data->path_size);
+  lua::FileEntry* entry = check_file_entry(state, 1);
+  lua_pushlstring(state, entry->filepath.c_str(), entry->filepath.size());
   return 1;
 }
 
 static auto file_entry_is_dir(lua_State* state) -> int {
-  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
-      luaL_checkudata(state, 1, kFileEntryMetatable));
-  lua_pushboolean(state, data->isDirectory);
+  lua::FileEntry* entry = check_file_entry(state, 1);
+  lua_pushboolean(state, entry->isDirectory);
   return 1;
 }
 
 static auto file_entry_is_hidden(lua_State* state) -> int {
-  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
-      luaL_checkudata(state, 1, kFileEntryMetatable));
-  lua_pushboolean(state, data->isHidden);
+  lua::FileEntry* entry = check_file_entry(state, 1);
+  lua_pushboolean(state, entry->isHidden);
   return 1;
 }
 
-static auto file_entry_is_track(lua_State* state) -> int {
-  LuaFileEntry* data = reinterpret_cast<LuaFileEntry*>(
-      luaL_checkudata(state, 1, kFileEntryMetatable));
-  lua_pushboolean(state, data->isTrack);
+static auto file_entry_name(lua_State* state) -> int {
+  lua::FileEntry* entry = check_file_entry(state, 1);
+  lua_pushlstring(state, entry->name.c_str(), entry->name.size());
+  return 1;
+}
+
+static auto file_entry_gc(lua_State* state) -> int {
+  lua::FileEntry* entry = check_file_entry(state, 1);
+  delete entry;
   return 1;
 }
 
 static const struct luaL_Reg kFileEntryFuncs[] = {{"filepath", file_entry_path},
+                                                 {"name", file_entry_name},
                                                  {"is_directory", file_entry_is_dir},
                                                  {"is_hidden", file_entry_is_hidden},
-                                                 {"is_track", file_entry_is_track},
-                                                 {"__tostring", file_entry_path},
+                                                 {"__tostring", file_entry_name},
+                                                   {"__gc", file_entry_gc},
                                                  {NULL, NULL}};
 
 static auto fs_new_iterator(lua_State* state) -> int {
   // Takes a filepath as a string and returns a new FileIterator
   // on that directory
   std::string filepath = luaL_checkstring(state, -1);
-  lua::FileIterator iter(filepath);
+  lua::FileIterator iter(filepath, false);
    push_iterator(state, iter);
   return 1;
 }

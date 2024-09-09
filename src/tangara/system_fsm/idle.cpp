@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "ui/ui_fsm.hpp"
+
 #include "app_console/app_console.hpp"
-#include "database/file_gatherer.hpp"
 #include "drivers/gpios.hpp"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
@@ -17,7 +18,6 @@
 #include "events/event_queue.hpp"
 #include "system_fsm/system_events.hpp"
 #include "system_fsm/system_fsm.hpp"
-#include "ui/ui_fsm.hpp"
 
 namespace system_fsm {
 namespace states {
@@ -76,7 +76,7 @@ void Idle::react(const internal::IdleTimeout& ev) {
   // other state machines, etc.
   auto touchwheel = sServices->touchwheel();
   if (touchwheel) {
-    touchwheel.value()->PowerDown();
+    touchwheel.value()->LowPowerMode(true);
   }
 
   auto& gpios = sServices->gpios();

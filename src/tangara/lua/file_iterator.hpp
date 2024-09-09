@@ -19,13 +19,13 @@ struct FileEntry {
     int index;
     bool isHidden;
     bool isDirectory;
-    bool isTrack;
     std::string filepath;
+    std::string name;
 };
 
 class FileIterator {
  public:
-  FileIterator(std::string filepath);
+  FileIterator(std::string filepath, bool showHidden);
   ~FileIterator();
 
   auto value() const -> const std::optional<FileEntry>&;
@@ -35,6 +35,7 @@ class FileIterator {
  private: 
   FF_DIR dir_;
   std::string original_path_;
+  bool show_hidden_;
 
   std::optional<FileEntry> current_;
   int offset_;

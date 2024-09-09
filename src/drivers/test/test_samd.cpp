@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "drivers/nvs.hpp"
 #include "drivers/samd.hpp"
 
 #include <cstdint>
@@ -16,7 +17,8 @@ namespace drivers {
 
 TEST_CASE("samd21 interface", "[integration]") {
   I2CFixture i2c;
-  auto samd = std::make_unique<Samd>();
+  std::unique_ptr<drivers::NvsStorage> nvs{drivers::NvsStorage::OpenSync()};
+  auto samd = std::make_unique<Samd>(*nvs);
 
   REQUIRE(samd);
 

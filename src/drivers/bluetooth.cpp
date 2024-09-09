@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <iterator>
 #include <mutex>
 #include <ostream>
 #include <sstream>
@@ -116,93 +117,111 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   return buf_size;
 }
 
-Bluetooth::Bluetooth(NvsStorage& storage, tasks::WorkerPool& bg_worker) {
+Bluetooth::Bluetooth(NvsStorage& storage,
+                     tasks::WorkerPool& bg_worker,
+                     EventHandler cb)
+    : nvs_(storage) {
   sBgWorker = &bg_worker;
-  bluetooth::BluetoothState::Init(storage);
+  bluetooth::BluetoothState::Init(storage, cb);
 }
 
-auto Bluetooth::Enable() -> bool {
-  auto lock = bluetooth::BluetoothState::lock();
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::Enable{});
+auto Bluetooth::enable(bool en) -> void {
+  if (en) {
+    auto lock = bluetooth::BluetoothState::lock();
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        bluetooth::events::Enable{});
+  } else {
+    // FIXME: the BT tasks unfortunately call back into us while holding an
+    // internal lock, which then deadlocks with our fsm lock.
+    // auto lock = bluetooth::BluetoothState::lock();
+    tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+        bluetooth::events::Disable{});
+  }
+}
 
+auto Bluetooth::enabled() -> bool {
+  auto lock = bluetooth::BluetoothState::lock();
   return !bluetooth::BluetoothState::is_in_state<bluetooth::Disabled>();
 }
 
-auto Bluetooth::Disable() -> void {
-  // FIXME: the BT tasks unfortunately call back into us while holding an
-  // internal lock, which then deadlocks with our fsm lock.
-  // auto lock = bluetooth::BluetoothState::lock();
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::Disable{});
-}
-
-auto Bluetooth::IsEnabled() -> bool {
+auto Bluetooth::sources(OutputBuffers* src) -> void {
   auto lock = bluetooth::BluetoothState::lock();
-  return !bluetooth::BluetoothState::is_in_state<bluetooth::Disabled>();
-}
-
-auto Bluetooth::IsConnected() -> bool {
-  auto lock = bluetooth::BluetoothState::lock();
-  return bluetooth::BluetoothState::is_in_state<bluetooth::Connected>();
-}
-
-auto Bluetooth::ConnectedDevice() -> std::optional<bluetooth::MacAndName> {
-  auto lock = bluetooth::BluetoothState::lock();
-  if (!bluetooth::BluetoothState::is_in_state<bluetooth::Connected>()) {
-    return {};
-  }
-  return bluetooth::BluetoothState::preferred_device();
-}
-
-auto Bluetooth::KnownDevices() -> std::vector<bluetooth::Device> {
-  auto lock = bluetooth::BluetoothState::lock();
-  std::vector<bluetooth::Device> out = bluetooth::BluetoothState::devices();
-  std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) -> bool {
-    return a.signal_strength < b.signal_strength;
-  });
-  return out;
-}
-
-auto Bluetooth::SetPreferredDevice(std::optional<bluetooth::MacAndName> dev)
-    -> void {
-  auto lock = bluetooth::BluetoothState::lock();
-  auto cur = bluetooth::BluetoothState::preferred_device();
-  if (dev && cur && dev->mac == cur->mac) {
+  if (src == sStreams) {
     return;
   }
-  ESP_LOGI(kTag, "preferred is '%s' (%u%u%u%u%u%u)", dev->name.c_str(),
-           dev->mac[0], dev->mac[1], dev->mac[2], dev->mac[3], dev->mac[4],
-           dev->mac[5]);
-  bluetooth::BluetoothState::preferred_device(dev);
-  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::PreferredDeviceChanged{});
-}
-
-auto Bluetooth::PreferredDevice() -> std::optional<bluetooth::MacAndName> {
-  auto lock = bluetooth::BluetoothState::lock();
-  return bluetooth::BluetoothState::preferred_device();
-}
-
-auto Bluetooth::SetSources(OutputBuffers* src) -> void {
-  auto lock = bluetooth::BluetoothState::lock();
-  OutputBuffers* cur = bluetooth::BluetoothState::sources();
-  if (src == cur) {
-    return;
-  }
-  bluetooth::BluetoothState::sources(src);
+  sStreams = src;
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
       bluetooth::events::SourcesChanged{});
 }
 
-auto Bluetooth::SetVolumeFactor(float f) -> void {
+auto Bluetooth::softVolume(float f) -> void {
   sVolumeFactor = f;
 }
 
-auto Bluetooth::SetEventHandler(std::function<void(bluetooth::Event)> cb)
-    -> void {
+auto Bluetooth::connectionState() -> ConnectionState {
   auto lock = bluetooth::BluetoothState::lock();
-  bluetooth::BluetoothState::event_handler(cb);
+  if (bluetooth::BluetoothState::is_in_state<bluetooth::Connected>()) {
+    return ConnectionState::kConnected;
+  } else if (bluetooth::BluetoothState::is_in_state<bluetooth::Connecting>()) {
+    return ConnectionState::kConnecting;
+  }
+  return ConnectionState::kDisconnected;
+}
+
+auto Bluetooth::pairedDevice() -> std::optional<bluetooth::MacAndName> {
+  auto lock = bluetooth::BluetoothState::lock();
+  return bluetooth::BluetoothState::pairedDevice();
+}
+
+auto Bluetooth::pairedDevice(std::optional<bluetooth::MacAndName> dev) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
+  bluetooth::BluetoothState::pairedDevice(dev);
+}
+
+auto Bluetooth::knownDevices() -> std::vector<bluetooth::MacAndName> {
+  return nvs_.BluetoothNames();
+}
+
+auto Bluetooth::forgetKnownDevice(const bluetooth::mac_addr_t& mac) -> void {
+  nvs_.BluetoothName(mac, {});
+}
+
+auto Bluetooth::discoveryEnabled(bool en) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
+  bluetooth::BluetoothState::discovery(en);
+}
+
+auto Bluetooth::discoveryEnabled() -> bool {
+  auto lock = bluetooth::BluetoothState::lock();
+  return bluetooth::BluetoothState::discovery();
+}
+
+auto Bluetooth::discoveredDevices() -> std::vector<bluetooth::MacAndName> {
+  std::vector<bluetooth::Device> discovered;
+  {
+    auto lock = bluetooth::BluetoothState::lock();
+    discovered = bluetooth::BluetoothState::discoveredDevices();
+  }
+
+  // Show devices with stronger signals first, since they're more likely to be
+  // physically close (and therefore more likely to be what the user wants).
+  std::sort(discovered.begin(), discovered.end(),
+            [](const auto& a, const auto& b) -> bool {
+              return a.signal_strength < b.signal_strength;
+            });
+
+  // Convert to the right format.
+  std::vector<bluetooth::MacAndName> out;
+  out.reserve(discovered.size());
+  std::transform(discovered.begin(), discovered.end(), std::back_inserter(out),
+                 [&](const bluetooth::Device& dev) {
+                   return bluetooth::MacAndName{
+                       .mac = dev.address,
+                       .name = {dev.name.data(), dev.name.size()},
+                   };
+                 });
+
+  return out;
 }
 
 static auto DeviceName() -> std::pmr::string {
@@ -253,6 +272,10 @@ auto Scanner::StopScanningNow() -> void {
     is_discovering_ = false;
     esp_bt_gap_cancel_discovery();
   }
+}
+
+auto Scanner::enabled() -> bool {
+  return enabled_;
 }
 
 auto Scanner::HandleGapEvent(const events::internal::Gap& ev) -> void {
@@ -347,16 +370,18 @@ NvsStorage* BluetoothState::sStorage_;
 Scanner* BluetoothState::sScanner_;
 
 std::mutex BluetoothState::sFsmMutex{};
-std::map<mac_addr_t, Device> BluetoothState::sDevices_{};
-std::optional<MacAndName> BluetoothState::sPreferredDevice_{};
-std::optional<MacAndName> BluetoothState::sConnectingDevice_{};
+std::map<mac_addr_t, Device> BluetoothState::sDiscoveredDevices_{};
+std::optional<MacAndName> BluetoothState::sPairedWith_{};
+std::optional<MacAndName> BluetoothState::sConnectingTo_{};
 int BluetoothState::sConnectAttemptsRemaining_{0};
 
 std::function<void(Event)> BluetoothState::sEventHandler_;
 
-auto BluetoothState::Init(NvsStorage& storage) -> void {
+auto BluetoothState::Init(NvsStorage& storage, Bluetooth::EventHandler cb)
+    -> void {
   sStorage_ = &storage;
-  sPreferredDevice_ = storage.PreferredBluetoothDevice();
+  sEventHandler_ = cb;
+  sPairedWith_ = storage.PreferredBluetoothDevice();
   tinyfsm::FsmList<bluetooth::BluetoothState>::start();
 }
 
@@ -364,68 +389,85 @@ auto BluetoothState::lock() -> std::lock_guard<std::mutex> {
   return std::lock_guard<std::mutex>{sFsmMutex};
 }
 
-auto BluetoothState::devices() -> std::vector<Device> {
+auto BluetoothState::pairedDevice() -> std::optional<MacAndName> {
+  return sPairedWith_;
+}
+
+auto BluetoothState::pairedDevice(std::optional<MacAndName> dev) -> void {
+  auto cur = sPairedWith_;
+  if (dev && cur && dev->mac == cur->mac) {
+    return;
+  }
+  if (dev) {
+    ESP_LOGI(kTag, "pairing with '%s' (%u%u%u%u%u%u)", dev->name.c_str(),
+             dev->mac[0], dev->mac[1], dev->mac[2], dev->mac[3], dev->mac[4],
+             dev->mac[5]);
+  }
+  sPairedWith_ = dev;
+  std::invoke(sEventHandler_, SimpleEvent::kDeviceDiscovered);
+
+  tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
+      bluetooth::events::PairedDeviceChanged{});
+}
+
+auto BluetoothState::discovery() -> bool {
+  return sScanner_->enabled();
+}
+
+auto BluetoothState::discovery(bool en) -> void {
+  if (en) {
+    if (!sScanner_->enabled()) {
+      sDiscoveredDevices_.clear();
+    }
+    sScanner_->ScanContinuously();
+  } else {
+    sScanner_->StopScanning();
+  }
+}
+
+auto BluetoothState::discoveredDevices() -> std::vector<Device> {
   std::vector<Device> out;
-  for (const auto& device : sDevices_) {
+  for (const auto& device : sDiscoveredDevices_) {
     out.push_back(device.second);
   }
   return out;
 }
 
-auto BluetoothState::preferred_device() -> std::optional<MacAndName> {
-  return sPreferredDevice_;
-}
-
-auto BluetoothState::preferred_device(std::optional<MacAndName> addr) -> void {
-  sPreferredDevice_ = addr;
-}
-
-auto BluetoothState::sources() -> OutputBuffers* {
-  return sStreams;
-}
-
-auto BluetoothState::sources(OutputBuffers* src) -> void {
-  sStreams = src;
-}
-
-auto BluetoothState::event_handler(std::function<void(Event)> cb) -> void {
-  sEventHandler_ = cb;
-}
-
 auto BluetoothState::react(const events::DeviceDiscovered& ev) -> void {
-  bool is_preferred = false;
-  bool already_known = sDevices_.contains(ev.device.address);
-  sDevices_[ev.device.address] = ev.device;
+  bool is_paired = false;
+  bool already_known = sDiscoveredDevices_.contains(ev.device.address);
+  sDiscoveredDevices_[ev.device.address] = ev.device;
 
-  if (sPreferredDevice_ && ev.device.address == sPreferredDevice_->mac) {
-    is_preferred = true;
+  if (sPairedWith_ && ev.device.address == sPairedWith_->mac) {
+    is_paired = true;
   }
 
-  if (sEventHandler_ && !already_known) {
-    std::invoke(sEventHandler_, SimpleEvent::kKnownDevicesChanged);
+  if (!already_known) {
+    std::invoke(sEventHandler_, SimpleEvent::kDeviceDiscovered);
   }
 
-  if (is_preferred && sPreferredDevice_) {
-    connect(*sPreferredDevice_);
+  if (is_paired && sPairedWith_) {
+    connect(*sPairedWith_);
   }
 }
 
 auto BluetoothState::connect(const MacAndName& dev) -> bool {
-  if (sConnectingDevice_ && sConnectingDevice_->mac == dev.mac) {
+  if (sConnectingTo_ && sConnectingTo_->mac == dev.mac) {
     sConnectAttemptsRemaining_--;
   } else {
     sConnectAttemptsRemaining_ = 3;
   }
 
   if (sConnectAttemptsRemaining_ == 0) {
+    sConnectingTo_ = {};
     return false;
   }
 
-  sConnectingDevice_ = dev;
+  sConnectingTo_ = dev;
   ESP_LOGI(kTag, "connecting to '%s' (%u%u%u%u%u%u)", dev.name.c_str(),
            dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4],
            dev.mac[5]);
-  if (esp_a2d_source_connect(sConnectingDevice_->mac.data()) != ESP_OK) {
+  if (esp_a2d_source_connect(sConnectingTo_->mac.data()) != ESP_OK) {
     ESP_LOGI(kTag, "Connecting failed...");
     if (sConnectAttemptsRemaining_ > 1) {
       ESP_LOGI(kTag, "Will retry.");
@@ -489,7 +531,7 @@ void Disabled::react(const events::Enable&) {
 
   // Set a reasonable name for the device.
   std::pmr::string name = DeviceName();
-  esp_bt_dev_set_device_name(name.c_str());
+  esp_bt_gap_set_device_name(name.c_str());
 
   // Initialise GAP. This controls advertising our device, and scanning for
   // other devices.
@@ -553,36 +595,31 @@ void Disabled::react(const events::Enable&) {
   esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
   ESP_LOGI(kTag, "bt enabled");
-  if (sPreferredDevice_) {
-    ESP_LOGI(kTag, "connecting to preferred device '%s'",
-             sPreferredDevice_->name.c_str());
-    connect(*sPreferredDevice_);
+  if (sPairedWith_) {
+    ESP_LOGI(kTag, "connecting to paired device '%s'",
+             sPairedWith_->name.c_str());
+    connect(*sPairedWith_);
   } else {
-    ESP_LOGI(kTag, "scanning for devices");
     transit<Idle>();
   }
 }
 
 void Idle::entry() {
   ESP_LOGI(kTag, "bt is idle");
-  sScanner_->ScanContinuously();
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
 }
 
 void Idle::exit() {
-  sScanner_->StopScanning();
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
 }
 
 void Idle::react(const events::Disable& ev) {
   transit<Disabled>();
 }
 
-void Idle::react(const events::PreferredDeviceChanged& ev) {
-  bool is_discovered = false;
-  if (sPreferredDevice_ && sDevices_.contains(sPreferredDevice_->mac)) {
-    is_discovered = true;
-  }
-  if (is_discovered) {
-    connect(*sPreferredDevice_);
+void Idle::react(const events::PairedDeviceChanged& ev) {
+  if (sPairedWith_) {
+    connect(*sPairedWith_);
   }
 }
 
@@ -604,36 +641,32 @@ void Connecting::entry() {
   sTimeoutTimer = xTimerCreate("bt_timeout", pdMS_TO_TICKS(15000), false, NULL,
                                timeoutCallback);
   xTimerStart(sTimeoutTimer, portMAX_DELAY);
-
-  sScanner_->StopScanning();
-  if (sEventHandler_) {
-    std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
-  }
 }
 
 void Connecting::exit() {
   xTimerDelete(sTimeoutTimer, portMAX_DELAY);
-
-  if (sEventHandler_) {
-    std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
-  }
 }
 
 void Connecting::react(const events::ConnectTimedOut& ev) {
   ESP_LOGI(kTag, "timed out awaiting connection");
-  esp_a2d_source_disconnect(sConnectingDevice_->mac.data());
-  if (!connect(*sConnectingDevice_)) {
+  esp_a2d_source_disconnect(sConnectingTo_->mac.data());
+  if (!connect(*sConnectingTo_)) {
     transit<Idle>();
   }
 }
 
 void Connecting::react(const events::Disable& ev) {
-  // TODO: disconnect gracefully
+  esp_a2d_source_disconnect(sConnectingTo_->mac.data());
   transit<Disabled>();
 }
 
-void Connecting::react(const events::PreferredDeviceChanged& ev) {
-  // TODO. Cancel out and start again.
+void Connecting::react(const events::PairedDeviceChanged& ev) {
+  esp_a2d_source_disconnect(sConnectingTo_->mac.data());
+  if (sPairedWith_) {
+    connect(*sPairedWith_);
+  } else {
+    transit<Idle>();
+  }
 }
 
 void Connecting::react(events::internal::Gap ev) {
@@ -704,29 +737,41 @@ void Connected::entry() {
   ESP_LOGI(kTag, "entering connected state");
 
   transaction_num_ = 0;
-  connected_to_ = sConnectingDevice_->mac;
-  sPreferredDevice_ = sConnectingDevice_;
-  sConnectingDevice_ = {};
+  connected_to_ = sConnectingTo_->mac;
+  sPairedWith_ = sConnectingTo_;
+
+  sStorage_->BluetoothName(sConnectingTo_->mac, sConnectingTo_->name);
+  std::invoke(sEventHandler_, SimpleEvent::kKnownDevicesChanged);
+
+  sConnectingTo_ = {};
 
   auto stored_pref = sStorage_->PreferredBluetoothDevice();
-  if (!stored_pref || (sPreferredDevice_->name != stored_pref->name ||
-                       sPreferredDevice_->mac != stored_pref->mac)) {
-    sStorage_->PreferredBluetoothDevice(sPreferredDevice_);
+  if (!stored_pref || (sPairedWith_->name != stored_pref->name ||
+                       sPairedWith_->mac != stored_pref->mac)) {
+    sStorage_->PreferredBluetoothDevice(sPairedWith_);
   }
+
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
+
+  // TODO: if we already have a source, immediately start playing
 }
 
 void Connected::exit() {
   ESP_LOGI(kTag, "exiting connected state");
   esp_a2d_source_disconnect(connected_to_.data());
+
+  std::invoke(sEventHandler_, SimpleEvent::kConnectionStateChanged);
 }
 
 void Connected::react(const events::Disable& ev) {
   transit<Disabled>();
 }
 
-void Connected::react(const events::PreferredDeviceChanged& ev) {
-  sConnectingDevice_ = sPreferredDevice_;
-  transit<Connecting>();
+void Connected::react(const events::PairedDeviceChanged& ev) {
+  transit<Idle>();
+  if (sPairedWith_) {
+    connect(*sPairedWith_);
+  }
 }
 
 void Connected::react(const events::SourcesChanged& ev) {

@@ -69,16 +69,24 @@ syscfg.defs:
             may be rounded up or down depending on used radio.
         value: '0'
 
+    BLE_LL_TX_PWR_MAX_DBM:
+        description: >
+            Maximum allowed transmit power level (in dBm). This limits maximum
+            power to specified value (including FEM and/or host compensation).
+            Useful for ensuring selected power class of device. Defaults to
+            maximum allowed by specification (Power Class 1).
+        value: '20'
+
     BLE_LL_NUM_COMP_PKT_ITVL_MS:
         description: >
             Determines the interval at which the controller will send the
             number of completed packets event to the host. Rate is in milliseconds.
         value: 2000
 
-    BLE_LL_MFRG_ID:
+    BLE_LL_MANUFACTURER_ID:
         description: >
-            Manufacturer ID. Should be set to unique ID per manufacturer.
-        value: '0xFFFF'
+            Manufacturer ID, as assigned by Bluetooth SIG
+        value: MYNEWT_VAL(BLE_LL_MFRG_ID)
 
     # Configuration items for the number of duplicate advertisers and the
     # number of advertisers from which we have heard a scan response.
@@ -132,11 +140,15 @@ syscfg.defs:
     BLE_LL_CONN_INIT_MAX_TX_BYTES:
         description: >
             Used to set the initial maximum transmit PDU size in a
-            connection. If this is set to a value greater than 27,
-            the controller will automatically attempt to do the
-            data length update procedure. The host can always tell
-            the controller to update this value.
+            connection. The host can always tell the controller to update this
+            value.
         value: '27'
+    BLE_LL_CONN_INIT_AUTO_DLE:
+        description: >
+            If BLE_LL_CONN_INIT_MAX_TX_BYTES is set to value greater than 27
+            controller will automatically attempt to do the data length update
+            procedure.
+        value: 1
 
     # The number of slots that will be allocated to each connection
     BLE_LL_CONN_INIT_SLOTS:
@@ -351,6 +363,13 @@ syscfg.defs:
         restrictions:
             - 'BLE_LL_CFG_FEAT_LL_ISO if 1'
 
+    BLE_LL_PERIODIC_ADV_SYNC_BIGINFO_REPORTS:
+        description: >
+            This option is used to enable/disable support for
+            handling BIGInfo data
+        value: MYNEWT_VAL(BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS)
+        experimental: 1
+
     BLE_LL_SCAN_AUX_SEGMENT_CNT:
          description: >
             Number of auxiliary advertising segments that can be scanned
@@ -406,22 +425,69 @@ syscfg.defs:
             line number where assertion occured.
         value: MYNEWT_VAL(BLE_LL_VND_EVENT_ON_ASSERT)
 
-    BLE_LL_PA:
-        description: Enable PA support
+    BLE_FEM_PA:
+        description: Enable FEM PA support
+        value: MYNEWT_VAL(BLE_LL_PA)
+    BLE_FEM_PA_GAIN:
+        description: PA fixed TX gain (in dBm).
         value: 0
-    BLE_LL_PA_GPIO:
+    BLE_FEM_PA_GAIN_TUNABLE:
+        description: >
+            PA TX gain is tunable and not constant. If enabled
+            ble_fem_pa_tx_power_set() and ble_fem_pa_tx_power_round()
+            shall be implemented (see ble_fem.h for details).
+        value: 0
+    BLE_FEM_PA_GPIO:
         description: >
             GPIO pin number to control PA. Pin is set to high state when PA
             should be enabled.
-        value: -1
-    BLE_LL_LNA:
+        value: MYNEWT_VAL(BLE_LL_PA_GPIO)
+    BLE_FEM_PA_TURN_ON_US:
+        description: >
+            Time required for PA to turn on, in microseconds.
+        value: MYNEWT_VAL(BLE_LL_PA_TURN_ON_US)
+    BLE_FEM_LNA:
         description: Enable LNA support
+        value: MYNEWT_VAL(BLE_LL_LNA)
+    BLE_FEM_LNA_GAIN:
+        description: LNA fixed RX gain (in dBm).
         value: 0
-    BLE_LL_LNA_GPIO:
+    BLE_FEM_LNA_GAIN_TUNABLE:
+        description: >
+            LNA RX gain is tunable and not constant. If enabled
+            ble_fem_lna_rx_gain() shall be implemented (see ble_fem.h for
+            details).
+        value: 0
+    BLE_FEM_LNA_GPIO:
         description: >
             GPIO pin number to control LNA. Pin is set to high state when LNA
             should be enabled.
-        value: -1
+        value: MYNEWT_VAL(BLE_LL_LNA_GPIO)
+    BLE_FEM_LNA_TURN_ON_US:
+        description: >
+            Time required for LNA to turn on, in microseconds.
+        value: MYNEWT_VAL(BLE_LL_LNA_TURN_ON_US)
+    BLE_FEM_ANTENNA:
+        description: >
+            Enable support for runtime antenna selection in FEM.
+        value: 0
+
+    BLE_LL_ISO:
+        description: >
+            Enable support for isochronous data.
+            This enables common code (e.g. ISOAL) for all types of isochronous
+            data, particular ISO features have to be enabled separately.
+        restrictions:
+            - (BLE_VERSION >= 52) if 1
+        value: 0
+        state: experimental
+    BLE_LL_ISO_BROADCASTER:
+        description: >
+            Enable support for Isochronous Broadcasting state.
+        restrictions:
+            - BLE_LL_ISO if 1
+        value: 0
+        state: experimental
 
     BLE_LL_SYSINIT_STAGE:
         description: >
@@ -454,6 +520,12 @@ syscfg.defs:
             while rfmgmt is active.
         value: -1
 
+    BLE_LL_EXT:
+        description: >
+            Enables API to support external (i.e. non-native to LL) state for
+            NimBLE LL and scheduler. See ble_ll_ext.h.
+        experimental: 1
+        value: 0
 # Below settings allow to change scheduler timings. These should be left at
 # default values unless you know what you are doing!
     BLE_LL_SCHED_AUX_MAFS_DELAY:
@@ -493,6 +565,20 @@ syscfg.defs:
         range: 1..257
         value: 32
 
+    BLE_LL_CONN_EVENT_END_MARGIN:
+        description: >
+            Extra time needed for scheduling next connection event. Setting this
+            value results in ending connection event sooner (in microseconds)
+            which gives more time to schedule next event. This value should be
+            tuned only after measuring performance as depends on various factors
+            like  build optimisation, cache, clock speed etc.
+        value: 0
+
+    BLE_LL_STACK_SIZE:
+        description: >
+              This is the stack size for LL task.
+        value: 120
+
 syscfg.vals.BLE_LL_CFG_FEAT_LL_EXT_ADV:
     BLE_LL_CFG_FEAT_LE_CSA2: 1
     BLE_HW_WHITELIST_ENABLE: 0
@@ -500,14 +586,14 @@ syscfg.vals.BLE_LL_CFG_FEAT_LL_EXT_ADV:
 
 # Enable vendor event on assert in standalone build to make failed assertions in
 # controller code visible when connected to external host
-syscfg.vals.!BLE_HOST:
+syscfg.vals.'!BLE_HOST && !BABBLESIM':
     BLE_LL_HCI_VS_EVENT_ON_ASSERT: 1
 
 syscfg.restrictions:
     - BLE_TRANSPORT_LL == "native"
     - BLE_LL_PUBLIC_DEV_ADDR <= 0xffffffffffff
-    - BLE_LL_PA == 0 || BLE_LL_PA_GPIO >= 0
-    - BLE_LL_LNA == 0 || BLE_LL_LNA_GPIO >= 0
+    - BLE_FEM_PA == 0 || BLE_FEM_PA_GPIO >= 0
+    - BLE_FEM_LNA == 0 || BLE_FEM_LNA_GPIO >= 0
 
 $import:
     # defunct and deprecated settings
