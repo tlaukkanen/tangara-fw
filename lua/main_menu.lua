@@ -35,7 +35,7 @@ return widgets.MenuScreen:new {
       pad_column = 4,
       border_width = 1,
     })
-    theme.set_style(now_playing, "now_playing");
+    theme.set_subject(now_playing, "now_playing");
 
     local play_pause = now_playing:Image { src = img.play_small }
     local title = now_playing:Label {
@@ -145,7 +145,7 @@ return widgets.MenuScreen:new {
 
     -- local queue_btn = bottom_bar:Button {}
     -- queue_btn:Image { src = img.queue }
-    -- theme.set_style(queue_btn, "icon_enabled")
+    -- theme.set_subject(queue_btn, "icon_enabled")
 
     local files_btn = bottom_bar:Button {}
     files_btn:onClicked(function()
@@ -155,13 +155,13 @@ return widgets.MenuScreen:new {
       })
     end)
     files_btn:Image { src = img.files }
-    theme.set_style(files_btn, "menu_icon")
+    theme.set_subject(files_btn, "menu_icon")
 
     local settings_btn = bottom_bar:Button {}
     settings_btn:onClicked(function()
       backstack.push(require("settings"):new())
     end)
     settings_btn:Image { src = img.settings }
-    theme.set_style(settings_btn, "menu_icon")
+    theme.set_subject(settings_btn, "menu_icon")
   end,
 }

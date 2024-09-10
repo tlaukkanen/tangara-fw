@@ -45,7 +45,7 @@ return screen:new{
             bg_opa = lvgl.OPA(100),
             scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF
         }
-        theme.set_style(header, "header")
+        theme.set_subject(header, "header")
 
         if self.breadcrumb then
             header:Label{

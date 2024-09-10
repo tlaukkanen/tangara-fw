@@ -22,12 +22,12 @@
 
 namespace lua {
 
-static auto set_style(lua_State* L) -> int {
-  // Get the object and class name from the stack
-  std::string class_name = luaL_checkstring(L, -1);
+static auto set_subject(lua_State* L) -> int {
+  // Get the object and subject name from the stack
+  std::string subject_name = luaL_checkstring(L, -1);
   lv_obj_t* obj = luavgl_to_obj(L, -2);
   if (obj != NULL) {
-    ui::themes::Theme::instance()->ApplyStyle(obj, class_name);
+    ui::themes::Theme::instance()->ApplyStyle(obj, subject_name);
   }
   return 0;
 }
@@ -107,7 +107,7 @@ static auto theme_filename(lua_State* L) -> int {
 }
 
 static const struct luaL_Reg kThemeFuncs[] = {{"set", set_theme},
-                                              {"set_style", set_style},
+                                              {"set_subject", set_subject},
                                               {"load_theme", load_theme},
                                               {"theme_filename", theme_filename},
                                               {NULL, NULL}};

@@ -119,7 +119,7 @@ return screen:new {
       range = { min = 0, max = 100 },
       value = 0,
     }
-    theme.set_style(scrubber, "scrubber");
+    theme.set_subject(scrubber, "scrubber");
     local scrubber_desc = widgets.Description(scrubber, "Scrubber")
 
     scrubber:onevent(lvgl.EVENT.RELEASED, function()
@@ -161,7 +161,7 @@ return screen:new {
       queue.repeat_track:set(not queue.repeat_track:get())
     end)
     local repeat_img = repeat_btn:Image { src = img.repeat_src }
-    theme.set_style(repeat_btn, icon_enabled_class)
+    theme.set_subject(repeat_btn, icon_enabled_class)
     local repeat_desc = widgets.Description(repeat_btn)
 
 
@@ -174,7 +174,7 @@ return screen:new {
       end
     end)
     local prev_img = prev_btn:Image { src = img.prev }
-    theme.set_style(prev_btn, icon_enabled_class)
+    theme.set_subject(prev_btn, icon_enabled_class)
     local prev_desc = widgets.Description(prev_btn, "Previous track")
 
     local play_pause_btn = controls:Button {}
@@ -183,13 +183,13 @@ return screen:new {
     end)
     play_pause_btn:focus()
     local play_pause_img = play_pause_btn:Image { src = img.pause }
-    theme.set_style(play_pause_btn, icon_enabled_class)
+    theme.set_subject(play_pause_btn, icon_enabled_class)
     local play_pause_desc = widgets.Description(play_pause_btn, "Play")
 
     local next_btn = controls:Button {}
     next_btn:onClicked(queue.next)
     local next_img = next_btn:Image { src = img.next }
-    theme.set_style(next_btn, icon_disabled_class)
+    theme.set_subject(next_btn, icon_disabled_class)
     local next_desc = widgets.Description(next_btn, "Next track")
 
     local shuffle_btn = controls:Button {}
@@ -197,7 +197,7 @@ return screen:new {
       queue.random:set(not queue.random:get())
     end)
     local shuffle_img = shuffle_btn:Image { src = img.shuffle }
-    theme.set_style(shuffle_btn, icon_enabled_class)
+    theme.set_subject(shuffle_btn, icon_enabled_class)
     local shuffle_desc = widgets.Description(shuffle_btn)
 
     controls:Object({ flex_grow = 1, h = 1 }) -- spacer
@@ -251,12 +251,12 @@ return screen:new {
         playlist_pos:set { text = tostring(pos) }
 
         local can_next = pos < queue.size:get() or queue.random:get()
-        theme.set_style(
+        theme.set_subject(
           next_btn, can_next and icon_enabled_class or icon_disabled_class
         )
       end),
       queue.random:bind(function(shuffling)
-        theme.set_style(shuffle_btn, shuffling and icon_enabled_class or icon_disabled_class)
+        theme.set_subject(shuffle_btn, shuffling and icon_enabled_class or icon_disabled_class)
         if shuffling then
           shuffle_img:set_src(img.shuffle)
           shuffle_desc:set { text = "Disable shuffle" }
@@ -266,7 +266,7 @@ return screen:new {
         end
       end),
       queue.repeat_track:bind(function(en)
-        theme.set_style(repeat_btn, en and icon_enabled_class or icon_disabled_class)
+        theme.set_subject(repeat_btn, en and icon_enabled_class or icon_disabled_class)
         if en then
           repeat_img:set_src(img.repeat_src)
           repeat_desc:set { text = "Disable track repeat" }

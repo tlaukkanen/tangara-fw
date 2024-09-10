@@ -43,7 +43,7 @@ local function init_ui()
           radius = 8,
           pad_all = 2,
         })
-        theme.set_style(container, "pop_up")
+        theme.set_subject(container, "pop_up")
         container:Label {
           text = string.format("Volume %i%%", pct),
           text_font = font.fusion_10

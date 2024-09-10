@@ -15,11 +15,12 @@ function theme.load_theme(filename) end
 --- @param theme
 function theme.set(theme) end
 
---- Set the style name (similar in concept to a css selector) for an object
---- This will set any styles associated with that style name on the object
+--- Set the subject (similar in concept to a css class) of an object. 
+--- This will set any styles within the theme associated with that subject
+--- on the given object
 --- @param obj Object The object to set a particular style on
 --- @param style string The name of the style to apply to this object
-function theme.set_style(obj, style) end
+function theme.set_subject(obj, subject_name) end
 
 --- Returns the filename of the saved theme
 --- @return string 

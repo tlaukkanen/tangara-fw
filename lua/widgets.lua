@@ -107,7 +107,7 @@ function widgets.StatusBar(parent, opts)
   }
 
   if not opts.transparent_bg then
-    theme.set_style(root, "header");
+    theme.set_subject(root, "header");
   end
 
   if opts.back_cb then
@@ -116,7 +116,7 @@ function widgets.StatusBar(parent, opts)
       h = lvgl.SIZE_CONTENT,
     }
     back:Image{src=images.back}
-    theme.set_style(back, "back_button")
+    theme.set_subject(back, "back_button")
     widgets.Description(back, "Back")
     back:onClicked(opts.back_cb)
     back:onevent(lvgl.EVENT.FOCUSED, function()
@@ -145,7 +145,7 @@ function widgets.StatusBar(parent, opts)
   end
 
   local db_updating = root:Image { src = img.db }
-  theme.set_style(db_updating, "database_indicator")
+  theme.set_subject(db_updating, "database_indicator")
   local bt_icon = root:Image {}
   local battery_icon = root:Image {}
   local charge_icon = battery_icon:Image { src = img.chg }
@@ -157,29 +157,29 @@ function widgets.StatusBar(parent, opts)
   local function update_battery_icon()
     if is_charging == nil or percent == nil then return end
     local src
-    theme.set_style(battery_icon, "battery")
+    theme.set_subject(battery_icon, "battery")
     if percent >= 95 then
-      theme.set_style(battery_icon, "battery_100")
+      theme.set_subject(battery_icon, "battery_100")
       src = img.bat_100
     elseif percent >= 75 then
-      theme.set_style(battery_icon, "battery_80")
+      theme.set_subject(battery_icon, "battery_80")
       src = img.bat_80
     elseif percent >= 55 then
-      theme.set_style(battery_icon, "battery_60")
+      theme.set_subject(battery_icon, "battery_60")
       src = img.bat_60
     elseif percent >= 35 then
-      theme.set_style(battery_icon, "battery_40")
+      theme.set_subject(battery_icon, "battery_40")
       src = img.bat_40
     elseif percent >= 15 then
-      theme.set_style(battery_icon, "battery_20")
+      theme.set_subject(battery_icon, "battery_20")
       src = img.bat_20
     else
-      theme.set_style(battery_icon, "battery_0")
+      theme.set_subject(battery_icon, "battery_0")
       src = img.bat_0
     end
     if is_charging then
-      theme.set_style(battery_icon, "battery_charging")
-      theme.set_style(charge_icon, "battery_charge_icon")
+      theme.set_subject(battery_icon, "battery_charging")
+      theme.set_subject(charge_icon, "battery_charge_icon")
       charge_icon:clear_flag(lvgl.FLAG.HIDDEN)
     else
       charge_icon:add_flag(lvgl.FLAG.HIDDEN)
@@ -211,7 +211,7 @@ function widgets.StatusBar(parent, opts)
       end
     end),
     bluetooth.connected:bind(function(connected)
-      theme.set_style(bt_icon, "bluetooth_icon")
+      theme.set_subject(bt_icon, "bluetooth_icon")
       if connected then
         bt_icon:set_src(img.bt_conn)
       else
