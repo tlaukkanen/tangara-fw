@@ -31,7 +31,7 @@ static const uint8_t kMaxOpenFiles = 8;
 
 namespace drivers {
 
-const char* kStoragePath = "/sdcard";
+const char* kStoragePath = "/sd";
 
 auto SdStorage::Create(IGpios& gpio) -> cpp::result<SdStorage*, Error> {
   gpio.WriteSync(IGpios::Pin::kSdPowerEnable, 1);

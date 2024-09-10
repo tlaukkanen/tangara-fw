@@ -730,7 +730,7 @@ void Lua::entry() {
     sPowerFastChargeEnabled.setDirect(sServices->nvs().FastCharge());
 
     if (sServices->sd() == drivers::SdState::kMounted) {
-      sLua->RunScript("/sdcard/config.lua");
+      sLua->RunScript("/sd/config.lua");
     }
     sLua->RunScript("/lua/main.lua");
   }

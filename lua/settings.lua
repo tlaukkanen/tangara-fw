@@ -319,7 +319,7 @@ local ThemeSettings = SettingsScreen:new {
     local theme_dir_iter = filesystem.iterator("/.themes/")
     for dir in theme_dir_iter do
       local theme_name = tostring(dir):match("(.+).lua$")
-      themeOptions[theme_name] = "/sdcard/.themes/" .. theme_name .. ".lua"
+      themeOptions[theme_name] = "/sd/.themes/" .. theme_name .. ".lua"
     end
 
     local saved_theme = theme.theme_filename();
