@@ -22,6 +22,35 @@
 
 namespace audio {
 
+/* Utility for managing buffering samples between digital filters. */
+class Buffer {
+ public:
+  Buffer(std::span<sample::Sample> storage);
+  Buffer();
+  ~Buffer();
+
+  /* Returns a span of the unused space within the buffer. */
+  auto writeAcquire() -> std::span<sample::Sample>;
+  /* Signals how many samples were just added to the writeAcquire span. */
+  auto writeCommit(size_t) -> void;
+
+  /* Returns a span of the samples stored within the buffer. */
+  auto readAcquire() -> std::span<sample::Sample>;
+  /* Signals how many samples from the readAcquire span were consumed. */
+  auto readCommit(size_t) -> void;
+
+  auto isEmpty() -> bool;
+  auto clear() -> void;
+
+  Buffer(const Buffer&) = delete;
+  Buffer& operator=(const Buffer&) = delete;
+
+ private:
+  sample::Sample* storage_;
+  std::span<sample::Sample> buffer_;
+  std::span<sample::Sample> samples_in_buffer_;
+};
+
 /*
  * Handle to a persistent task that converts samples between formats (sample
  * rate, channels, bits per sample), in order to put samples in the preferred
@@ -86,33 +115,6 @@ class SampleProcessor {
 
   StreamBufferHandle_t source_;
   drivers::PcmBuffer& sink_;
-
-  /* Internal utility for managing buffering samples between our filters. */
-  class Buffer {
-   public:
-    Buffer();
-    ~Buffer();
-
-    /* Returns a span of the unused space within the buffer. */
-    auto writeAcquire() -> std::span<sample::Sample>;
-    /* Signals how many samples were just added to the writeAcquire span. */
-    auto writeCommit(size_t) -> void;
-
-    /* Returns a span of the samples stored within the buffer. */
-    auto readAcquire() -> std::span<sample::Sample>;
-    /* Signals how many samples from the readAcquire span were consumed. */
-    auto readCommit(size_t) -> void;
-
-    auto isEmpty() -> bool;
-    auto clear() -> void;
-
-    Buffer(const Buffer&) = delete;
-    Buffer& operator=(const Buffer&) = delete;
-
-   private:
-    std::span<sample::Sample> buffer_;
-    std::span<sample::Sample> samples_in_buffer_;
-  };
 
   Buffer input_buffer_;
   Buffer resampled_buffer_;

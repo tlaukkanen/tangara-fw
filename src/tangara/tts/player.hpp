@@ -9,6 +9,7 @@
 #include <string>
 
 #include "audio/fatfs_stream_factory.hpp"
+#include "codec.hpp"
 #include "drivers/pcm_buffer.hpp"
 #include "tasks.hpp"
 
@@ -33,6 +34,12 @@ class Player {
   tasks::WorkerPool& bg_;
   audio::FatfsStreamFactory& stream_factory_;
   drivers::PcmBuffer& output_;
+
+  std::atomic<int> play_count_;
+
+  auto decodeToSink(const codecs::ICodec::OutputFormat&,
+                    std::unique_ptr<codecs::ICodec>,
+                    int play_count) -> void;
 };
 
 }  // namespace tts
