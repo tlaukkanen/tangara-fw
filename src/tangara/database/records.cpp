@@ -93,6 +93,7 @@ auto EncodeDataValue(const TrackData& track) -> std::string {
       cppbor::Uint{track.modified_at.first},
       cppbor::Uint{track.modified_at.second},
       tag_hashes,
+      cppbor::Uint{track.last_position},
   };
   return val.toString();
 }
@@ -127,6 +128,9 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
     auto tag = static_cast<Tag>(entry.first->asUint()->unsignedValue());
     res->individual_tag_hashes[tag] = entry.second->asUint()->unsignedValue();
   }
+
+  res->last_position = vals->get(7)->asUint()->unsignedValue();
+
   return res;
 }
 

@@ -80,6 +80,10 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
                current.first->start_offset.value_or(0);
   }
 
+  if (position) {
+    // Update position if the duration has been long enough
+  }
+
   PlaybackUpdate event{
       .current_track = current.first,
       .track_position = position,
@@ -372,6 +376,27 @@ void AudioState::react(const OutputModeChanged& ev) {
         .db = sOutput->GetVolumeDb(),
     });
   }
+}
+
+auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
+    -> void {
+  sServices->bg_worker().Dispatch<void>([=]() {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    auto id = db->getTrackID(uri);
+    if (!id) {
+      return;
+    }
+    auto track = db->getTrack(*id);
+    if (!track) {
+      return;
+    }
+    database::TrackData data = track->data();
+    data.last_position = position;
+    db->setTrackData(*id, data);
+  });
 }
 
 auto AudioState::commitVolume() -> void {
