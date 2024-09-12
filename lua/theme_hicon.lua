@@ -40,6 +40,7 @@ local theme_hicon = {
   },
   button = {
     {lvgl.PART.MAIN, lvgl.Style {
+      bg_opa = lvgl.OPA(100),
       pad_left = 2,
       pad_right = 2,
       pad_top = 1,
@@ -188,6 +189,14 @@ local theme_hicon = {
       bg_color = text_color,
       text_color = background_color,
     }},
+    {lvgl.PART.INDICATOR, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = text_color,
+    }},
+    {lvgl.PART.INDICATOR | lvgl.STATE.FOCUSED, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = background_color,
+    }},
   },
   dropdownlist = {
     {lvgl.PART.MAIN, lvgl.Style{
@@ -244,6 +253,12 @@ local theme_hicon = {
       radius = 4
     }},
   },
+  bluetooth_icon = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = text_color,
+    }},
+  },
   battery = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 255,
@@ -265,6 +280,18 @@ local theme_hicon = {
   battery_charge_icon = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 200,
+      image_recolor = text_color,
+    }},
+  },
+  battery_charge_outline = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = background_color,
+    }},
+  },
+  regulatory_icons = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
       image_recolor = text_color,
     }},
   },
