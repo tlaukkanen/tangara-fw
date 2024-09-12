@@ -38,6 +38,7 @@ local theme_dark = {
   },
   button = {
     {lvgl.PART.MAIN, lvgl.Style {
+      bg_opa = lvgl.OPA(100),
       pad_left = 2,
       pad_right = 2,
       pad_top = 1,
@@ -217,6 +218,12 @@ local theme_dark = {
       radius = 4
     }},
   },
+  bluetooth_icon = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = text_color,
+    }},
+  },
   battery = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 0,
@@ -238,6 +245,18 @@ local theme_dark = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 180,
       image_recolor = "#fdd833",
+    }},
+  },
+  battery_charge_outline = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = background_color,
+    }},
+  },
+  regulatory_icons = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = text_color,
     }},
   },
 }

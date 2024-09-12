@@ -12,6 +12,7 @@ local database = require("database")
 local usb = require("usb")
 local font = require("font")
 local main_menu = require("main_menu")
+local img = require("images")
 
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
@@ -213,6 +214,7 @@ local HeadphonesSettings = SettingsScreen:new {
     local volume_chooser = self.content:Dropdown {
       options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
       selected = 1,
+      symbol = img.chevron,
     }
     local limits = { -10, 6, 10 }
     volume_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
@@ -319,7 +321,9 @@ local ThemeSettings = SettingsScreen:new {
     local theme_dir_iter = filesystem.iterator("/.themes/")
     for dir in theme_dir_iter do
       local theme_name = tostring(dir):match("(.+).lua$")
-      themeOptions[theme_name] = "/sd/.themes/" .. theme_name .. ".lua"
+      if (theme_name) then
+        themeOptions[theme_name] = "/sd/.themes/" .. theme_name .. ".lua"
+      end
     end
 
     local saved_theme = theme.theme_filename();
@@ -346,6 +350,7 @@ local ThemeSettings = SettingsScreen:new {
 
     local theme_chooser = self.content:Dropdown {
       options = options,
+      symbol = img.chevron,
     }
     theme_chooser:set({selected = selected_idx})
 
@@ -388,6 +393,7 @@ local InputSettings = SettingsScreen:new {
 
     local controls_chooser = self.content:Dropdown {
       options = options,
+      symbol = img.chevron,
     }
 
     self.bindings = self.bindings + {

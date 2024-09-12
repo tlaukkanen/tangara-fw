@@ -13,6 +13,7 @@ local images = require("images")
 local img = {
   db = lvgl.ImgData("//lua/img/db.png"),
   chg = lvgl.ImgData("//lua/img/bat/chg.png"),
+  chg_outline = lvgl.ImgData("//lua/img/bat/chg_outline.png"),
   bat_100 = lvgl.ImgData("//lua/img/bat/100.png"),
   bat_80 = lvgl.ImgData("//lua/img/bat/80.png"),
   bat_60 = lvgl.ImgData("//lua/img/bat/60.png"),
@@ -149,6 +150,8 @@ function widgets.StatusBar(parent, opts)
   local bt_icon = root:Image {}
   local battery_icon = root:Image {}
   local charge_icon = battery_icon:Image { src = img.chg }
+  local charge_icon_outline = battery_icon:Image { src = img.chg_outline }
+  charge_icon_outline:center();
   charge_icon:center()
 
   local is_charging = nil
@@ -180,9 +183,12 @@ function widgets.StatusBar(parent, opts)
     if is_charging then
       theme.set_subject(battery_icon, "battery_charging")
       theme.set_subject(charge_icon, "battery_charge_icon")
+      theme.set_subject(charge_icon_outline, "battery_charge_outline")
       charge_icon:clear_flag(lvgl.FLAG.HIDDEN)
+      charge_icon_outline:clear_flag(lvgl.FLAG.HIDDEN)
     else
       charge_icon:add_flag(lvgl.FLAG.HIDDEN)
+      charge_icon_outline:add_flag(lvgl.FLAG.HIDDEN)
     end
     battery_icon:set_src(src)
   end
