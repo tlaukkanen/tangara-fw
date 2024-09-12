@@ -137,8 +137,6 @@ auto WavDecoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
   // uint32_t file_size = bytes_to_u32(buffer_span.subspan(4, 4)) + 8;
 
   std::string fmt_header = bytes_to_str(buffer_span.subspan(12, 4));
-  ESP_LOGI(kTag, "fmt header found? %s",
-           (fmt_header.starts_with("fmt")) ? "yes" : "no");
   if (!fmt_header.starts_with("fmt")) {
     ESP_LOGW(kTag, "Could not find format chunk");
     return cpp::fail(Error::kMalformedData);

@@ -49,9 +49,18 @@ auto Provider::feed(const Event& e) -> void {
       // ESP_LOGI(kTag, "new selection: '%s', interactive? %i",
       // ev.new_selection->description.value_or("").c_str(),
       // ev.new_selection->is_interactive);
-      std::string new_desc = ev.new_selection->description.value_or("");
+      auto text = ev.new_selection->description;
+      if (!text) {
+        ESP_LOGW(kTag, "missing description for element");
+        return;
+      }
+      auto file = textToFile(*text);
+      if (!file) {
+        return;
+      }
+
       if (player_) {
-        player_->playFile(textToFile(new_desc).value_or(""));
+        player_->playFile(*text, *file);
       }
     }
   }

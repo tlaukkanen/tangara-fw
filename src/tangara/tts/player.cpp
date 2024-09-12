@@ -31,11 +31,9 @@ Player::Player(tasks::WorkerPool& worker,
       stream_playing_(false),
       stream_cancelled_(false) {}
 
-auto Player::playFile(const std::string& path) -> void {
-  ESP_LOGI(kTag, "playing '%s'", path.c_str());
-
+auto Player::playFile(const std::string& text, const std::string& file)
+    -> void {
   bg_.Dispatch<void>([=, this]() {
-    // Interrupt current playback
     {
       std::scoped_lock<std::mutex> lock{new_stream_mutex_};
       if (stream_playing_) {
@@ -46,7 +44,7 @@ auto Player::playFile(const std::string& path) -> void {
       stream_playing_ = true;
     }
 
-    openAndDecode(path);
+    openAndDecode(text, file);
 
     if (!stream_cancelled_) {
       events::Audio().Dispatch(audio::TtsPlaybackChanged{.is_playing = false});
@@ -56,10 +54,11 @@ auto Player::playFile(const std::string& path) -> void {
   });
 }
 
-auto Player::openAndDecode(const std::string& path) -> void {
+auto Player::openAndDecode(const std::string& text, const std::string& path)
+    -> void {
   auto stream = stream_factory_.create(path);
   if (!stream) {
-    ESP_LOGE(kTag, "creating stream failed");
+    ESP_LOGW(kTag, "missing '%s' for '%s'", path.c_str(), text.c_str());
     return;
   }
 
@@ -67,7 +66,7 @@ auto Player::openAndDecode(const std::string& path) -> void {
   // proper subset of 'low memory' decoders that can all be used for TTS
   // playback.
   if (stream->type() != codecs::StreamType::kWav) {
-    ESP_LOGE(kTag, "stream was unsupported type");
+    ESP_LOGE(kTag, "'%s' has unsupported encoding", path.c_str());
     return;
   }
 

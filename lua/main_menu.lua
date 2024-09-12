@@ -155,6 +155,7 @@ return widgets.MenuScreen:new {
       })
     end)
     files_btn:Image { src = img.files }
+    widgets.Description(files_btn, "File browser")
     theme.set_style(files_btn, "menu_icon")
 
     local settings_btn = bottom_bar:Button {}
@@ -162,6 +163,7 @@ return widgets.MenuScreen:new {
       backstack.push(require("settings"):new())
     end)
     settings_btn:Image { src = img.settings }
+    widgets.Description(settings_btn, "Settings")
     theme.set_style(settings_btn, "menu_icon")
   end,
 }

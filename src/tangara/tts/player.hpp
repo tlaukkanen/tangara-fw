@@ -24,7 +24,7 @@ class Player {
  public:
   Player(tasks::WorkerPool&, drivers::PcmBuffer&, audio::FatfsStreamFactory&);
 
-  auto playFile(const std::string& path) -> void;
+  auto playFile(const std::string& text, const std::string& path) -> void;
 
   // Not copyable or movable.
   Player(const Player&) = delete;
@@ -39,7 +39,7 @@ class Player {
   std::atomic<bool> stream_playing_;
   std::atomic<bool> stream_cancelled_;
 
-  auto openAndDecode(const std::string& path) -> void;
+  auto openAndDecode(const std::string& text, const std::string& path) -> void;
   auto decodeToSink(const codecs::ICodec::OutputFormat&,
                     std::unique_ptr<codecs::ICodec>) -> void;
 };
