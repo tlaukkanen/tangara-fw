@@ -393,9 +393,9 @@ auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
     if (!track) {
       return;
     }
-    database::TrackData data = track->data();
-    data.last_position = position;
-    db->setTrackData(*id, data);
+    auto data = track->data().clone();
+    data->last_position = position;
+    db->setTrackData(*id, *data);
   });
 }
 

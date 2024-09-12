@@ -170,10 +170,11 @@ struct TrackData {
   std::pair<uint16_t, uint16_t> modified_at;
   uint32_t last_position;
 
-  TrackData(const TrackData& other) = default;
-  TrackData& operator=(TrackData& other) = default;
+  TrackData(const TrackData&& other) = delete;
+  TrackData& operator=(TrackData& other) = delete;
+  auto clone() const -> std::shared_ptr<TrackData>;
 
-  bool operator==(const TrackData&) const = default;
+  bool operator==(const TrackData&) const = delete;
 };
 
 /*
