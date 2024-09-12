@@ -25,7 +25,8 @@ namespace drivers {
 
 [[maybe_unused]] static const char kTag[] = "pcmbuf";
 
-PcmBuffer::PcmBuffer(size_t size_in_samples) : sent_(0), received_(0) {
+PcmBuffer::PcmBuffer(size_t size_in_samples)
+    : sent_(0), received_(0), suspended_(false) {
   size_t size_in_bytes = size_in_samples * sizeof(int16_t);
   ESP_LOGI(kTag, "allocating pcm buffer of size %u (%uKiB)", size_in_samples,
            size_in_bytes / 1024);
@@ -51,6 +52,13 @@ auto PcmBuffer::send(std::span<const int16_t> data) -> size_t {
 
 IRAM_ATTR auto PcmBuffer::receive(std::span<int16_t> dest, bool mix, bool isr)
     -> BaseType_t {
+  if (suspended_) {
+    if (!mix) {
+      std::fill_n(dest.begin(), dest.size(), 0);
+    }
+    return false;
+  }
+
   size_t first_read = 0, second_read = 0;
   BaseType_t ret1 = false, ret2 = false;
   std::tie(first_read, ret1) = readSingle(dest, mix, isr);
@@ -84,6 +92,10 @@ auto PcmBuffer::clear() -> void {
 auto PcmBuffer::isEmpty() -> bool {
   return xRingbufferGetMaxItemSize(ringbuf_) ==
          xRingbufferGetCurFreeSize(ringbuf_);
+}
+
+auto PcmBuffer::suspend(bool s) -> void {
+  suspended_ = s;
 }
 
 auto PcmBuffer::totalSent() -> uint32_t {

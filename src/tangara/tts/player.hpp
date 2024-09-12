@@ -35,11 +35,13 @@ class Player {
   audio::FatfsStreamFactory& stream_factory_;
   drivers::PcmBuffer& output_;
 
-  std::atomic<int> play_count_;
+  std::mutex new_stream_mutex_;
+  std::atomic<bool> stream_playing_;
+  std::atomic<bool> stream_cancelled_;
 
+  auto openAndDecode(const std::string& path) -> void;
   auto decodeToSink(const codecs::ICodec::OutputFormat&,
-                    std::unique_ptr<codecs::ICodec>,
-                    int play_count) -> void;
+                    std::unique_ptr<codecs::ICodec>) -> void;
 };
 
 }  // namespace tts

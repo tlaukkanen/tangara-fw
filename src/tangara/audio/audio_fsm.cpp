@@ -76,6 +76,7 @@ std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 StreamCues AudioState::sStreamCues;
 
 bool AudioState::sIsPaused = true;
+bool AudioState::sIsTtsPlaying = false;
 
 auto AudioState::emitPlaybackUpdate(bool paused) -> void {
   std::optional<uint32_t> position;
@@ -189,6 +190,11 @@ void AudioState::react(const TogglePlayPause& ev) {
   } else if (sIsPaused && is_in_state<states::Playback>()) {
     transit<states::Standby>();
   }
+}
+
+void AudioState::react(const TtsPlaybackChanged& ev) {
+  sIsTtsPlaying = ev.is_playing;
+  updateOutputMode();
 }
 
 void AudioState::react(const internal::DecodingFinished& ev) {
@@ -369,8 +375,8 @@ void AudioState::react(const OutputModeChanged& ev) {
       sOutput = sI2SOutput;
       break;
   }
-  sOutput->mode(IAudioOutput::Modes::kOnPaused);
   sSampleProcessor->SetOutput(sOutput);
+  updateOutputMode();
 
   // Bluetooth volume isn't 'changed' until we've connected to a device.
   if (new_mode == drivers::NvsStorage::Output::kHeadphones) {
@@ -378,6 +384,14 @@ void AudioState::react(const OutputModeChanged& ev) {
         .percent = sOutput->GetVolumePct(),
         .db = sOutput->GetVolumeDb(),
     });
+  }
+}
+
+auto AudioState::updateOutputMode() -> void {
+  if (is_in_state<states::Playback>() || sIsTtsPlaying) {
+    sOutput->mode(IAudioOutput::Modes::kOnPlaying);
+  } else {
+    sOutput->mode(IAudioOutput::Modes::kOnPaused);
   }
 }
 
@@ -402,6 +416,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
 
   sDrainBuffers = std::make_unique<drivers::OutputBuffers>(
       kTrackDrainLatencySamples, kSystemDrainLatencySamples);
+  sDrainBuffers->first.suspend(true);
 
   sStreamFactory.reset(
       new FatfsStreamFactory(sServices->database(), sServices->tag_parser()));
@@ -453,6 +468,10 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
 
 static const char kQueueKey[] = "audio:queue";
 static const char kCurrentFileKey[] = "audio:current";
+
+auto Standby::entry() -> void {
+  updateOutputMode();
+}
 
 void Standby::react(const system_fsm::KeyLockChanged& ev) {
   if (!ev.locking) {
@@ -539,7 +558,8 @@ static void heartbeat(TimerHandle_t) {
 
 void Playback::entry() {
   ESP_LOGI(kTag, "audio output resumed");
-  sOutput->mode(IAudioOutput::Modes::kOnPlaying);
+  sDrainBuffers->first.suspend(false);
+  updateOutputMode();
   emitPlaybackUpdate(false);
 
   if (!sHeartbeatTimer) {
@@ -552,7 +572,7 @@ void Playback::entry() {
 void Playback::exit() {
   ESP_LOGI(kTag, "audio output paused");
   xTimerStop(sHeartbeatTimer, portMAX_DELAY);
-  sOutput->mode(IAudioOutput::Modes::kOnPaused);
+  sDrainBuffers->first.suspend(true);
   emitPlaybackUpdate(true);
 }
 

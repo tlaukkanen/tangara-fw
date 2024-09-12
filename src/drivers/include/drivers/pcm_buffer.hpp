@@ -49,6 +49,7 @@ class PcmBuffer {
 
   auto clear() -> void;
   auto isEmpty() -> bool;
+  auto suspend(bool) -> void;
 
   /*
    * How many samples have been added to this buffer since it was created. This
@@ -75,6 +76,8 @@ class PcmBuffer {
 
   std::atomic<uint32_t> sent_;
   std::atomic<uint32_t> received_;
+  std::atomic<bool> suspended_;
+
   RingbufHandle_t ringbuf_;
 };
 
