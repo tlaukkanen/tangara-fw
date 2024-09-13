@@ -90,6 +90,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::optional<IAudioOutput::Format> sDrainFormat;
 
   static bool sIsPaused;
+  static uint8_t sUpdateCounter;
 };
 
 namespace states {

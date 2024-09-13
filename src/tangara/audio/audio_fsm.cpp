@@ -70,6 +70,8 @@ StreamCues AudioState::sStreamCues;
 
 bool AudioState::sIsPaused = true;
 
+uint8_t AudioState::sUpdateCounter = 0;
+
 auto AudioState::emitPlaybackUpdate(bool paused) -> void {
   std::optional<uint32_t> position;
   auto current = sStreamCues.current();
@@ -80,8 +82,14 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
                current.first->start_offset.value_or(0);
   }
 
-  if (position) {
-    // Update position if the duration has been long enough
+  // If we've got an elapsed duration and it's more than 5 minutes
+  // increment a counter. Every 60 counts (ie, every minute) save the current elapsed position 
+  if (position && *position > (5 * 60)) {
+    sUpdateCounter++;
+    if (sUpdateCounter > 60) {
+      sUpdateCounter = 0;
+      updateSavedPosition(current.first->uri, *position);
+    }
   }
 
   PlaybackUpdate event{
