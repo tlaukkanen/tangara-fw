@@ -43,7 +43,6 @@ return screen:new {
       pad_left = 4,
       pad_right = 4,
       pad_bottom = 2,
-      bg_opa = lvgl.OPA(100),
       scrollbar_mode = lvgl.SCROLLBAR_MODE.OFF
     }
     theme.set_subject(header, "header")

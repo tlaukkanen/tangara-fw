@@ -40,7 +40,7 @@ void Running::entry() {
     sUnmountTimer = xTimerCreate("unmount_timeout", kTicksBeforeUnmount, false,
                                  NULL, timer_callback);
   }
-  mountStorage();
+  events::System().Dispatch(internal::Mount{});
 }
 
 void Running::exit() {
@@ -72,7 +72,8 @@ void Running::react(const SdDetectChanged& ev) {
   }
 
   if (ev.has_sd_card && !sStorage) {
-    mountStorage();
+    events::System().Dispatch(internal::Mount{});
+    return;
   }
 
   // Don't automatically unmount, since this event seems to occasionally happen
@@ -120,7 +121,7 @@ void Running::react(const SamdUsbMscChanged& ev) {
     gpios.WriteSync(drivers::IGpios::Pin::kSdPowerEnable, 0);
 
     // Now it's ready for us.
-    mountStorage();
+    events::System().Dispatch(internal::Mount{});
   }
 }
 
@@ -145,7 +146,7 @@ auto Running::updateSdState(drivers::SdState state) -> void {
   events::System().Dispatch(SdStateChanged{});
 }
 
-auto Running::mountStorage() -> void {
+void Running::react(const internal::Mount&) {
   // Only mount our storage if we know it's not currently in use by the SAMD.
   if (sServices->samd().UsbMassStorage()) {
     updateSdState(drivers::SdState::kNotMounted);
