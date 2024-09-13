@@ -12,6 +12,7 @@ local database = require("database")
 local usb = require("usb")
 local font = require("font")
 local main_menu = require("main_menu")
+local img = require("images")
 
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
@@ -102,7 +103,7 @@ local BluetoothSettings = SettingsScreen:new {
           text = "",
           pad_bottom = 1,
         }
-    theme.set_style(paired_label, "settings_title")
+    theme.set_subject(paired_label, "settings_title")
 
     self.bindings = self.bindings + {
       bluetooth.connecting:bind(function(conn)
@@ -152,7 +153,7 @@ local BluetoothSettings = SettingsScreen:new {
       end),
     }
 
-    theme.set_style(self.content:Label {
+    theme.set_subject(self.content:Label {
       text = "Known Devices",
       pad_bottom = 1,
     }, "settings_title")
@@ -206,13 +207,14 @@ local HeadphonesSettings = SettingsScreen:new {
   create_ui = function(self)
     SettingsScreen.create_ui(self)
 
-    theme.set_style(self.content:Label {
+    theme.set_subject(self.content:Label {
       text = "Maxiumum volume limit",
     }, "settings_title")
 
     local volume_chooser = self.content:Dropdown {
       options = "Line Level (-10 dB)\nCD Level (+6 dB)\nMaximum (+10dB)",
       selected = 1,
+      symbol = img.chevron,
     }
     local limits = { -10, 6, 10 }
     volume_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
@@ -221,7 +223,7 @@ local HeadphonesSettings = SettingsScreen:new {
       volume.limit_db:set(limits[selection])
     end)
 
-    theme.set_style(self.content:Label {
+    theme.set_subject(self.content:Label {
       text = "Left/Right balance",
     }, "settings_title")
 
@@ -282,7 +284,7 @@ local DisplaySettings = SettingsScreen:new {
     }
     brightness_title:Label { text = "Brightness", flex_grow = 1 }
     local brightness_pct = brightness_title:Label {}
-    theme.set_style(brightness_pct, "settings_title")
+    theme.set_subject(brightness_pct, "settings_title")
 
     local brightness = self.content:Slider {
       w = lvgl.PCT(100),
@@ -306,7 +308,7 @@ local ThemeSettings = SettingsScreen:new {
   create_ui = function(self)
     SettingsScreen.create_ui(self)
 
-    theme.set_style(self.content:Label {
+    theme.set_subject(self.content:Label {
       text = "Theme",
     }, "settings_title")
 
@@ -319,7 +321,9 @@ local ThemeSettings = SettingsScreen:new {
     local theme_dir_iter = filesystem.iterator("/.themes/")
     for dir in theme_dir_iter do
       local theme_name = tostring(dir):match("(.+).lua$")
-      themeOptions[theme_name] = "/sdcard/.themes/" .. theme_name .. ".lua"
+      if (theme_name) then
+        themeOptions[theme_name] = "/sd/.themes/" .. theme_name .. ".lua"
+      end
     end
 
     local saved_theme = theme.theme_filename();
@@ -346,6 +350,7 @@ local ThemeSettings = SettingsScreen:new {
 
     local theme_chooser = self.content:Dropdown {
       options = options,
+      symbol = img.chevron,
     }
     theme_chooser:set({selected = selected_idx})
 
@@ -365,7 +370,7 @@ local InputSettings = SettingsScreen:new {
   create_ui = function(self)
     SettingsScreen.create_ui(self)
 
-    theme.set_style(self.content:Label {
+    theme.set_subject(self.content:Label {
       text = "Control scheme",
     }, "settings_title")
 
@@ -388,6 +393,7 @@ local InputSettings = SettingsScreen:new {
 
     local controls_chooser = self.content:Dropdown {
       options = options,
+      symbol = img.chevron,
     }
 
     self.bindings = self.bindings + {
@@ -403,7 +409,7 @@ local InputSettings = SettingsScreen:new {
       controls.scheme:set(scheme)
     end)
 
-    theme.set_style(self.content:Label {
+    theme.set_subject(self.content:Label {
       text = "Scroll Sensitivity",
     }, "settings_title")
 
@@ -761,7 +767,7 @@ local RegulatoryScreen = SettingsScreen:new {
       pad_top = 4,
       pad_column = 4,
     }
-    theme.set_style(logo_container, "regulatory_icons")
+    theme.set_subject(logo_container, "regulatory_icons")
     button_container:add_style(styles.list_item)
 
     logo_container:Image { src = "//lua/img/ce.png" }
@@ -785,7 +791,7 @@ return widgets.MenuScreen:new {
         text = name,
         pad_left = 4,
       }
-      theme.set_style(elem, "settings_title")
+      theme.set_subject(elem, "settings_title")
     end
 
     local function submenu(name, class)

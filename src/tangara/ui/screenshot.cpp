@@ -34,7 +34,7 @@ auto SaveScreenshot(lv_obj_t* obj, const std::string& path) -> void {
   }
 
   // The LVGL lodepng fork uses LVGL's file API, so an extra '/' is needed.
-  std::string fullpath = "//sdcard/" + path;
+  std::string fullpath = "//sd/" + path;
 
   auto res = lodepng_encode_file(fullpath.c_str(), buf->data, buf->header.w,
                                  buf->header.h, LCT_RGB, 8);

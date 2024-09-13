@@ -15,6 +15,7 @@ local img = {
   queue = lvgl.ImgData("//lua/img/queue.png"),
   files = lvgl.ImgData("//lua/img/files.png"),
   settings = lvgl.ImgData("//lua/img/settings.png"),
+  chevron = lvgl.ImgData("//lua/img/chevron.png"),
 }
 
 return img
