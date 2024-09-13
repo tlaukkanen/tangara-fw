@@ -63,6 +63,7 @@ class SystemState : public tinyfsm::Fsm<SystemState> {
   virtual void react(const audio::PlaybackUpdate&) {}
   virtual void react(const internal::IdleTimeout&) {}
   virtual void react(const internal::UnmountTimeout&) {}
+  virtual void react(const internal::Mount&) {}
 
  protected:
   auto IdleCondition() -> bool;
@@ -101,8 +102,10 @@ class Running : public SystemState {
   void react(const audio::PlaybackUpdate&) override;
   void react(const database::event::UpdateFinished&) override;
   void react(const SamdUsbMscChanged&) override;
-  void react(const internal::UnmountTimeout&) override;
   void react(const StorageError&) override;
+
+  void react(const internal::UnmountTimeout&) override;
+  void react(const internal::Mount&) override;
 
   using SystemState::react;
 
@@ -110,7 +113,6 @@ class Running : public SystemState {
   auto checkIdle() -> void;
 
   auto updateSdState(drivers::SdState) -> void;
-  auto mountStorage() -> void;
   auto unmountStorage() -> void;
 
   bool storage_mounted_;
