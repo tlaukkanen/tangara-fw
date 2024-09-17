@@ -44,6 +44,7 @@
 #include "sample.hpp"
 #include "system_fsm/service_locator.hpp"
 #include "system_fsm/system_events.hpp"
+#include "tts/player.hpp"
 
 namespace audio {
 
@@ -60,15 +61,22 @@ std::shared_ptr<IAudioOutput> AudioState::sOutput;
 std::shared_ptr<I2SAudioOutput> AudioState::sI2SOutput;
 std::shared_ptr<BluetoothAudioOutput> AudioState::sBtOutput;
 
-// Two seconds of samples for two channels, at a representative sample rate.
-constexpr size_t kDrainLatencySamples = 48000 * 2 * 2;
+// For tracks, keep about two seconds' worth of samples at 2ch 48kHz. This
+// is more headroom than we need for small playback, but it doesn't hurt to
+// keep some PSRAM in our pockets for a rainy day.
+constexpr size_t kTrackDrainLatencySamples = 48000 * 2 * 2;
 
-std::unique_ptr<drivers::PcmBuffer> AudioState::sDrainBuffer;
+// For system sounds, we intentionally choose codecs that are very fast to
+// decode. This lets us get away with a much smaller drain buffer.
+constexpr size_t kSystemDrainLatencySamples = 48000;
+
+std::unique_ptr<drivers::OutputBuffers> AudioState::sDrainBuffers;
 std::optional<IAudioOutput::Format> AudioState::sDrainFormat;
 
 StreamCues AudioState::sStreamCues;
 
 bool AudioState::sIsPaused = true;
+bool AudioState::sIsTtsPlaying = false;
 
 uint8_t AudioState::sUpdateCounter = 0;
 
@@ -196,6 +204,11 @@ void AudioState::react(const TogglePlayPause& ev) {
   }
 }
 
+void AudioState::react(const TtsPlaybackChanged& ev) {
+  sIsTtsPlaying = ev.is_playing;
+  updateOutputMode();
+}
+
 void AudioState::react(const internal::DecodingFinished& ev) {
   // If we just finished playing whatever's at the front of the queue, then we
   // need to advanve and start playing the next one ASAP in order to continue
@@ -231,7 +244,7 @@ void AudioState::react(const internal::StreamStarted& ev) {
   }
 
   sStreamCues.addCue(ev.track, ev.cue_at_sample);
-  sStreamCues.update(sDrainBuffer->totalReceived());
+  sStreamCues.update(sDrainBuffers->first.totalReceived());
 
   if (!sIsPaused && !is_in_state<states::Playback>()) {
     transit<states::Playback>();
@@ -374,8 +387,8 @@ void AudioState::react(const OutputModeChanged& ev) {
       sOutput = sI2SOutput;
       break;
   }
-  sOutput->mode(IAudioOutput::Modes::kOnPaused);
   sSampleProcessor->SetOutput(sOutput);
+  updateOutputMode();
 
   // Bluetooth volume isn't 'changed' until we've connected to a device.
   if (new_mode == drivers::NvsStorage::Output::kHeadphones) {
@@ -407,6 +420,14 @@ auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
   });
 }
 
+auto AudioState::updateOutputMode() -> void {
+  if (is_in_state<states::Playback>() || sIsTtsPlaying) {
+    sOutput->mode(IAudioOutput::Modes::kOnPlaying);
+  } else {
+    sOutput->mode(IAudioOutput::Modes::kOnPaused);
+  }
+}
+
 auto AudioState::commitVolume() -> void {
   auto mode = sServices->nvs().OutputMode();
   auto vol = sOutput->GetVolume();
@@ -426,13 +447,20 @@ namespace states {
 void Uninitialised::react(const system_fsm::BootComplete& ev) {
   sServices = ev.services;
 
-  sDrainBuffer = std::make_unique<drivers::PcmBuffer>(kDrainLatencySamples);
+  sDrainBuffers = std::make_unique<drivers::OutputBuffers>(
+      kTrackDrainLatencySamples, kSystemDrainLatencySamples);
+  sDrainBuffers->first.suspend(true);
 
   sStreamFactory.reset(
       new FatfsStreamFactory(sServices->database(), sServices->tag_parser()));
-  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffer));
+  sI2SOutput.reset(new I2SAudioOutput(sServices->gpios(), *sDrainBuffers));
   sBtOutput.reset(new BluetoothAudioOutput(
-      sServices->bluetooth(), *sDrainBuffer, sServices->bg_worker()));
+      sServices->bluetooth(), *sDrainBuffers, sServices->bg_worker()));
+
+  auto& tts_provider = sServices->tts();
+  auto tts_player = std::make_unique<tts::Player>(
+      sServices->bg_worker(), sDrainBuffers->second, *sStreamFactory);
+  tts_provider.player(std::move(tts_player));
 
   auto& nvs = sServices->nvs();
   sI2SOutput->SetMaxVolume(nvs.AmpMaxVolume());
@@ -463,7 +491,7 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
       .left_bias = nvs.AmpLeftBias(),
   });
 
-  sSampleProcessor.reset(new SampleProcessor(*sDrainBuffer));
+  sSampleProcessor.reset(new SampleProcessor(sDrainBuffers->first));
   sSampleProcessor->SetOutput(sOutput);
 
   sDecoder.reset(Decoder::Start(sSampleProcessor));
@@ -473,6 +501,10 @@ void Uninitialised::react(const system_fsm::BootComplete& ev) {
 
 static const char kQueueKey[] = "audio:queue";
 static const char kCurrentFileKey[] = "audio:current";
+
+auto Standby::entry() -> void {
+  updateOutputMode();
+}
 
 void Standby::react(const system_fsm::KeyLockChanged& ev) {
   if (!ev.locking) {
@@ -559,7 +591,8 @@ static void heartbeat(TimerHandle_t) {
 
 void Playback::entry() {
   ESP_LOGI(kTag, "audio output resumed");
-  sOutput->mode(IAudioOutput::Modes::kOnPlaying);
+  sDrainBuffers->first.suspend(false);
+  updateOutputMode();
   emitPlaybackUpdate(false);
 
   if (!sHeartbeatTimer) {
@@ -572,7 +605,7 @@ void Playback::entry() {
 void Playback::exit() {
   ESP_LOGI(kTag, "audio output paused");
   xTimerStop(sHeartbeatTimer, portMAX_DELAY);
-  sOutput->mode(IAudioOutput::Modes::kOnPaused);
+  sDrainBuffers->first.suspend(true);
   emitPlaybackUpdate(true);
 }
 
@@ -583,7 +616,7 @@ void Playback::react(const system_fsm::SdStateChanged& ev) {
 }
 
 void Playback::react(const internal::StreamHeartbeat& ev) {
-  sStreamCues.update(sDrainBuffer->totalReceived());
+  sStreamCues.update(sDrainBuffers->first.totalReceived());
 
   if (sStreamCues.hasStream()) {
     emitPlaybackUpdate(false);

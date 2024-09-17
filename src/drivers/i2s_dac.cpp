@@ -52,10 +52,12 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
   assert(event->size % 4 == 0);
 
   uint8_t* buf = reinterpret_cast<uint8_t*>(event->dma_buf);
-  auto* src = reinterpret_cast<PcmBuffer*>(user_ctx);
+  auto* src = reinterpret_cast<OutputBuffers*>(user_ctx);
 
-  BaseType_t ret =
-      src->receive({reinterpret_cast<int16_t*>(buf), event->size / 2}, true);
+  BaseType_t ret1 = src->first.receive(
+      {reinterpret_cast<int16_t*>(buf), event->size / 2}, false, true);
+  BaseType_t ret2 = src->second.receive(
+      {reinterpret_cast<int16_t*>(buf), event->size / 2}, true, true);
 
   // The ESP32's I2S peripheral has a different endianness to its processors.
   // ESP-IDF handles this difference for stereo channels, but not for mono
@@ -70,10 +72,10 @@ extern "C" IRAM_ATTR auto callback(i2s_chan_handle_t handle,
     }
   }
 
-  return ret;
+  return ret1 || ret2;
 }
 
-auto I2SDac::create(IGpios& expander, PcmBuffer& buf)
+auto I2SDac::create(IGpios& expander, OutputBuffers& bufs)
     -> std::optional<I2SDac*> {
   i2s_chan_handle_t i2s_handle;
   i2s_chan_config_t channel_config{
@@ -90,7 +92,7 @@ auto I2SDac::create(IGpios& expander, PcmBuffer& buf)
   // First, instantiate the instance so it can do all of its power on
   // configuration.
   std::unique_ptr<I2SDac> dac =
-      std::make_unique<I2SDac>(expander, buf, i2s_handle);
+      std::make_unique<I2SDac>(expander, bufs, i2s_handle);
 
   // Whilst we wait for the initial boot, we can work on installing the I2S
   // driver.
@@ -122,14 +124,14 @@ auto I2SDac::create(IGpios& expander, PcmBuffer& buf)
       .on_sent = callback,
       .on_send_q_ovf = NULL,
   };
-  i2s_channel_register_event_callback(i2s_handle, &callbacks, &buf);
+  i2s_channel_register_event_callback(i2s_handle, &callbacks, &bufs);
 
   return dac.release();
 }
 
-I2SDac::I2SDac(IGpios& gpio, PcmBuffer& buf, i2s_chan_handle_t i2s_handle)
+I2SDac::I2SDac(IGpios& gpio, OutputBuffers& bufs, i2s_chan_handle_t i2s_handle)
     : gpio_(gpio),
-      buffer_(buf),
+      buffers_(bufs),
       i2s_handle_(i2s_handle),
       i2s_active_(false),
       clock_config_(I2S_STD_CLK_DEFAULT_CONFIG(48000)),

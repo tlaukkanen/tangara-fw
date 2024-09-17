@@ -144,8 +144,11 @@ struct OutputModeChanged : tinyfsm::Event {
   std::optional<drivers::NvsStorage::Output> set_to;
 };
 
-namespace internal {
+struct TtsPlaybackChanged : tinyfsm::Event {
+  bool is_playing;
+};
 
+namespace internal {
 struct DecodingStarted : tinyfsm::Event {
   std::shared_ptr<TrackInfo> track;
 };

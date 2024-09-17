@@ -5,20 +5,38 @@
  */
 
 #include "tts/provider.hpp"
+#include <stdint.h>
 
+#include <ios>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <variant>
 
+#include "drivers/storage.hpp"
 #include "esp_log.h"
 
+#include "komihash.h"
 #include "tts/events.hpp"
 
 namespace tts {
 
 [[maybe_unused]] static constexpr char kTag[] = "tts";
 
+static const char* kTtsPath = "/.tangara-tts/";
+
+static auto textToFile(const std::string& text) -> std::optional<std::string> {
+  uint64_t hash = komihash(text.data(), text.size(), 0);
+  std::stringstream stream;
+  stream << kTtsPath << std::hex << hash;
+  return stream.str();
+}
+
 Provider::Provider() {}
+
+auto Provider::player(std::unique_ptr<Player> p) -> void {
+  player_ = std::move(p);
+}
 
 auto Provider::feed(const Event& e) -> void {
   if (std::holds_alternative<SimpleEvent>(e)) {
@@ -31,6 +49,19 @@ auto Provider::feed(const Event& e) -> void {
       // ESP_LOGI(kTag, "new selection: '%s', interactive? %i",
       // ev.new_selection->description.value_or("").c_str(),
       // ev.new_selection->is_interactive);
+      auto text = ev.new_selection->description;
+      if (!text) {
+        ESP_LOGW(kTag, "missing description for element");
+        return;
+      }
+      auto file = textToFile(*text);
+      if (!file) {
+        return;
+      }
+
+      if (player_) {
+        player_->playFile(*text, *file);
+      }
     }
   }
 }
