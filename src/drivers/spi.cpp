@@ -41,7 +41,7 @@ esp_err_t init_spi(void) {
       // manages its own use of DMA-capable memory.
       .max_transfer_sz = 4096,
       .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_IOMUX_PINS,
-      .isr_cpu_id = ESP_INTR_CPU_AFFINITY_1,
+      .isr_cpu_id = ESP_INTR_CPU_AFFINITY_0,
       .intr_flags = ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM,
   };
 
