@@ -105,8 +105,10 @@ return screen:new{
                         local track = database.track_by_id(contents)
                         if (track) then
                             print("Track saved position: ", track.saved_position)
+                            queue.play_from(track.filepath, track.saved_position)
+                        else 
+                            queue.add(contents)
                         end
-                        queue.add(contents)
                         playback.playing:set(true)
                         backstack.push(playing:new())
                     end

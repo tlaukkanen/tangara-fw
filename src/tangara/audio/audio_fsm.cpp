@@ -113,7 +113,7 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
 void AudioState::react(const QueueUpdate& ev) {
   SetTrack cmd{
       .new_track = std::monostate{},
-      .seek_to_second = {},
+      .seek_to_second = ev.seek_to_second,
   };
 
   auto current = sServices->track_queue().current();

@@ -106,6 +106,8 @@ struct QueueUpdate : tinyfsm::Event {
     kBulkLoadingUpdate,
   };
   Reason reason;
+
+  std::optional<uint32_t> seek_to_second;
 };
 
 struct StepUpVolume : tinyfsm::Event {};
