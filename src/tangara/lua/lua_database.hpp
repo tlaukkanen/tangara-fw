@@ -14,6 +14,8 @@ namespace lua {
 
 auto db_check_iterator(lua_State*, int stack_pos) -> database::Iterator*;
 
+auto pushTagValue(lua_State* L, const database::TagValue& val) -> void; 
+
 auto RegisterDatabaseModule(lua_State*) -> void;
 
 }  // namespace lua

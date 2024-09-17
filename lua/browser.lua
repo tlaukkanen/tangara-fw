@@ -8,6 +8,7 @@ local styles = require("styles")
 local playback = require("playback")
 local theme = require("theme")
 local screen = require("screen")
+local database = require("database")
 
 return screen:new{
     create_ui = function(self)
@@ -101,6 +102,10 @@ return screen:new{
                         })
                     else
                         queue.clear()
+                        local track = database.track_by_id(contents)
+                        if (track) then
+                            print("Track saved position: ", track.saved_position)
+                        end
                         queue.add(contents)
                         playback.playing:set(true)
                         backstack.push(playing:new())

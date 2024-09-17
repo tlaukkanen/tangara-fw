@@ -19,6 +19,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 #include "lua.hpp"
+#include "lua/lua_database.hpp"
 #include "lua/lua_thread.hpp"
 #include "lvgl.h"
 #include "memory_resource.hpp"
@@ -238,29 +239,6 @@ auto Property::set(const LuaValue& val) -> bool {
   }
   setDirect(val);
   return true;
-}
-
-static auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
-  std::visit(
-      [&](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, std::pmr::string>) {
-          lua_pushlstring(L, arg.data(), arg.size());
-        } else if constexpr (std::is_same_v<
-                                 T, std::span<const std::pmr::string>>) {
-          lua_createtable(L, 0, arg.size());
-          for (const auto& i : arg) {
-            lua_pushlstring(L, i.data(), i.size());
-            lua_pushboolean(L, true);
-            lua_rawset(L, -3);
-          }
-        } else if constexpr (std::is_same_v<T, uint32_t>) {
-          lua_pushinteger(L, arg);
-        } else {
-          lua_pushnil(L);
-        }
-      },
-      val);
 }
 
 static void pushTrack(lua_State* L, const audio::TrackInfo& track) {
