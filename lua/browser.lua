@@ -104,7 +104,6 @@ return screen:new{
                         queue.clear()
                         local track = database.track_by_id(contents)
                         if (track) then
-                            print("Track saved position: ", track.saved_position)
                             queue.play_from(track.filepath, track.saved_position)
                         else 
                             queue.add(contents)
