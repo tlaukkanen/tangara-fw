@@ -39,11 +39,17 @@ class PcmBuffer {
    * Fills the given span with samples. If enough samples are available in
    * the buffer, then the span will be filled with samples from the buffer. Any
    * shortfall is made up by padding the given span with zeroes.
+   *
+   * If `mix` is set to true then, instead of overwriting the destination span,
+   * the retrieved samples will be mixed into any existing samples contained
+   * within the destination. This mixing uses a naive sum approach, and so may
+   * introduce clipping.
    */
-  auto receive(std::span<int16_t>, bool isr) -> BaseType_t;
+  auto receive(std::span<int16_t>, bool mix, bool isr) -> BaseType_t;
 
   auto clear() -> void;
   auto isEmpty() -> bool;
+  auto suspend(bool) -> void;
 
   /*
    * How many samples have been added to this buffer since it was created. This
@@ -62,7 +68,7 @@ class PcmBuffer {
   PcmBuffer& operator=(const PcmBuffer&) = delete;
 
  private:
-  auto readSingle(std::span<int16_t>, bool isr)
+  auto readSingle(std::span<int16_t>, bool mix, bool isr)
       -> std::pair<size_t, BaseType_t>;
 
   StaticRingbuffer_t meta_;
@@ -70,7 +76,21 @@ class PcmBuffer {
 
   std::atomic<uint32_t> sent_;
   std::atomic<uint32_t> received_;
+  std::atomic<bool> suspended_;
+
   RingbufHandle_t ringbuf_;
 };
+
+/*
+ * Convenience type for a pair of PcmBuffers. Each audio output handles mixing
+ * streams together to ensure that low-latency sounds in one channel (e.g. a
+ * system notification bleep) aren't delayed by a large audio buffer in the
+ * other channel (e.g. a long-running track).
+ *
+ * By convention, the first buffer of this pair is used for tracks, whilst the
+ * second is reserved for 'system sounds'; usually TTS, but potentially maybe
+ * other informative noises.
+ */
+using OutputBuffers = std::pair<PcmBuffer, PcmBuffer>;
 
 }  // namespace drivers

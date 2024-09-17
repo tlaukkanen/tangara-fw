@@ -38,7 +38,7 @@ namespace drivers {
 
 [[maybe_unused]] static constexpr char kTag[] = "bluetooth";
 
-DRAM_ATTR static PcmBuffer* sStream = nullptr;
+DRAM_ATTR static OutputBuffers* sStreams = nullptr;
 DRAM_ATTR static std::atomic<float> sVolumeFactor = 1.f;
 
 static tasks::WorkerPool* sBgWorker;
@@ -97,13 +97,16 @@ IRAM_ATTR auto a2dp_data_cb(uint8_t* buf, int32_t buf_size) -> int32_t {
   if (buf == nullptr || buf_size <= 0) {
     return 0;
   }
-  PcmBuffer* stream = sStream;
-  if (stream == nullptr) {
+  OutputBuffers* streams = sStreams;
+  if (streams == nullptr) {
     return 0;
   }
 
   int16_t* samples = reinterpret_cast<int16_t*>(buf);
-  stream->receive({samples, static_cast<size_t>(buf_size / 2)}, false);
+  streams->first.receive({samples, static_cast<size_t>(buf_size / 2)}, false,
+                         false);
+  streams->second.receive({samples, static_cast<size_t>(buf_size / 2)}, true,
+                          false);
 
   // Apply software volume scaling.
   float factor = sVolumeFactor.load();
@@ -141,14 +144,14 @@ auto Bluetooth::enabled() -> bool {
   return !bluetooth::BluetoothState::is_in_state<bluetooth::Disabled>();
 }
 
-auto Bluetooth::source(PcmBuffer* src) -> void {
-  if (src == sStream) {
+auto Bluetooth::sources(OutputBuffers* src) -> void {
+  auto lock = bluetooth::BluetoothState::lock();
+  if (src == sStreams) {
     return;
   }
-  auto lock = bluetooth::BluetoothState::lock();
-  sStream = src;
+  sStreams = src;
   tinyfsm::FsmList<bluetooth::BluetoothState>::dispatch(
-      bluetooth::events::SourceChanged{});
+      bluetooth::events::SourcesChanged{});
 }
 
 auto Bluetooth::softVolume(float f) -> void {
@@ -771,8 +774,8 @@ void Connected::react(const events::PairedDeviceChanged& ev) {
   }
 }
 
-void Connected::react(const events::SourceChanged& ev) {
-  if (sStream != nullptr) {
+void Connected::react(const events::SourcesChanged& ev) {
+  if (sStreams != nullptr) {
     ESP_LOGI(kTag, "checking source is ready");
     esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY);
   } else {

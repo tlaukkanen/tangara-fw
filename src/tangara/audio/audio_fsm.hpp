@@ -48,6 +48,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   void react(const PlaySineWave&);
   void react(const SetTrack&);
   void react(const TogglePlayPause&);
+  void react(const TtsPlaybackChanged&);
 
   void react(const internal::DecodingFinished&);
   void react(const internal::StreamStarted&);
@@ -70,6 +71,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   virtual void react(const system_fsm::HasPhonesChanged&);
 
  protected:
+  auto updateOutputMode() -> void;
   auto emitPlaybackUpdate(bool paused) -> void;
   auto commitVolume() -> void;
 
@@ -82,12 +84,13 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::shared_ptr<BluetoothAudioOutput> sBtOutput;
   static std::shared_ptr<IAudioOutput> sOutput;
 
-  static std::unique_ptr<drivers::PcmBuffer> sDrainBuffer;
+  static std::unique_ptr<drivers::OutputBuffers> sDrainBuffers;
 
   static StreamCues sStreamCues;
   static std::optional<IAudioOutput::Format> sDrainFormat;
 
   static bool sIsPaused;
+  static bool sIsTtsPlaying;
 };
 
 namespace states {
@@ -102,6 +105,7 @@ class Uninitialised : public AudioState {
 
 class Standby : public AudioState {
  public:
+  void entry() override;
   void react(const system_fsm::KeyLockChanged&) override;
   void react(const system_fsm::SdStateChanged&) override;
 

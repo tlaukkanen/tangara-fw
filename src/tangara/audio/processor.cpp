@@ -347,34 +347,39 @@ auto SampleProcessor::discardCommand(Args& command) -> void {
   // End of stream commands can just be dropped without further action.
 }
 
-SampleProcessor::Buffer::Buffer()
-    : buffer_(reinterpret_cast<sample::Sample*>(
-                  heap_caps_calloc(kSampleBufferLength,
-                                   sizeof(sample::Sample),
-                                   MALLOC_CAP_DMA)),
-              kSampleBufferLength),
+Buffer::Buffer(std::span<sample::Sample> storage)
+    : storage_(nullptr), buffer_(storage), samples_in_buffer_() {}
+
+Buffer::Buffer()
+    : storage_(reinterpret_cast<sample::Sample*>(
+          heap_caps_calloc(kSampleBufferLength,
+                           sizeof(sample::Sample),
+                           MALLOC_CAP_DMA))),
+      buffer_(storage_, kSampleBufferLength),
       samples_in_buffer_() {}
 
-SampleProcessor::Buffer::~Buffer() {
-  heap_caps_free(buffer_.data());
+Buffer::~Buffer() {
+  if (storage_) {
+    heap_caps_free(storage_);
+  }
 }
 
-auto SampleProcessor::Buffer::writeAcquire() -> std::span<sample::Sample> {
+auto Buffer::writeAcquire() -> std::span<sample::Sample> {
   return buffer_.subspan(samples_in_buffer_.size());
 }
 
-auto SampleProcessor::Buffer::writeCommit(size_t samples) -> void {
+auto Buffer::writeCommit(size_t samples) -> void {
   if (samples == 0) {
     return;
   }
   samples_in_buffer_ = buffer_.first(samples + samples_in_buffer_.size());
 }
 
-auto SampleProcessor::Buffer::readAcquire() -> std::span<sample::Sample> {
+auto Buffer::readAcquire() -> std::span<sample::Sample> {
   return samples_in_buffer_;
 }
 
-auto SampleProcessor::Buffer::readCommit(size_t samples) -> void {
+auto Buffer::readCommit(size_t samples) -> void {
   if (samples == 0) {
     return;
   }
@@ -389,11 +394,11 @@ auto SampleProcessor::Buffer::readCommit(size_t samples) -> void {
   }
 }
 
-auto SampleProcessor::Buffer::isEmpty() -> bool {
+auto Buffer::isEmpty() -> bool {
   return samples_in_buffer_.empty();
 }
 
-auto SampleProcessor::Buffer::clear() -> void {
+auto Buffer::clear() -> void {
   samples_in_buffer_ = {};
 }
 

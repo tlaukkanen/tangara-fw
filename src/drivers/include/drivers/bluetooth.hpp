@@ -45,7 +45,7 @@ class Bluetooth {
   auto enable(bool en) -> void;
   auto enabled() -> bool;
 
-  auto source(PcmBuffer*) -> void;
+  auto sources(OutputBuffers*) -> void;
   auto softVolume(float) -> void;
 
   enum class ConnectionState {
@@ -98,7 +98,7 @@ struct Disable : public tinyfsm::Event {};
 
 struct ConnectTimedOut : public tinyfsm::Event {};
 struct PairedDeviceChanged : public tinyfsm::Event {};
-struct SourceChanged : public tinyfsm::Event {};
+struct SourcesChanged : public tinyfsm::Event {};
 struct DeviceDiscovered : public tinyfsm::Event {
   const Device& device;
 };
@@ -172,7 +172,7 @@ class BluetoothState : public tinyfsm::Fsm<BluetoothState> {
   virtual void react(const events::Disable& ev) = 0;
   virtual void react(const events::ConnectTimedOut& ev){};
   virtual void react(const events::PairedDeviceChanged& ev){};
-  virtual void react(const events::SourceChanged& ev){};
+  virtual void react(const events::SourcesChanged& ev){};
 
   virtual void react(const events::DeviceDiscovered&);
 
@@ -243,7 +243,7 @@ class Connected : public BluetoothState {
   void exit() override;
 
   void react(const events::PairedDeviceChanged& ev) override;
-  void react(const events::SourceChanged& ev) override;
+  void react(const events::SourcesChanged& ev) override;
 
   void react(const events::Disable& ev) override;
   void react(events::internal::Gap ev) override;

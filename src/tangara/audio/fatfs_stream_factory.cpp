@@ -50,7 +50,6 @@ auto FatfsStreamFactory::create(std::string path, uint32_t offset)
     -> std::shared_ptr<TaggedStream> {
   auto tags = tag_parser_.ReadAndParseTags(path);
   if (!tags) {
-    ESP_LOGE(kTag, "failed to read tags");
     return {};
   }
 

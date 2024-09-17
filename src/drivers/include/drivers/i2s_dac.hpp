@@ -40,9 +40,10 @@ constexpr size_t kI2SBufferLengthFrames = 1024;
  */
 class I2SDac {
  public:
-  static auto create(IGpios& expander, PcmBuffer&) -> std::optional<I2SDac*>;
+  static auto create(IGpios& expander, OutputBuffers&)
+      -> std::optional<I2SDac*>;
 
-  I2SDac(IGpios& gpio, PcmBuffer&, i2s_chan_handle_t i2s_handle);
+  I2SDac(IGpios& gpio, OutputBuffers&, i2s_chan_handle_t i2s_handle);
   ~I2SDac();
 
   auto SetPaused(bool) -> void;
@@ -77,7 +78,7 @@ class I2SDac {
   auto set_channel(bool) -> void;
 
   IGpios& gpio_;
-  PcmBuffer& buffer_;
+  OutputBuffers& buffers_;
   i2s_chan_handle_t i2s_handle_;
 
   bool i2s_active_;

@@ -36,11 +36,11 @@ static constexpr uint16_t kVolumeRange = 60;
 using ConnectionState = drivers::Bluetooth::ConnectionState;
 
 BluetoothAudioOutput::BluetoothAudioOutput(drivers::Bluetooth& bt,
-                                           drivers::PcmBuffer& buffer,
+                                           drivers::OutputBuffers& bufs,
                                            tasks::WorkerPool& p)
     : IAudioOutput(),
       bluetooth_(bt),
-      buffer_(buffer),
+      buffers_(bufs),
       bg_worker_(p),
       volume_() {}
 
@@ -48,9 +48,9 @@ BluetoothAudioOutput::~BluetoothAudioOutput() {}
 
 auto BluetoothAudioOutput::changeMode(Modes mode) -> void {
   if (mode == Modes::kOnPlaying) {
-    bluetooth_.source(&buffer_);
+    bluetooth_.sources(&buffers_);
   } else {
-    bluetooth_.source(nullptr);
+    bluetooth_.sources(nullptr);
   }
 }
 
