@@ -47,6 +47,23 @@ enum class Container {
   kOpus = 5,
 };
 
+enum class MediaType {
+  // We don't know what this is.
+  kUnknown = 0,
+  // It's music! You know what music is. Usually short-form, but sometimes
+  // long-form, since this type includes everything from standalone tracks, to
+  // tracks within an album, to live set and event recordings.
+  kMusic = 1,
+  // Usually long usually primarily spoken content. One file per episode, and
+  // the tagging norms for each file are all over the place. Prefer looking up
+  // track tags from accompanying RSS feed files.
+  kPodcast = 2,
+  // Usually long usually primarily spoken content. One distinct piece of
+  // 'audiobook' media may be split across several files, with a playlist or
+  // cue file to tie the pieces back together. May also just be one big mp3.
+  kAudiobook = 3,
+};
+
 enum class Tag {
   kTitle = 0,
   kArtist = 1,
@@ -169,6 +186,7 @@ struct TrackData {
   bool is_tombstoned;
   std::pair<uint16_t, uint16_t> modified_at;
   uint32_t last_position;
+  MediaType type;
 
   TrackData(const TrackData&& other) = delete;
   TrackData& operator=(TrackData& other) = delete;

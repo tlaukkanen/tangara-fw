@@ -6,7 +6,9 @@
 
 #include "database/database.hpp"
 
+#include <bits/ranges_algo.h>
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <functional>
 #include <iomanip>
@@ -33,6 +35,7 @@
 #include "leveldb/write_batch.h"
 
 #include "collation.hpp"
+#include "database.hpp"
 #include "database/db_events.hpp"
 #include "database/env_esp.hpp"
 #include "database/index.hpp"
@@ -44,7 +47,6 @@
 #include "memory_resource.hpp"
 #include "result.hpp"
 #include "tasks.hpp"
-#include "database.hpp"
 
 namespace database {
 
@@ -52,7 +54,6 @@ static SingletonEnv<leveldb::EspEnv> sEnv;
 [[maybe_unused]] static const char* kTag = "DB";
 
 static const char kDbPath[] = "/.tangara-db";
-static const char kMusicPath[] = "Music";
 
 static const char kKeyDbVersion[] = "schema_version";
 static const char kKeyCustom[] = "U\0";
@@ -281,7 +282,7 @@ auto Database::getTrackID(std::string path) -> std::optional<TrackId> {
 auto Database::setTrackData(TrackId id, const TrackData& data) -> void {
   std::string key = EncodeDataKey(id);
   std::string raw_val = EncodeDataValue(data);
-  
+
   auto res = db_->Put(leveldb::WriteOptions(), key, raw_val);
   if (!res.ok()) {
     ESP_LOGI(kTag, "Updating track data failed for track ID: %lu", id);
@@ -292,10 +293,7 @@ auto Database::getIndexes() -> std::vector<IndexInfo> {
   // TODO(jacqueline): This probably needs to be async? When we have runtime
   // configurable indexes, they will need to come from somewhere.
   return {
-      kAllTracks,
-      kAllAlbums,
-      kAlbumsByArtist,
-      kTracksByGenre,
+      kAllTracks, kAllAlbums, kAlbumsByArtist, kTracksByGenre, kPodcasts,
   };
 }
 
@@ -414,8 +412,9 @@ auto Database::updateIndexes() -> void {
       // At this point, we know that the track still exists in its original
       // location. All that's left to do is update any metadata about it.
 
+      auto new_type = calculateMediaType(*tags, track->filepath);
       uint64_t new_hash = tags->Hash();
-      if (new_hash != track->tags_hash) {
+      if (new_hash != track->tags_hash || new_type != track->type) {
         // This track's tags have changed. Since the filepath is exactly the
         // same, we assume this is a legitimate correction. Update the
         // database.
@@ -431,6 +430,7 @@ auto Database::updateIndexes() -> void {
         track->tags_hash = new_hash;
         dbIngestTagHashes(*tags, track->individual_tag_hashes, batch);
 
+        track->type = new_type;
         dbCreateIndexesForTrack(*track, *tags, batch);
         batch.Put(EncodeDataKey(track->id), EncodeDataValue(*track));
         batch.Put(EncodeHashKey(new_hash), EncodeHashValue(track->id));
@@ -442,14 +442,8 @@ auto Database::updateIndexes() -> void {
   update_tracker_->onVerificationFinished();
 
   // Stage 2: search for newly added files.
-  std::string root;
-  FF_DIR dir;
-  if (f_opendir(&dir, kMusicPath) == FR_OK) {
-    f_closedir(&dir);
-    root = kMusicPath;
-  }
-  ESP_LOGI(kTag, "scanning for new tracks in '%s'", root.c_str());
-  track_finder_.launch(root);
+  ESP_LOGI(kTag, "scanning for new tracks");
+  track_finder_.launch("");
 };
 
 auto Database::processCandidateCallback(FILINFO& info, std::string_view path)
@@ -507,6 +501,7 @@ auto Database::processCandidateCallback(FILINFO& info, std::string_view path)
   data->tags_hash = hash;
   data->modified_at = {info.fdate, info.ftime};
   data->is_tombstoned = false;
+  data->type = calculateMediaType(*tags, path);
 
   // Apply all the actual database changes as one atomic batch. This makes
   // the whole 'new track' operation atomic, and also reduces the amount of
@@ -529,6 +524,51 @@ auto Database::indexingCompleteCallback() -> void {
 
 auto Database::isUpdating() -> bool {
   return is_updating_;
+}
+
+// FIXME: Make these media paths configurable.
+static constexpr char kMusicMediaPath[] = "Music/";
+static constexpr char kPodcastMediaPath[] = "Podcasts/";
+static constexpr char kAudiobookMediaPath[] = "Audiobooks/";
+
+auto Database::calculateMediaType(TrackTags& tags, std::string_view path)
+    -> MediaType {
+  // Use the filepath first, since it's the most explicit way for the user to
+  // tell us what this track is.
+  if (path.starts_with(kMusicMediaPath)) {
+    return MediaType::kMusic;
+  }
+  if (path.starts_with(kPodcastMediaPath)) {
+    return MediaType::kPodcast;
+  }
+  if (path.starts_with(kAudiobookMediaPath)) {
+    return MediaType::kAudiobook;
+  }
+
+  // Podcasts may (rarely!) have a genre tag that tells us what they are. Look
+  // for it.
+  auto equalsIgnoreCase = [&](char lhs, char rhs) {
+    // NB: not really safe across languages, but genre tags tend to be in
+    // English anyway.
+    return std::tolower(lhs) == std::tolower(rhs);
+  };
+
+  auto genres = tags.genres();
+  for (const auto& genre : genres) {
+    if (std::ranges::equal(genre, "podcast", equalsIgnoreCase)) {
+      return MediaType::kPodcast;
+    }
+    // FIXME: Do audiobooks have a common genre as well?
+  }
+
+  // No path we recognise, no specific genre we recognise. We basically don't
+  // know what kind of media this track is at this point. If there's any genres
+  // at all, then guess that it's probably some kind of music.
+  if (!genres.empty()) {
+    return MediaType::kMusic;
+  }
+
+  return MediaType::kUnknown;
 }
 
 auto Database::dbCalculateNextTrackId() -> void {

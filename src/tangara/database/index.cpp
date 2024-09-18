@@ -30,25 +30,36 @@ namespace database {
 
 const IndexInfo kAlbumsByArtist{
     .id = 1,
+    .type = MediaType::kMusic,
     .name = "Albums by Artist",
     .components = {Tag::kAlbumArtist, Tag::kAlbum, Tag::kAlbumOrder},
 };
 
 const IndexInfo kTracksByGenre{
     .id = 2,
+    .type = MediaType::kMusic,
     .name = "Tracks by Genre",
     .components = {Tag::kGenres, Tag::kTitle},
 };
 
 const IndexInfo kAllTracks{
     .id = 3,
+    .type = MediaType::kMusic,
     .name = "All Tracks",
     .components = {Tag::kTitle},
 };
 
 const IndexInfo kAllAlbums{
     .id = 4,
+    .type = MediaType::kMusic,
     .name = "All Albums",
+    .components = {Tag::kAlbum, Tag::kAlbumOrder},
+};
+
+const IndexInfo kPodcasts{
+    .id = 5,
+    .type = MediaType::kPodcast,
+    .name = "Podcasts",
     .components = {Tag::kAlbum, Tag::kAlbumOrder},
 };
 
@@ -203,6 +214,9 @@ auto Index(locale::ICollator& collator,
            const TrackData& data,
            const TrackTags& tags)
     -> std::vector<std::pair<IndexKey, std::string>> {
+  if (index.type != data.type) {
+    return {};
+  }
   Indexer indexer{collator, index, data, tags};
   return indexer.index();
 }
