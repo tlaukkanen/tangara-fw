@@ -174,7 +174,7 @@ struct TrackData {
   TrackData& operator=(TrackData& other) = delete;
   auto clone() const -> std::shared_ptr<TrackData>;
 
-  bool operator==(const TrackData&) const = delete;
+  bool operator==(const TrackData&) const = default;
 };
 
 /*

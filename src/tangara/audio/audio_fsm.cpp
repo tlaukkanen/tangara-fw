@@ -94,7 +94,7 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
   // increment a counter. Every 60 counts (ie, every minute) save the current elapsed position 
   if (position && *position > (5 * 60)) {
     sUpdateCounter++;
-    if (sUpdateCounter > 60) {
+    if (sUpdateCounter >= 60) {
       sUpdateCounter = 0;
       updateSavedPosition(current.first->uri, *position);
     }
