@@ -73,6 +73,56 @@ static auto indexes(lua_State* state) -> int {
   return 1;
 }
 
+auto pushTagValue(lua_State* L, const database::TagValue& val) -> void {
+  std::visit(
+      [&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::pmr::string>) {
+          lua_pushlstring(L, arg.data(), arg.size());
+        } else if constexpr (std::is_same_v<
+                                 T, std::span<const std::pmr::string>>) {
+          lua_createtable(L, 0, arg.size());
+          for (const auto& i : arg) {
+            lua_pushlstring(L, i.data(), i.size());
+            lua_pushboolean(L, true);
+            lua_rawset(L, -3);
+          }
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+          lua_pushinteger(L, arg);
+        } else {
+          lua_pushnil(L);
+        }
+      },
+      val);
+}
+
+static void pushTrack(lua_State* L, const database::Track& track) {
+  lua_newtable(L);
+
+  lua_pushliteral(L, "tags");
+  lua_newtable(L);
+  for (const auto& tag : track.tags().allPresent()) {
+    lua_pushstring(L, database::tagName(tag).c_str());
+    pushTagValue(L, track.tags().get(tag));
+    lua_settable(L, -3);
+  }
+  lua_settable(L, -3);
+
+  lua_pushliteral(L, "id");
+  lua_pushinteger(L, track.data().id);
+  lua_settable(L, -3);
+
+  lua_pushliteral(L, "filepath");
+  lua_pushstring(L, track.data().filepath.c_str());
+  lua_settable(L, -3);
+
+  lua_pushliteral(L, "saved_position");
+  lua_pushinteger(L, track.data().last_position);
+  lua_settable(L, -3);
+
+
+}
+
 static auto version(lua_State* L) -> int {
   Bridge* instance = Bridge::Get(L);
   auto db = instance->services().database().lock();
@@ -111,9 +161,29 @@ static auto update(lua_State* L) -> int {
   return 0;
 }
 
+static auto track_by_id(lua_State* L) -> int {
+  auto id = luaL_checkinteger(L, -1);
+
+  Bridge* instance = Bridge::Get(L);
+  auto db = instance->services().database().lock();
+  if (!db) {
+    return 0;
+  }
+
+  auto track = db->getTrack(id);
+  if (!track) {
+    return 0;
+  }
+
+  pushTrack(L, *track);
+
+  return 1;
+}
+
 static const struct luaL_Reg kDatabaseFuncs[] = {
     {"indexes", indexes},   {"version", version}, {"size", size},
-    {"recreate", recreate}, {"update", update},   {NULL, NULL}};
+    {"recreate", recreate}, {"update", update},   {"track_by_id", track_by_id},
+    {NULL, NULL}};
 
 /*
  * Struct to be used as userdata for the Lua representation of database records.

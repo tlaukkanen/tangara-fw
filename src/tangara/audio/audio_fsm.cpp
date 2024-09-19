@@ -78,6 +78,8 @@ StreamCues AudioState::sStreamCues;
 bool AudioState::sIsPaused = true;
 bool AudioState::sIsTtsPlaying = false;
 
+uint8_t AudioState::sUpdateCounter = 0;
+
 auto AudioState::emitPlaybackUpdate(bool paused) -> void {
   std::optional<uint32_t> position;
   auto current = sStreamCues.current();
@@ -86,6 +88,16 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
                  (sDrainFormat->num_channels * sDrainFormat->sample_rate / 2)) /
                 (sDrainFormat->num_channels * sDrainFormat->sample_rate)) +
                current.first->start_offset.value_or(0);
+  }
+
+  // If we've got an elapsed duration and it's more than 5 minutes
+  // increment a counter. Every 60 counts (ie, every minute) save the current elapsed position 
+  if (position && *position > (5 * 60)) {
+    sUpdateCounter++;
+    if (sUpdateCounter >= 60) {
+      sUpdateCounter = 0;
+      updateSavedPosition(current.first->uri, *position);
+    }
   }
 
   PlaybackUpdate event{
@@ -101,7 +113,7 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
 void AudioState::react(const QueueUpdate& ev) {
   SetTrack cmd{
       .new_track = std::monostate{},
-      .seek_to_second = {},
+      .seek_to_second = ev.seek_to_second,
   };
 
   auto current = sServices->track_queue().current();
@@ -385,6 +397,27 @@ void AudioState::react(const OutputModeChanged& ev) {
         .db = sOutput->GetVolumeDb(),
     });
   }
+}
+
+auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
+    -> void {
+  sServices->bg_worker().Dispatch<void>([=]() {
+    auto db = sServices->database().lock();
+    if (!db) {
+      return;
+    }
+    auto id = db->getTrackID(uri);
+    if (!id) {
+      return;
+    }
+    auto track = db->getTrack(*id);
+    if (!track) {
+      return;
+    }
+    auto data = track->data().clone();
+    data->last_position = position;
+    db->setTrackData(*id, *data);
+  });
 }
 
 auto AudioState::updateOutputMode() -> void {

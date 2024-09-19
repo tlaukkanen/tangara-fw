@@ -37,7 +37,7 @@
 
 namespace database {
 
-const uint8_t kCurrentDbVersion = 7;
+const uint8_t kCurrentDbVersion = 8;
 
 struct SearchKey;
 class Record;
@@ -78,6 +78,9 @@ class Database {
 
   auto getTrackPath(TrackId id) -> std::optional<std::string>;
   auto getTrack(TrackId id) -> std::shared_ptr<Track>;
+  auto getTrackID(std::string path) -> std::optional<TrackId>;
+
+  auto setTrackData(TrackId id, const TrackData& data) -> void;
 
   auto getIndexes() -> std::vector<IndexInfo>;
   auto updateIndexes() -> void;

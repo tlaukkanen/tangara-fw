@@ -85,6 +85,16 @@ auto notifyChanged(bool current_changed, Reason reason) -> void {
   events::Audio().Dispatch(ev);
 }
 
+auto notifyPlayFrom(uint32_t start_from_position) -> void {
+  QueueUpdate ev{
+      .current_changed = true,
+      .reason = Reason::kExplicitUpdate,
+      .seek_to_second = start_from_position,
+  };
+  events::Ui().Dispatch(ev);
+  events::Audio().Dispatch(ev);
+}
+
 TrackQueue::TrackQueue(tasks::WorkerPool& bg_worker, database::Handle db)
     : mutex_(),
       bg_worker_(bg_worker),
@@ -107,6 +117,17 @@ auto TrackQueue::current() const -> TrackItem {
     return {};
   }
   return val;
+}
+
+auto TrackQueue::playFromPosition(const std::string& filepath,
+                                  uint32_t position) -> void {
+  clear();
+  {
+    const std::unique_lock<std::shared_mutex> lock(mutex_);
+    playlist_.append(filepath);
+    updateShuffler(true);
+  }
+  notifyPlayFrom(position);
 }
 
 auto TrackQueue::currentPosition() const -> size_t {
@@ -245,7 +266,7 @@ auto TrackQueue::currentPosition(size_t position) -> bool {
     goTo(position);
   }
 
-  // If we're explicitly setting the position, we want to treat it as though 
+  // If we're explicitly setting the position, we want to treat it as though
   // the current track has changed, even if the position was the same
   notifyChanged(true, Reason::kExplicitUpdate);
   return true;

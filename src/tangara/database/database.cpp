@@ -44,6 +44,7 @@
 #include "memory_resource.hpp"
 #include "result.hpp"
 #include "tasks.hpp"
+#include "database.hpp"
 
 namespace database {
 
@@ -267,6 +268,24 @@ auto Database::getTrack(TrackId id) -> std::shared_ptr<Track> {
     return {};
   }
   return std::make_shared<Track>(data, tags);
+}
+
+auto Database::getTrackID(std::string path) -> std::optional<TrackId> {
+  std::string raw_data;
+  if (!db_->Get(leveldb::ReadOptions(), EncodePathKey(path), &raw_data).ok()) {
+    return {};
+  }
+  return BytesToTrackId(raw_data);
+}
+
+auto Database::setTrackData(TrackId id, const TrackData& data) -> void {
+  std::string key = EncodeDataKey(id);
+  std::string raw_val = EncodeDataValue(data);
+  
+  auto res = db_->Put(leveldb::WriteOptions(), key, raw_val);
+  if (!res.ok()) {
+    ESP_LOGI(kTag, "Updating track data failed for track ID: %lu", id);
+  }
 }
 
 auto Database::getIndexes() -> std::vector<IndexInfo> {

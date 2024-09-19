@@ -75,6 +75,8 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   auto emitPlaybackUpdate(bool paused) -> void;
   auto commitVolume() -> void;
 
+  auto updateSavedPosition(std::string uri, uint32_t position) -> void;
+
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
   static std::shared_ptr<FatfsStreamFactory> sStreamFactory;
@@ -90,6 +92,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static std::optional<IAudioOutput::Format> sDrainFormat;
 
   static bool sIsPaused;
+  static uint8_t sUpdateCounter;
   static bool sIsTtsPlaying;
 };
 

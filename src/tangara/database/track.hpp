@@ -159,7 +159,8 @@ struct TrackData {
         tags_hash(0),
         individual_tag_hashes(&memory::kSpiRamResource),
         is_tombstoned(false),
-        modified_at() {}
+        modified_at(),
+        last_position(0) {}
 
   TrackId id;
   std::pmr::string filepath;
@@ -167,9 +168,11 @@ struct TrackData {
   std::pmr::unordered_map<Tag, uint64_t> individual_tag_hashes;
   bool is_tombstoned;
   std::pair<uint16_t, uint16_t> modified_at;
+  uint32_t last_position;
 
-  TrackData(TrackData&& other) = delete;
+  TrackData(const TrackData&& other) = delete;
   TrackData& operator=(TrackData& other) = delete;
+  auto clone() const -> std::shared_ptr<TrackData>;
 
   bool operator==(const TrackData&) const = default;
 };

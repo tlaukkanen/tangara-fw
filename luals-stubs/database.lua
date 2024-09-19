@@ -10,6 +10,19 @@ local database = {}
 --- @return Index[]
 function database.indexes() end
 
+--- Returns the track in the database with the id given
+--- @param id TrackId
+--- @return Track
+function database.track_by_id(id) end
+
+
+--- @class Track
+--- @field id TrackId The track id of this track
+--- @field filepath string The filepath of this track
+--- @field saved_position integer The last saved position of this track
+--- @field tags table A mapping of any available tags to that tag's value
+local Track = {}
+
 --- An iterator is a userdata type that behaves like an ordinary Lua iterator.
 --- @class Iterator
 local Iterator = {}
@@ -18,6 +31,7 @@ local Iterator = {}
 --- user's library.
 --- @class TrackId
 local TrackId = {}
+
 
 --- Gets the human-readable text representing this record. The `__tostring`
 --- metatable function is an alias of this function.
