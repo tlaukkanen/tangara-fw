@@ -147,6 +147,24 @@ return widgets.MenuScreen:new {
     -- queue_btn:Image { src = img.queue }
     -- theme.set_subject(queue_btn, "icon_enabled")
 
+    local usb_btn = bottom_bar:Button {}
+    usb_btn:onClicked(function()
+      backstack.push(require("settings").MassStorageSettings:new())
+    end)
+    usb_btn:Image { src = img.usb }
+    widgets.Description(usb_btn, "USB Settings")
+    theme.set_subject(usb_btn, "menu_icon")
+
+    self.bindings = self.bindings + {
+      require("power").plugged_in:bind(function(attached)
+        if (attached) then
+          usb_btn:clear_flag(lvgl.FLAG.HIDDEN)
+        else
+          usb_btn:add_flag(lvgl.FLAG.HIDDEN)
+        end
+      end)
+    }
+
     local files_btn = bottom_bar:Button {}
     files_btn:onClicked(function()
       backstack.push(require("file_browser"):new {
@@ -160,7 +178,7 @@ return widgets.MenuScreen:new {
 
     local settings_btn = bottom_bar:Button {}
     settings_btn:onClicked(function()
-      backstack.push(require("settings"):new())
+      backstack.push(require("settings").Root:new())
     end)
     settings_btn:Image { src = img.settings }
     widgets.Description(settings_btn, "Settings")

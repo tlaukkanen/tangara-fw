@@ -14,6 +14,8 @@ local font = require("font")
 local main_menu = require("main_menu")
 local img = require("images")
 
+local settings = {}
+
 local SettingsScreen = widgets.MenuScreen:new {
   show_back = true,
   create_ui = function(self)
@@ -60,7 +62,7 @@ local BluetoothPairing = SettingsScreen:new {
   on_hide = function() bluetooth.discovering:set(false) end,
 }
 
-local BluetoothSettings = SettingsScreen:new {
+settings.BluetoothSettings = SettingsScreen:new {
   title = "Bluetooth",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -202,7 +204,7 @@ local BluetoothSettings = SettingsScreen:new {
   end
 }
 
-local HeadphonesSettings = SettingsScreen:new {
+settings.HeadphonesSettings = SettingsScreen:new {
   title = "Headphones",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -266,7 +268,7 @@ local HeadphonesSettings = SettingsScreen:new {
   end
 }
 
-local DisplaySettings = SettingsScreen:new {
+settings.DisplaySettings = SettingsScreen:new {
   title = "Display",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -303,7 +305,7 @@ local DisplaySettings = SettingsScreen:new {
   end
 }
 
-local ThemeSettings = SettingsScreen:new {
+settings.ThemeSettings = SettingsScreen:new {
   title = "Theme",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -339,7 +341,7 @@ local ThemeSettings = SettingsScreen:new {
       if idx > 0 then
         options = options .. "\n"
       end
-      options = options .. i 
+      options = options .. i
       idx = idx + 1
     end
 
@@ -358,14 +360,14 @@ local ThemeSettings = SettingsScreen:new {
       local option = theme_chooser:get('selected_str')
       local selectedTheme = themeOptions[option]
       if (selectedTheme) then
-        theme.load_theme(tostring(selectedTheme)) 
+        theme.load_theme(tostring(selectedTheme))
         backstack.reset(main_menu:new())
       end
     end)
   end
 }
 
-local InputSettings = SettingsScreen:new {
+settings.InputSettings = SettingsScreen:new {
   title = "Input Method",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -425,7 +427,7 @@ local InputSettings = SettingsScreen:new {
   end
 }
 
-local MassStorageSettings = SettingsScreen:new {
+settings.MassStorageSettings = SettingsScreen:new {
   title = "USB Storage",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -490,7 +492,7 @@ local MassStorageSettings = SettingsScreen:new {
   end
 }
 
-local DatabaseSettings = SettingsScreen:new {
+settings.DatabaseSettings = SettingsScreen:new {
   title = "Database",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -550,7 +552,7 @@ local DatabaseSettings = SettingsScreen:new {
   end
 }
 
-local PowerSettings = SettingsScreen:new {
+settings.PowerSettings = SettingsScreen:new {
   title = "Power",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -635,7 +637,7 @@ local SamdConfirmation = SettingsScreen:new {
   end
 }
 
-local FirmwareSettings = SettingsScreen:new {
+settings.FirmwareSettings = SettingsScreen:new {
   title = "Firmware",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -666,7 +668,7 @@ local FirmwareSettings = SettingsScreen:new {
   end
 }
 
-local LicensesScreen = SettingsScreen:new {
+settings.LicensesScreen = SettingsScreen:new {
   title = "Licenses",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -703,7 +705,7 @@ local FccStatementScreen = SettingsScreen:new {
   end
 }
 
-local RegulatoryScreen = SettingsScreen:new {
+settings.RegulatoryScreen = SettingsScreen:new {
   title = "Regulatory",
   create_ui = function(self)
     SettingsScreen.create_ui(self)
@@ -775,7 +777,7 @@ local RegulatoryScreen = SettingsScreen:new {
   end
 }
 
-return widgets.MenuScreen:new {
+settings.Root = widgets.MenuScreen:new {
   show_back = true,
   title = "Settings",
   create_ui = function(self)
@@ -803,24 +805,26 @@ return widgets.MenuScreen:new {
     end
 
     section("Audio")
-    submenu("Bluetooth", BluetoothSettings)
-    submenu("Headphones", HeadphonesSettings)
+    submenu("Bluetooth", settings.BluetoothSettings)
+    submenu("Headphones", settings.HeadphonesSettings)
 
     section("Interface")
-    submenu("Display", DisplaySettings)
-    submenu("Theme", ThemeSettings)
-    submenu("Input Method", InputSettings)
+    submenu("Display", settings.DisplaySettings)
+    submenu("Theme", settings.ThemeSettings)
+    submenu("Input Method", settings.InputSettings)
 
     section("USB")
-    submenu("Storage", MassStorageSettings)
+    submenu("Storage", settings.MassStorageSettings)
 
     section("System")
-    submenu("Database", DatabaseSettings)
-    submenu("Power", PowerSettings)
+    submenu("Database", settings.DatabaseSettings)
+    submenu("Power", settings.PowerSettings)
 
     section("About")
-    submenu("Firmware", FirmwareSettings)
-    submenu("Licenses", LicensesScreen)
-    submenu("Regulatory", RegulatoryScreen)
+    submenu("Firmware", settings.FirmwareSettings)
+    submenu("Licenses", settings.LicensesScreen)
+    submenu("Regulatory", settings.RegulatoryScreen)
   end
 }
+
+return settings
