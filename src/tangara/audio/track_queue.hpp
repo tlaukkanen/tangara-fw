@@ -78,6 +78,7 @@ class TrackQueue {
   auto open() -> bool;
   auto openPlaylist(const std::string& playlist_file, bool notify = true)
       -> bool;
+  auto playFromPosition(const std::string& filepath, uint32_t position) -> void;
 
   using Item =
       std::variant<database::TrackId, database::TrackIterator, std::string>;

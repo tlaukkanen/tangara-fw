@@ -293,4 +293,16 @@ auto TrackTags::Hash() const -> uint64_t {
   return komihash_stream_final(&stream);
 }
 
+auto database::TrackData::clone() const -> std::shared_ptr<TrackData> {
+  auto data = std::make_shared<TrackData>();
+  data->id = id;
+  data->filepath = filepath;
+  data->tags_hash = tags_hash;
+  data->individual_tag_hashes = individual_tag_hashes;
+  data->is_tombstoned = is_tombstoned;
+  data->modified_at = modified_at;
+  data->last_position = last_position;
+  return data;
+}
+
 }  // namespace database
