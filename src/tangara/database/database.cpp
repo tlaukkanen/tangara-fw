@@ -527,9 +527,9 @@ auto Database::isUpdating() -> bool {
 }
 
 // FIXME: Make these media paths configurable.
-static constexpr char kMusicMediaPath[] = "Music/";
-static constexpr char kPodcastMediaPath[] = "Podcasts/";
-static constexpr char kAudiobookMediaPath[] = "Audiobooks/";
+static constexpr char kMusicMediaPath[] = "/Music/";
+static constexpr char kPodcastMediaPath[] = "/Podcasts/";
+static constexpr char kAudiobookMediaPath[] = "/Audiobooks/";
 
 auto Database::calculateMediaType(TrackTags& tags, std::string_view path)
     -> MediaType {
