@@ -33,4 +33,10 @@ function queue.next() end
 --- Moves backward in the play queue, looping back around to the end if repeat is on.
 function queue.previous() end
 
+--- Play a track starting from a number of seconds in
+--- This will replace the existing queue
+--- @param filepath string
+--- @param seconds_offset integer 
+function queue.play_from(filepath, seconds_offset) end
+
 return queue
