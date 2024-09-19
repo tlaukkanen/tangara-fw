@@ -94,6 +94,7 @@ auto EncodeDataValue(const TrackData& track) -> std::string {
       cppbor::Uint{track.modified_at.second},
       tag_hashes,
       cppbor::Uint{track.last_position},
+      cppbor::Uint{static_cast<unsigned int>(track.type)},
   };
   return val.toString();
 }
@@ -105,13 +106,13 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
     return nullptr;
   }
   auto vals = item->asArray();
-  if (vals->size() != 8 || vals->get(0)->type() != cppbor::UINT ||
+  if (vals->size() < 8 || vals->get(0)->type() != cppbor::UINT ||
       vals->get(1)->type() != cppbor::TSTR ||
       vals->get(2)->type() != cppbor::UINT ||
       vals->get(3)->type() != cppbor::SIMPLE ||
       vals->get(4)->type() != cppbor::UINT ||
       vals->get(5)->type() != cppbor::UINT ||
-      vals->get(6)->type() != cppbor::MAP  || 
+      vals->get(6)->type() != cppbor::MAP ||
       vals->get(7)->type() != cppbor::UINT) {
     return {};
   }
@@ -131,6 +132,20 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
   }
 
   res->last_position = vals->get(7)->asUint()->unsignedValue();
+
+  if (vals->size() >= 9 && vals->get(8)->type() == cppbor::UINT) {
+    auto val = vals->get(8)->asUint()->unsignedValue();
+    switch (val) {
+      case 1:
+      case 2:
+      case 3:
+        res->type = static_cast<MediaType>(val);
+        break;
+      case 0:
+      default:
+        res->type = MediaType::kUnknown;
+    }
+  }
 
   return res;
 }
