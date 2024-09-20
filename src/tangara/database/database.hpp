@@ -14,6 +14,7 @@
 #include <optional>
 #include <stack>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -134,6 +135,7 @@ class Database {
 
   auto processCandidateCallback(FILINFO&, std::string_view) -> void;
   auto indexingCompleteCallback() -> void;
+  auto calculateMediaType(TrackTags&, std::string_view) -> MediaType;
 
   auto dbCalculateNextTrackId() -> void;
   auto dbMintNewTrackId() -> TrackId;

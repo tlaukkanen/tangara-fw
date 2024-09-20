@@ -28,6 +28,8 @@ typedef uint8_t IndexId;
 struct IndexInfo {
   // Unique id for this index
   IndexId id;
+  // What kind of media this index should be used with
+  MediaType type;
   // Localised, user-friendly description of this index. e.g. "Albums by Artist"
   // or "All Tracks".
   std::pmr::string name;
@@ -76,5 +78,6 @@ extern const IndexInfo kAlbumsByArtist;
 extern const IndexInfo kTracksByGenre;
 extern const IndexInfo kAllTracks;
 extern const IndexInfo kAllAlbums;
+extern const IndexInfo kPodcasts;
 
 }  // namespace database
