@@ -60,7 +60,7 @@ const IndexInfo kPodcasts{
     .id = 5,
     .type = MediaType::kPodcast,
     .name = "Podcasts",
-    .components = {Tag::kAlbum, Tag::kAlbumOrder},
+    .components = {Tag::kTitle},
 };
 
 static auto titleOrFilename(const TrackData& data, const TrackTags& tags)
