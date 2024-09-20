@@ -168,6 +168,9 @@ auto I2SAudioOutput::PrepareFormat(const Format& orig) -> Format {
 }
 
 auto I2SAudioOutput::Configure(const Format& fmt) -> void {
+  if (!dac_) {
+    return;
+  }
   if (current_config_ && fmt == *current_config_) {
     ESP_LOGI(kTag, "ignoring unchanged format");
     return;
