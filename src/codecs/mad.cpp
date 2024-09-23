@@ -107,10 +107,10 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
       .sample_rate_hz = header.samplerate,
   };
 
-  auto vbr_length = GetVbrLength(header);
+  auto vbr_info = GetVbrInfo(header);
   uint64_t cbr_length = 0;
-  if (vbr_length) {
-    output.total_samples = vbr_length.value() * channels;
+  if (vbr_info) {
+    output.total_samples = vbr_info->length * channels;
   } else if (input->Size() && header.bitrate > 0) {
     cbr_length = (input->Size().value() * 8) / header.bitrate;
     output.total_samples = cbr_length * output.sample_rate_hz * channels;
@@ -121,6 +121,24 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
     uint64_t skip_bytes = header.bitrate * (offset - 1) / 8;
     input->SeekTo(skip_bytes, IStream::SeekFrom::kCurrentPosition);
     // Reset the offset so the next part will seek to the next second
+    offset = 1;
+  } else if (offset > 1 && vbr_info && vbr_info->toc && vbr_info->bytes) {
+    // VBR seeking
+    double percent =
+        ((offset - 1) * output.sample_rate_hz) / (double)vbr_info->length * 100;
+    percent = std::clamp(percent, 0., 100.);
+    int index = (int)percent;
+    if (index > 99)
+      index = 99;
+    uint8_t first_val = (*vbr_info->toc)[index];
+    uint8_t second_val = 256;
+    if (index < 99) {
+      second_val = (*vbr_info->toc)[index + 1];
+    }
+    double interp = first_val + (second_val - first_val) * (percent - index);
+    uint32_t bytes_to_skip =
+        (uint32_t)((1.0 / 256.0) * interp * vbr_info->bytes.value());
+    input->SeekTo(bytes_to_skip, IStream::SeekFrom::kCurrentPosition);
     offset = 1;
   }
 
@@ -269,8 +287,8 @@ auto MadMp3Decoder::SkipID3Tags(IStream& stream) -> void {
  * Implementation taken from SDL_mixer and modified. Original is
  * zlib-licensed, copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
  */
-auto MadMp3Decoder::GetVbrLength(const mad_header& header)
-    -> std::optional<uint32_t> {
+auto MadMp3Decoder::GetVbrInfo(const mad_header& header)
+    -> std::optional<VbrInfo> {
   if (!stream_->this_frame || !stream_->next_frame ||
       stream_->next_frame <= stream_->this_frame ||
       (stream_->next_frame - stream_->this_frame) < 48) {
@@ -301,8 +319,6 @@ auto MadMp3Decoder::GetVbrLength(const mad_header& header)
 
   unsigned char const* frames_count_raw;
   uint32_t frames_count = 0;
-  // TODO(jacqueline): we should also look up any toc fields here, to make
-  // seeking faster.
   if (std::memcmp(stream_->this_frame + xing_offset, "Xing", 4) == 0 ||
       std::memcmp(stream_->this_frame + xing_offset, "Info", 4) == 0) {
     /* Xing header to get the count of frames for VBR */
@@ -322,7 +338,39 @@ auto MadMp3Decoder::GetVbrLength(const mad_header& header)
     return {};
   }
 
-  return (double)(frames_count * samples_per_frame);
+  // Check TOC and bytes in the bitstream (used for VBR seeking)
+  std::optional<std::span<const unsigned char, 100>> toc;
+  std::optional<uint32_t> bytes;
+  if (std::memcmp(stream_->this_frame + xing_offset, "Xing", 4) == 0) {
+    unsigned char const* flags_raw = stream_->this_frame + xing_offset + 4;
+    uint32_t flags = ((uint32_t)flags_raw[0] << 24) +
+                     ((uint32_t)flags_raw[1] << 16) +
+                     ((uint32_t)flags_raw[2] << 8) + ((uint32_t)flags_raw[3]);
+    if (flags & 4) {
+      // TOC flag is set
+      auto toc_offset = 8;
+      if (flags & 1) {
+        toc_offset += 4;
+      }
+      if (flags & 2) {
+        // Bytes field
+        unsigned char const* bytes_raw = stream_->this_frame + xing_offset + 12;
+        uint32_t num_bytes =
+            ((uint32_t)bytes_raw[0] << 24) + ((uint32_t)bytes_raw[1] << 16) +
+            ((uint32_t)bytes_raw[2] << 8) + ((uint32_t)bytes_raw[3]);
+        bytes.emplace(num_bytes);
+        toc_offset += 4;
+      }
+      // Read the table of contents in
+      toc.emplace((stream_->this_frame + xing_offset + toc_offset), 100);
+    }
+  }
+
+  return VbrInfo{
+      .length = (frames_count * samples_per_frame),
+      .bytes = bytes,
+      .toc = toc,
+  };
 }
 
 }  // namespace codecs
