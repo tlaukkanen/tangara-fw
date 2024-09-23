@@ -108,11 +108,20 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
   };
 
   auto vbr_length = GetVbrLength(header);
+  uint64_t cbr_length = 0;
   if (vbr_length) {
     output.total_samples = vbr_length.value() * channels;
   } else if (input->Size() && header.bitrate > 0) {
-    auto cbr_length = input->Size().value() / (header.bitrate / 8);
+    cbr_length = (input->Size().value() * 8) / header.bitrate;
     output.total_samples = cbr_length * output.sample_rate_hz * channels;
+  }
+
+  if (offset > 1 && cbr_length > 0) {
+    // Constant bitrate seeking
+    uint64_t skip_bytes = header.bitrate * (offset - 1) / 8;
+    input->SeekTo(skip_bytes, IStream::SeekFrom::kCurrentPosition);
+    // Reset the offset so the next part will seek to the next second
+    offset = 1;
   }
 
   mad_timer_t timer;
