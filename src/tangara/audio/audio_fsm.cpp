@@ -91,7 +91,8 @@ auto AudioState::emitPlaybackUpdate(bool paused) -> void {
   }
 
   // If we've got an elapsed duration and it's more than 5 minutes
-  // increment a counter. Every 60 counts (ie, every minute) save the current elapsed position 
+  // increment a counter. Every 60 counts (ie, every minute) save the current
+  // elapsed position
   if (position && *position > (5 * 60)) {
     sUpdateCounter++;
     if (sUpdateCounter >= 60) {
@@ -232,6 +233,7 @@ void AudioState::react(const internal::DecodingFinished& ev) {
     }
     if (path == ev.track->uri) {
       queue.finish();
+      incrementPlayCount(ev.track->uri);
     }
   });
 }
@@ -399,7 +401,8 @@ void AudioState::react(const OutputModeChanged& ev) {
   }
 }
 
-auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
+auto AudioState::updateTrackData(std::string uri,
+                                 std::function<void(database::TrackData&)> fn)
     -> void {
   sServices->bg_worker().Dispatch<void>([=]() {
     auto db = sServices->database().lock();
@@ -415,9 +418,19 @@ auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
       return;
     }
     auto data = track->data().clone();
-    data->last_position = position;
+    std::invoke(fn, *data);
     db->setTrackData(*id, *data);
   });
+}
+
+auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
+    -> void {
+  updateTrackData(
+      uri, [&](database::TrackData& data) { data.last_position = position; });
+}
+
+auto AudioState::incrementPlayCount(std::string uri) -> void {
+  updateTrackData(uri, [&](database::TrackData& data) { data.play_count++; });
 }
 
 auto AudioState::updateOutputMode() -> void {

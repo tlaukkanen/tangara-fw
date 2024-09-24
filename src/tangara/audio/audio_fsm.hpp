@@ -76,6 +76,7 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   auto commitVolume() -> void;
 
   auto updateSavedPosition(std::string uri, uint32_t position) -> void;
+  auto incrementPlayCount(std::string uri) -> void;
 
   static std::shared_ptr<system_fsm::ServiceLocator> sServices;
 
@@ -94,6 +95,10 @@ class AudioState : public tinyfsm::Fsm<AudioState> {
   static bool sIsPaused;
   static uint8_t sUpdateCounter;
   static bool sIsTtsPlaying;
+
+ private:
+  auto updateTrackData(std::string uri,
+                       std::function<void(database::TrackData&)>) -> void;
 };
 
 namespace states {
