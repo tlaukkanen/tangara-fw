@@ -11,7 +11,14 @@ local img = require("images")
 
 local format_time = function(time)
   time = math.floor(time)
-  return string.format("%d:%02d", time // 60, time % 60)
+  local seconds = time % 60
+  local minutes = (time // 60) % 60
+  local hours = time // (60 * 60)
+  if (hours > 0) then
+    return string.format("%d:%02d:%02d", hours, minutes, seconds)
+  else
+    return string.format("%d:%02d", minutes, seconds)
+  end
 end
 
 local is_now_playing_shown = false
@@ -70,7 +77,7 @@ return screen:new {
     local playlist = self.root:Object {
       flex = {
         flex_direction = "row",
-        justify_content = "center",
+        justify_content = "space_between",
         align_items = "center",
         align_content = "center",
       },
@@ -81,23 +88,34 @@ return screen:new {
     playlist:Object({ w = 3, h = 1 }) -- spacer
 
     local cur_time = playlist:Label {
-      w = lvgl.SIZE_CONTENT,
+      w = lvgl.PCT(30),
       h = lvgl.SIZE_CONTENT,
+      align = lvgl.ALIGN.LEFT_MID,
       text = "",
       text_font = font.fusion_10,
     }
 
     playlist:Object({ flex_grow = 1, h = 1 }) -- spacer
 
-    local playlist_pos = playlist:Label {
+    local playlist_pos_container = playlist:Object{
+      flex = {
+        flex_direction = "row",
+        justify_content = "center",
+        align_items = "center",
+        align_content = "center",
+      },
+      w = lvgl.SIZE_CONTENT,
+      h = lvgl.SIZE_CONTENT,
+    }
+    local playlist_pos = playlist_pos_container:Label {
       text = "",
       text_font = font.fusion_10,
     }
-    playlist:Label {
+    playlist_pos_container:Label {
       text = "/",
       text_font = font.fusion_10,
     }
-    local playlist_total = playlist:Label {
+    local playlist_total = playlist_pos_container:Label {
       text = "",
       text_font = font.fusion_10,
     }
@@ -105,9 +123,9 @@ return screen:new {
     playlist:Object({ flex_grow = 1, h = 1 }) -- spacer
 
     local end_time = playlist:Label {
-      w = lvgl.SIZE_CONTENT,
+      w = lvgl.PCT(30),
       h = lvgl.SIZE_CONTENT,
-      align = lvgl.ALIGN.RIGHT_MID,
+      text_align = 3, -- LV_TEXT_ALIGN_RIGHT
       text = format_time(0),
       text_font = font.fusion_10,
     }
