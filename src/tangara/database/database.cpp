@@ -293,7 +293,7 @@ auto Database::getIndexes() -> std::vector<IndexInfo> {
   // TODO(jacqueline): This probably needs to be async? When we have runtime
   // configurable indexes, they will need to come from somewhere.
   return {
-      kAllTracks, kAllAlbums, kAlbumsByArtist, kTracksByGenre, kPodcasts,
+      kAllTracks, kAllAlbums, kAlbumsByArtist, kTracksByGenre, kPodcasts, kAudiobooks
   };
 }
 

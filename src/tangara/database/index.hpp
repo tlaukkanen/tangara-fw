@@ -79,5 +79,6 @@ extern const IndexInfo kTracksByGenre;
 extern const IndexInfo kAllTracks;
 extern const IndexInfo kAllAlbums;
 extern const IndexInfo kPodcasts;
+extern const IndexInfo kAudiobooks;
 
 }  // namespace database

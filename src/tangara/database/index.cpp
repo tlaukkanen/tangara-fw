@@ -63,6 +63,13 @@ const IndexInfo kPodcasts{
     .components = {Tag::kTitle},
 };
 
+const IndexInfo kAudiobooks{
+    .id = 6,
+    .type = MediaType::kAudiobook,
+    .name = "Audiobooks",
+    .components = {Tag::kAlbum, Tag::kAlbumOrder},
+};
+
 static auto titleOrFilename(const TrackData& data, const TrackTags& tags)
     -> std::pmr::string {
   auto title = tags.title();
