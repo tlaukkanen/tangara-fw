@@ -39,6 +39,7 @@ static constexpr char kDbIteratorMetatable[] = "db_iterator";
 
 struct LuaIndexInfo {
   database::IndexId id;
+  database::MediaType type;
   size_t name_size;
   char name_data[];
 
@@ -64,6 +65,7 @@ static auto indexes(lua_State* state) -> int {
     luaL_setmetatable(state, kDbIndexMetatable);
     *data = LuaIndexInfo{
         .id = i.id,
+        .type = i.type,
         .name_size = i.name.size(),
     };
     std::memcpy(data->name_data, i.name.data(), i.name.size());
@@ -119,8 +121,6 @@ static void pushTrack(lua_State* L, const database::Track& track) {
   lua_pushliteral(L, "saved_position");
   lua_pushinteger(L, track.data().last_position);
   lua_settable(L, -3);
-
-
 }
 
 static auto version(lua_State* L) -> int {
@@ -181,8 +181,9 @@ static auto track_by_id(lua_State* L) -> int {
 }
 
 static const struct luaL_Reg kDatabaseFuncs[] = {
-    {"indexes", indexes},   {"version", version}, {"size", size},
-    {"recreate", recreate}, {"update", update},   {"track_by_id", track_by_id},
+    {"indexes", indexes}, {"version", version},
+    {"size", size},       {"recreate", recreate},
+    {"update", update},   {"track_by_id", track_by_id},
     {NULL, NULL}};
 
 /*
@@ -222,8 +223,8 @@ auto db_check_iterator(lua_State* L, int stack_pos) -> database::Iterator* {
   return it;
 }
 
-static auto push_iterator(lua_State* state,
-                          const database::Iterator& it) -> void {
+static auto push_iterator(lua_State* state, const database::Iterator& it)
+    -> void {
   database::Iterator** data = reinterpret_cast<database::Iterator**>(
       lua_newuserdata(state, sizeof(uintptr_t)));
   *data = new database::Iterator(it);
@@ -319,6 +320,26 @@ static auto index_name(lua_State* state) -> int {
   return 1;
 }
 
+static auto index_id(lua_State* state) -> int {
+  LuaIndexInfo* data = reinterpret_cast<LuaIndexInfo*>(
+      luaL_checkudata(state, 1, kDbIndexMetatable));
+  if (data == NULL) {
+    return 0;
+  }
+  lua_pushinteger(state, static_cast<int>(data->id));
+  return 1;
+}
+
+static auto index_type(lua_State* state) -> int {
+  LuaIndexInfo* data = reinterpret_cast<LuaIndexInfo*>(
+      luaL_checkudata(state, 1, kDbIndexMetatable));
+  if (data == NULL) {
+    return 0;
+  }
+  lua_pushinteger(state, static_cast<int>(data->type));
+  return 1;
+}
+
 static auto index_iter(lua_State* state) -> int {
   LuaIndexInfo* data = reinterpret_cast<LuaIndexInfo*>(
       luaL_checkudata(state, 1, kDbIndexMetatable));
@@ -334,10 +355,10 @@ static auto index_iter(lua_State* state) -> int {
   return 1;
 }
 
-static const struct luaL_Reg kDbIndexFuncs[] = {{"name", index_name},
-                                                {"iter", index_iter},
-                                                {"__tostring", index_name},
-                                                {NULL, NULL}};
+static const struct luaL_Reg kDbIndexFuncs[] = {
+    {"name", index_name}, {"id", index_id},           {"type", index_type},
+    {"iter", index_iter}, {"__tostring", index_name}, {NULL, NULL},
+};
 
 static auto lua_database(lua_State* state) -> int {
   // Metatable for indexes

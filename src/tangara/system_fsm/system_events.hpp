@@ -82,7 +82,9 @@ struct SamdInterrupt : tinyfsm::Event {};
 struct IdleTimeout : tinyfsm::Event {};
 struct UnmountTimeout : tinyfsm::Event {};
 
-struct Mount : tinyfsm::Event {};
+struct Mount : tinyfsm::Event {
+  int attempt;
+};
 
 }  // namespace internal
 

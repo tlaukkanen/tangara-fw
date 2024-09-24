@@ -40,7 +40,7 @@ void Running::entry() {
     sUnmountTimer = xTimerCreate("unmount_timeout", kTicksBeforeUnmount, false,
                                  NULL, timer_callback);
   }
-  events::System().Dispatch(internal::Mount{});
+  events::System().Dispatch(internal::Mount{.attempt = 1});
 }
 
 void Running::exit() {
@@ -72,7 +72,7 @@ void Running::react(const SdDetectChanged& ev) {
   }
 
   if (ev.has_sd_card && !sStorage) {
-    events::System().Dispatch(internal::Mount{});
+    events::System().Dispatch(internal::Mount{.attempt = 1});
     return;
   }
 
@@ -121,7 +121,7 @@ void Running::react(const SamdUsbMscChanged& ev) {
     gpios.WriteSync(drivers::IGpios::Pin::kSdPowerEnable, 0);
 
     // Now it's ready for us.
-    events::System().Dispatch(internal::Mount{});
+    events::System().Dispatch(internal::Mount{.attempt = 1});
   }
 }
 
@@ -146,10 +146,15 @@ auto Running::updateSdState(drivers::SdState state) -> void {
   events::System().Dispatch(SdStateChanged{});
 }
 
-void Running::react(const internal::Mount&) {
+void Running::react(const internal::Mount& ev) {
   // Only mount our storage if we know it's not currently in use by the SAMD.
   if (sServices->samd().UsbMassStorage()) {
     updateSdState(drivers::SdState::kNotMounted);
+    return;
+  }
+
+  if (ev.attempt > 3) {
+    updateSdState(drivers::SdState::kNotPresent);
     return;
   }
 
@@ -163,7 +168,12 @@ void Running::react(const internal::Mount&) {
         break;
       case drivers::SdStorage::FAILED_TO_READ:
       default:
-        updateSdState(drivers::SdState::kNotPresent);
+        if (!sServices->gpios().Get(drivers::Gpios::Pin::kSdCardDetect)) {
+          vTaskDelay(pdMS_TO_TICKS(100));
+          events::System().Dispatch(internal::Mount{.attempt = ev.attempt + 1});
+        } else {
+          updateSdState(drivers::SdState::kNotPresent);
+        }
         break;
     }
     return;
