@@ -1,6 +1,7 @@
 local lvgl = require("lvgl")
 local widgets = require("widgets")
 local database = require("database")
+local sd_card = require("sd_card")
 local backstack = require("backstack")
 local browser = require("browser")
 local playing = require("playing")
@@ -89,43 +90,85 @@ return widgets.MenuScreen:new {
     -- Next, a list showing the user's prefer's music source. This defaults to
     -- a list of all available database indexes, but could also be the contents
     -- of the SD card root.
+    local no_indexes_container = self.root:Object {
+      w = lvgl.PCT(100),
+      flex_grow = 1,
+    }
+    local no_indexes_label = no_indexes_container:Label {
+      w = lvgl.PCT(100),
+      h = lvgl.SIZE_CONTENT,
+      text_align = 2,
+      long_mode = 0,
+      margin_all = 4,
+      text = "",
+    }
+    no_indexes_label:center()
 
-    if require("sd_card").mounted:get() then
-      local list = lvgl.List(self.root, {
-        w = lvgl.PCT(100),
-        h = lvgl.PCT(100),
-        flex_grow = 1,
+    local indexes_list = lvgl.List(self.root, {
+      w = lvgl.PCT(100),
+      h = lvgl.PCT(100),
+      flex_grow = 1,
+    })
+    local indexes = {}
+
+    for _, idx in ipairs(database.indexes()) do
+      local btn = indexes_list:add_btn(nil, tostring(idx))
+      btn:onClicked(function()
+        backstack.push(browser:new {
+          title = tostring(idx),
+          iterator = idx:iter(),
+        })
+      end)
+      btn:add_style(styles.list_item)
+      table.insert(indexes, {
+        object = btn,
+        index = idx,
       })
+    end
 
-      local indexes = database.indexes()
+    local function show_no_indexes(msg)
+      indexes_list:add_flag(lvgl.FLAG.HIDDEN)
+      no_indexes_container:clear_flag(lvgl.FLAG.HIDDEN)
+      no_indexes_label:set { text = msg }
+    end
+
+    local function hide_no_indexes()
+      no_indexes_container:add_flag(lvgl.FLAG.HIDDEN)
+      indexes_list:clear_flag(lvgl.FLAG.HIDDEN)
+    end
+
+    local function update_visible_indexes()
+      local has_valid_index = false
       for _, idx in ipairs(indexes) do
-        local btn = list:add_btn(nil, tostring(idx))
-        btn:onClicked(function()
-          backstack.push(browser:new {
-            title = tostring(idx),
-            iterator = idx:iter(),
-          })
-        end)
-        btn:add_style(styles.list_item)
-        if not has_focus then
-          has_focus = true
-          btn:focus()
+        local it = idx.index:iter():next()
+        if it then
+          has_valid_index = true
+          idx.object:clear_flag(lvgl.FLAG.HIDDEN)
+        else
+          idx.object:add_flag(lvgl.FLAG.HIDDEN)
         end
       end
-    else
-      local container = self.root:Object {
-        w = lvgl.PCT(100),
-        flex_grow = 1,
-      }
-      container:Label {
-        w = lvgl.PCT(100),
-        h = lvgl.SIZE_CONTENT,
-        text_align = 2,
-        long_mode = 0,
-        margin_all = 4,
-        text = "SD Card is not inserted or could not be opened.",
-      }:center();
+      if has_valid_index then
+        hide_no_indexes()
+      else
+        if require("database").updating:get() then
+          show_no_indexes("The database is updating for the first time. Please wait.")
+        else
+          show_no_indexes("No compatible media was found on your SD Card.")
+        end
+      end
     end
+
+    self.bindings = self.bindings + {
+      database.updating:bind(function()
+        update_visible_indexes()
+      end),
+      sd_card.mounted:bind(function(mounted)
+        if not mounted then
+          show_no_indexes("SD Card is not inserted or could not be opened.")
+        end
+      end),
+    }
 
     -- Finally, the bottom bar with icon buttons for other device features.
 
