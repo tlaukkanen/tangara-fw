@@ -95,6 +95,7 @@ auto EncodeDataValue(const TrackData& track) -> std::string {
       tag_hashes,
       cppbor::Uint{track.last_position},
       cppbor::Uint{static_cast<unsigned int>(track.type)},
+      cppbor::Uint{track.play_count},
   };
   return val.toString();
 }
@@ -145,6 +146,10 @@ auto ParseDataValue(const leveldb::Slice& slice) -> std::shared_ptr<TrackData> {
       default:
         res->type = MediaType::kUnknown;
     }
+  }
+
+  if (vals->size() >= 10 && vals->get(9)->type() == cppbor::UINT) {
+    res->play_count = vals->get(9)->asUint()->unsignedValue();
   }
 
   return res;
