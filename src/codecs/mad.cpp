@@ -131,20 +131,26 @@ auto MadMp3Decoder::OpenStream(std::shared_ptr<IStream> input, uint32_t offset)
     if (index > 99)
       index = 99;
     uint8_t first_val = (*vbr_info->toc)[index];
-    uint8_t second_val = 256;
+    uint8_t second_val = 255;
     if (index < 99) {
       second_val = (*vbr_info->toc)[index + 1];
     }
     double interp = first_val + (second_val - first_val) * (percent - index);
     uint32_t bytes_to_skip =
-        (uint32_t)((1.0 / 256.0) * interp * vbr_info->bytes.value());
+        (uint32_t)((1.0 / 255.0) * interp * vbr_info->bytes.value());
     input->SeekTo(bytes_to_skip, IStream::SeekFrom::kCurrentPosition);
     offset = 1;
   }
 
+  if (offset != 0) {
+    buffer_.Empty();
+    uint32_t leftover_bytes = stream_->bufend - stream_->buffer;
+    mad_stream_skip(stream_.get(), leftover_bytes);
+  }
+
   mad_timer_t timer;
   mad_timer_reset(&timer);
-  bool need_refill = false;
+  bool need_refill = offset == 0 ? false : true;
   bool seek_err = false;
 
   while (mad_timer_count(timer, MAD_UNITS_SECONDS) < offset) {
