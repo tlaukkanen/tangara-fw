@@ -20,6 +20,7 @@ function database.track_by_id(id) end
 --- @field id TrackId The track id of this track
 --- @field filepath string The filepath of this track
 --- @field saved_position integer The last saved position of this track
+--- @field play_count integer The number of times this track has finished playing
 --- @field tags table A mapping of any available tags to that tag's value
 local Track = {}
 

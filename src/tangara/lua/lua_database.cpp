@@ -121,6 +121,10 @@ static void pushTrack(lua_State* L, const database::Track& track) {
   lua_pushliteral(L, "saved_position");
   lua_pushinteger(L, track.data().last_position);
   lua_settable(L, -3);
+
+  lua_pushliteral(L, "play_count");
+  lua_pushinteger(L, track.data().play_count);
+  lua_settable(L, -3);
 }
 
 static auto version(lua_State* L) -> int {

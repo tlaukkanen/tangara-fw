@@ -177,7 +177,9 @@ struct TrackData {
         individual_tag_hashes(&memory::kSpiRamResource),
         is_tombstoned(false),
         modified_at(),
-        last_position(0) {}
+        last_position(0),
+        play_count(0),
+        type(MediaType::kUnknown) {}
 
   TrackId id;
   std::pmr::string filepath;
@@ -186,6 +188,7 @@ struct TrackData {
   bool is_tombstoned;
   std::pair<uint16_t, uint16_t> modified_at;
   uint32_t last_position;
+  uint32_t play_count;
   MediaType type;
 
   TrackData(const TrackData&& other) = delete;

@@ -302,6 +302,7 @@ auto database::TrackData::clone() const -> std::shared_ptr<TrackData> {
   data->is_tombstoned = is_tombstoned;
   data->modified_at = modified_at;
   data->last_position = last_position;
+  data->play_count = play_count;
   data->type = type;
   return data;
 }
