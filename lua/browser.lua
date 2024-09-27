@@ -9,6 +9,7 @@ local playback = require("playback")
 local theme = require("theme")
 local screen = require("screen")
 local database = require("database")
+local img = require("images")
 
 return screen:new{
     create_ui = function(self)
@@ -54,43 +55,66 @@ return screen:new{
             }
         end
 
-        local buttons = header:Object({
-            flex = {
-                flex_direction = "row",
-                flex_wrap = "wrap",
-                justify_content = "space-between",
-                align_items = "center",
-                align_content = "center"
-            },
-            w = lvgl.PCT(100),
-            h = lvgl.SIZE_CONTENT,
-            pad_column = 4
-        })
-        local original_iterator = self.iterator:clone()
-        local enqueue = widgets.IconBtn(buttons, "//lua/img/enqueue.png", "Enqueue")
-        enqueue:onClicked(function()
-            queue.add(original_iterator)
-            playback.playing:set(true)
-        end)
-        local shuffle_play = widgets.IconBtn(buttons, "//lua/img/shuffleplay.png", "Shuffle")
-        shuffle_play:onClicked(function()
-            queue.clear()
-            queue.random:set(true)
-            queue.add(original_iterator)
-            playback.playing:set(true)
-            backstack.push(playing:new())
-        end)
-        -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
-        local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
-        play:onClicked(function()
-            queue.clear()
-            queue.random:set(false)
-            queue.add(original_iterator)
-            playback.playing:set(true)
-            backstack.push(playing:new())
-        end)
+        if (self.mediatype == database.MediaTypes.Music) then
+            local buttons = header:Object({
+                flex = {
+                    flex_direction = "row",
+                    flex_wrap = "wrap",
+                    justify_content = "space-between",
+                    align_items = "center",
+                    align_content = "center"
+                },
+                w = lvgl.PCT(100),
+                h = lvgl.SIZE_CONTENT,
+                pad_column = 4
+            })
+            local original_iterator = self.iterator:clone()
+            local enqueue = widgets.IconBtn(buttons, "//lua/img/enqueue.png", "Enqueue")
+            enqueue:onClicked(function()
+                queue.add(original_iterator)
+                playback.playing:set(true)
+            end)
+            local shuffle_play = widgets.IconBtn(buttons, "//lua/img/shuffleplay.png", "Shuffle")
+            shuffle_play:onClicked(function()
+                queue.clear()
+                queue.random:set(true)
+                queue.add(original_iterator)
+                playback.playing:set(true)
+                backstack.push(playing:new())
+            end)
+            -- enqueue:add_flag(lvgl.FLAG.HIDDEN)
+            local play = widgets.IconBtn(buttons, "//lua/img/play_small.png", "Play")
+            play:onClicked(function()
+                queue.clear()
+                queue.random:set(false)
+                queue.add(original_iterator)
+                playback.playing:set(true)
+                backstack.push(playing:new())
+            end)
+        end
+
+        local get_icon_func = nil
+        local show_listened = self.mediatype == database.MediaTypes.Audiobook or self.mediatype == database.MediaTypes.Podcast
+        if show_listened then
+            get_icon_func = function (item) 
+                local contents = item:contents()
+                if type(contents) == "userdata" then
+                    return
+                else
+                    local track = database.track_by_id(contents)
+                    if not track then return end
+                    if (track.play_count > 0) then
+                        return img.listened
+                    else 
+                        return img.unlistened
+                    end
+                end
+
+            end
+        end
 
         widgets.InfiniteList(self.root, self.iterator, {
+            get_icon = get_icon_func,
             callback = function(item) 
                 return function()
                     local contents = item:contents()
@@ -98,6 +122,7 @@ return screen:new{
                         backstack.push(require("browser"):new{
                             title = self.title,
                             iterator = contents,
+                            mediatype = self.mediatype,
                             breadcrumb = tostring(item)
                         })
                     else

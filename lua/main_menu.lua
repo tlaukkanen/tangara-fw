@@ -117,6 +117,7 @@ return widgets.MenuScreen:new {
         backstack.push(browser:new {
           title = tostring(idx),
           iterator = idx:iter(),
+          mediatype = idx:type(),
         })
       end)
       btn:add_style(styles.list_item)

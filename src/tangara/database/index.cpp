@@ -60,7 +60,7 @@ const IndexInfo kPodcasts{
     .id = 5,
     .type = MediaType::kPodcast,
     .name = "Podcasts",
-    .components = {Tag::kTitle},
+    .components = {Tag::kAlbum, Tag::kTitle},
 };
 
 const IndexInfo kAudiobooks{

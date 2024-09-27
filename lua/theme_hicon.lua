@@ -61,10 +61,18 @@ local theme_hicon = {
     }},
   },
   listbutton = {
+    {lvgl.PART.MAIN, lvgl.Style {
+      image_recolor_opa = 255,
+      image_recolor = text_color,
+      flex_cross_place = lvgl.FLEX_ALIGN.CENTER,
+      pad_column = 4,
+    }},
     {lvgl.PART.MAIN | lvgl.STATE.FOCUSED, lvgl.Style {
       bg_opa = lvgl.OPA(100),
       bg_color = text_color,
       text_color = background_color,
+      image_recolor_opa = 255,
+      image_recolor = background_color,
     }},
   },
   bar = {

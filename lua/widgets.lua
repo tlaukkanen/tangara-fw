@@ -313,7 +313,11 @@ function widgets.InfiniteList(parent, iterator, opts)
       add_to_top = true
     end
     if this_item > last_index then last_index = index end
-    local btn = infinite_list.root:add_btn(nil, tostring(item))
+    local icon = nil
+    if opts.get_icon then
+      icon = opts.get_icon(item)
+    end
+    local btn = infinite_list.root:add_btn(icon, tostring(item))
     if add_to_top then
       btn:move_to_index(0)
     end

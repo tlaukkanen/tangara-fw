@@ -388,6 +388,24 @@ static auto lua_database(lua_State* state) -> int {
   luaL_setfuncs(state, kDbRecordFuncs, 0);
 
   luaL_newlib(state, kDatabaseFuncs);
+
+  lua_pushliteral(state, "MediaTypes");
+  lua_newtable(state);
+  lua_pushliteral(state, "Unknown");
+  lua_pushinteger(state, (int)database::MediaType::kUnknown);
+  lua_rawset(state, -3);
+  lua_pushliteral(state, "Music");
+  lua_pushinteger(state, (int)database::MediaType::kMusic);
+  lua_rawset(state, -3);
+  lua_pushliteral(state, "Podcast");
+  lua_pushinteger(state, (int)database::MediaType::kPodcast);
+  lua_rawset(state, -3);
+  lua_pushliteral(state, "Audiobook");
+  lua_pushinteger(state, (int)database::MediaType::kAudiobook);
+  lua_rawset(state, -3);
+  lua_rawset(state, -3);
+
+
   return 1;
 }
 

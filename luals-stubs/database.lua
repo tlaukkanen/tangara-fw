@@ -67,6 +67,9 @@ local Index = {}
 --- @return string
 function Index:name() end
 
+--- Returns the media type of this index
+function Index:type() end
+
 --- Returns a new iterator that can be used to access every record within the
 --- first level of this index.
 --- @return Iterator it An iterator that yields `Record`s.

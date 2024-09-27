@@ -17,6 +17,8 @@ local img = {
   settings = lvgl.ImgData("//lua/img/settings.png"),
   chevron = lvgl.ImgData("//lua/img/chevron.png"),
   usb = lvgl.ImgData("//lua/img/usb.png"),
+  listened = lvgl.ImgData("//lua/img/listened.png"),
+  unlistened = lvgl.ImgData("//lua/img/unlistened.png"),
 }
 
 return img
