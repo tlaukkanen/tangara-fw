@@ -62,6 +62,7 @@ local function init_ui()
     controls.lock_switch:bind(function(locked)
       if locked then
         lock_time = time.ticks()
+        collectgarbage()
       elseif time.ticks() - lock_time > 8000 then
         local queue = require("queue")
         if queue.size:get() > 0 then
