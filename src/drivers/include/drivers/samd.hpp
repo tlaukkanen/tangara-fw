@@ -75,7 +75,19 @@ class Samd {
  private:
   NvsStorage& nvs_;
 
-  uint8_t version_;
+  enum class RegisterName {
+    kSamdFirmwareMajorVersion,
+    kSamdFirmwareMinorVersion,
+    kChargeStatus,
+    kUsbStatus,
+    kPowerControl,
+    kUsbControl,
+  };
+  auto registerIdx(RegisterName) -> uint8_t;
+
+  uint8_t version_major_;
+  uint8_t version_minor_;
+
   std::optional<ChargeStatus> charge_status_;
   UsbStatus usb_status_;
 };

@@ -5,27 +5,19 @@
  */
 
 #include "drivers/samd.hpp"
-#include <stdint.h>
 
 #include <cstdint>
+#include <format>
 #include <optional>
 #include <string>
 
-#include "drivers/nvs.hpp"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "hal/gpio_types.h"
 #include "hal/i2c_types.h"
 
 #include "drivers/i2c.hpp"
-
-enum Registers : uint8_t {
-  kSamdFirmwareVersion = 0,
-  kChargeStatus = 1,
-  kUsbStatus = 2,
-  kPowerControl = 3,
-  kUsbControl = 4,
-};
+#include "drivers/nvs.hpp"
 
 static const uint8_t kAddress = 0x45;
 [[maybe_unused]] static const char kTag[] = "SAMD";
@@ -65,13 +57,18 @@ Samd::Samd(NvsStorage& nvs) : nvs_(nvs) {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kSamdFirmwareVersion)
+      .write_ack(registerIdx(RegisterName::kSamdFirmwareMajorVersion))
       .start()
       .write_addr(kAddress, I2C_MASTER_READ)
-      .read(&version_, I2C_MASTER_NACK)
+      .read(&version_major_, I2C_MASTER_ACK)
+      .read(&version_minor_, I2C_MASTER_NACK)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(1));
-  ESP_LOGI(kTag, "samd firmware rev: %u", version_);
+
+  if (version_major_ < 6) {
+    version_minor_ = 0;
+  }
+  ESP_LOGI(kTag, "samd firmware rev: %u.%u", version_major_, version_minor_);
 
   UpdateChargeStatus();
   UpdateUsbStatus();
@@ -80,7 +77,7 @@ Samd::Samd(NvsStorage& nvs) : nvs_(nvs) {
 Samd::~Samd() {}
 
 auto Samd::Version() -> std::string {
-  return std::to_string(version_);
+  return std::format("{}.{}", version_major_, version_minor_);
 }
 
 auto Samd::GetChargeStatus() -> std::optional<ChargeStatus> {
@@ -92,7 +89,7 @@ auto Samd::UpdateChargeStatus() -> void {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kChargeStatus)
+      .write_ack(registerIdx(RegisterName::kChargeStatus))
       .start()
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
@@ -146,7 +143,7 @@ auto Samd::UpdateUsbStatus() -> void {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kUsbStatus)
+      .write_ack(registerIdx(RegisterName::kUsbStatus))
       .start()
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
@@ -167,7 +164,7 @@ auto Samd::ResetToFlashSamd() -> void {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kUsbControl, 0b100)
+      .write_ack(registerIdx(RegisterName::kUsbControl), 0b100)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(3));
 }
@@ -177,15 +174,14 @@ auto Samd::SetFastChargeEnabled(bool en) -> void {
   // updated.
   nvs_.FastCharge(en);
 
-  if (version_ < 4) {
+  if (version_major_ < 4) {
     return;
   }
-  ESP_LOGI(kTag, "set fast charge %u", en);
 
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kPowerControl, (en << 1))
+      .write_ack(registerIdx(RegisterName::kPowerControl), (en << 1))
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(3));
 }
@@ -194,7 +190,7 @@ auto Samd::PowerDown() -> void {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kPowerControl, 0b1)
+      .write_ack(registerIdx(RegisterName::kPowerControl), 0b1)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(3));
 }
@@ -203,7 +199,7 @@ auto Samd::UsbMassStorage(bool en) -> void {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kUsbControl, en)
+      .write_ack(registerIdx(RegisterName::kUsbControl), en)
       .stop();
   ESP_ERROR_CHECK(transaction.Execute(3));
 }
@@ -213,7 +209,7 @@ auto Samd::UsbMassStorage() -> bool {
   I2CTransaction transaction;
   transaction.start()
       .write_addr(kAddress, I2C_MASTER_WRITE)
-      .write_ack(Registers::kUsbControl)
+      .write_ack(registerIdx(RegisterName::kUsbControl))
       .start()
       .write_addr(kAddress, I2C_MASTER_READ)
       .read(&raw_res, I2C_MASTER_NACK)
@@ -223,6 +219,27 @@ auto Samd::UsbMassStorage() -> bool {
     return false;
   }
   return raw_res & 1;
+}
+
+auto Samd::registerIdx(RegisterName r) -> uint8_t {
+  switch (r) {
+    case RegisterName::kSamdFirmwareMajorVersion:
+      // Register 0 is always the major version.
+      return 0;
+    case RegisterName::kSamdFirmwareMinorVersion:
+      // Firmwares before version 6 had no minor :(
+      return version_major_ >= 6 ? 1 : 0;
+    case RegisterName::kChargeStatus:
+      return version_major_ >= 6 ? 2 : 1;
+    case RegisterName::kUsbStatus:
+      return version_major_ >= 6 ? 3 : 2;
+    case RegisterName::kPowerControl:
+      return version_major_ >= 6 ? 4 : 3;
+    case RegisterName::kUsbControl:
+      return version_major_ >= 6 ? 5 : 4;
+  }
+  assert(false);  // very very bad!!!
+  return 0;
 }
 
 }  // namespace drivers
