@@ -34,6 +34,8 @@ static void luavgl_obj_event_cb(lv_event_t *e)
 
   /* args: obj, code */
   luavgl_pcall_int(L, 2, 0);
+
+  lua_settop(L, top);
 }
 
 /* obj:onevent(luavgl.EVENT.PRESSED, function(code, value) -- end) */
