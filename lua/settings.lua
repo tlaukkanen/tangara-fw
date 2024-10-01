@@ -336,7 +336,7 @@ settings.ThemeSettings = SettingsScreen:new {
     local selected_idx = -1
     for i, v in pairs(themeOptions) do
       if (saved_theme == v) then
-          selected_idx = idx
+        selected_idx = idx
       end
       if idx > 0 then
         options = options .. "\n"
@@ -354,7 +354,7 @@ settings.ThemeSettings = SettingsScreen:new {
       options = options,
       symbol = img.chevron,
     }
-    theme_chooser:set({selected = selected_idx})
+    theme_chooser:set({ selected = selected_idx })
 
     theme_chooser:onevent(lvgl.EVENT.VALUE_CHANGED, function()
       local option = theme_chooser:get('selected_str')
@@ -457,7 +457,7 @@ settings.MassStorageSettings = SettingsScreen:new {
 
     local busy_text = self.content:Label {
       w = lvgl.PCT(100),
-      text = "USB is currently busy. Do not unplug or remove the SD card.",
+      text = "",
       long_mode = lvgl.LABEL.LONG_WRAP,
     }
 
@@ -470,7 +470,7 @@ settings.MassStorageSettings = SettingsScreen:new {
     end
 
     enable_sw:onevent(lvgl.EVENT.VALUE_CHANGED, function()
-      if not usb.msc_busy:get() then
+      if not usb.msc_busy:get() and not database.updating:get() then
         usb.msc_enabled:set(enable_sw:enabled())
       end
       bind_switch()
@@ -483,6 +483,19 @@ settings.MassStorageSettings = SettingsScreen:new {
           busy_text:clear_flag(lvgl.FLAG.HIDDEN)
         else
           busy_text:add_flag(lvgl.FLAG.HIDDEN)
+        end
+      end),
+      database.updating:bind(function(updating)
+        if updating then
+          busy_text:clear_flag(lvgl.FLAG.HIDDEN)
+          busy_text:set {
+            text = "Your database is currently updating. Please wait."
+          }
+        else
+          busy_text:add_flag(lvgl.FLAG.HIDDEN)
+          busy_text:set {
+            text = "USB is currently busy. Do not unplug or remove the SD card."
+          }
         end
       end)
     }
