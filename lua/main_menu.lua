@@ -38,7 +38,7 @@ return widgets.MenuScreen:new {
     })
     theme.set_subject(now_playing, "now_playing");
 
-    local play_pause = now_playing:Image { src = img.play_small }
+    local play_pause = now_playing:Image { src = img.play_circ }
     local title = now_playing:Label {
       flex_grow = 1,
       h = lvgl.SIZE_CONTENT,
@@ -58,9 +58,9 @@ return widgets.MenuScreen:new {
     self.bindings = self.bindings + {
       playback.playing:bind(function(playing)
         if playing then
-          play_pause:set_src(img.play_small)
+          play_pause:set_src(img.play_circ)
         else
-          play_pause:set_src(img.pause_small)
+          play_pause:set_src(img.pause_circ)
         end
       end),
       playback.track:bind(function(track)
