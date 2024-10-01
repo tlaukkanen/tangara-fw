@@ -422,6 +422,9 @@ auto TrackQueue::serialise() -> std::string {
                                      cppbor::Uint{shuffle_->pos()},
                                  });
   }
+
+  playlist_.serialiseCache();
+
   return encoded.toString();
 }
 

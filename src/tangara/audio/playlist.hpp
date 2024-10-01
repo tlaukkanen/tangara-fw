@@ -45,6 +45,9 @@ class Playlist {
   auto prev() -> void;
   auto skipTo(size_t position) -> void;
 
+  auto serialiseCache() -> bool;
+  auto deserialiseCache() -> bool;
+
  protected:
   const std::string filepath_;
 
