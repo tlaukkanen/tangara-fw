@@ -67,6 +67,8 @@ auto LuaThread::Start(system_fsm::ServiceLocator& services) -> LuaThread* {
   luaL_openlibs(state);
   lua_atpanic(state, lua_panic);
 
+  lua_gc(state, LUA_GCSETPAUSE, 120);
+
   return new LuaThread(alloc, state);
 }
 
