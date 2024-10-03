@@ -47,7 +47,7 @@ auto Playlist::open() -> bool {
     countItems();
     // Advance to the first item.
     skipToWithoutCache(0);
-  }  
+  }
 
   return !file_error_;
 }
@@ -102,7 +102,6 @@ auto Playlist::skipTo(size_t position) -> void {
   skipToLocked(position);
 }
 
-
 // Serialise the cache to a file to avoid having to rescan
 // the entire queue when resuming
 auto Playlist::serialiseCache() -> bool {
@@ -121,28 +120,32 @@ auto Playlist::serialiseCache() -> bool {
     ESP_LOGE(kTag, "failed to open cache file! res: %i", res);
     return false;
   }
-  
-  uint8_t header[8];
 
-  // First 4 bytes = file size of queue file (for checking this file matches)
-  uint32_t q_file_size = f_size(&file_);
-  header[0] = q_file_size >> 24;
-  header[1] = q_file_size >> 16;
-  header[2] = q_file_size >> 8;
-  header[3] = q_file_size;
+  uint8_t header[12];
 
-  // Next 4 bytes = number of tracks in this queue 
+  // First 8 bytes = file size of queue file (for checking this file matches)
+  uint64_t q_file_size = f_size(&file_);
+  header[0] = q_file_size >> 56;
+  header[1] = q_file_size >> 48;
+  header[2] = q_file_size >> 40;
+  header[3] = q_file_size >> 32;
+  header[4] = q_file_size >> 24;
+  header[5] = q_file_size >> 16;
+  header[6] = q_file_size >> 8;
+  header[7] = q_file_size;
+
+  // Next 4 bytes = number of tracks in this queue
   header[4] = total_size_ >> 24;
   header[5] = total_size_ >> 16;
   header[6] = total_size_ >> 8;
   header[7] = total_size_;
 
   UINT bytes_written = 0;
-  f_write(&file, header, 8, &bytes_written);
-  if (bytes_written < 8) {
+  f_write(&file, header, 12, &bytes_written);
+  if (bytes_written < 12) {
     return false;
   }
-  
+
   // Next, write out every cached offset
   for (uint64_t offset : offset_cache_) {
     uint8_t bytes_out[8];
@@ -179,25 +182,23 @@ auto Playlist::deserialiseCache() -> bool {
     ESP_LOGE(kTag, "failed to open cache file! res: %i", res);
     return false;
   }
-  
+
   uint8_t header[8];
   UINT bytes_read;
-  f_read(&file, header, 8, &bytes_read);
-  uint32_t file_size_check = header[0] << 24 |
-                             header[1] << 16 |
-                             header[2] << 8 | 
-                             header[3];
+  f_read(&file, header, 12, &bytes_read);
+  if (bytes_read != 12) {
+    return false;
+  }
+  uint64_t file_size_check =
+      header[0] << 56 | header[1] << 48 | header[2] << 40 | header[3] << 32 |
+      header[4] << 24 | header[5] << 16 | header[6] << 8 | header[7];
 
-  // TODO: Handle this conversion safely
-  if (file_size_check != (uint32_t)f_size(&file_)) {
-    ESP_LOGE("DANIEL", "Check didn't match. File size check: %lu, actual size: %llu", file_size_check, f_size(&file_));
+  if (file_size_check != f_size(&file_)) {
     return false;
   }
 
-  uint32_t size = header[4] << 24 |
-                  header[5] << 16 |
-                  header[6] << 8 | 
-                  header[7];
+  uint32_t size =
+      header[4] << 24 | header[5] << 16 | header[6] << 8 | header[7];
   total_size_ = size;
 
   // Read in the cache
@@ -208,16 +209,11 @@ auto Playlist::deserialiseCache() -> bool {
     if (bytes_read == 0) {
       break;
     }
-    uint64_t offset = buf[0] << 56 |
-                      buf[1] << 48 |
-                      buf[2] << 40 | 
-                      buf[3] << 32 |
-                      buf[4] << 24 | 
-                      buf[5] << 16 |
-                      buf[6] << 8 | 
+    uint64_t offset = buf[0] << 56 | buf[1] << 48 | buf[2] << 40 |
+                      buf[3] << 32 | buf[4] << 24 | buf[5] << 16 | buf[6] << 8 |
                       buf[7];
     offset_cache_.push_back(offset);
-  } 
+  }
 
   f_close(&file);
   return true;
