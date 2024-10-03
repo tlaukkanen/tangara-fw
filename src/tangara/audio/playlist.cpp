@@ -135,10 +135,10 @@ auto Playlist::serialiseCache() -> bool {
   header[7] = q_file_size;
 
   // Next 4 bytes = number of tracks in this queue
-  header[4] = total_size_ >> 24;
-  header[5] = total_size_ >> 16;
-  header[6] = total_size_ >> 8;
-  header[7] = total_size_;
+  header[8] = total_size_ >> 24;
+  header[9] = total_size_ >> 16;
+  header[10] = total_size_ >> 8;
+  header[11] = total_size_;
 
   UINT bytes_written = 0;
   f_write(&file, header, 12, &bytes_written);
@@ -198,7 +198,7 @@ auto Playlist::deserialiseCache() -> bool {
   }
 
   uint32_t size =
-      header[4] << 24 | header[5] << 16 | header[6] << 8 | header[7];
+      header[8] << 24 | header[9] << 16 | header[10] << 8 | header[11];
   total_size_ = size;
 
   // Read in the cache
@@ -328,6 +328,40 @@ auto Playlist::nextItem(std::span<TCHAR> buf)
 
 MutablePlaylist::MutablePlaylist(const std::string& playlistFilepath)
     : Playlist(playlistFilepath) {}
+
+auto MutablePlaylist::open() -> bool {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (file_open_) {
+    return true;
+  }
+
+  FRESULT res =
+      f_open(&file_, filepath_.c_str(), FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
+  if (res != FR_OK) {
+    ESP_LOGE(kTag, "failed to open file! res: %i", res);
+    return false;
+  }
+  file_open_ = true;
+  file_error_ = false;
+
+  auto queue_filesize = f_size(&file_);
+
+  if (!deserialiseCache()) {
+    // If there's no cache (or deserialising failed) and the queue is
+    // sufficiently large, abort and clear the queue
+    if (queue_filesize > 50000) {
+      clear();
+    } else {
+      // Otherwise, read in the existing entries
+      countItems();
+      // Advance to the first item.
+      skipToWithoutCache(0);
+    }
+  }
+
+  return !file_error_;
+  return false;
+}
 
 auto MutablePlaylist::clear() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);

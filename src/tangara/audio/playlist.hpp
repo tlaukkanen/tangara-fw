@@ -71,7 +71,7 @@ class Playlist {
    */
   const uint32_t sample_size_;
 
- private:
+ protected:
   auto skipToLocked(size_t position) -> void;
   auto countItems() -> void;
   auto advanceBy(ssize_t amt) -> bool;
@@ -82,6 +82,7 @@ class Playlist {
 class MutablePlaylist : public Playlist {
  public:
   MutablePlaylist(const std::string& playlistFilepath);
+  auto open() -> bool;
 
   auto clear() -> bool;
   auto append(Item i) -> void;
