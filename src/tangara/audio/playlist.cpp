@@ -4,9 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 #include "playlist.hpp"
+#include <stdint.h>
 
 #include <string>
 
+#include "cppbor.h"
+#include "cppbor_parse.h"
 #include "esp_log.h"
 #include "ff.h"
 
@@ -121,46 +124,23 @@ auto Playlist::serialiseCache() -> bool {
     return false;
   }
 
-  uint8_t header[12];
-
-  // First 8 bytes = file size of queue file (for checking this file matches)
-  uint64_t q_file_size = f_size(&file_);
-  header[0] = q_file_size >> 56;
-  header[1] = q_file_size >> 48;
-  header[2] = q_file_size >> 40;
-  header[3] = q_file_size >> 32;
-  header[4] = q_file_size >> 24;
-  header[5] = q_file_size >> 16;
-  header[6] = q_file_size >> 8;
-  header[7] = q_file_size;
-
-  // Next 4 bytes = number of tracks in this queue
-  header[8] = total_size_ >> 24;
-  header[9] = total_size_ >> 16;
-  header[10] = total_size_ >> 8;
-  header[11] = total_size_;
-
-  UINT bytes_written = 0;
-  f_write(&file, header, 12, &bytes_written);
-  if (bytes_written < 12) {
-    return false;
-  }
+  cppbor::Array data;
+  // First item = file size of queue file (for checking this file matches)
+  data.add(f_size(&file_));
+  // Next item = number of tracks in this queue
+  data.add(total_size_);
 
   // Next, write out every cached offset
   for (uint64_t offset : offset_cache_) {
-    uint8_t bytes_out[8];
-    bytes_out[0] = offset >> 56;
-    bytes_out[1] = offset >> 48;
-    bytes_out[2] = offset >> 40;
-    bytes_out[3] = offset >> 32;
-    bytes_out[4] = offset >> 24;
-    bytes_out[5] = offset >> 16;
-    bytes_out[6] = offset >> 8;
-    bytes_out[7] = offset;
-    f_write(&file, bytes_out, 8, &bytes_written);
-    if (bytes_written < 8) {
-      return false;
-    }
+    data.add(offset);
+  }
+
+  auto encoded = data.encode();
+
+  UINT bytes_written = 0;
+  f_write(&file, encoded.data(), encoded.size(), &bytes_written);
+  if (bytes_written != encoded.size()) {
+    return false;
   }
 
   f_close(&file);
@@ -183,36 +163,31 @@ auto Playlist::deserialiseCache() -> bool {
     return false;
   }
 
-  uint8_t header[8];
+  std::vector<uint8_t> encoded;
+  encoded.resize(f_size(&file));
+
   UINT bytes_read;
-  f_read(&file, header, 12, &bytes_read);
-  if (bytes_read != 12) {
-    return false;
-  }
-  uint64_t file_size_check =
-      header[0] << 56 | header[1] << 48 | header[2] << 40 | header[3] << 32 |
-      header[4] << 24 | header[5] << 16 | header[6] << 8 | header[7];
-
-  if (file_size_check != f_size(&file_)) {
+  f_read(&file, encoded.data(), encoded.size(), &bytes_read);
+  if (bytes_read != encoded.size()) {
     return false;
   }
 
-  uint32_t size =
-      header[8] << 24 | header[9] << 16 | header[10] << 8 | header[11];
-  total_size_ = size;
+  auto [data, unused, err] = cppbor::parse(encoded);
+  if (!data || data->type() != cppbor::ARRAY) {
+    return false;
+  }
+  auto entries = data->asArray();
+
+  // Double check the expected file size matches.
+  if (entries->get(0)->asUint()->unsignedValue() != f_size(&file_)) {
+    return false;
+  }
+
+  total_size_ = entries->get(1)->asUint()->unsignedValue();
 
   // Read in the cache
-  uint8_t buf[8];
-  size_t idx = 0;
-  while (true) {
-    f_read(&file, buf, 8, &bytes_read);
-    if (bytes_read == 0) {
-      break;
-    }
-    uint64_t offset = buf[0] << 56 | buf[1] << 48 | buf[2] << 40 |
-                      buf[3] << 32 | buf[4] << 24 | buf[5] << 16 | buf[6] << 8 |
-                      buf[7];
-    offset_cache_.push_back(offset);
+  for (size_t i = 2; i < entries->size(); i++) {
+    offset_cache_.push_back(entries->get(i)->asUint()->unsignedValue());
   }
 
   f_close(&file);
@@ -350,7 +325,7 @@ auto MutablePlaylist::open() -> bool {
     // If there's no cache (or deserialising failed) and the queue is
     // sufficiently large, abort and clear the queue
     if (queue_filesize > 50000) {
-      clear();
+      clearLocked();
     } else {
       // Otherwise, read in the existing entries
       countItems();
@@ -360,12 +335,14 @@ auto MutablePlaylist::open() -> bool {
   }
 
   return !file_error_;
-  return false;
 }
 
 auto MutablePlaylist::clear() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);
+  return clearLocked();
+}
 
+auto MutablePlaylist::clearLocked() -> bool {
   // Try to recover from any IO errors.
   if (file_error_ && file_open_) {
     file_error_ = false;

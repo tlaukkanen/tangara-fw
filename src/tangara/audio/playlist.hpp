@@ -33,7 +33,7 @@ class Playlist {
   virtual ~Playlist();
   using Item =
       std::variant<database::TrackId, database::TrackIterator, std::string>;
-  auto open() -> bool;
+  virtual auto open() -> bool;
 
   auto filepath() const -> std::string;
   auto currentPosition() const -> size_t;
@@ -82,10 +82,13 @@ class Playlist {
 class MutablePlaylist : public Playlist {
  public:
   MutablePlaylist(const std::string& playlistFilepath);
-  auto open() -> bool;
+  auto open() -> bool override;
 
   auto clear() -> bool;
   auto append(Item i) -> void;
+
+ private:
+  auto clearLocked() -> bool;
 };
 
 }  // namespace audio
