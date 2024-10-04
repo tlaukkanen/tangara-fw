@@ -159,6 +159,13 @@ auto TrackQueue::open() -> bool {
   return playlist_.open();
 }
 
+auto TrackQueue::close() -> void {
+  playlist_.close();
+  if (opened_playlist_) {
+    opened_playlist_->close();
+  }
+}
+
 auto TrackQueue::openPlaylist(const std::string& playlist_file, bool notify)
     -> bool {
   opened_playlist_.emplace(playlist_file);
@@ -422,6 +429,9 @@ auto TrackQueue::serialise() -> std::string {
                                      cppbor::Uint{shuffle_->pos()},
                                  });
   }
+
+  playlist_.serialiseCache();
+
   return encoded.toString();
 }
 
