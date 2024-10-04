@@ -158,9 +158,8 @@ auto Playlist::deserialiseCache() -> bool {
   // Open the cache file
   std::string cache_file = filepath_ + ".cache";
   FRESULT res =
-      f_open(&file, cache_file.c_str(), FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
+      f_open(&file, cache_file.c_str(), FA_READ | FA_WRITE | FA_OPEN_EXISTING);
   if (res != FR_OK) {
-    ESP_LOGE(kTag, "failed to open cache file! res: %i", res);
     return false;
   }
 
