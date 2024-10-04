@@ -47,6 +47,7 @@ class Playlist {
 
   auto serialiseCache() -> bool;
   auto deserialiseCache() -> bool;
+  auto close() -> void;
 
  protected:
   const std::string filepath_;

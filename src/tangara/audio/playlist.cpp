@@ -33,6 +33,10 @@ Playlist::Playlist(const std::string& playlistFilepath)
 auto Playlist::open() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);
 
+  if (file_open_) {
+    return true;
+  }
+
   FRESULT res =
       f_open(&file_, filepath_.c_str(), FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
   if (res != FR_OK) {
@@ -194,6 +198,14 @@ auto Playlist::deserialiseCache() -> bool {
   return true;
 }
 
+auto Playlist::close() -> void {
+  if (file_open_) {
+    f_close(&file_);
+    file_open_ = false;
+    file_error_ = false;
+  }
+}
+
 auto Playlist::skipToLocked(size_t position) -> void {
   if (!file_open_ || file_error_) {
     return;
@@ -306,6 +318,10 @@ MutablePlaylist::MutablePlaylist(const std::string& playlistFilepath)
 
 auto MutablePlaylist::open() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);
+
+  if (file_open_) {
+    return true;
+  }
   
   FRESULT res =
       f_open(&file_, filepath_.c_str(), FA_READ | FA_WRITE | FA_OPEN_ALWAYS);

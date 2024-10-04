@@ -214,6 +214,7 @@ void Running::react(const internal::Mount& ev) {
 
 auto Running::unmountStorage() -> void {
   ESP_LOGW(kTag, "unmounting storage");
+  sServices->track_queue().close();
   sServices->database({});
   sStorage.reset();
   updateSdState(drivers::SdState::kNotMounted);
