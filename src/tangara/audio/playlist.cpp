@@ -4,9 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 #include "playlist.hpp"
+#include <stdint.h>
 
 #include <string>
 
+#include "cppbor.h"
+#include "cppbor_parse.h"
 #include "esp_log.h"
 #include "ff.h"
 
@@ -29,6 +32,7 @@ Playlist::Playlist(const std::string& playlistFilepath)
 
 auto Playlist::open() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);
+
   if (file_open_) {
     return true;
   }
@@ -42,10 +46,12 @@ auto Playlist::open() -> bool {
   file_open_ = true;
   file_error_ = false;
 
-  // Count the playlist size and build our offset cache.
-  countItems();
-  // Advance to the first item.
-  skipToWithoutCache(0);
+  if (!deserialiseCache()) {
+    // Count the playlist size and build our offset cache.
+    countItems();
+    // Advance to the first item.
+    skipToWithoutCache(0);
+  }
 
   return !file_error_;
 }
@@ -98,6 +104,106 @@ auto Playlist::prev() -> void {
 auto Playlist::skipTo(size_t position) -> void {
   std::unique_lock<std::mutex> lock(mutex_);
   skipToLocked(position);
+}
+
+// Serialise the cache to a file to avoid having to rescan
+// the entire queue when resuming
+auto Playlist::serialiseCache() -> bool {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (!file_open_) {
+    return false;
+  }
+
+  FIL file;
+
+  // Open the cache file
+  std::string cache_file = filepath_ + ".cache";
+  FRESULT res =
+      f_open(&file, cache_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+  if (res != FR_OK) {
+    ESP_LOGE(kTag, "failed to open cache file! res: %i", res);
+    return false;
+  }
+
+  cppbor::Array data;
+  // First item = file size of queue file (for checking this file matches)
+  data.add(f_size(&file_));
+  // Next item = number of tracks in this queue
+  data.add(total_size_);
+
+  // Next, write out every cached offset
+  for (uint64_t offset : offset_cache_) {
+    data.add(offset);
+  }
+
+  auto encoded = data.encode();
+
+  UINT bytes_written = 0;
+  f_write(&file, encoded.data(), encoded.size(), &bytes_written);
+  if (bytes_written != encoded.size()) {
+    return false;
+  }
+
+  f_close(&file);
+  return true;
+}
+
+auto Playlist::deserialiseCache() -> bool {
+  if (!file_open_) {
+    return false;
+  }
+
+  FIL file;
+
+  // Open the cache file
+  std::string cache_file = filepath_ + ".cache";
+  FRESULT res =
+      f_open(&file, cache_file.c_str(), FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
+  if (res != FR_OK) {
+    ESP_LOGE(kTag, "failed to open cache file! res: %i", res);
+    return false;
+  }
+
+  std::vector<uint8_t> encoded;
+  encoded.resize(f_size(&file));
+
+  UINT bytes_read;
+  f_read(&file, encoded.data(), encoded.size(), &bytes_read);
+  if (bytes_read != encoded.size()) {
+    return false;
+  }
+
+  auto [data, unused, err] = cppbor::parse(encoded);
+  if (!data || data->type() != cppbor::ARRAY) {
+    return false;
+  }
+  auto entries = data->asArray();
+
+  // Double check the expected file size matches.
+  if (entries->get(0)->asUint()->unsignedValue() != f_size(&file_)) {
+    return false;
+  }
+
+  total_size_ = entries->get(1)->asUint()->unsignedValue();
+
+  // In case we have existing entries
+  offset_cache_.clear();
+
+  // Read in the cache
+  for (size_t i = 2; i < entries->size(); i++) {
+    offset_cache_.push_back(entries->get(i)->asUint()->unsignedValue());
+  }
+
+  f_close(&file);
+  return true;
+}
+
+auto Playlist::close() -> void {
+  if (file_open_) {
+    f_close(&file_);
+    file_open_ = false;
+    file_error_ = false;
+  }
 }
 
 auto Playlist::skipToLocked(size_t position) -> void {
@@ -210,9 +316,46 @@ auto Playlist::nextItem(std::span<TCHAR> buf)
 MutablePlaylist::MutablePlaylist(const std::string& playlistFilepath)
     : Playlist(playlistFilepath) {}
 
-auto MutablePlaylist::clear() -> bool {
+auto MutablePlaylist::open() -> bool {
   std::unique_lock<std::mutex> lock(mutex_);
 
+  if (file_open_) {
+    return true;
+  }
+  
+  FRESULT res =
+      f_open(&file_, filepath_.c_str(), FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
+  if (res != FR_OK) {
+    ESP_LOGE(kTag, "failed to open file! res: %i", res);
+    return false;
+  }
+  file_open_ = true;
+  file_error_ = false;
+
+  auto queue_filesize = f_size(&file_);
+
+  if (!deserialiseCache()) {
+    // If there's no cache (or deserialising failed) and the queue is
+    // sufficiently large, abort and clear the queue
+    if (queue_filesize > 50000) {
+      clearLocked();
+    } else {
+      // Otherwise, read in the existing entries
+      countItems();
+      // Advance to the first item.
+      skipToWithoutCache(0);
+    }
+  }
+
+  return !file_error_;
+}
+
+auto MutablePlaylist::clear() -> bool {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return clearLocked();
+}
+
+auto MutablePlaylist::clearLocked() -> bool {
   // Try to recover from any IO errors.
   if (file_error_ && file_open_) {
     file_error_ = false;

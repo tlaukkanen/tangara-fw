@@ -33,7 +33,7 @@ class Playlist {
   virtual ~Playlist();
   using Item =
       std::variant<database::TrackId, database::TrackIterator, std::string>;
-  auto open() -> bool;
+  virtual auto open() -> bool;
 
   auto filepath() const -> std::string;
   auto currentPosition() const -> size_t;
@@ -44,6 +44,10 @@ class Playlist {
   auto next() -> void;
   auto prev() -> void;
   auto skipTo(size_t position) -> void;
+
+  auto serialiseCache() -> bool;
+  auto deserialiseCache() -> bool;
+  auto close() -> void;
 
  protected:
   const std::string filepath_;
@@ -68,7 +72,7 @@ class Playlist {
    */
   const uint32_t sample_size_;
 
- private:
+ protected:
   auto skipToLocked(size_t position) -> void;
   auto countItems() -> void;
   auto advanceBy(ssize_t amt) -> bool;
@@ -79,9 +83,13 @@ class Playlist {
 class MutablePlaylist : public Playlist {
  public:
   MutablePlaylist(const std::string& playlistFilepath);
+  auto open() -> bool override;
 
   auto clear() -> bool;
   auto append(Item i) -> void;
+
+ private:
+  auto clearLocked() -> bool;
 };
 
 }  // namespace audio
