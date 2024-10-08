@@ -215,7 +215,7 @@ local theme_light = {
   database_indicator = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 180,
-      image_recolor = highlight_color,
+      image_recolor = text_color,
     }},
   },
   back_button = {
@@ -278,13 +278,13 @@ local theme_light = {
   battery = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 180,
-      image_recolor = highlight_color,
+      image_recolor = text_color,
     }},
   },
   battery_0 = {
     {lvgl.PART.MAIN, lvgl.Style {
       image_recolor_opa = 180,
-      image_recolor = "#aa3333",
+      image_recolor = "#f0053c",
     }},
   },
   battery_charging = {
