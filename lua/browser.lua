@@ -94,9 +94,9 @@ return screen:new {
     end
 
     local get_icon_func = nil
-    local show_listened = self.mediatype == database.MediaTypes.Audiobook or
+    local longform_content = self.mediatype == database.MediaTypes.Audiobook or
     self.mediatype == database.MediaTypes.Podcast
-    if show_listened then
+    if longform_content then
       get_icon_func = function(item)
         local contents = item:contents()
         if type(contents) == "userdata" then
@@ -128,7 +128,7 @@ return screen:new {
           else
             queue.clear()
             local track = database.track_by_id(contents)
-            if (track) then
+            if (track and longform_content) then
               queue.play_from(track.filepath, track.saved_position)
             else
               queue.add(contents)

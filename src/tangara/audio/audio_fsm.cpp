@@ -426,7 +426,7 @@ auto AudioState::updateTrackData(std::string uri,
 auto AudioState::updateSavedPosition(std::string uri, uint32_t position)
     -> void {
   updateTrackData(
-      uri, [&](database::TrackData& data) { data.last_position = position; });
+      uri, [=](database::TrackData& data) { data.last_position = position; });
 }
 
 auto AudioState::incrementPlayCount(std::string uri) -> void {
